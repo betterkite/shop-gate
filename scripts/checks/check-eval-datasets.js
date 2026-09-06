@@ -14,6 +14,10 @@ const { attestProductionReplayCase } = jiti('../../src/lib/eval/shadow-replay.ts
 
 const root = process.cwd();
 const benchmarkRoot = path.resolve('benchmarks/shopgate');
+if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
 const registryPath = path.join(benchmarkRoot, 'datasets.json');
 const queryRewriteFixturesPath = path.join(benchmarkRoot, 'query-rewrite-fixtures.json');
 

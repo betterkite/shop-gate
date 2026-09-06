@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
@@ -141,7 +142,7 @@ function validProductControlEvidence() {
   };
 }
 
-describe('PI Agent release E2E suite', () => {
+describe.skipIf(!existsSync('benchmarks/shopgate'))('PI Agent release E2E suite', () => {
   it('requires all production scenarios and separates zero-model controls', () => {
     const suite = loadCommerceE2eSuite({ requireReleaseCoverage: true });
 

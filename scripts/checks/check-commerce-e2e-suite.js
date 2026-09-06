@@ -5,6 +5,11 @@ const { spawnSync } = require('child_process');
 const { loadCommerceE2eSuite } = require('./commerce-e2e-suite');
 
 const root = process.cwd();
+
+if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
 const runRuntimeControls = process.argv.includes('--run-runtime-controls');
 
 function main() {

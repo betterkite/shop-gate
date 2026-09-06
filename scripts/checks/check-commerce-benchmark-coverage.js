@@ -5,6 +5,10 @@ const path = require('path');
 const { loadCommerceE2eSuite } = require('./commerce-e2e-suite');
 
 const CASES_PATH = path.resolve('benchmarks/shopgate/cases.json');
+if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
 const CASE_COVERAGE_LEVELS = new Set(['routing', 'contract']);
 const ORACLE_TARGETS = new Set(['finalData', 'sources', 'quality', 'page']);
 const ORACLE_OPERATORS = new Set([

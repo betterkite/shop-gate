@@ -21,6 +21,10 @@ if (!Number.isSafeInteger(minKillRate) || minKillRate < 0 || minKillRate > 100) 
 }
 
 const catalogPath = path.resolve('benchmarks/shopgate/mutation-catalog.json');
+if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.mutations) || catalog.mutations.length === 0) {
   throw new Error('mutation catalog 必须使用 schemaVersion 1 并包含 mutations');

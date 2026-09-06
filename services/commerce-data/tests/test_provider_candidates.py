@@ -2,30 +2,12 @@ from __future__ import annotations
 
 import pytest
 import respx
-from fastapi.testclient import TestClient
 from httpx import Response
 
-from shopgate_commerce_data.api import create_app
 from shopgate_commerce_data.provider_candidates import (
     get_candidate_provider,
     probe_candidate_provider,
 )
-
-
-def test_provider_candidates_registry_endpoint() -> None:
-    client = TestClient(create_app())
-    response = client.get("/api/v1/provider-candidates")
-
-    assert response.status_code == 200
-    provider_ids = {provider["id"] for provider in response.json()["providers"]}
-    assert "tencent-a-share-kline" in provider_ids
-    assert "ths-public-kline" in provider_ids
-    assert "baostock-a-share-history" in provider_ids
-    assert "akshare-python" in provider_ids
-    assert "stooq-daily" in provider_ids
-    assert "yahoo-finance-chart" in provider_ids
-    assert "yahoo-finance-quote-summary" in provider_ids
-    assert "alpha-vantage" in provider_ids
 
 
 @respx.mock

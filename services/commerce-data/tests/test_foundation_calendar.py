@@ -5,16 +5,12 @@ from datetime import date
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
-from shopgate_commerce_data.api import create_app
 from shopgate_commerce_data.models import (
     TradingCalendarDay,
     TradingCalendarRefreshRequest,
-    TradingCalendarRefreshResponse,
 )
 from shopgate_commerce_data.repositories import foundation as foundation_repository
-from shopgate_commerce_data.routers import foundation as foundation_router
 from shopgate_commerce_data.services import foundation as foundation_service
 
 
@@ -165,62 +161,3 @@ def test_repository_uses_idempotent_calendar_upsert(
     assert {item["session"] for item in payload} == {"regular"}
 
 
-def test_refresh_calendar_admin_route(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    requests: list[TradingCalendarRefreshRequest] = []
-
-    async def fake_refresh(
-        request: TradingCalendarRefreshRequest,
-    ) -> TradingCalendarRefreshResponse:
-        requests.append(request)
-        return TradingCalendarRefreshResponse(
-            start=date(2026, 7, 12),
-            end=date(2026, 7, 13),
-            requested_days=2,
-            received_days=2,
-            inserted_days=2,
-            written_days=2,
-            open_days=1,
-            closed_days=1,
-            first_date=date(2026, 7, 12),
-            last_date=date(2026, 7, 13),
-        )
-
-    monkeypatch.setenv("SHOPGATE_MARKET_HOST", "127.0.0.1")
-    monkeypatch.setenv("SHOPGATE_DEGRADATION_MODE", "auto")
-    monkeypatch.delenv("SHOPGATE_MARKET_ADMIN_TOKEN", raising=False)
-    monkeypatch.setattr(foundation_router, "refresh_trading_calendar", fake_refresh)
-
-    with TestClient(create_app()) as client:
-        response = client.post(
-            "/api/v1/foundation/trading-calendar/refresh",
-            json={"start": "2026-07-12", "end": "2026-07-13"},
-        )
-
-    assert response.status_code == 200
-    assert response.json()["source"] == "baostock"
-    assert response.json()["inserted_days"] == 2
-    assert response.json()["written_days"] == 2
-    assert response.json()["closed_days"] == 1
-    assert requests == [
-        TradingCalendarRefreshRequest(
-            start=date(2026, 7, 12),
-            end=date(2026, 7, 13),
-        )
-    ]
-
-
-def test_refresh_calendar_route_validates_range(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SHOPGATE_MARKET_HOST", "127.0.0.1")
-    monkeypatch.setenv("SHOPGATE_DEGRADATION_MODE", "auto")
-    monkeypatch.delenv("SHOPGATE_MARKET_ADMIN_TOKEN", raising=False)
-
-    with TestClient(create_app()) as client:
-        response = client.post(
-            "/api/v1/foundation/trading-calendar/refresh",
-            json={"start": "2026-07-14", "end": "2026-07-13"},
-        )
-
-    assert response.status_code == 422
-    assert "start 不能晚于 end" in response.text

@@ -394,7 +394,7 @@ async function validateViewport(params: {
         cardGridClusterCount,
         cardLikeSurfaceRatio: cardLikeRegions.length / Math.max(1, contentRegions.length),
         firstViewportCardLikeSurfaceRatio: firstViewportCardLikeRegions.length / Math.max(1, firstViewportRegions.length),
-        hasFinancialWorkbenchMarker: Boolean(document.querySelector('[data-visual-language="financial-workbench"]')),
+        hasFinancialWorkbenchMarker: Boolean(document.querySelector('[data-visual-language="retail-workbench"]')),
         oversizedHeroLike: oversizedHeading && firstViewportGraphicCount === 0 && firstViewportTableCount === 0,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         blankLike: bodyText.trim().length < 80 && rects.length < 8,

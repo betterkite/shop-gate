@@ -990,7 +990,7 @@ export default async function Home() {
   ].some(hasNumber);
 
   return (
-    <main className="dashboard-shell" data-visual-language="financial-workbench" data-dashboard-variant={String(visualization?.variant_id ?? visualization?.variantId ?? 'base')} data-market-proxy="/api/market" data-source-file={DATA_FILE}>
+    <main className="dashboard-shell" data-visual-language="retail-workbench" data-dashboard-variant={String(visualization?.variant_id ?? visualization?.variantId ?? 'base')} data-market-proxy="/api/market" data-source-file={DATA_FILE}>
       <section className="hero-panel">
         <div className="top-bar">
           <span className="freshness">数据更新于 {displayDateTime(quote?.quote_time ?? data?.as_of)}</span>

@@ -312,7 +312,7 @@ export default async function Home() {
   const lowestVolatility = asRecord(leaders?.lowest_volatility);
 
   return (
-    <main className="comparison-shell" data-visual-language="financial-workbench" data-market-proxy="/api/market" data-source-file={DATA_FILE}>
+    <main className="comparison-shell" data-visual-language="retail-workbench" data-market-proxy="/api/market" data-source-file={DATA_FILE}>
       <header className="comparison-header">
         <div>
           <p className="eyebrow">Shop Gate 多标的对比</p>
@@ -691,7 +691,7 @@ export default async function Home() {
   const topRanking = rankingRows[0] ?? rows.slice().sort((left, right) => (numeric(right.composite_score) ?? -1) - (numeric(left.composite_score) ?? -1))[0];
 
   return (
-    <main className="selection-shell" data-visual-language="financial-workbench" data-market-proxy="/api/market" data-source-file={DATA_FILE} data-template={isStrategyResearch ? 'strategy-research' : 'stock-selection'}>
+    <main className="selection-shell" data-visual-language="retail-workbench" data-market-proxy="/api/market" data-source-file={DATA_FILE} data-template={isStrategyResearch ? 'strategy-research' : 'stock-selection'}>
       <header className="selection-header">
         <div>
           <p className="eyebrow">{isStrategyResearch ? 'Shop Gate 策略研究' : 'Shop Gate 多标的对比'}</p>
@@ -2062,7 +2062,7 @@ export default async function Home() {
   const totalPnlPct = numeric(portfolio?.total_pnl_pct);
 
   return (
-    <main className="holding-shell" data-visual-language="financial-workbench" data-market-proxy="/api/market" data-source-file={DATA_FILE} data-template="holding-analysis">
+    <main className="holding-shell" data-visual-language="retail-workbench" data-market-proxy="/api/market" data-source-file={DATA_FILE} data-template="holding-analysis">
       <header className="holding-header">
         <div>
           <p className="eyebrow">Shop Gate 持仓分析</p>

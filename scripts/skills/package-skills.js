@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const zlib = require('zlib');
 const yaml = require('js-yaml');
 
 const root = process.cwd();
@@ -28,6 +29,77 @@ function fail(message) {
 
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+function writeTarEntryHeader(header, entry) {
+  const nameBuf = Buffer.from(entry.entryPath, 'utf8');
+  if (nameBuf.length <= 100) {
+    nameBuf.copy(header, 0);
+  } else {
+    const split = entry.entryPath.lastIndexOf('/', entry.entryPath.length - 101);
+    if (split <= 0 || split > 155 || entry.entryPath.length - split - 1 > 100) {
+      fail(`tar path too long for ustar: ${entry.entryPath}`);
+    }
+    Buffer.from(entry.entryPath.slice(0, split), 'utf8').copy(header, 345);
+    Buffer.from(entry.entryPath.slice(split + 1), 'utf8').copy(header, 0);
+  }
+  header.write(`${(entry.mode & 0o7777).toString(8).padStart(7, '0')}\0`, 100, 'utf8');
+  header.write('0000000\0', 108, 'utf8');
+  header.write('0000000\0', 116, 'utf8');
+  header.write(`${entry.size.toString(8).padStart(11, '0')}\0`, 124, 'utf8');
+  header.write('00000000000\0', 136, 'utf8');
+  header.write('        ', 148, 'utf8');
+  header.write(entry.type, 156, 'utf8');
+  header.write('ustar\0', 257, 'utf8');
+  header.write('00', 263, 'utf8');
+  let sum = 0;
+  for (let i = 0; i < 512; i += 1) {
+    sum += header[i];
+  }
+  header.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148, 'utf8');
+}
+
+function writeDeterministicTgz(skillsDir, skillId, outputPath) {
+  const entries = [];
+  const walk = (dir, rel) => {
+    const items = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((item) => item.name !== '.DS_Store')
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const item of items) {
+      const absolutePath = path.join(dir, item.name);
+      const entryPath = `${rel}/${item.name}`;
+      const stat = fs.lstatSync(absolutePath);
+      if (item.isDirectory()) {
+        entries.push({ entryPath, type: '5', mode: stat.mode & 0o7777, size: 0 });
+        walk(absolutePath, entryPath);
+      } else if (item.isFile()) {
+        entries.push({ entryPath, type: '0', mode: stat.mode & 0o7777, size: stat.size, absolutePath });
+      } else {
+        fail(`unsupported skill entry type: ${entryPath}`);
+      }
+    }
+  };
+  const rootStat = fs.statSync(path.join(skillsDir, skillId));
+  entries.push({ entryPath: skillId, type: '5', mode: rootStat.mode & 0o7777, size: 0 });
+  walk(path.join(skillsDir, skillId), skillId);
+  entries.sort((a, b) => (a.entryPath < b.entryPath ? -1 : a.entryPath > b.entryPath ? 1 : 0));
+  const chunks = [];
+  for (const entry of entries) {
+    const header = Buffer.alloc(512, 0);
+    writeTarEntryHeader(header, entry);
+    chunks.push(header);
+    if (entry.type === '0') {
+      const content = fs.readFileSync(entry.absolutePath);
+      chunks.push(content);
+      const padding = (512 - (content.length % 512)) % 512;
+      if (padding > 0) {
+        chunks.push(Buffer.alloc(padding, 0));
+      }
+    }
+  }
+  chunks.push(Buffer.alloc(1024, 0));
+  fs.writeFileSync(outputPath, zlib.gzipSync(Buffer.concat(chunks), { level: 9 }));
 }
 
 function listFiles(dir) {
@@ -282,26 +354,7 @@ function packageSkill(skillId) {
   fs.mkdirSync(packageDir, { recursive: true });
   const outputPath = path.join(packageDir, `${skillId}.tgz`);
   const stagedPath = path.join(packageDir, `.${skillId}.${transactionId}.tgz.tmp`);
-  const result = spawnSync(
-    'tar',
-    [
-      '--sort=name',
-      '--mtime=@0',
-      '--owner=0',
-      '--group=0',
-      '--numeric-owner',
-      '-czf',
-      stagedPath,
-      '-C',
-      skillsDir,
-      skillId,
-    ],
-    { cwd: root, stdio: 'inherit' }
-  );
-  if (result.status !== 0) {
-    fs.rmSync(stagedPath, { force: true });
-    fail(`tar failed for ${skillId}`);
-  }
+  writeDeterministicTgz(skillsDir, skillId, stagedPath);
   const packageSha256 = sha256(fs.readFileSync(stagedPath));
   return {
     outputPath,

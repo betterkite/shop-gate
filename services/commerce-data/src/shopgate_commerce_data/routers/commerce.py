@@ -141,10 +141,10 @@ def create_commerce_router() -> APIRouter:
 
     @router.get("/summary")
     async def summary(
-        date: Annotated[str | None, Query()] = None,
+        stat_date: Annotated[str | None, Query(alias="date")] = None,
     ) -> dict[str, Any]:
-        stat_date = _parse_date(date, date.today())
-        assert stat_date is not None
-        return await retail.daily_summary(stat_date)
+        parsed = _parse_date(stat_date, date.today())
+        assert parsed is not None
+        return await retail.daily_summary(parsed)
 
     return router

@@ -199,6 +199,8 @@ async def top_categories(
         (start, end, limit),
     )
     for row in rows:
+        for key in ("pv", "fav", "cart", "buy", "buyers"):
+            row[key] = int(row[key] or 0)
         row["gmv"] = float(row.get("gmv") or 0)
         row["buy_conversion"] = (
             round(row["buy"] / row["pv"], 6) if row.get("pv") else 0.0
@@ -254,6 +256,8 @@ async def inventory_risk(
     )
     for row in rows:
         row["price"] = float(row["price"])
+        row["sold"] = int(row["sold"] or 0)
+        row["views"] = int(row["views"] or 0)
         row["window_days"] = days
         row["sell_through_ratio"] = sell_through_ratio(row["stock"], row["sold"], days)
     rows.sort(key=lambda row: row["sell_through_ratio"], reverse=True)
@@ -293,10 +297,10 @@ async def daily_summary(stat_date: date) -> dict[str, Any]:
         return summary
     summary["status"] = "ok"
     summary["totals"] = {
-        key: (_float(current[key]) if key == "gmv" else current[key])
+        key: (_float(current[key]) if key == "gmv" else int(current[key] or 0))
         for key in ("pv", "fav", "cart", "buy", "buyers", "gmv")
     }
-    if previous is not None and previous["pv"]:
+    if previous is not None and int(previous["pv"] or 0):
         summary["day_over_day"] = {
             key: (
                 round((_float(current[key]) - _float(previous[key])) / _float(previous[key]), 4)
@@ -308,8 +312,8 @@ async def daily_summary(stat_date: date) -> dict[str, Any]:
     else:
         summary["day_over_day"] = None
     if current["buy"]:
-        summary["avg_price"] = round(_float(current["gmv"]) / current["buy"], 2)
-        summary["buy_conversion"] = round(current["buy"] / current["pv"], 6)
+        summary["avg_price"] = round(_float(current["gmv"]) / int(current["buy"]), 2)
+        summary["buy_conversion"] = round(int(current["buy"]) / int(current["pv"] or 0), 6)
     else:
         summary["avg_price"] = 0.0
         summary["buy_conversion"] = 0.0

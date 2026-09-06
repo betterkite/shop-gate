@@ -31,6 +31,15 @@ def create_commerce_router() -> APIRouter:
 
         return await retail.dataset_meta()
 
+    @router.get("/resolve")
+    async def resolve(
+        term: Annotated[str, Query(min_length=1, max_length=64)],
+        limit: Annotated[int, Query(ge=1, le=50)] = 10,
+    ) -> dict[str, Any]:
+        """实体解析：``item:<id>``/``cat:<id>`` 显式形式 + 类目名/商品标题模糊匹配。"""
+
+        return await retail.resolve_entities(term, limit)
+
     @router.get("/capabilities")
     async def capabilities() -> dict[str, Any]:
         """四个 v1 capability 的发现信息（供 Agent 能力注入与人工核对）。"""

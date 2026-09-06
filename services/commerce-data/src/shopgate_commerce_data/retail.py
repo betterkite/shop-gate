@@ -71,6 +71,100 @@ async def fetch_all(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, An
     return [dict(row) for row in rows]
 
 
+async def resolve_entities(term: str, limit: int = 10) -> dict[str, Any]:
+    """实体解析（PRD §7）：前缀显式形式 + 类目名/商品标题模糊匹配。
+
+    零售实体 ID 是任意大整数，不能像股票代码那样用位形正则识别；
+    显式形式固定为 ``item:<id>`` / ``cat:<id>``，其余走名称匹配。
+    """
+
+    trimmed = term.strip()
+    if not trimmed:
+        return {"term": term, "matches": [], "synthetic_fields": ["category_name"]}
+    matches: list[dict[str, Any]] = []
+    lowered = trimmed.lower()
+    if lowered.startswith("item:"):
+        raw = lowered.split(":", 1)[1]
+        if raw.isdigit():
+            rows = await fetch_all(
+                "SELECT item_id, title FROM commerce.items WHERE item_id = %s",
+                (int(raw),),
+            )
+            matches.extend(
+                {
+                    "kind": "item",
+                    "id": row["item_id"],
+                    "name": row["title"],
+                    "confidence": 1.0,
+                }
+                for row in rows
+            )
+    elif lowered.startswith("cat:"):
+        raw = lowered.split(":", 1)[1]
+        if raw.isdigit():
+            rows = await fetch_all(
+                "SELECT category_id, name FROM commerce.categories WHERE category_id = %s",
+                (int(raw),),
+            )
+            matches.extend(
+                {
+                    "kind": "category",
+                    "id": row["category_id"],
+                    "name": row["name"],
+                    "confidence": 1.0,
+                }
+                for row in rows
+            )
+    else:
+        category_rows = await fetch_all(
+            """
+            SELECT category_id, name,
+                   (name = %s) AS exact
+            FROM commerce.categories
+            WHERE name ILIKE %s
+            ORDER BY exact DESC, category_id
+            LIMIT %s
+            """,
+            (trimmed, f"%{trimmed}%", limit),
+        )
+        matches.extend(
+            {
+                "kind": "category",
+                "id": row["category_id"],
+                "name": row["name"],
+                "confidence": 0.95 if row["exact"] else 0.8,
+            }
+            for row in category_rows
+        )
+        item_rows = await fetch_all(
+            """
+            SELECT item_id, title, price, synthetic_master
+            FROM commerce.items
+            WHERE title ILIKE %s OR item_id::text = %s
+            ORDER BY item_id
+            LIMIT %s
+            """,
+            (f"%{trimmed}%", trimmed if trimmed.isdigit() else "", limit),
+        )
+        matches.extend(
+            {
+                "kind": "item",
+                "id": row["item_id"],
+                "name": row["title"],
+                "price": float(row["price"]),
+                "synthetic_master": row["synthetic_master"],
+                "confidence": 0.6,
+            }
+            for row in item_rows
+        )
+    matches.sort(key=lambda row: row["confidence"], reverse=True)
+    return {
+        "term": term,
+        "matches": matches[:limit],
+        "synthetic_fields": ["category_name", "item_title", "price"],
+    }
+
+
 async def dataset_meta() -> dict[str, Any]:
     rows = await fetch_all(
         """

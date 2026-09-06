@@ -1,0 +1,316 @@
+"""零售领域查询层（PRD §3 四个 capability 的数据底座）。
+
+纯函数（漏斗计算、库销比等）与异步 SQL 查询分离：纯函数可无 DB 单测，
+SQL 查询统一走 :func:`shopgate_commerce_data.database_core.connect`。
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+from typing import Any
+
+from psycopg.rows import dict_row
+
+from shopgate_commerce_data.database_core import connect
+
+BEHAVIOR_ORDER = ("pv", "fav", "cart", "buy")
+
+
+def parse_iso_date(value: str | None, fallback: date | None = None) -> date | None:
+    if value is None or value == "":
+        return fallback
+    try:
+        return date.fromisoformat(value)
+    except ValueError as error:
+        raise ValueError(f"日期格式必须是 YYYY-MM-DD：{value!r}") from error
+
+
+def funnel_stages(counts: dict[str, int]) -> list[dict[str, Any]]:
+    """把 pv/fav/cart/buy 事件计数组装成漏斗阶段（纯函数）。
+
+    每一阶段给出事件数、去重口径之外的相对上一阶段转化率；缺失阶段按 0 处理。
+    """
+
+    stages: list[dict[str, Any]] = []
+    previous = 0
+    for index, behavior_type in enumerate(BEHAVIOR_ORDER):
+        events = max(0, int(counts.get(behavior_type, 0)))
+        stage: dict[str, Any] = {
+            "stage": behavior_type,
+            "order": index,
+            "events": events,
+        }
+        if index == 0:
+            stage["conversion_from_previous"] = None
+        else:
+            stage["conversion_from_previous"] = (
+                round(events / previous, 6) if previous > 0 else 0.0
+            )
+        stages.append(stage)
+        previous = events
+    return stages
+
+
+def sell_through_ratio(stock: int, sold: int, days: int) -> float:
+    """库销比（PRD §6.2）：库存 / 日均销量；越大越滞销。
+
+    ``days`` 是观察窗口天数；销量为 0 时用 0.01 的地板值避免除零，
+    使零销量商品的库销比反映为“极高”而非无穷。
+    """
+
+    daily_rate = max(sold / max(days, 1), 0.01)
+    return round(max(stock, 0) / daily_rate, 2)
+
+
+async def fetch_all(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+    connection = await connect()
+    async with connection:
+        cursor = connection.cursor(row_factory=dict_row)
+        await cursor.execute(sql, params)
+        rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def dataset_meta() -> dict[str, Any]:
+    rows = await fetch_all(
+        """
+        SELECT
+          MIN(event_ts) AS first_event_ts,
+          MAX(event_ts) AS last_event_ts,
+          COUNT(*) AS event_count,
+          COUNT(DISTINCT user_id) AS user_count,
+          COUNT(DISTINCT item_id) AS item_count,
+          COUNT(DISTINCT category_id) AS category_count,
+          COUNT(DISTINCT source) AS source_count
+        FROM commerce.user_behavior_events
+        """,
+    )
+    item_rows = await fetch_all("SELECT COUNT(*) AS item_count FROM commerce.items")
+    meta = dict(rows[0]) if rows else {}
+    meta["master_item_count"] = item_rows[0]["item_count"] if item_rows else 0
+    return meta
+
+
+async def behavior_funnel(
+    start: date,
+    end: date,
+    category_id: int | None = None,
+) -> dict[str, Any]:
+    end_exclusive = end + timedelta(days=1)
+    if category_id is None:
+        rows = await fetch_all(
+            """
+            SELECT behavior_type, COUNT(*) AS events, COUNT(DISTINCT user_id) AS users
+            FROM commerce.user_behavior_events
+            WHERE event_ts >= %s AND event_ts < %s
+            GROUP BY behavior_type
+            """,
+            (start, end_exclusive),
+        )
+    else:
+        rows = await fetch_all(
+            """
+            SELECT behavior_type, COUNT(*) AS events, COUNT(DISTINCT user_id) AS users
+            FROM commerce.user_behavior_events
+            WHERE event_ts >= %s AND event_ts < %s AND category_id = %s
+            GROUP BY behavior_type
+            """,
+            (start, end_exclusive, category_id),
+        )
+    counts = {row["behavior_type"]: row["events"] for row in rows}
+    users_by_type = {row["behavior_type"]: row["users"] for row in rows}
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "category_id": category_id,
+        "stages": funnel_stages(counts),
+        "unique_users": users_by_type,
+    }
+
+
+async def funnel_daily_series(
+    start: date,
+    end: date,
+    category_id: int | None = None,
+) -> list[dict[str, Any]]:
+    end_exclusive = end + timedelta(days=1)
+    if category_id is None:
+        rows = await fetch_all(
+            """
+            SELECT event_ts::date AS stat_date, behavior_type, COUNT(*) AS events
+            FROM commerce.user_behavior_events
+            WHERE event_ts >= %s AND event_ts < %s
+            GROUP BY 1, 2
+            ORDER BY 1
+            """,
+            (start, end_exclusive),
+        )
+    else:
+        rows = await fetch_all(
+            """
+            SELECT event_ts::date AS stat_date, behavior_type, COUNT(*) AS events
+            FROM commerce.user_behavior_events
+            WHERE event_ts >= %s AND event_ts < %s AND category_id = %s
+            GROUP BY 1, 2
+            ORDER BY 1
+            """,
+            (start, end_exclusive, category_id),
+        )
+    series: dict[str, dict[str, int]] = {}
+    for row in rows:
+        day = series.setdefault(
+            row["stat_date"].isoformat(),
+            {behavior_type: 0 for behavior_type in BEHAVIOR_ORDER},
+        )
+        day[row["behavior_type"]] = row["events"]
+    return [
+        {"stat_date": stat_date, **counts_by_type}
+        for stat_date, counts_by_type in sorted(series.items())
+    ]
+
+
+async def top_categories(
+    start: date,
+    end: date,
+    metric: str = "gmv",
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    if metric not in {"gmv", "pv", "buy", "cart", "fav"}:
+        raise ValueError(f"不支持的类目指标：{metric}")
+    rows = await fetch_all(
+        """
+        SELECT
+          m.category_id,
+          c.name AS category_name,
+          c.synthetic_name,
+          SUM(m.pv) AS pv,
+          SUM(m.fav) AS fav,
+          SUM(m.cart) AS cart,
+          SUM(m.buy) AS buy,
+          SUM(m.gmv) AS gmv,
+          SUM(m.buyers) AS buyers
+        FROM commerce.daily_category_metrics m
+        LEFT JOIN commerce.categories c ON c.category_id = m.category_id
+        WHERE m.stat_date >= %s AND m.stat_date <= %s
+        GROUP BY m.category_id, c.name, c.synthetic_name
+        ORDER BY {metric_column} DESC
+        LIMIT %s
+        """.format(metric_column=f"SUM(m.{metric})"),
+        (start, end, limit),
+    )
+    for row in rows:
+        row["gmv"] = float(row.get("gmv") or 0)
+        row["buy_conversion"] = (
+            round(row["buy"] / row["pv"], 6) if row.get("pv") else 0.0
+        )
+        row["avg_price"] = (
+            round(row["gmv"] / row["buy"], 2) if row.get("buy") else 0.0
+        )
+    return rows
+
+
+async def item_daily_series(
+    item_id: int,
+    start: date,
+    end: date,
+) -> list[dict[str, Any]]:
+    return await fetch_all(
+        """
+        SELECT stat_date, item_id, category_id, pv, fav, cart, buy, gmv
+        FROM commerce.daily_item_metrics
+        WHERE item_id = %s AND stat_date >= %s AND stat_date <= %s
+        ORDER BY stat_date
+        """,
+        (item_id, start, end),
+    )
+
+
+async def inventory_risk(
+    start: date,
+    end: date,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    days = (end - start).days + 1
+    rows = await fetch_all(
+        """
+        SELECT
+          i.item_id,
+          i.title,
+          i.category_id,
+          i.price,
+          i.stock,
+          COALESCE(s.sold, 0) AS sold,
+          COALESCE(s.views, 0) AS views
+        FROM commerce.items i
+        LEFT JOIN (
+          SELECT item_id, SUM(buy) AS sold, SUM(pv) AS views
+          FROM commerce.daily_item_metrics
+          WHERE stat_date >= %s AND stat_date <= %s
+          GROUP BY item_id
+        ) s ON s.item_id = i.item_id
+        ORDER BY i.item_id
+        """,
+        (start, end),
+    )
+    for row in rows:
+        row["price"] = float(row["price"])
+        row["window_days"] = days
+        row["sell_through_ratio"] = sell_through_ratio(row["stock"], row["sold"], days)
+    rows.sort(key=lambda row: row["sell_through_ratio"], reverse=True)
+    return rows[:limit]
+
+
+async def daily_summary(stat_date: date) -> dict[str, Any]:
+    rows = await fetch_all(
+        """
+        SELECT
+          stat_date,
+          SUM(pv) AS pv,
+          SUM(fav) AS fav,
+          SUM(cart) AS cart,
+          SUM(buy) AS buy,
+          SUM(buyers) AS buyers,
+          SUM(gmv) AS gmv
+        FROM commerce.daily_category_metrics
+        WHERE stat_date IN (%s, %s)
+        GROUP BY stat_date
+        ORDER BY stat_date
+        """,
+        (stat_date - timedelta(days=1), stat_date),
+    )
+    current = next((row for row in rows if row["stat_date"] == stat_date), None)
+    previous = next(
+        (row for row in rows if row["stat_date"] == stat_date - timedelta(days=1)),
+        None,
+    )
+
+    def _float(value: Any) -> float:
+        return float(value) if value is not None else 0.0
+
+    summary: dict[str, Any] = {"stat_date": stat_date.isoformat()}
+    if current is None:
+        summary["status"] = "no_data"
+        return summary
+    summary["status"] = "ok"
+    summary["totals"] = {
+        key: (_float(current[key]) if key == "gmv" else current[key])
+        for key in ("pv", "fav", "cart", "buy", "buyers", "gmv")
+    }
+    if previous is not None and previous["pv"]:
+        summary["day_over_day"] = {
+            key: (
+                round((_float(current[key]) - _float(previous[key])) / _float(previous[key]), 4)
+                if _float(previous[key])
+                else None
+            )
+            for key in ("pv", "cart", "buy", "gmv")
+        }
+    else:
+        summary["day_over_day"] = None
+    if current["buy"]:
+        summary["avg_price"] = round(_float(current["gmv"]) / current["buy"], 2)
+        summary["buy_conversion"] = round(current["buy"] / current["pv"], 6)
+    else:
+        summary["avg_price"] = 0.0
+        summary["buy_conversion"] = 0.0
+    return summary

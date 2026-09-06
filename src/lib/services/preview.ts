@@ -1,0 +1,2024 @@
+/**
+ * PreviewManager - Handles per-project development servers (live preview)
+ */
+
+import { spawn, type ChildProcess } from 'child_process';
+import { execFile } from 'child_process';
+import { createHash } from 'node:crypto';
+import {
+  createServer as createHttpServer,
+  request as createHttpRequest,
+} from 'node:http';
+import {
+  createConnection,
+  createServer as createNetServer,
+  type Server,
+  type Socket,
+} from 'node:net';
+import path from 'path';
+import fs from 'fs/promises';
+import { promisify } from 'util';
+import { findAvailablePort } from '@/lib/utils/ports';
+import { getProjectById, updateProject, updateProjectStatus } from './project';
+import { ensureQuantDashboardTemplate, scaffoldBasicNextApp } from '@/lib/utils/scaffold';
+import { PREVIEW_CONFIG } from '@/lib/config/constants';
+import {
+  buildGeneratedProjectEnv,
+  wrapGeneratedProjectCommand,
+} from '@/lib/security/generated-project-sandbox';
+
+const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const yarnCommand = process.platform === 'win32' ? 'yarn.cmd' : 'yarn';
+const bunCommand = process.platform === 'win32' ? 'bun.exe' : 'bun';
+const execFileAsync = promisify(execFile);
+
+type PackageManagerId = 'npm' | 'pnpm' | 'yarn' | 'bun';
+
+const PACKAGE_MANAGER_COMMANDS: Record<
+  PackageManagerId,
+  { command: string; installArgs: string[] }
+> = {
+  npm: { command: npmCommand, installArgs: ['install', '--ignore-scripts', '--no-audit', '--no-fund'] },
+  pnpm: { command: pnpmCommand, installArgs: ['install', '--ignore-scripts'] },
+  yarn: { command: yarnCommand, installArgs: ['install', '--ignore-scripts'] },
+  bun: { command: bunCommand, installArgs: ['install', '--ignore-scripts'] },
+};
+
+const LOG_LIMIT = PREVIEW_CONFIG.LOG_LIMIT;
+const PREVIEW_FALLBACK_PORT_START = PREVIEW_CONFIG.FALLBACK_PORT_START;
+const PREVIEW_FALLBACK_PORT_END = PREVIEW_CONFIG.FALLBACK_PORT_END;
+const PREVIEW_MAX_PORT = 65_535;
+
+function usesGeneratedProjectNetworkNamespace(): boolean {
+  return (
+    process.platform === 'linux' &&
+    process.env.QUANTPILOT_GENERATED_SANDBOX !== '0'
+  );
+}
+
+function resolvePreviewProjectPath(projectId: string, repoPath?: string | null): string {
+  if (repoPath) {
+    return path.isAbsolute(repoPath)
+      ? repoPath
+      : path.resolve(/*turbopackIgnore: true*/ process.cwd(), repoPath);
+  }
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), 'projects', projectId);
+}
+
+const ROOT_ALLOWED_FILES = new Set([
+  '.DS_Store',
+  '.editorconfig',
+  '.env',
+  '.env.development',
+  '.env.local',
+  '.env.production',
+  '.eslintignore',
+  '.eslintrc',
+  '.eslintrc.cjs',
+  '.eslintrc.js',
+  '.eslintrc.json',
+  '.gitignore',
+  '.npmrc',
+  '.nvmrc',
+  '.prettierignore',
+  '.prettierrc',
+  '.prettierrc.cjs',
+  '.prettierrc.js',
+  '.prettierrc.json',
+  '.prettierrc.yaml',
+  '.prettierrc.yml',
+  'LICENSE',
+  'README',
+  'README.md',
+  'package-lock.json',
+  'pnpm-lock.yaml',
+  'poetry.lock',
+  'requirements.txt',
+  'yarn.lock',
+]);
+const ROOT_ALLOWED_DIR_PREFIXES = ['.'];
+const ROOT_ALLOWED_DIRS = new Set([
+  '.git',
+  '.idea',
+  '.vscode',
+  '.github',
+  '.husky',
+  '.pnpm-store',
+  '.turbo',
+  '.next',
+  'node_modules',
+]);
+const ROOT_OVERWRITABLE_FILES = new Set([
+  '.gitignore',
+  '.eslintignore',
+  '.env',
+  '.env.development',
+  '.env.local',
+  '.env.production',
+  '.npmrc',
+  '.nvmrc',
+  '.prettierignore',
+  'README',
+  'README.md',
+  'README.txt',
+]);
+
+type PreviewStatus = 'starting' | 'running' | 'stopped' | 'error';
+
+interface PreviewProcess {
+  process: ChildProcess | null;
+  networkProxy: PreviewNetworkProxy | null;
+  marketProxy: PreviewNetworkProxy | null;
+  runtimeDirectory: string | null;
+  port: number;
+  url: string;
+  status: PreviewStatus;
+  logs: string[];
+  startedAt: Date;
+  projectPath: string;
+  startOperationId?: symbol;
+}
+
+interface PreviewNetworkProxy {
+  server: Server;
+  socketPath: string;
+  sockets: Set<Socket>;
+  closePromise?: Promise<void>;
+}
+
+interface EnvOverrides {
+  port?: number;
+}
+
+function stripQuotes(value: string): string {
+  return value.replace(/^['"]|['"]$/g, '').trim();
+}
+
+function parsePort(value?: string): number | null {
+  if (!value) return null;
+  const numeric = Number.parseInt(stripQuotes(value), 10);
+  if (Number.isFinite(numeric) && numeric > 0 && numeric <= 65535) {
+    return numeric;
+  }
+  return null;
+}
+
+async function readPackageJson(
+  projectPath: string
+): Promise<Record<string, any> | null> {
+  try {
+    const raw = await fs.readFile(path.join(projectPath, 'package.json'), 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function collectEnvOverrides(projectPath: string): Promise<EnvOverrides> {
+  const overrides: EnvOverrides = {};
+  const files = ['.env.local', '.env'];
+
+  for (const fileName of files) {
+    const filePath = path.join(projectPath, fileName);
+    try {
+      const contents = await fs.readFile(filePath, 'utf8');
+      const lines = contents.split(/\r?\n/);
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || !line.includes('=')) {
+          continue;
+        }
+
+        const [rawKey, ...rawValueParts] = line.split('=');
+        const key = rawKey.trim();
+        const rawValue = rawValueParts.join('=');
+        const value = stripQuotes(rawValue);
+
+        if (!overrides.port && (key === 'PORT' || key === 'WEB_PORT')) {
+          const parsed = parsePort(value);
+          if (parsed) {
+            overrides.port = parsed;
+          }
+        }
+      }
+
+      if (overrides.port) {
+        break;
+      }
+    } catch {
+      // Missing env file is fine; skip
+    }
+  }
+
+  return overrides;
+}
+
+function resolvePreviewBounds(): { start: number; end: number } {
+  const envStartRaw = Number.parseInt(process.env.PREVIEW_PORT_START || '', 10);
+  const envEndRaw = Number.parseInt(process.env.PREVIEW_PORT_END || '', 10);
+
+  const start = Number.isInteger(envStartRaw)
+    ? Math.max(1, envStartRaw)
+    : PREVIEW_FALLBACK_PORT_START;
+
+  let end = Number.isInteger(envEndRaw)
+    ? Math.min(PREVIEW_MAX_PORT, envEndRaw)
+    : PREVIEW_FALLBACK_PORT_END;
+
+  if (end < start) {
+    end = Math.min(start + (PREVIEW_FALLBACK_PORT_END - PREVIEW_FALLBACK_PORT_START), PREVIEW_MAX_PORT);
+  }
+
+  return { start, end };
+}
+
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function directoryExists(targetPath: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(targetPath);
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function fileExists(targetPath: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(targetPath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function parsePackageManagerField(value: unknown): PackageManagerId | null {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+  const [rawName] = value.split('@');
+  const name = rawName.trim().toLowerCase();
+  if (name === 'npm' || name === 'pnpm' || name === 'yarn' || name === 'bun') {
+    return name as PackageManagerId;
+  }
+  return null;
+}
+
+function isCommandNotFound(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const err = error as NodeJS.ErrnoException;
+  return err.code === 'ENOENT';
+}
+
+function terminateProcessTree(child: ChildProcess | null): void {
+  if (!child?.pid) {
+    return;
+  }
+
+  try {
+    if (process.platform !== 'win32') {
+      process.kill(-child.pid, 'SIGTERM');
+      const forceKill = setTimeout(() => {
+        try {
+          process.kill(-child.pid!, 'SIGKILL');
+        } catch {
+          // Process group already exited.
+        }
+      }, 5_000);
+      forceKill.unref?.();
+      return;
+    }
+
+    child.kill('SIGTERM');
+    return;
+  } catch {
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      // Already exited.
+    }
+  }
+}
+
+async function startPreviewNetworkProxy(
+  port: number,
+  socketPath: string,
+): Promise<PreviewNetworkProxy> {
+  await fs.mkdir(path.dirname(socketPath), { recursive: true });
+  await fs.rm(socketPath, { force: true });
+
+  const sockets = new Set<Socket>();
+  const server = createNetServer((client) => {
+    const upstream = createConnection({ path: socketPath });
+    sockets.add(client);
+    sockets.add(upstream);
+
+    const closePair = () => {
+      client.destroy();
+      upstream.destroy();
+      sockets.delete(client);
+      sockets.delete(upstream);
+    };
+    client.on('error', closePair);
+    upstream.on('error', closePair);
+    client.on('close', () => sockets.delete(client));
+    upstream.on('close', () => sockets.delete(upstream));
+    client.pipe(upstream);
+    upstream.pipe(client);
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const fail = (error: Error) => reject(error);
+    server.once('error', fail);
+    server.listen(port, '127.0.0.1', () => {
+      server.off('error', fail);
+      resolve();
+    });
+  });
+  server.on('error', (error) => {
+    console.error('[PreviewManager] Preview network proxy failed:', error);
+  });
+
+  return { server, socketPath, sockets };
+}
+
+function resolvePreviewRuntimeDirectory(projectPath: string, port: number): string {
+  const runtimeId = createHash('sha256')
+    .update(`${path.resolve(projectPath)}\0${port}\0${process.pid}`)
+    .digest('hex')
+    .slice(0, 20);
+  return path.join('/tmp', 'qp-preview', runtimeId);
+}
+
+function resolveMarketDataTcpTarget(): { host: string; port: number } {
+  const configured = process.env.QUANTPILOT_MARKET_API_URL?.trim()
+    || 'http://127.0.0.1:8000';
+  const parsed = new URL(configured);
+  if (
+    parsed.protocol !== 'http:'
+    || parsed.username
+    || parsed.password
+    || (parsed.pathname !== '/' && parsed.pathname !== '')
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error(
+      'Generated preview market bridge requires a credential-free internal http:// host:port base URL.',
+    );
+  }
+  return {
+    host: parsed.hostname,
+    port: Number.parseInt(parsed.port || '80', 10),
+  };
+}
+
+async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetworkProxy> {
+  const target = resolveMarketDataTcpTarget();
+  await fs.mkdir(path.dirname(socketPath), { recursive: true });
+  await fs.rm(socketPath, { force: true });
+
+  const sockets = new Set<Socket>();
+  const server = createHttpServer((request, response) => {
+    const method = request.method?.toUpperCase() ?? '';
+    let incomingUrl: URL;
+    try {
+      incomingUrl = new URL(request.url ?? '/', 'http://market-bridge.local');
+    } catch {
+      response.writeHead(400, { 'Content-Type': 'application/json' });
+      response.end('{"error":"invalid market bridge URL"}');
+      return;
+    }
+    if (
+      !['GET', 'HEAD'].includes(method)
+      || !incomingUrl.pathname.startsWith('/api/v1/')
+    ) {
+      response.writeHead(403, { 'Content-Type': 'application/json' });
+      response.end('{"error":"market bridge permits only GET/HEAD /api/v1/**"}');
+      return;
+    }
+
+    const upstream = createHttpRequest({
+      host: target.host,
+      port: target.port,
+      method,
+      path: `${incomingUrl.pathname}${incomingUrl.search}`,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'QuantPilot-Generated-Preview-Market-Bridge/1',
+      },
+    }, (upstreamResponse) => {
+      response.writeHead(upstreamResponse.statusCode ?? 502, {
+        'Content-Type': upstreamResponse.headers['content-type'] ?? 'application/json',
+        ...(upstreamResponse.headers['cache-control']
+          ? { 'Cache-Control': upstreamResponse.headers['cache-control'] }
+          : {}),
+      });
+      upstreamResponse.pipe(response);
+    });
+    upstream.setTimeout(10_000, () => upstream.destroy(new Error('market bridge timeout')));
+    upstream.on('error', () => {
+      if (!response.headersSent) {
+        response.writeHead(502, { 'Content-Type': 'application/json' });
+      }
+      response.end('{"error":"market data service unavailable"}');
+    });
+    request.on('aborted', () => upstream.destroy());
+    upstream.end();
+  });
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+  await new Promise<void>((resolve, reject) => {
+    const fail = (error: Error) => reject(error);
+    server.once('error', fail);
+    server.listen(socketPath, () => {
+      server.off('error', fail);
+      resolve();
+    });
+  });
+  await fs.chmod(socketPath, 0o600);
+  server.on('error', (error) => {
+    console.error('[PreviewManager] Market network proxy failed:', error);
+  });
+  return { server, socketPath, sockets };
+}
+
+async function closePreviewNetworkProxy(
+  proxy: PreviewNetworkProxy | null,
+): Promise<void> {
+  if (!proxy) return;
+  if (proxy.closePromise) return proxy.closePromise;
+
+  proxy.closePromise = (async () => {
+    for (const socket of proxy.sockets) socket.destroy();
+    proxy.sockets.clear();
+    await new Promise<void>((resolve) => {
+      if (!proxy.server.listening) {
+        resolve();
+        return;
+      }
+      proxy.server.close(() => resolve());
+      const fallback = setTimeout(resolve, 1_000);
+      fallback.unref?.();
+    });
+    await fs.rm(proxy.socketPath, { force: true });
+  })();
+  return proxy.closePromise;
+}
+
+async function terminatePreviewProcess(processInfo: PreviewProcess): Promise<void> {
+  terminateProcessTree(processInfo.process);
+  await Promise.all([
+    closePreviewNetworkProxy(processInfo.networkProxy),
+    closePreviewNetworkProxy(processInfo.marketProxy),
+  ]);
+  if (processInfo.runtimeDirectory) {
+    await fs.rm(processInfo.runtimeDirectory, { recursive: true, force: true });
+  }
+  if (!processInfo.networkProxy) {
+    await terminatePortListeners(processInfo.port, processInfo.projectPath);
+  }
+}
+
+function extractPidsFromSs(output: string): number[] {
+  const pids = new Set<number>();
+  for (const match of output.matchAll(/pid=(\d+)/g)) {
+    const pid = Number.parseInt(match[1], 10);
+    if (Number.isInteger(pid) && pid > 0) {
+      pids.add(pid);
+    }
+  }
+  return Array.from(pids);
+}
+
+function extractListeningPortsFromSs(
+  output: string,
+  startPort: number,
+  endPort: number
+): Map<number, number[]> {
+  const pidsByPort = new Map<number, Set<number>>();
+
+  for (const rawLine of output.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+
+    const columns = line.split(/\s+/);
+    if (columns[0] !== 'LISTEN' || columns.length < 4) {
+      continue;
+    }
+
+    // `ss -ltnpH` exposes the local endpoint in column four. Matching only
+    // its trailing numeric port avoids confusing process names or PIDs for a
+    // listener port, while covering IPv4, IPv6 and wildcard addresses.
+    const portMatch = columns[3].match(/:(\d+)$/);
+    if (!portMatch) {
+      continue;
+    }
+
+    const port = Number.parseInt(portMatch[1], 10);
+    if (!Number.isInteger(port) || port < startPort || port > endPort) {
+      continue;
+    }
+
+    const pids = extractPidsFromSs(line);
+    if (pids.length === 0) {
+      continue;
+    }
+
+    const owners = pidsByPort.get(port) ?? new Set<number>();
+    pids.forEach((pid) => owners.add(pid));
+    pidsByPort.set(port, owners);
+  }
+
+  return new Map(
+    Array.from(pidsByPort, ([port, pids]) => [port, Array.from(pids)])
+  );
+}
+
+async function findListeningPorts(
+  startPort: number,
+  endPort: number
+): Promise<Map<number, number[]>> {
+  if (process.platform === 'win32') {
+    return new Map();
+  }
+
+  try {
+    // Take one process-table snapshot for the entire preview range. Calling
+    // `ss` once per candidate port can add roughly a minute to preview startup
+    // across a large preview range even when the dev server is already ready.
+    const { stdout } = await execFileAsync('ss', ['-ltnpH']);
+    return extractListeningPortsFromSs(stdout, startPort, endPort);
+  } catch {
+    // `ss` may not exist (or process metadata may be unavailable). In that
+    // case adoption is skipped and normal available-port startup remains the
+    // safe fallback, matching the Windows behavior.
+    return new Map();
+  }
+}
+
+async function findListeningPids(port: number): Promise<number[]> {
+  if (process.platform === 'win32') {
+    return [];
+  }
+  try {
+    const { stdout } = await execFileAsync('ss', ['-ltnpH', `sport = :${port}`]);
+    return extractPidsFromSs(stdout);
+  } catch {
+    return [];
+  }
+}
+
+async function isPidWithinProject(pid: number, projectPath: string): Promise<boolean> {
+  if (process.platform === 'win32') {
+    return false;
+  }
+
+  try {
+    const cwd = (await fs.readlink(`/proc/${pid}/cwd`)).replace(/ \(deleted\)$/, '');
+    const normalizedCwd = path.resolve(cwd);
+    const normalizedProjectPath = path.resolve(projectPath);
+    if (
+      normalizedCwd === normalizedProjectPath ||
+      normalizedCwd.startsWith(`${normalizedProjectPath}${path.sep}`)
+    ) {
+      return true;
+    }
+
+    // Generated previews run in a chroot. Linux exposes their cwd using the
+    // host-side sandbox prefix, for example:
+    // /tmp/quantpilot-generated-sandbox.XYZ/<absolute project path>.
+    // Compare against the process root instead of trusting a loose path
+    // suffix, so a different workspace cannot impersonate this project.
+    const processRoot = (await fs.readlink(`/proc/${pid}/root`)).replace(/ \(deleted\)$/, '');
+    if (!path.basename(processRoot).startsWith('quantpilot-generated-sandbox.')) {
+      return false;
+    }
+    const sandboxProjectPath = path.resolve(
+      processRoot,
+      `.${normalizedProjectPath}`
+    );
+    return (
+      normalizedCwd === sandboxProjectPath ||
+      normalizedCwd.startsWith(`${sandboxProjectPath}${path.sep}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function isPortOwnedByProject(port: number, projectPath: string): Promise<boolean> {
+  const listeningPids = await findListeningPids(port);
+  if (listeningPids.length === 0) {
+    return false;
+  }
+
+  const ownership = await Promise.all(
+    listeningPids.map((pid) => isPidWithinProject(pid, projectPath))
+  );
+  return ownership.some(Boolean);
+}
+
+async function isPidAlive(pid: number): Promise<boolean> {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function clearStaleProjectNextLock(
+  projectPath: string,
+  logger?: (message: string) => void
+): Promise<void> {
+  const lockPath = path.join(projectPath, '.next', 'dev', 'lock');
+  let pid: number | null = null;
+
+  try {
+    const parsed = JSON.parse(await fs.readFile(lockPath, 'utf8')) as {
+      pid?: unknown;
+    };
+    const numericPid = Number.parseInt(String(parsed?.pid ?? ''), 10);
+    if (Number.isInteger(numericPid) && numericPid > 0) {
+      pid = numericPid;
+    }
+  } catch {
+    if (!(await fileExists(lockPath))) {
+      return;
+    }
+  }
+
+  if (pid && (await isPidAlive(pid)) && (await isPidWithinProject(pid, projectPath))) {
+    return;
+  }
+
+  await fs.rm(lockPath, { force: true });
+  logger?.('Removed stale Next.js dev lock before starting preview.');
+}
+
+async function clearProjectPreviewArtifacts(
+  projectPath: string,
+  logger?: (message: string) => void,
+  options: { aggressive?: boolean } = {}
+): Promise<void> {
+  await clearStaleProjectNextLock(projectPath, logger);
+
+  if (!options.aggressive) {
+    return;
+  }
+
+  await Promise.all([
+    fs.rm(path.join(projectPath, '.next', 'cache'), {
+      recursive: true,
+      force: true,
+    }),
+  ]);
+}
+
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function terminatePortListeners(port: number, projectPath?: string | null): Promise<void> {
+  if (process.platform === 'win32') {
+    return;
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const listeningPids = await findListeningPids(port);
+    const pids = projectPath
+      ? (
+          await Promise.all(
+            listeningPids.map(async (pid) => ((await isPidWithinProject(pid, projectPath)) ? pid : null))
+          )
+        ).filter((pid): pid is number => pid !== null)
+      : listeningPids;
+    if (pids.length === 0) {
+      return;
+    }
+
+    const signal = attempt < 2 ? 'SIGTERM' : 'SIGKILL';
+    for (const pid of pids) {
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // 监听进程可能已退出。
+      }
+    }
+    await wait(attempt < 2 ? 300 : 100);
+  }
+}
+
+async function findProjectPreviewPort(
+  projectPath: string,
+  startPort: number,
+  endPort: number
+): Promise<number | null> {
+  if (process.platform === 'win32') {
+    return null;
+  }
+
+  const listeningPorts = await findListeningPorts(startPort, endPort);
+  const candidates = Array.from(listeningPorts.entries()).sort(
+    ([leftPort], [rightPort]) => leftPort - rightPort
+  );
+  for (const [port, listeningPids] of candidates) {
+    const hasProjectListener = await Promise.all(
+      listeningPids.map((pid) => isPidWithinProject(pid, projectPath))
+    );
+    if (hasProjectListener.some(Boolean)) {
+      return port;
+    }
+  }
+
+  return null;
+}
+
+async function detectPackageManager(projectPath: string): Promise<PackageManagerId> {
+  const packageJson = await readPackageJson(projectPath);
+  const fromField = parsePackageManagerField(packageJson?.packageManager);
+  if (fromField) {
+    return fromField;
+  }
+
+  if (await fileExists(path.join(projectPath, 'pnpm-lock.yaml'))) {
+    return 'pnpm';
+  }
+  if (await fileExists(path.join(projectPath, 'yarn.lock'))) {
+    return 'yarn';
+  }
+  if (await fileExists(path.join(projectPath, 'bun.lockb'))) {
+    return 'bun';
+  }
+  if (await fileExists(path.join(projectPath, 'package-lock.json'))) {
+    return 'npm';
+  }
+  return 'npm';
+}
+
+async function runInstallWithPreferredManager(
+  projectPath: string,
+  env: NodeJS.ProcessEnv,
+  logger: (chunk: Buffer | string) => void
+): Promise<void> {
+  const manager = await detectPackageManager(projectPath);
+  const { command, installArgs } = PACKAGE_MANAGER_COMMANDS[manager];
+
+  logger(`[PreviewManager] Installing dependencies using ${manager}.`);
+  try {
+    await appendCommandLogs(command, installArgs, projectPath, env, logger);
+  } catch (error) {
+    if (manager !== 'npm' && isCommandNotFound(error)) {
+      logger(
+        `[PreviewManager] ${command} unavailable. Falling back to npm install.`
+      );
+      await appendCommandLogs(
+        PACKAGE_MANAGER_COMMANDS.npm.command,
+        PACKAGE_MANAGER_COMMANDS.npm.installArgs,
+        projectPath,
+        env,
+        logger
+      );
+      return;
+    }
+    throw error;
+  }
+}
+
+async function isLikelyNextProject(dirPath: string): Promise<boolean> {
+  const pkgPath = path.join(dirPath, 'package.json');
+  try {
+    const pkgRaw = await fs.readFile(pkgPath, 'utf8');
+    const pkg = JSON.parse(pkgRaw);
+    const deps = {
+      ...(pkg.dependencies ?? {}),
+      ...(pkg.devDependencies ?? {}),
+    };
+    if (typeof deps.next === 'string') {
+      return true;
+    }
+    if (pkg.scripts && typeof pkg.scripts === 'object') {
+      const scriptValues = Object.values(pkg.scripts as Record<string, unknown>);
+      if (
+        scriptValues.some(
+          (value) =>
+            typeof value === 'string' &&
+            (value.includes('next dev') || value.includes('next start'))
+        )
+      ) {
+        return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const configCandidates = [
+    'next.config.js',
+    'next.config.cjs',
+    'next.config.mjs',
+    'next.config.ts',
+  ];
+  for (const candidate of configCandidates) {
+    if (await fileExists(path.join(dirPath, candidate))) {
+      return true;
+    }
+  }
+
+  const appDirCandidates = [
+    'app',
+    path.join('src', 'app'),
+    'pages',
+    path.join('src', 'pages'),
+  ];
+  for (const candidate of appDirCandidates) {
+    if (await directoryExists(path.join(dirPath, candidate))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isAllowedRootFile(name: string): boolean {
+  if (ROOT_ALLOWED_FILES.has(name)) {
+    return true;
+  }
+  if (name.endsWith('.md') || name.startsWith('.env.')) {
+    return true;
+  }
+  return false;
+}
+
+function isAllowedRootDirectory(name: string): boolean {
+  if (ROOT_ALLOWED_DIRS.has(name)) {
+    return true;
+  }
+  return ROOT_ALLOWED_DIR_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+function isOverwritableRootFile(name: string): boolean {
+  if (ROOT_OVERWRITABLE_FILES.has(name)) {
+    return true;
+  }
+  if (name.startsWith('.env.') || name.endsWith('.md')) {
+    return true;
+  }
+  return false;
+}
+
+async function ensureProjectRootStructure(
+  projectPath: string,
+  log: (message: string) => void
+): Promise<void> {
+  const entries = await fs.readdir(projectPath, { withFileTypes: true });
+  const hasRootPackageJson = entries.some(
+    (entry) => entry.isFile() && entry.name === 'package.json'
+  );
+  if (hasRootPackageJson) {
+    return;
+  }
+
+  const candidateDirs: { name: string; path: string }[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    if (entry.name === 'node_modules') {
+      continue;
+    }
+    const dirPath = path.join(projectPath, entry.name);
+    // quick skip for empty directory
+    const isCandidate = await isLikelyNextProject(dirPath);
+    if (isCandidate) {
+      candidateDirs.push({ name: entry.name, path: dirPath });
+    }
+  }
+
+  if (candidateDirs.length === 0) {
+    return;
+  }
+
+  if (candidateDirs.length > 1) {
+    const dirNames = candidateDirs.map((dir) => dir.name).join(', ');
+    throw new Error(
+      `Multiple potential Next.js projects detected in subdirectories (${dirNames}). Please move the desired project files to the project root.`
+    );
+  }
+
+  const candidate = candidateDirs[0];
+  const { name: nestedName, path: nestedPath } = candidate;
+
+  for (const entry of entries) {
+    if (entry.name === nestedName) {
+      continue;
+    }
+    if (entry.isDirectory()) {
+      if (!isAllowedRootDirectory(entry.name)) {
+        throw new Error(
+          `Cannot normalize project structure because directory "${entry.name}" exists alongside "${nestedName}". Move project files to the root manually.`
+        );
+      }
+      continue;
+    }
+
+    if (!isAllowedRootFile(entry.name)) {
+      throw new Error(
+        `Cannot normalize project structure because file "${entry.name}" exists alongside "${nestedName}". Move project files to the root manually.`
+      );
+    }
+  }
+
+  // Remove nested node_modules and root node_modules (if any) to avoid conflicts during move.
+  await fs.rm(path.join(nestedPath, 'node_modules'), { recursive: true, force: true });
+  await fs.rm(path.join(projectPath, 'node_modules'), { recursive: true, force: true });
+
+  const nestedEntries = await fs.readdir(nestedPath, { withFileTypes: true });
+  for (const nestedEntry of nestedEntries) {
+    const sourcePath = path.join(nestedPath, nestedEntry.name);
+    const destinationPath = path.join(projectPath, nestedEntry.name);
+    if (await pathExists(destinationPath)) {
+      if (nestedEntry.isFile() && isOverwritableRootFile(nestedEntry.name)) {
+        await fs.rm(destinationPath, { force: true });
+        await fs.rename(sourcePath, destinationPath);
+        log(
+          `Replaced existing root file "${nestedEntry.name}" with the version from "${nestedName}".`
+        );
+        continue;
+      }
+      throw new Error(
+        `Cannot move "${nestedEntry.name}" from "${nestedName}" because "${nestedEntry.name}" already exists in the project root.`
+      );
+    }
+    await fs.rename(sourcePath, destinationPath);
+  }
+
+  await fs.rm(nestedPath, { recursive: true, force: true });
+  log(
+    `Detected Next.js project inside subdirectory "${nestedName}". Contents moved to the project root.`
+  );
+}
+
+async function waitForPreviewReady(
+  url: string,
+  log: (chunk: Buffer | string) => void,
+  timeoutMs: number = PREVIEW_CONFIG.STARTUP_TIMEOUT,
+  intervalMs: number = PREVIEW_CONFIG.HEALTH_CHECK_INTERVAL,
+  requestTimeoutMs: number = 3_000,
+  shouldAbort?: () => boolean
+) {
+  const start = Date.now();
+  let attempts = 0;
+
+  const requestWithTimeout = async (method: 'HEAD' | 'GET') => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
+
+    try {
+      return await fetch(url, {
+        method,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  while (Date.now() - start < timeoutMs) {
+    if (shouldAbort?.()) {
+      return false;
+    }
+
+    attempts += 1;
+    try {
+      const response = await requestWithTimeout('HEAD');
+      if (shouldAbort?.()) {
+        return false;
+      }
+      if (response.ok) {
+        log(
+          Buffer.from(
+            `[PreviewManager] Preview server responded after ${attempts} attempt(s).`
+          )
+        );
+        return true;
+      }
+      if (response.status === 405 || response.status === 501) {
+        const getResponse = await requestWithTimeout('GET');
+        if (shouldAbort?.()) {
+          return false;
+        }
+        if (getResponse.ok) {
+          log(
+            Buffer.from(
+              `[PreviewManager] Preview server responded to GET after ${attempts} attempt(s).`
+            )
+          );
+          return true;
+        }
+      }
+    } catch (error) {
+      if (attempts === 1) {
+        log(
+          Buffer.from(
+            `[PreviewManager] Waiting for preview server at ${url} (${error instanceof Error ? error.message : String(error)
+            }).`
+          )
+        );
+      }
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  log(
+    Buffer.from(
+      `[PreviewManager] Preview server did not respond within ${timeoutMs}ms.`
+    )
+  );
+  return false;
+}
+
+function persistedPreviewTarget(
+  persistedUrl: string | null | undefined,
+  persistedPort: number | null | undefined,
+): { port: number; url: string } | null {
+  if (!persistedUrl || !persistedPort) return null;
+  const bounds = resolvePreviewBounds();
+  if (
+    !Number.isSafeInteger(persistedPort) ||
+    persistedPort < bounds.start ||
+    persistedPort > bounds.end
+  ) {
+    return null;
+  }
+  try {
+    const parsed = new URL(persistedUrl);
+    const port = Number.parseInt(parsed.port, 10);
+    if (
+      parsed.protocol !== 'http:' ||
+      !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname) ||
+      parsed.username ||
+      parsed.password ||
+      (parsed.pathname !== '' && parsed.pathname !== '/') ||
+      parsed.search ||
+      parsed.hash ||
+      port !== persistedPort
+    ) {
+      return null;
+    }
+    return {
+      port,
+      url: `http://localhost:${port}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function probePersistedPreview(url: string): Promise<boolean> {
+  const request = async (method: 'HEAD' | 'GET') => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1_500);
+    try {
+      return await fetch(url, {
+        method,
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  try {
+    const head = await request('HEAD');
+    if (head.ok) return true;
+    if (head.status === 405 || head.status === 501) {
+      return (await request('GET')).ok;
+    }
+  } catch {
+    // A missing/stopped Worker-owned listener is a normal negative probe.
+  }
+  return false;
+}
+
+function buildPreviewCommandEnv(
+  projectPath: string,
+  env: NodeJS.ProcessEnv,
+  options: { allowInstallNetwork?: boolean } = {},
+): NodeJS.ProcessEnv {
+  return buildGeneratedProjectEnv(projectPath, env, options);
+}
+
+async function appendCommandLogs(
+  command: string,
+  args: string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  logger: (chunk: Buffer | string) => void
+) {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: buildPreviewCommandEnv(cwd, env, { allowInstallNetwork: true }),
+      shell: process.platform === 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    child.stdout?.on('data', logger);
+    child.stderr?.on('data', logger);
+
+    child.on('error', (error) => reject(error));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(`${command} ${args.join(' ')} exited with code ${code}`)
+        );
+      }
+    });
+  });
+}
+
+async function ensureDependencies(
+  projectPath: string,
+  env: NodeJS.ProcessEnv,
+  logger: (chunk: Buffer | string) => void
+) {
+  try {
+    await fs.access(path.join(projectPath, 'node_modules'));
+    return;
+  } catch {
+    // node_modules missing, fall back to npm install
+  }
+
+  await runInstallWithPreferredManager(projectPath, env, logger);
+}
+
+export interface PreviewInfo {
+  port: number | null;
+  url: string | null;
+  status: PreviewStatus;
+  logs: string[];
+  pid?: number;
+}
+
+interface PreviewStartOperation {
+  id: symbol;
+  cancelled: boolean;
+  promise: Promise<PreviewInfo>;
+}
+
+class PreviewStartCancelledError extends Error {
+  constructor(projectId: string) {
+    super(`Preview start cancelled for project ${projectId}.`);
+    this.name = 'PreviewStartCancelledError';
+  }
+}
+
+export class PreviewManager {
+  private processes = new Map<string, PreviewProcess>();
+  private installing = new Map<string, Promise<void>>();
+  private startOperations = new Map<string, PreviewStartOperation>();
+  private shutdownOperations = new Map<string, Promise<void>>();
+
+  private getLogger(processInfo: PreviewProcess) {
+    return (chunk: Buffer | string) => {
+      const lines = chunk
+        .toString()
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length);
+      lines.forEach((line) => {
+        processInfo.logs.push(line);
+        if (processInfo.logs.length > LOG_LIMIT) {
+          processInfo.logs.shift();
+        }
+      });
+    };
+  }
+
+  private assertStartActive(
+    projectId: string,
+    operation: PreviewStartOperation
+  ): void {
+    if (operation.cancelled) {
+      throw new PreviewStartCancelledError(projectId);
+    }
+  }
+
+  private async terminateTrackedProcess(projectId: string): Promise<void> {
+    const processInfo = this.processes.get(projectId);
+    if (!processInfo) {
+      return;
+    }
+
+    await terminatePreviewProcess(processInfo);
+    if (this.processes.get(projectId) === processInfo) {
+      this.processes.delete(projectId);
+    }
+  }
+
+  private async settleCancelledStart(
+    projectId: string,
+    operation?: PreviewStartOperation
+  ): Promise<void> {
+    if (!operation) {
+      return;
+    }
+
+    // A start may currently be waiting for dependencies or preview readiness.
+    // Stop anything it has already registered, wait for it to observe the
+    // cancellation, then check once more in case it registered at the edge of
+    // an await boundary.
+    await this.terminateTrackedProcess(projectId);
+    await operation.promise.catch(() => undefined);
+    await this.terminateTrackedProcess(projectId);
+  }
+
+  private queueShutdown<T>(
+    projectId: string,
+    action: () => Promise<T>
+  ): Promise<T> {
+    const startOperation = this.startOperations.get(projectId);
+    if (startOperation) {
+      startOperation.cancelled = true;
+    }
+
+    const previousShutdown =
+      this.shutdownOperations.get(projectId) ?? Promise.resolve();
+    const result = (async () => {
+      await previousShutdown;
+      await this.settleCancelledStart(projectId, startOperation);
+      return action();
+    })();
+    const barrier = result.then(
+      () => undefined,
+      () => undefined
+    );
+
+    this.shutdownOperations.set(projectId, barrier);
+    void barrier.finally(() => {
+      if (this.shutdownOperations.get(projectId) === barrier) {
+        this.shutdownOperations.delete(projectId);
+      }
+    });
+
+    return result;
+  }
+
+  private async cleanupFailedStart(
+    projectId: string,
+    operation: PreviewStartOperation
+  ): Promise<void> {
+    const processInfo = this.processes.get(projectId);
+    if (processInfo && processInfo.startOperationId !== operation.id) {
+      return;
+    }
+
+    if (processInfo?.startOperationId === operation.id) {
+      await terminatePreviewProcess(processInfo);
+      if (this.processes.get(projectId) === processInfo) {
+        this.processes.delete(projectId);
+      }
+    }
+
+    // A newer start owns project state now. Never let the failed operation
+    // erase the newer preview's URL or status.
+    if (this.startOperations.get(projectId) !== operation) {
+      return;
+    }
+
+    await updateProject(projectId, {
+      previewUrl: null,
+      previewPort: null,
+    });
+    await updateProjectStatus(projectId, 'idle');
+  }
+
+  public async installDependencies(projectId: string): Promise<{ logs: string[] }> {
+    const project = await getProjectById(projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const projectPath = resolvePreviewProjectPath(projectId, project.repoPath);
+
+    await fs.mkdir(projectPath, { recursive: true });
+
+    const logs: string[] = [];
+    const record = (message: string) => {
+      const formatted = `[PreviewManager] ${message}`;
+      console.log(formatted);
+      logs.push(formatted);
+    };
+
+    await ensureProjectRootStructure(projectPath, record);
+
+    try {
+      await fs.access(path.join(projectPath, 'package.json'));
+      await scaffoldBasicNextApp(projectPath, projectId);
+    } catch {
+      record(`Bootstrapping minimal Next.js app for project ${projectId}`);
+      await scaffoldBasicNextApp(projectPath, projectId);
+    }
+    await clearProjectPreviewArtifacts(projectPath, record);
+
+    const hadNodeModules = await directoryExists(path.join(projectPath, 'node_modules'));
+
+    const collectFromChunk = (chunk: Buffer | string) => {
+      chunk
+        .toString()
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0)
+        .forEach((line) => record(line));
+    };
+
+    // Use a per-project lock to avoid concurrent install commands
+    const runInstall = async () => {
+      const installPromise = (async () => {
+        try {
+          const hasNodeModules = await directoryExists(path.join(projectPath, 'node_modules'));
+          if (!hasNodeModules) {
+            await runInstallWithPreferredManager(
+              projectPath,
+              { ...process.env },
+              collectFromChunk
+            );
+          }
+        } finally {
+          this.installing.delete(projectId);
+        }
+      })();
+      this.installing.set(projectId, installPromise);
+      await installPromise;
+    };
+
+    // If an install is already in progress, wait for it; otherwise start one
+    const existing = this.installing.get(projectId);
+    if (existing) {
+      record('Dependency installation already in progress; waiting for completion.');
+      await existing;
+    } else {
+      await runInstall();
+    }
+
+    if (hadNodeModules) {
+      record('Dependencies already installed. Skipped install command.');
+    } else {
+      record('Dependency installation completed.');
+    }
+
+    return { logs };
+  }
+
+  public cleanup(projectId: string): Promise<void> {
+    return this.queueShutdown(projectId, () => this.cleanupInternal(projectId));
+  }
+
+  /**
+   * Reclaim previews owned by this process after their durable project record
+   * has been deleted by another process (normally the Web application).
+   */
+  public async cleanupDeletedProjects(): Promise<string[]> {
+    const cleaned: string[] = [];
+    for (const projectId of Array.from(this.processes.keys())) {
+      try {
+        const project = await getProjectById(projectId);
+        if (project) continue;
+        await this.queueShutdown(projectId, () =>
+          this.terminateTrackedProcess(projectId),
+        );
+        cleaned.push(projectId);
+      } catch (error) {
+        console.error(
+          `[PreviewManager] Failed to reconcile deleted project ${projectId}:`,
+          error,
+        );
+      }
+    }
+    return cleaned;
+  }
+
+  /**
+   * Stop every preview owned by this process. This is intentionally independent
+   * of project rows so Worker shutdown still releases TCP proxies and child
+   * process groups after a project was deleted elsewhere.
+   */
+  public async cleanupAll(): Promise<string[]> {
+    const projectIds = Array.from(
+      new Set([...this.processes.keys(), ...this.startOperations.keys()]),
+    );
+    const cleaned: string[] = [];
+    for (const projectId of projectIds) {
+      try {
+        await this.queueShutdown(projectId, () =>
+          this.terminateTrackedProcess(projectId),
+        );
+        cleaned.push(projectId);
+      } catch (error) {
+        console.error(
+          `[PreviewManager] Failed to clean up preview ${projectId}:`,
+          error,
+        );
+      }
+    }
+    return cleaned;
+  }
+
+  private async cleanupInternal(projectId: string): Promise<void> {
+    const project = await getProjectById(projectId);
+    if (!project) {
+      return;
+    }
+
+    const projectPath = resolvePreviewProjectPath(projectId, project.repoPath);
+
+    const processInfo = this.processes.get(projectId);
+    if (processInfo) {
+      await terminatePreviewProcess(processInfo);
+      this.processes.delete(projectId);
+    } else if (project.previewPort) {
+      await terminatePortListeners(project.previewPort, projectPath);
+    }
+
+    const logs: string[] = [];
+    await clearProjectPreviewArtifacts(
+      projectPath,
+      (message) => logs.push(`[PreviewManager] ${message}`),
+      { aggressive: true }
+    );
+
+    await updateProject(projectId, {
+      previewUrl: null,
+      previewPort: null,
+    });
+    await updateProjectStatus(projectId, 'idle');
+  }
+
+  public start(projectId: string): Promise<PreviewInfo> {
+    const existingOperation = this.startOperations.get(projectId);
+    if (existingOperation && !existingOperation.cancelled) {
+      return existingOperation.promise;
+    }
+
+    const operation: PreviewStartOperation = {
+      id: Symbol(`preview-start:${projectId}`),
+      cancelled: false,
+      promise: Promise.resolve({
+        port: null,
+        url: null,
+        status: 'starting',
+        logs: [],
+      }),
+    };
+
+    const run = Promise.resolve().then(async () => {
+      const shutdown = this.shutdownOperations.get(projectId);
+      if (shutdown) {
+        await shutdown;
+      }
+      this.assertStartActive(projectId, operation);
+      return this.startInternal(projectId, operation);
+    });
+
+    operation.promise = run
+      .catch(async (error) => {
+        if (!operation.cancelled) {
+          try {
+            await this.cleanupFailedStart(projectId, operation);
+          } catch (cleanupError) {
+            console.error(
+              '[PreviewManager] Failed to clean up unsuccessful preview start:',
+              cleanupError
+            );
+          }
+        }
+        throw error;
+      })
+      .finally(() => {
+        if (this.startOperations.get(projectId) === operation) {
+          this.startOperations.delete(projectId);
+        }
+      });
+
+    this.startOperations.set(projectId, operation);
+    return operation.promise;
+  }
+
+  private async startInternal(
+    projectId: string,
+    operation: PreviewStartOperation
+  ): Promise<PreviewInfo> {
+    const project = await getProjectById(projectId);
+    this.assertStartActive(projectId, operation);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const projectPath = resolvePreviewProjectPath(projectId, project.repoPath);
+    const { checkQuantArtifactPolicy } = await import('@/lib/quant/validation');
+    const executionPolicy = await checkQuantArtifactPolicy(projectPath);
+    if (executionPolicy.status === 'failed') {
+      throw new Error(
+        `Refusing to execute generated preview before artifact security policy passes: ${executionPolicy.details ?? executionPolicy.summary}`,
+      );
+    }
+
+    const existing = this.processes.get(projectId);
+    if (existing && existing.status !== 'error') {
+      const existingPath = path.resolve(existing.projectPath);
+      const expectedPath = path.resolve(projectPath);
+      const isSameProject =
+        existingPath === expectedPath || existingPath.startsWith(`${expectedPath}${path.sep}`);
+      const ownsPort = isSameProject && (
+        existing.networkProxy?.server.listening === true ||
+        (await isPortOwnedByProject(existing.port, projectPath))
+      );
+      this.assertStartActive(projectId, operation);
+
+      const isHttpReady =
+        ownsPort &&
+        (await waitForPreviewReady(
+          existing.url,
+          this.getLogger(existing),
+          Math.min(PREVIEW_CONFIG.STARTUP_TIMEOUT, 5_000),
+          PREVIEW_CONFIG.HEALTH_CHECK_INTERVAL,
+          1_500,
+          () => operation.cancelled || this.processes.get(projectId) !== existing,
+        ));
+      this.assertStartActive(projectId, operation);
+
+      if (ownsPort && isHttpReady) {
+        existing.status = 'running';
+        await ensureQuantDashboardTemplate(projectPath).catch((error) => {
+          console.warn('[PreviewManager] Failed to refresh Quant dashboard template for existing preview:', error);
+        });
+        this.assertStartActive(projectId, operation);
+        return this.toInfo(existing);
+      }
+
+      if (ownsPort) {
+        await terminatePreviewProcess(existing);
+      }
+      this.processes.delete(projectId);
+      await updateProject(projectId, {
+        previewUrl: null,
+        previewPort: null,
+      });
+      this.assertStartActive(projectId, operation);
+    }
+
+    await fs.mkdir(projectPath, { recursive: true });
+    this.assertStartActive(projectId, operation);
+
+    const pendingLogs: string[] = [];
+    const queueLog = (message: string) => {
+      const formatted = `[PreviewManager] ${message}`;
+      console.log(formatted);
+      pendingLogs.push(formatted);
+    };
+
+    await ensureProjectRootStructure(projectPath, queueLog);
+    this.assertStartActive(projectId, operation);
+
+    try {
+      await fs.access(path.join(projectPath, 'package.json'));
+      await scaffoldBasicNextApp(projectPath, projectId);
+    } catch {
+      console.log(
+        `[PreviewManager] Bootstrapping minimal Next.js app for project ${projectId}`
+      );
+      await scaffoldBasicNextApp(projectPath, projectId);
+    }
+    await clearProjectPreviewArtifacts(projectPath, queueLog);
+    this.assertStartActive(projectId, operation);
+
+    const previewBounds = resolvePreviewBounds();
+    const adoptedPort = await findProjectPreviewPort(
+      projectPath,
+      previewBounds.start,
+      previewBounds.end
+    );
+    this.assertStartActive(projectId, operation);
+    if (adoptedPort) {
+      const adoptedUrl = `http://localhost:${adoptedPort}`;
+      const adoptedReady = await waitForPreviewReady(
+        adoptedUrl,
+        (chunk) => queueLog(chunk.toString()),
+        Math.min(PREVIEW_CONFIG.STARTUP_TIMEOUT, 5_000),
+        PREVIEW_CONFIG.HEALTH_CHECK_INTERVAL,
+        1_500,
+        () => operation.cancelled,
+      );
+      this.assertStartActive(projectId, operation);
+      if (!adoptedReady) {
+        queueLog(
+          `Existing project listener on port ${adoptedPort} failed its HTTP readiness check; restarting it.`,
+        );
+        await terminatePortListeners(adoptedPort, projectPath);
+        this.assertStartActive(projectId, operation);
+      } else {
+        const adoptedPreview: PreviewProcess = {
+          process: null,
+          networkProxy: null,
+          marketProxy: null,
+          runtimeDirectory: null,
+          port: adoptedPort,
+          url: adoptedUrl,
+          status: 'running',
+          logs: [
+            ...pendingLogs,
+            `[PreviewManager] Adopted existing preview process on port ${adoptedPort}.`,
+          ].slice(-LOG_LIMIT),
+          startedAt: new Date(),
+          projectPath,
+          startOperationId: operation.id,
+        };
+
+        this.processes.set(projectId, adoptedPreview);
+        await updateProject(projectId, {
+          previewUrl: adoptedPreview.url,
+          previewPort: adoptedPreview.port,
+          status: 'running',
+        });
+        this.assertStartActive(projectId, operation);
+
+        return this.toInfo(adoptedPreview);
+      }
+    }
+
+    const preferredPort = await findAvailablePort(
+      previewBounds.start,
+      previewBounds.end
+    );
+    this.assertStartActive(projectId, operation);
+
+    const initialUrl = `http://localhost:${preferredPort}`;
+
+    const env: NodeJS.ProcessEnv = buildGeneratedProjectEnv(projectPath, {
+      PORT: String(preferredPort),
+      WEB_PORT: String(preferredPort),
+      NEXT_PUBLIC_APP_URL: initialUrl,
+    });
+
+    const previewProcess: PreviewProcess = {
+      process: null,
+      networkProxy: null,
+      marketProxy: null,
+      runtimeDirectory: null,
+      port: preferredPort,
+      url: initialUrl,
+      status: 'starting',
+      logs: [],
+      startedAt: new Date(),
+      projectPath,
+      startOperationId: operation.id,
+    };
+
+    const log = this.getLogger(previewProcess);
+    const flushPendingLogs = () => {
+      if (pendingLogs.length === 0) {
+        return;
+      }
+      const entries = pendingLogs.splice(0);
+      entries.forEach((entry) => log(Buffer.from(entry)));
+    };
+    flushPendingLogs();
+
+    // Ensure dependencies with the same per-project lock used by installDependencies
+    const ensureWithLock = async () => {
+      // If node_modules exists, skip
+      if (await directoryExists(path.join(projectPath, 'node_modules'))) {
+        return;
+      }
+      const existing = this.installing.get(projectId);
+      if (existing) {
+        log(Buffer.from('[PreviewManager] Dependency installation already in progress; waiting...'));
+        await existing;
+        return;
+      }
+      const installPromise = (async () => {
+        try {
+          // Double-check just before install
+          if (!(await directoryExists(path.join(projectPath, 'node_modules')))) {
+            await runInstallWithPreferredManager(projectPath, env, log);
+          }
+        } finally {
+          this.installing.delete(projectId);
+        }
+      })();
+      this.installing.set(projectId, installPromise);
+      await installPromise;
+    };
+
+    await ensureWithLock();
+    this.assertStartActive(projectId, operation);
+
+    const overrides = await collectEnvOverrides(projectPath);
+    this.assertStartActive(projectId, operation);
+
+    if (overrides.port) {
+      if (
+        overrides.port < previewBounds.start ||
+        overrides.port > previewBounds.end
+      ) {
+        queueLog(
+          `Ignoring project-specified port ${overrides.port} because it falls outside the allowed preview range ${previewBounds.start}-${previewBounds.end}.`
+        );
+        delete overrides.port;
+      }
+    }
+
+    flushPendingLogs();
+
+    if (overrides.port && overrides.port !== previewProcess.port) {
+      previewProcess.port = overrides.port;
+      env.PORT = String(overrides.port);
+      env.WEB_PORT = String(overrides.port);
+      log(
+        Buffer.from(
+          `[PreviewManager] Detected project-specified port ${overrides.port}.`
+        )
+      );
+    }
+
+    const effectivePort = previewProcess.port;
+    const resolvedUrl = `http://localhost:${effectivePort}`;
+
+    env.NEXT_PUBLIC_APP_URL = resolvedUrl;
+    previewProcess.url = resolvedUrl;
+    this.assertStartActive(projectId, operation);
+
+    if (usesGeneratedProjectNetworkNamespace()) {
+      const runtimeDirectory = resolvePreviewRuntimeDirectory(projectPath, effectivePort);
+      await fs.rm(runtimeDirectory, { recursive: true, force: true });
+      await fs.mkdir(runtimeDirectory, { recursive: true, mode: 0o700 });
+      previewProcess.runtimeDirectory = runtimeDirectory;
+      const previewSocketPath = path.join(runtimeDirectory, 'p.sock');
+      const marketSocketPath = path.join(runtimeDirectory, 'm.sock');
+      env.QUANTPILOT_SANDBOX_PREVIEW_SOCKET = previewSocketPath;
+      env.QUANTPILOT_SANDBOX_PREVIEW_PORT = String(effectivePort);
+      env.QUANTPILOT_SANDBOX_MARKET_SOCKET = marketSocketPath;
+      env.QUANTPILOT_SANDBOX_MARKET_PORT = '8000';
+      previewProcess.networkProxy = await startPreviewNetworkProxy(
+        effectivePort,
+        previewSocketPath,
+      );
+      previewProcess.marketProxy = await startMarketNetworkProxy(marketSocketPath);
+    }
+    this.processes.set(projectId, previewProcess);
+    this.assertStartActive(projectId, operation);
+
+    const sandboxed = await wrapGeneratedProjectCommand(
+      projectPath,
+      npmCommand,
+      ['run', 'dev', '--', '--port', String(effectivePort)],
+    );
+    const child = spawn(
+      sandboxed.command,
+      sandboxed.args,
+      {
+        cwd: projectPath,
+        env: buildPreviewCommandEnv(projectPath, env),
+        detached: process.platform !== 'win32',
+        shell: process.platform === 'win32',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }
+    );
+
+    previewProcess.process = child;
+
+    child.stdout?.on('data', (chunk) => {
+      log(chunk);
+    });
+
+    child.stderr?.on('data', (chunk) => {
+      log(chunk);
+    });
+
+    child.on('exit', (code, signal) => {
+      previewProcess.status = code === 0 ? 'stopped' : 'error';
+      void Promise.all([
+        closePreviewNetworkProxy(previewProcess.networkProxy),
+        closePreviewNetworkProxy(previewProcess.marketProxy),
+      ]);
+      if (this.processes.get(projectId) === previewProcess) {
+        this.processes.delete(projectId);
+        updateProject(projectId, {
+          previewUrl: null,
+          previewPort: null,
+        }).catch((error) => {
+          console.error('[PreviewManager] Failed to reset project preview:', error);
+        });
+        updateProjectStatus(projectId, 'idle').catch((error) => {
+          console.error('[PreviewManager] Failed to reset project status:', error);
+        });
+      }
+      log(
+        Buffer.from(
+          `Preview process exited (code: ${code ?? 'null'}, signal: ${
+            signal ?? 'null'
+          })`
+        )
+      );
+    });
+
+    child.on('error', (error) => {
+      previewProcess.status = 'error';
+      void Promise.all([
+        closePreviewNetworkProxy(previewProcess.networkProxy),
+        closePreviewNetworkProxy(previewProcess.marketProxy),
+      ]);
+      log(Buffer.from(`Preview process failed: ${error.message}`));
+    });
+
+    await updateProject(projectId, {
+      // Do not expose a URL before the HTTP readiness probe succeeds. An
+      // iframe mounted during this window can cache a connection-error page
+      // even though the same URL becomes healthy moments later.
+      previewUrl: null,
+      previewPort: null,
+      status: 'idle',
+    });
+    this.assertStartActive(projectId, operation);
+
+    const ready = await waitForPreviewReady(
+      previewProcess.url,
+      log,
+      PREVIEW_CONFIG.STARTUP_TIMEOUT,
+      PREVIEW_CONFIG.HEALTH_CHECK_INTERVAL,
+      3_000,
+      () =>
+        operation.cancelled ||
+        this.processes.get(projectId) !== previewProcess ||
+        previewProcess.status === 'error' ||
+        previewProcess.status === 'stopped'
+    );
+    this.assertStartActive(projectId, operation);
+    if (ready) {
+      previewProcess.status = 'running';
+      await updateProject(projectId, {
+        previewUrl: previewProcess.url,
+        previewPort: previewProcess.port,
+        status: 'running',
+      });
+      this.assertStartActive(projectId, operation);
+    } else {
+      previewProcess.status = 'error';
+      await terminatePreviewProcess(previewProcess);
+      this.processes.delete(projectId);
+      await updateProject(projectId, {
+        previewUrl: null,
+        previewPort: null,
+      });
+      await updateProjectStatus(projectId, 'idle');
+      throw new Error(`Preview server did not become ready within ${PREVIEW_CONFIG.STARTUP_TIMEOUT}ms.`);
+    }
+
+    return this.toInfo(previewProcess);
+  }
+
+  public stop(projectId: string): Promise<PreviewInfo> {
+    return this.queueShutdown(projectId, () => this.stopInternal(projectId));
+  }
+
+  private async stopInternal(projectId: string): Promise<PreviewInfo> {
+    const processInfo = this.processes.get(projectId);
+    if (!processInfo) {
+      const project = await getProjectById(projectId);
+      const previewPort = project?.previewPort ?? null;
+      const projectPath = project ? resolvePreviewProjectPath(projectId, project.repoPath) : null;
+      if (project) {
+        await updateProject(projectId, {
+          previewUrl: null,
+          previewPort: null,
+        });
+        await updateProjectStatus(projectId, 'idle');
+      }
+      if (previewPort) {
+        await terminatePortListeners(previewPort, projectPath);
+      }
+      return {
+        port: null,
+        url: null,
+        status: 'stopped',
+        logs: [],
+      };
+    }
+
+    try {
+      await terminatePreviewProcess(processInfo);
+    } catch (error) {
+      console.error('[PreviewManager] Failed to stop preview process:', error);
+    }
+
+    this.processes.delete(projectId);
+    await updateProject(projectId, {
+      previewUrl: null,
+      previewPort: null,
+    });
+    await updateProjectStatus(projectId, 'idle');
+
+    return {
+      port: null,
+      url: null,
+      status: 'stopped',
+      logs: processInfo.logs,
+    };
+  }
+
+  public getStatus(projectId: string): PreviewInfo {
+    const processInfo = this.processes.get(projectId);
+    if (!processInfo) {
+      return {
+        port: null,
+        url: null,
+        status: 'stopped',
+        logs: [],
+      };
+    }
+    return this.toInfo(processInfo);
+  }
+
+  /**
+   * Reconcile process-local ownership with the durable preview address.
+   *
+   * In worker dispatch mode the generated process and TCP proxy live in the
+   * Generation Worker, while status APIs run in the Web process. The Web
+   * process must not mistake its empty in-memory map for a stopped preview.
+   * Only an exact loopback URL inside the configured preview range is probed.
+   */
+  public async getReconciledStatus(
+    projectId: string,
+    persistedUrl: string | null | undefined,
+    persistedPort: number | null | undefined,
+  ): Promise<PreviewInfo> {
+    const local = this.getStatus(projectId);
+    if (local.status === 'running' || local.status === 'starting') {
+      return local;
+    }
+    const target = persistedPreviewTarget(persistedUrl, persistedPort);
+    if (!target || !(await probePersistedPreview(target.url))) {
+      return local;
+    }
+    return {
+      port: target.port,
+      url: target.url,
+      status: 'running',
+      logs: local.logs,
+    };
+  }
+
+  public getLogs(projectId: string): string[] {
+    const processInfo = this.processes.get(projectId);
+    return processInfo ? [...processInfo.logs] : [];
+  }
+
+  private toInfo(processInfo: PreviewProcess): PreviewInfo {
+    return {
+      port: processInfo.port,
+      url: processInfo.url,
+      status: processInfo.status,
+      logs: [...processInfo.logs],
+      pid: processInfo.process?.pid,
+    };
+  }
+}
+
+const globalPreviewManager = globalThis as unknown as {
+  __claudable_preview_manager__?: PreviewManager;
+};
+
+// Next.js development HMR preserves the global singleton while replacing this
+// module's class definition. Refresh its prototype so newly added coordination
+// methods become available without discarding tracked preview processes.
+if (
+  globalPreviewManager.__claudable_preview_manager__ &&
+  Object.getPrototypeOf(globalPreviewManager.__claudable_preview_manager__) !==
+    PreviewManager.prototype
+) {
+  Object.setPrototypeOf(
+    globalPreviewManager.__claudable_preview_manager__,
+    PreviewManager.prototype,
+  );
+}
+
+export const previewManager: PreviewManager =
+  globalPreviewManager.__claudable_preview_manager__ ??
+  (globalPreviewManager.__claudable_preview_manager__ = new PreviewManager());

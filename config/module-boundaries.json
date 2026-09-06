@@ -1,0 +1,522 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "shared-kernel",
+      "name": "共享内核",
+      "summary": "跨模块稳定类型、配置、工具函数和无业务状态的基础能力。",
+      "owner": "platform",
+      "paths": [
+        "src/types/**",
+        "src/lib/config/**",
+        "src/lib/utils.ts",
+        "src/lib/runtime-degradation.ts"
+      ],
+      "dependsOn": [],
+      "publicSurface": [
+        "@/types/shared",
+        "@/types/client",
+        "@/types/server",
+        "@/lib/utils",
+        "@/lib/config/constants"
+      ]
+    },
+    {
+      "id": "ui-kit",
+      "name": "通用 UI 组件",
+      "summary": "按钮、输入、弹窗、选择器等无领域知识的基础 UI。",
+      "owner": "frontend-platform",
+      "paths": [
+        "src/components/ui/**"
+      ],
+      "dependsOn": [
+        "shared-kernel"
+      ],
+      "publicSurface": [
+        "@/components/ui/button",
+        "@/components/ui/input",
+        "@/components/ui/select"
+      ]
+    },
+    {
+      "id": "platform-navigation-ui",
+      "name": "平台导航 UI",
+      "summary": "跨业务页面复用的页头、平台切换、子导航与路由加载状态。",
+      "owner": "frontend-platform",
+      "paths": [
+        "src/components/layout/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "ui-kit"
+      ],
+      "publicSurface": [
+        "@/components/layout/PageHeader",
+        "@/components/layout/PlatformSwitcher",
+        "@/components/layout/SubNav",
+        "@/components/layout/PlatformRouteLoading"
+      ]
+    },
+    {
+      "id": "product-shell",
+      "name": "产品壳层",
+      "summary": "首页、导航、布局、主题和平台入口编排。",
+      "owner": "frontend-platform",
+      "paths": [
+        "src/app/page.tsx",
+        "src/app/layout.tsx",
+        "src/app/globals.css",
+        "src/app/error.tsx",
+        "src/app/global-error.tsx",
+        "src/app/not-found.tsx",
+        "src/components/theme/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "ui-kit",
+        "platform-navigation-ui",
+        "platform-core",
+        "quant-core",
+        "finance-domain"
+      ],
+      "publicSurface": [
+        "@/components/layout/PageHeader",
+        "@/components/layout/SubNav"
+      ]
+    },
+    {
+      "id": "platform-core",
+      "name": "平台核心",
+      "summary": "项目、设置、Token、服务目录、GitHub/Vercel 集成和工作空间基础状态。",
+      "owner": "platform",
+      "paths": [
+        "src/lib/platform/**",
+        "src/lib/services/project-services.ts",
+        "src/lib/services/settings.ts",
+        "src/lib/services/tokens.ts",
+        "src/lib/services/git.ts",
+        "src/lib/services/supabase.ts",
+        "src/app/api/settings/**",
+        "src/app/api/tokens/**",
+        "src/app/api/infrastructure/**"
+      ],
+      "dependsOn": [
+        "shared-kernel"
+      ],
+      "publicSurface": [
+        "@/lib/platform/service-catalog",
+        "@/lib/platform/memory",
+        "@/lib/services/settings"
+      ],
+      "migrationNotes": [
+        "金融项目创建服务已归入 quant-core；后续新增通用 ProjectCatalog，不把默认 Domain Pack 写回平台核心。"
+      ]
+    },
+    {
+      "id": "agent-runtime",
+      "name": "Agent 运行时",
+      "summary": "开源 PI Agent 运行内核、多 Provider 适配、类型化工具、流式消息和技能编译。",
+      "owner": "agent-platform",
+      "paths": [
+        "src/lib/services/agent-runtime.ts",
+        "src/lib/services/message.ts",
+        "src/lib/services/stream.ts",
+        "src/lib/services/user-requests.ts",
+        "src/lib/agent/**",
+        "src/lib/services/pi-agent-candidate.ts",
+        "src/lib/services/pi-agent-checkpoint*.ts",
+        "src/lib/services/pi-agent-execution-error*.ts",
+        "src/lib/services/pi-agent-generation-*.ts",
+        "src/lib/services/pi-agent-worker-*.ts",
+        "src/lib/services/pi-agent-mission-store*.ts",
+        "src/lib/services/pi-agent-mission-verification-session*.ts",
+        "src/lib/services/pi-agent-provenance*.ts",
+        "src/lib/services/pi-agent-recovery*.ts",
+        "src/lib/services/pi-agent-run-store*.ts",
+        "src/lib/services/pi-agent-turn-metrics*.ts"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core"
+      ],
+      "publicSurface": [
+        "@/lib/services/agent-runtime",
+        "@/lib/agent/core",
+        "@/lib/agent/providers/deepseek",
+        "@/lib/agent/providers/openai-compatible",
+        "@/lib/agent/tools",
+        "@/lib/agent/skills"
+      ]
+    },
+    {
+      "id": "data-agent-core",
+      "name": "通用 Data Agent",
+      "summary": "LLM-first 数据任务合同、Agent Profile、Domain Pack、Connector 与数据交付编排边界。",
+      "owner": "data-agent-platform",
+      "paths": [
+        "src/lib/data-agent/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "agent-runtime"
+      ],
+      "publicSurface": [
+        "@/lib/data-agent"
+      ]
+    },
+    {
+      "id": "finance-domain",
+      "name": "金融量化 Domain Pack",
+      "summary": "金融能力目录、证券 Resolver、行情工具、金融 Mission 合同与金融可视化配置。",
+      "owner": "quant-platform",
+      "paths": [
+        "src/lib/domains/finance/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "agent-runtime",
+        "data-agent-core",
+        "platform-core"
+      ],
+      "publicSurface": [
+        "@/lib/domains/finance"
+      ]
+    },
+    {
+      "id": "quant-core",
+      "name": "量化核心",
+      "summary": "量化能力、策略、数据预取、工作空间证据、验证和技能治理。",
+      "owner": "quant-platform",
+      "paths": [
+        "src/lib/quant/**",
+        "src/lib/services/project.ts",
+        "src/lib/services/env.ts",
+        "src/lib/services/file-browser.ts",
+        "src/lib/services/github.ts",
+        "src/lib/services/preview.ts",
+        "src/lib/services/service-integration.ts",
+        "src/lib/services/vercel.ts",
+        "src/lib/services/pi-agent-mission-control.ts",
+        "src/lib/services/pi-agent-prompts*.ts",
+        "src/lib/services/cli/**",
+        "src/app/api/quant/**",
+        "src/app/api/chat/**",
+        "src/app/api/projects/**",
+        "src/app/[project_id]/**",
+        "src/app/api/research/**",
+        "src/app/strategy-platform/**",
+        "src/app/research-reports/**",
+        "src/app/business-knowledge/**",
+        "src/components/quant/skills-*.tsx",
+        "src/components/quant/workspace-*.tsx",
+        "src/components/quant/console-primitives.tsx",
+        "src/components/chat/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core",
+        "agent-runtime",
+        "data-agent-core",
+        "finance-domain",
+        "ui-kit",
+        "platform-navigation-ui"
+      ],
+      "publicSurface": [
+        "@/lib/domains/finance",
+        "@/lib/services/project",
+        "@/lib/services/cli/pi-agent",
+        "@/lib/quant/research-reports",
+        "@/lib/quant/strategies",
+        "@/lib/domains/finance",
+        "@/lib/quant/validation"
+      ],
+      "migrationNotes": [
+        "strategies.ts 已拆出 strategy-types / strategy-catalog / strategy-scan-repository / strategy-readiness / strategy-mappers；StrategyPlatformClient 已拆出 helpers、FinancialKnowledgeView、UniverseView、StockKlineDetail、SectorCapitalFlowView、FactorCatalogView、FoundationView，后续继续拆 dialogs、hooks、market API client 和 dashboard service。"
+      ]
+    },
+    {
+      "id": "eval-core",
+      "name": "评测核心",
+      "summary": "评测集、用例、运行历史、评测器、报告和质量门。",
+      "owner": "eval-platform",
+      "paths": [
+        "src/lib/eval/**",
+        "src/app/eval-platform/**",
+        "src/app/api/evals/**",
+        "src/components/quant/eval-*.tsx",
+        "scripts/evals/**",
+        "scripts/checks/check-eval-*.js",
+        "scripts/checks/check-quant-benchmark-coverage.js",
+        "docs/evals-guide.md"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core",
+        "quant-core",
+        "agent-runtime",
+        "platform-navigation-ui",
+        "ui-kit"
+      ],
+      "publicSurface": [
+        "@/lib/eval",
+        "@/components/quant/eval-console-primitives"
+      ],
+      "migrationNotes": [
+        "eval-core 已迁出 quant 目录；cases/sets、paths、runtime-utils 和 runtime-mappers 已拆分。runtime.ts 后续继续拆 runs / queue / repairs / scheduling。"
+      ]
+    },
+    {
+      "id": "ops-core",
+      "name": "运维核心",
+      "summary": "Docker、服务健康、基础设施、工作空间健康和可观测性入口。",
+      "owner": "ops-platform",
+      "paths": [
+        "src/lib/ops/**",
+        "src/app/ops-platform/**",
+        "src/app/api/ops/**",
+        "src/app/api/infrastructure/health/**",
+        "src/app/api/observability/**",
+        "src/components/quant/ops-*.tsx",
+        "deploy/observability/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core",
+        "quant-core",
+        "platform-navigation-ui",
+        "ui-kit"
+      ],
+      "publicSurface": [
+        "@/lib/ops/ops-platform",
+        "@/lib/ops/infrastructure-health"
+      ]
+    },
+    {
+      "id": "market-data-backend",
+      "name": "Python 市场数据后端",
+      "summary": "FastAPI、行情 provider、TimescaleDB 事实库、Redis 缓存、ClickHouse 分析层和回测。",
+      "owner": "backend-platform",
+      "paths": [
+        "services/market-data/**"
+      ],
+      "dependsOn": [],
+      "publicSurface": [
+        "services/market-data/src/quantpilot_market_data/routers",
+        "services/market-data/src/quantpilot_market_data/services",
+        "services/market-data/src/quantpilot_market_data/repositories"
+      ],
+      "migrationNotes": [
+        "旧 database.py 兼容门面已删除；连接与转换工具只进入 database_core.py，业务 SQL 只进入对应 repository。"
+      ]
+    }
+  ],
+  "rules": {
+    "forbiddenImports": [
+      {
+        "from": "src/lib/**",
+        "to": "src/app/**",
+        "reason": "领域和服务层不能反向依赖 Next.js 页面。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/app/**",
+        "reason": "通用 UI 不能依赖页面层。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/lib/quant/**",
+        "reason": "通用 UI 不能携带量化领域知识。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/lib/services/**",
+        "reason": "通用 UI 不能直接依赖运行时服务。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/lib/ops/**",
+        "reason": "通用 UI 不能直接依赖运维领域。"
+      },
+      {
+        "from": "src/lib/agent/**",
+        "to": "src/lib/quant/**",
+        "reason": "PI Agent Framework 不能依赖金融应用核心。"
+      },
+      {
+        "from": "src/lib/agent/**",
+        "to": "src/lib/domains/**",
+        "reason": "PI Agent Framework 不能依赖业务 Domain Pack。"
+      },
+      {
+        "from": "src/lib/agent/**",
+        "to": "src/lib/data-agent/**",
+        "reason": "PI Agent Framework 是 Data Agent 的下层运行时，不能反向依赖。"
+      },
+      {
+        "from": "src/lib/data-agent/**",
+        "to": "src/lib/quant/**",
+        "reason": "通用 Data Agent 不能依赖金融应用实现。"
+      },
+      {
+        "from": "src/lib/data-agent/**",
+        "to": "src/lib/domains/**",
+        "reason": "通用 Data Agent 只能消费注册合同，不能反向依赖具体 Domain Pack。"
+      },
+      {
+        "from": "src/lib/domains/finance/**",
+        "to": "src/lib/quant/**",
+        "reason": "Finance Domain Pack 不能反向依赖 QuantPilot 产品编排层。"
+      },
+      {
+        "from": "services/market-data/**",
+        "to": "src/**",
+        "reason": "Python 后端不能依赖 Next.js 前端源码。"
+      }
+    ],
+    "removedPaths": [
+      {
+        "path": "src/app/api/chat/**/active-session/**",
+        "reason": "运行身份只由 Mission 和 AgentRun 管理，不恢复旧 active-session API。"
+      },
+      {
+        "path": "src/app/api/chat/**/sessions/**/status/**",
+        "reason": "运行状态只从 generation/status 和 Mission 存储读取。"
+      },
+      {
+        "path": "src/lib/services/chat-sessions.*",
+        "reason": "旧聊天 session 服务已经被 durable Mission 生命周期替代。"
+      },
+      {
+        "path": "src/app/api/chat/**/cli-preference/**",
+        "reason": "模型选择只通过项目当前合同持久化，不恢复平行偏好 API。"
+      },
+      {
+        "path": "services/market-data/src/quantpilot_market_data/database.py",
+        "reason": "数据库连接与业务 SQL 已拆入 database_core 和 repositories。"
+      }
+    ],
+    "forbiddenContent": [
+      {
+        "path": "prisma/schema.prisma",
+        "pattern": "@default\\(\\\"legacy:unknown\\\"\\)|active_claude_session_id",
+        "reason": "运行记录必须显式携带 canonical workspace SHA-256 身份。"
+      },
+      {
+        "path": "src/app/api/chat/[project_id]/act/route.ts",
+        "pattern": "body\\.(request_id|selected_model|cliPreference|quantCapabilityId|quantCapabilitySource|quant_capability_id|quant_capability_source|is_initial_prompt)|base64_data",
+        "reason": "Act ingress 只接受 chat-act-contract.ts 定义的通用 Data Agent camelCase 当前契约。"
+      },
+      {
+        "path": "src/app/api/projects/route.ts",
+        "pattern": "body\\.(project_id|initial_prompt|selected_model|quantCapabilityId|quantCapabilitySource|quant_capability_id|quant_capability_source|capability_source)",
+        "reason": "项目创建只接受通用 capabilityId/capabilitySelectionSource 当前合同。"
+      },
+      {
+        "path": "src/lib/server/image-assets.ts",
+        "pattern": "temporary compatibility shape|outside this project",
+        "reason": "图片资产只接受严格 assets/<filename> 工作空间相对路径。"
+      },
+      {
+        "path": "src/lib/services/env.ts",
+        "pattern": "value_preview|has_value|var_type|is_secret",
+        "reason": "Secret API 和服务投影只维护单一 camelCase 当前合同。"
+      },
+      {
+        "path": "src/lib/agent/tools/structured-read.ts",
+        "pattern": "finance-query|finance-run|dashboard-data|final_dashboard|requestedSymbol|ARTIFACT_SYMBOL",
+        "reason": "PI Agent 结构化读取内核必须由 Domain Pack 注入业务 artifact、alias 与 identity 规则。"
+      },
+      {
+        "path": "src/lib/agent/skills/compiler.ts",
+        "pattern": "QuantPilotImage|mcp__MiniMax__understand_image",
+        "reason": "PI Agent Skill 编译器不保留具体产品或 Provider 的旧工具别名兼容。"
+      }
+    ],
+    "largeFileBudgets": [
+      {
+        "path": "src/lib/utils/scaffold.ts",
+        "maxLines": 720,
+        "targetLines": 650,
+        "nextAction": "保持 workspace writer 和模板选择职责；基础/专用模板必须留在独立模板模块，不再回填大段字符串。"
+      },
+      {
+        "path": "src/lib/utils/scaffold-base-templates.ts",
+        "maxLines": 2600,
+        "targetLines": 2300,
+        "nextAction": "继续提取模板内共享数据读取与格式化 helper，所有改动必须通过 check:scaffold-templates。"
+      },
+      {
+        "path": "src/lib/utils/scaffold-dashboard-templates.ts",
+        "maxLines": 2575,
+        "targetLines": 2300,
+        "nextAction": "压缩 comparison/selection/holding 模板重复 helper，同时保持每类模板独立构建。"
+      },
+      {
+        "path": "src/app/[project_id]/chat/page.tsx",
+        "maxLines": 4100,
+        "targetLines": 1800,
+        "nextAction": "把 generation controller、preview reconciliation、message transport 和页面布局拆入独立 hooks/components，页面只保留组合。"
+      },
+      {
+        "path": "src/app/api/chat/[project_id]/act/route.ts",
+        "maxLines": 900,
+        "targetLines": 800,
+        "nextAction": "保持 route 只承担 HTTP 接纳和 dispatch；金融规划、取数、Mission 与执行逻辑必须留在应用服务和 Domain handler。"
+      },
+      {
+        "path": "src/components/chat/ChatLog.tsx",
+        "maxLines": 1400,
+        "targetLines": 900,
+        "nextAction": "保持状态控制器、结构化消息协议、工具视图和 Markdown renderer 分离；禁止恢复纯文本工具占位符推断。"
+      },
+      {
+        "path": "src/lib/agent/pi/run-engine.ts",
+        "maxLines": 2100,
+        "targetLines": 1600,
+        "nextAction": "保持上游 PI loop 单一入口，并按 adapter、tool governance、event projection 和 terminalization 拆分宿主逻辑。"
+      },
+      {
+        "path": "src/lib/quant/validation.ts",
+        "maxLines": 3140,
+        "targetLines": 1600,
+        "nextAction": "按 artifact、data contract、visual、repair 和 acceptance pipeline 拆分，保留单一 validation facade。"
+      },
+      {
+        "path": "src/lib/quant/data-prefetch.ts",
+        "maxLines": 2040,
+        "targetLines": 1200,
+        "nextAction": "将通用数据计划、金融 endpoint adapter、证据落盘和错误归一化拆开。"
+      },
+      {
+        "path": "services/market-data/src/quantpilot_market_data/models.py",
+        "maxLines": 1625,
+        "targetLines": 900,
+        "nextAction": "按 quotes、research、ingestion、financials、analytics 分拆 Pydantic contracts，并由 models package 统一导出。"
+      },
+      {
+        "path": "services/market-data/src/quantpilot_market_data/api.py",
+        "maxLines": 1540,
+        "targetLines": 700,
+        "nextAction": "收敛为 app factory 和 router 注册；业务 endpoint 必须进入 routers/，use case 必须进入 services/。"
+      },
+      {
+        "path": "src/app/strategy-platform/StrategyPlatformClient.tsx",
+        "maxLines": 1100,
+        "targetLines": 900,
+        "nextAction": "已拆 helpers、Knowledge、Universe、Kline、Sector、Factor、Foundation 视图；继续拆 dialogs、hooks 和 tables。"
+      },
+      {
+        "path": "src/lib/quant/strategies.ts",
+        "maxLines": 1170,
+        "targetLines": 900,
+        "nextAction": "已拆 catalog/types/scan repository/readiness/response mappers；继续拆 market API client 和 dashboard service。"
+      },
+      {
+        "path": "src/lib/eval/runtime.ts",
+        "maxLines": 1080,
+        "targetLines": 850,
+        "nextAction": "已拆 cases/sets、paths、runtime-utils 和 report/database mappers；继续拆 runs / queue / repairs / scheduling，保留 src/lib/eval 作为唯一公开入口。"
+      }
+    ]
+  }
+}

@@ -1,0 +1,412 @@
+import { describe, expect, it } from 'vitest';
+
+import { createPiAgentOperationId } from '../core/operation-id';
+import type { PiAgentEvent, PiAgentToolCall } from '../types';
+import { auditUtf8, projectPiAgentEvent, sha256 } from './event-projector';
+
+const SECRET = 'secret-DO-NOT-PERSIST-7c440d';
+
+const base = {
+  runId: 'run_projector',
+  sequence: 1,
+  eventId: 'run_projector:1',
+  timestamp: 1_720_000_000_000,
+};
+
+function serialized(event: PiAgentEvent): string {
+  return JSON.stringify(projectPiAgentEvent(event));
+}
+
+function toolCall(argumentsValue = JSON.stringify({ path: `/private/${SECRET}.tsx` })):
+  PiAgentToolCall {
+  return { id: 'call-1', name: 'write_file', arguments: argumentsValue };
+}
+
+function toolEventBase(call = toolCall()) {
+  return {
+    ...base,
+    turn: 2,
+    toolCall: call,
+    operationId: createPiAgentOperationId(base.runId, 2, call),
+    effect: 'workspace_write' as const,
+    idempotency: 'reconcile_required' as const,
+  };
+}
+
+describe('PI Agent durable event projector', () => {
+  it('persists only the explicit public approval projection and input hashes', () => {
+    const projected = projectPiAgentEvent({
+      ...base,
+      type: 'tool_approval_requested',
+      turn: 2,
+      request: {
+        approvalId: 'approval_abcdefghijklmnop',
+        runId: base.runId,
+        turn: 2,
+        toolCallId: `private-call-${SECRET}`,
+        toolName: 'publish_report',
+        effect: 'external_write',
+        idempotency: 'operation_key',
+        inputSha256: 'a'.repeat(64),
+        publicInput: { channel: 'reviewed' },
+        reason: 'Publishing is externally visible.',
+        allowedDecisions: ['approve', 'edit', 'reject'],
+        requestedAt: 1_000,
+        expiresAt: 61_000,
+      },
+    });
+
+    expect(projected).toMatchObject({
+      approvalId: 'approval_abcdefghijklmnop',
+      toolName: 'publish_report',
+      publicInput: { channel: 'reviewed' },
+      inputSha256: 'a'.repeat(64),
+      allowedDecisions: ['approve', 'edit', 'reject'],
+    });
+    expect(JSON.stringify(projected)).not.toContain(SECRET);
+    expect(projected).not.toHaveProperty('toolCallId');
+  });
+
+  it('provides exact UTF-8 byte and SHA-256 audit helpers', () => {
+    expect(auditUtf8('量化 A')).toEqual({
+      utf8Bytes: 8,
+      sha256: sha256('量化 A'),
+    });
+    expect(sha256('abc')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    );
+  });
+
+  it('drops high-volume model deltas instead of making them durable', () => {
+    expect(
+      projectPiAgentEvent({ ...base, type: 'text_delta', turn: 1, delta: SECRET })
+    ).toBeNull();
+    expect(
+      projectPiAgentEvent({
+        ...base,
+        type: 'tool_call_delta',
+        turn: 1,
+        index: 0,
+        argumentsDelta: SECRET,
+      })
+    ).toBeNull();
+  });
+
+  it('stores assistant text and tool identities only as audits', () => {
+    const event = {
+      ...base,
+      type: 'assistant_message',
+      turn: 1,
+      finishReason: 'tool_calls',
+      message: {
+        role: 'assistant',
+        content: `Visible but non-durable ${SECRET}`,
+        reasoningContent: `hidden reasoning ${SECRET}`,
+        toolCalls: [
+          {
+            id: 'call-1',
+            name: 'write_file',
+            arguments: JSON.stringify({ token: SECRET }),
+          },
+        ],
+      },
+    } as unknown as PiAgentEvent;
+
+    const projection = projectPiAgentEvent(event);
+    expect(projection).toMatchObject({
+      finishReason: 'tool_calls',
+      toolCallCount: 1,
+      textAudit: auditUtf8(`Visible but non-durable ${SECRET}`),
+    });
+    expect(serialized(event)).not.toContain(SECRET);
+    expect(serialized(event)).not.toContain('reasoningContent');
+    expect(serialized(event)).not.toContain('arguments');
+  });
+
+  it('hashes non-canonical progress fingerprints before they cross the durable boundary', () => {
+    const event: PiAgentEvent = {
+      ...base,
+      type: 'progress_evaluated',
+      turn: 1,
+      progressOracle: {
+        version: 1,
+        turnsObserved: 1,
+        consecutiveNoProgressTurns: 1,
+        seenTrustedFactFingerprints: [SECRET],
+        seenWorkspaceFingerprints: [SECRET],
+        lastWorkspaceFingerprint: SECRET,
+        lastFailedCheckCount: null,
+        seenToolObservationFingerprints: [SECRET],
+      },
+      decision: {
+        progressed: false,
+        stalled: true,
+        consecutiveNoProgressTurns: 1,
+        progressSignals: [],
+        stallSignals: ['no_verifiable_progress'],
+      },
+    };
+
+    expect(serialized(event)).not.toContain(SECRET);
+    expect(projectPiAgentEvent(event)).toMatchObject({
+      progressOracle: {
+        seenTrustedFactFingerprints: [sha256(SECRET)],
+        lastWorkspaceFingerprint: sha256(SECRET),
+      },
+    });
+  });
+
+  it('projects tool input, target, result data and content as non-reversible audits', () => {
+    const started: PiAgentEvent = {
+      ...toolEventBase(),
+      type: 'tool_started',
+    };
+    const completed = {
+      ...toolEventBase(),
+      type: 'tool_completed',
+      terminal: false,
+      durationMs: 9,
+      result: {
+        ok: true,
+        data: { nested: { value: SECRET }, rows: [SECRET] },
+        content: `raw content ${SECRET}`,
+        metadata: { privateValue: SECRET },
+        reasoning: SECRET,
+      },
+    } as unknown as PiAgentEvent;
+
+    const startedProjection = projectPiAgentEvent(started);
+    expect(startedProjection).toMatchObject({
+      operationId: toolEventBase().operationId,
+      toolName: 'write_file',
+      inputAudit: auditUtf8(toolCall().arguments),
+      target: {
+        field: 'path',
+        valueAudit: auditUtf8(`/private/${SECRET}.tsx`),
+      },
+    });
+    expect(serialized(started)).not.toContain(SECRET);
+    expect(serialized(completed)).not.toContain(SECRET);
+    expect(serialized(completed)).not.toContain('raw content');
+    expect(projectPiAgentEvent(completed)).toMatchObject({
+      resultAudit: {
+        ok: true,
+        dataAudit: { kind: 'object' },
+        textAudit: auditUtf8(`raw content ${SECRET}`),
+      },
+    });
+  });
+
+  it('drops failure details, causes, messages and unrestricted content', () => {
+    const failed = {
+      ...toolEventBase(),
+      type: 'tool_failed',
+      durationMs: 11,
+      result: {
+        ok: false,
+        error: {
+          code: 'WRITE_FAILED',
+          message: `provider message ${SECRET}`,
+          details: { diagnostic: SECRET },
+          cause: new Error(SECRET),
+        },
+        content: `failure content ${SECRET}`,
+        metadata: { privateValue: SECRET },
+      },
+      cause: new Error(SECRET),
+    } as unknown as PiAgentEvent;
+    const finished = {
+      ...base,
+      type: 'run_finished',
+      result: {
+        status: 'failed',
+        turns: 2,
+        usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+        startedAt: 100,
+        finishedAt: 200,
+        error: {
+          code: 'RUN_FAILED',
+          message: `do not retain ${SECRET}`,
+          cause: new Error(SECRET),
+        },
+      },
+    } as unknown as PiAgentEvent;
+
+    const failedProjection = projectPiAgentEvent(failed);
+    expect(failedProjection).toMatchObject({
+      errorCode: 'WRITE_FAILED',
+      resultAudit: { ok: false, errorCode: 'WRITE_FAILED' },
+    });
+    expect(projectPiAgentEvent(finished)).toMatchObject({ errorCode: 'RUN_FAILED' });
+
+    for (const event of [failed, finished]) {
+      const output = serialized(event);
+      expect(output).not.toContain(SECRET);
+      expect(output).not.toContain('cause');
+      expect(output).not.toContain('provider message');
+      expect(output).not.toContain('do not retain');
+    }
+  });
+
+  it('uses the framework operation ID and derives a valid fallback for malformed input', () => {
+    const call = toolCall('{}');
+    const expected = createPiAgentOperationId(base.runId, 2, call);
+    const valid: PiAgentEvent = {
+      ...toolEventBase(call),
+      type: 'tool_started',
+    };
+    const malformed = {
+      ...valid,
+      operationId: `model-controlled-${SECRET}`,
+    } as PiAgentEvent;
+
+    expect(projectPiAgentEvent(valid)).toMatchObject({ operationId: expected });
+    expect(projectPiAgentEvent(malformed)).toMatchObject({ operationId: expected });
+    expect(serialized(malformed)).not.toContain(SECRET);
+  });
+
+  it('projects every low-volume lifecycle event through the public JSON policy', () => {
+    const events: PiAgentEvent[] = [
+      {
+        ...base,
+        type: 'run_started',
+        model: 'test-model',
+        provider: 'test-provider',
+        limits: { maxTurns: 3, maxTokens: 100, timeoutMs: 1_000 },
+      },
+      { ...base, type: 'turn_started', turn: 1 },
+      {
+        ...base,
+        type: 'provider_retry',
+        turn: 1,
+        attempt: 2,
+        maxAttempts: 3,
+        delayMs: 50,
+        code: 'NETWORK_ERROR',
+        status: 503,
+      },
+      {
+        ...base,
+        type: 'model_started',
+        turn: 1,
+        responseId: `provider-id-${SECRET}`,
+        model: 'test-model',
+      },
+      {
+        ...base,
+        type: 'usage',
+        turn: 1,
+        usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+        totalUsage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+      },
+      {
+        ...base,
+        type: 'context_compacted',
+        turn: 2,
+        originalInputTokens: 200,
+        preparedInputTokens: 100,
+        inputBudgetTokens: 120,
+        removedReasoningMessages: 1,
+        summarizedToolResults: 2,
+        droppedGroups: 3,
+        contextCapsule: {
+          applied: true,
+          version: 1,
+          phase: 'writing',
+          sha256: 'd'.repeat(64),
+          serializedUtf8Bytes: 768,
+          coveredToolCalls: 4,
+          targetReferences: 2,
+          operationTombstones: 4,
+          rolledUpOperationTombstones: 0,
+          frameworkOutcomeTombstones: 1,
+          artifactReceipts: 1,
+          readReceipts: 0,
+          successfulWrites: 1,
+          remainingFailures: 0,
+          invalidatedReadReceipts: 2,
+          replacedToolCallClusters: 2,
+          replacedMessages: 4,
+          replacedPreviousCapsule: false,
+        },
+      },
+      {
+        ...base,
+        type: 'prompt_prepared',
+        turn: 2,
+        systemSha256: 'a'.repeat(64),
+        messagesSha256: 'b'.repeat(64),
+        toolsSha256: 'c'.repeat(64),
+        messageCount: 7,
+        toolCount: 3,
+        requestUtf8Bytes: 4096,
+        longestCommonPrefixMessages: 5,
+        longestCommonPrefixUtf8Bytes: 2048,
+        change: 'request_local_suffix_rotated',
+        toolSetChanged: true,
+        compactionApplied: false,
+        requestLocalControlSuffix: false,
+      },
+      {
+        ...base,
+        type: 'convergence_prompt',
+        turn: 2,
+        reasons: ['post_write_read_loop', 'turn_limit'],
+        remainingTurns: 4,
+        remainingToolCalls: 12,
+        successfulWorkspaceWrites: 2,
+        consecutiveReadOnlyTurns: 3,
+      },
+      {
+        ...base,
+        type: 'progress_evaluated',
+        turn: 2,
+        progressOracle: {
+          version: 1,
+          turnsObserved: 2,
+          consecutiveNoProgressTurns: 1,
+          seenTrustedFactFingerprints: ['a'.repeat(64)],
+          seenWorkspaceFingerprints: ['b'.repeat(64)],
+          lastWorkspaceFingerprint: 'b'.repeat(64),
+          lastFailedCheckCount: null,
+          seenToolObservationFingerprints: ['c'.repeat(64)],
+        },
+        decision: {
+          progressed: false,
+          stalled: true,
+          consecutiveNoProgressTurns: 1,
+          progressSignals: [],
+          stallSignals: ['no_verifiable_progress'],
+        },
+      },
+      { ...toolEventBase(toolCall('{}')), type: 'tool_started' },
+      {
+        ...base,
+        type: 'run_finished',
+        result: {
+          status: 'completed',
+          turns: 2,
+          usage: { inputTokens: 2, outputTokens: 3, totalTokens: 5 },
+          startedAt: 100,
+          finishedAt: 200,
+        },
+      },
+    ];
+
+    for (const event of events) {
+      const projection = projectPiAgentEvent(event);
+      expect(projection).not.toBeNull();
+      expect(JSON.stringify(projection)).not.toContain(SECRET);
+    }
+    const compacted = events.find((event) => event.type === 'context_compacted');
+    expect(compacted && projectPiAgentEvent(compacted)).toMatchObject({
+      contextCapsule: {
+        applied: true,
+        phase: 'writing',
+        sha256: 'd'.repeat(64),
+        replacedToolCallClusters: 2,
+        replacedMessages: 4,
+      },
+    });
+  });
+});

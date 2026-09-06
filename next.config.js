@@ -1,0 +1,144 @@
+const isStandaloneBuild = process.env.QUANTPILOT_STANDALONE_BUILD === '1';
+const enableHsts = /^(?:1|true|yes|on)$/i.test(process.env.QUANTPILOT_SECURITY_HSTS || '');
+const projectRoot = __dirname;
+const skipRouteOutputTracing = process.env.QUANTPILOT_SKIP_ROUTE_TRACING !== '0' && !isStandaloneBuild;
+const tracingExcludes = [
+  './.env',
+  './.env.*',
+  './**/.env',
+  './**/.env.*',
+  './**/.npmrc',
+  './**/.netrc',
+  './**/*.key',
+  './**/*.pem',
+  './.git/**',
+  './.next/**',
+  './.turbo/**',
+  './.ruff_cache/**',
+  './data/**',
+  './tmp/**',
+  './services/market-data/.venv/**',
+  './services/**/.venv/**',
+  './services/**/.ruff_cache/**',
+  './coverage/**',
+  './dist/**',
+  './build/**',
+  './out/**',
+  './node_modules/.cache/**',
+];
+const tracePluginIgnores = [
+  '**/.env',
+  '**/.env.*',
+  '**/.npmrc',
+  '**/.netrc',
+  '**/*.key',
+  '**/*.pem',
+  '**/.git/**',
+  '**/.next/**',
+  '**/.turbo/**',
+  '**/.ruff_cache/**',
+  '**/data/**',
+  '**/tmp/**',
+  '**/services/market-data/.venv/**',
+  '**/services/**/.venv/**',
+  '**/services/**/.ruff_cache/**',
+];
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  devIndicators: false,
+  allowedDevOrigins: ['127.0.0.1', 'host.docker.internal'],
+  ...(isStandaloneBuild ? { output: 'standalone' } : {}),
+  // Agent、数据库和本地进程管理只在 Node.js API Route 中运行，构建时保持外部依赖。
+  serverExternalPackages: [
+    '@prisma/client',
+    'prisma',
+    'ws',
+  ],
+  // 关闭 critters 的 CSS 优化，避免构建时缺少可选依赖。
+  experimental: {
+    optimizeCss: false,
+    scrollRestoration: true,
+    webpackMemoryOptimizations: true,
+    webpackBuildWorker: true,
+  },
+  // Next 16 defaults dev mode to Turbopack and errors when a webpack() hook
+  // exists without a turbopack key.
+  turbopack: {},
+  outputFileTracingRoot: projectRoot,
+  // 工作区数据、历史项目、本地缓存和 Git 元数据不属于构建产物，避免 trace 扫全仓库。
+  outputFileTracingExcludes: {
+    '*': tracingExcludes,
+    '/api/**': tracingExcludes,
+  },
+  outputFileTracingIncludes: {
+    '/api/**': ['./.claude/**', './scripts/security/**'],
+  },
+  webpack(config, { isServer }) {
+    if (isServer) {
+      config.plugins = (config.plugins || []).filter((plugin) => {
+        if (plugin?.constructor?.name !== 'TraceEntryPointsPlugin') {
+          return true;
+        }
+        if (skipRouteOutputTracing) {
+          // Next 16 requires proxy.js.nft.json during finalization even for a
+          // non-standalone build. Keep the plugin so it emits the trace files,
+          // but ignore dependencies to preserve the fast non-standalone path.
+          plugin.traceIgnores.push('**/*');
+          return true;
+        }
+        if (Array.isArray(plugin.traceIgnores)) {
+          plugin.traceIgnores.push(...tracePluginIgnores);
+        }
+        return true;
+      });
+    }
+    return config;
+  },
+  // 注入项目根路径，供前端读取当前工作区信息。避免在配置里调用 process.cwd()，
+  // 防止输出追踪误判为需要扫描整个仓库。
+  async redirects() {
+    return [
+      { source: '/observability', destination: '/ops-platform?view=trace', permanent: true },
+      { source: '/capabilities', destination: '/business-knowledge', permanent: true },
+      { source: '/data-platform', destination: '/business-knowledge', permanent: true },
+      { source: '/strategies', destination: '/strategy-platform', permanent: true },
+      { source: '/workspaces', destination: '/ops-platform', permanent: true },
+      { source: '/evals', destination: '/eval-platform', permanent: true },
+      { source: '/evals/runs/:runId', destination: '/eval-platform/runs/:runId', permanent: true },
+    ];
+  },
+  async headers() {
+    const privateNoStore = [
+      { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
+      { key: 'Pragma', value: 'no-cache' },
+    ];
+    const securityHeaders = [
+      { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      ...(enableHsts
+        ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
+        : []),
+    ];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      { source: '/api/admin/:path*', headers: privateNoStore },
+      { source: '/api/account/:path*', headers: privateNoStore },
+      { source: '/api/auth/:path*', headers: privateNoStore },
+      { source: '/admin/:path*', headers: privateNoStore },
+      { source: '/account/:path*', headers: privateNoStore },
+      { source: '/login', headers: privateNoStore },
+    ];
+  },
+  env: {
+    NEXT_PUBLIC_PROJECT_ROOT: process.env.NEXT_PUBLIC_PROJECT_ROOT || '',
+  },
+};
+
+module.exports = nextConfig;

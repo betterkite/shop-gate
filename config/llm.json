@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "defaultProfileId": "local_qwen:qwen3.5-9b-q5km",
+  "profiles": {
+    "deepseek:deepseek-v4-flash": {
+      "provider": "openai",
+      "model": "deepseek:deepseek-v4-flash",
+      "baseUrl": "http://127.0.0.1:38082/v1",
+      "credentialEnv": "MODELPORT_API_KEY",
+      "agent": {
+        "enabled": true
+      },
+      "queryRewrite": {
+        "enabled": true,
+        "timeoutMs": 15000,
+        "maxRetries": 0
+      }
+    },
+    "deepseek-v4-flash": {
+      "provider": "deepseek",
+      "model": "deepseek-v4-flash",
+      "baseUrl": "https://api.deepseek.com",
+      "credentialEnv": "DEEPSEEK_API_KEY",
+      "agent": {
+        "enabled": true
+      },
+      "queryRewrite": {
+        "enabled": true,
+        "timeoutMs": 15000,
+        "maxRetries": 0
+      }
+    },
+    "local_qwen:qwen3.5-9b-q5km": {
+      "provider": "openai",
+      "model": "local_qwen:qwen3.5-9b-q5km",
+      "baseUrl": "http://127.0.0.1:38082/v1",
+      "credentialEnv": "MODELPORT_API_KEY",
+      "agent": {
+        "enabled": true
+      },
+      "queryRewrite": {
+        "enabled": true,
+        "timeoutMs": 15000,
+        "maxRetries": 0
+      }
+    }
+  }
+}

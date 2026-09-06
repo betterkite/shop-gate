@@ -1,0 +1,309 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: AI provider boundary
+        run: npm run check:ai-provider-boundary
+
+      - name: PI Agent Worker runtime
+        run: npm run check:pi-agent-worker-runtime
+
+      - name: Skills integrity
+        run: npm run check:skills
+
+      - name: Documentation links
+        run: npm run check:docs
+
+      - name: GitHub workflow contracts
+        run: npm run check:github-workflows
+
+      - name: Generated artifact policy
+        run: npm run check:generated-artifacts
+
+      - name: Quant guardrails
+        run: npm run check:quant-guardrails
+
+      - name: Backend architecture guardrails
+        run: npm run check:backend-architecture
+
+      - name: Module boundary guardrails
+        run: npm run check:module-boundaries
+
+      - name: Service catalog guardrails
+        run: npm run check:service-catalog
+
+      - name: Benchmark coverage
+        run: npm run check:benchmark-coverage
+
+      - name: Evaluation dataset and snapshot contracts
+        run: npm run check:eval-datasets
+
+      - name: Evaluator mutation kill-rate
+        run: npm run check:eval-mutations
+
+      - name: Judge calibration pipeline
+        run: npm run check:eval-judge-calibration
+
+      - name: Eval schedule contract
+        run: npm run check:eval-schedule
+
+      - name: Build
+        run: npm run build
+
+      - name: Standalone release build and runtime smoke
+        run: |
+          npm run build:standalone
+          npm run check:standalone-runtime
+
+  backend-market-data:
+    name: Backend Market Data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/market-data
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        run: uv python install 3.14
+
+      - name: Install dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Production dependency audit
+        run: |
+          uv export --frozen --all-extras --no-dev --no-emit-project --no-hashes --format requirements-txt --output-file /tmp/quantpilot-market-requirements.txt
+          uvx pip-audit -r /tmp/quantpilot-market-requirements.txt
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        run: uv run pytest
+
+  authenticated-smoke:
+    name: Authenticated lifecycle smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      REDIS_URL: redis://127.0.0.1:36380/0
+      PROJECTS_DIR: ./tmp/auth-projects
+      QUANTPILOT_AUTH_MODE: local
+      QUANTPILOT_AUTH_SECRET: ci-auth-secret-with-at-least-thirty-two-random-characters
+      BETTER_AUTH_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      QUANTPILOT_AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3000
+      QUANTPILOT_AUTH_SECURE_COOKIES: 0
+      QUANTPILOT_AUTH_ALLOW_SIGNUP: 0
+      QUANTPILOT_AUTH_ADMIN_EMAIL: auth-smoke-admin@quantpilot.local
+      QUANTPILOT_AUTH_ADMIN_PASSWORD: AuthSmokeAdministrator!2026
+      QUANTPILOT_AUTH_ADMIN_NAME: QuantPilot CI Administrator
+      QUANTPILOT_DEGRADATION_MODE: auto
+      QUANTPILOT_MARKET_API_ENABLED: 0
+      QUANTPILOT_REDIS_CACHE_ENABLED: 1
+      QUANTPILOT_REDIS_REQUIRED: 0
+      QUANTPILOT_OBSERVABILITY_ENABLED: 0
+    services:
+      timescaledb:
+        image: timescale/timescaledb:2.27.1-pg18
+        env:
+          POSTGRES_DB: quantpilot
+          POSTGRES_USER: quantpilot
+          POSTGRES_PASSWORD: quantpilot_dev_password
+        ports:
+          - 35433:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U quantpilot -d quantpilot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 36380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run prisma:generate
+
+      - name: Prepare database and local administrator
+        run: |
+          npm run prisma:deploy
+          npm run auth:bootstrap
+
+      - name: Start web and verify authorization lifecycle
+        run: |
+          mkdir -p tmp
+          npm run dev:web > tmp/auth-web.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
+              npm run auth:verify
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 tmp/auth-web.log
+          exit 1
+
+      - name: Upload auth smoke logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: auth-smoke-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: tmp/auth-web.log
+
+  contract-evaluation:
+    name: Quant contract evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      REDIS_URL: redis://127.0.0.1:36380/0
+      QUANTPILOT_MARKET_API_URL: http://127.0.0.1:8000
+      PROJECTS_DIR: ./tmp/contract-projects
+      QUANTPILOT_EVAL_MODE: contract
+      QUANTPILOT_EVAL_TRIGGER: ci
+      # GitHub-hosted runners reject user-namespace uid_map writes. Contract
+      # mode executes only repository-owned deterministic templates after the
+      # artifact policy gate; live/model-generated work remains fail-closed.
+      QUANTPILOT_GENERATED_SANDBOX: 0
+      QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE: 1
+    services:
+      timescaledb:
+        image: timescale/timescaledb:2.27.1-pg18
+        env:
+          POSTGRES_DB: quantpilot
+          POSTGRES_USER: quantpilot
+          POSTGRES_PASSWORD: quantpilot_dev_password
+        ports:
+          - 35433:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U quantpilot -d quantpilot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 36380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run prisma:generate
+
+      - name: Start versioned contract data service
+        run: |
+          npm run db:init
+          mkdir -p tmp
+          node scripts/evals/run-contract-market-fixture.js > tmp/contract-market.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 tmp/contract-market.log
+          exit 1
+
+      - name: Run deterministic contract suite
+        run: |
+          set -o pipefail
+          npm run benchmark:quant:contract 2>&1 | tee tmp/contract-benchmark.log
+
+      - name: PiAgent PostgreSQL fencing integration
+        env:
+          PI_AGENT_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npm run test:pi-agent:postgres
+
+      - name: Enforce contract gate
+        run: npm run eval:ci -- --min-pass-rate 100 --min-average-score 90 --min-first-pass-rate 100 --max-repair-rate 0 --min-stability-rate 100 --min-stability-confidence-lower 75 --max-score-standard-deviation 0
+
+      - name: Upload contract evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quant-contract-evidence-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            tmp/quantpilot-benchmark-reports/
+            tmp/quantpilot-benchmark-screenshots/
+            tmp/quantpilot-eval-mutations/
+            tmp/contract-market.log
+            tmp/contract-benchmark.log

@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "services": [
+    {
+      "id": "web",
+      "name": "Next.js 主前端",
+      "summary": "产品入口、API 聚合层、生成工作台、评测和运维控制台。",
+      "runtime": "node",
+      "kind": "application",
+      "domain": "product-shell",
+      "owner": "frontend-platform",
+      "lifecycle": "core",
+      "enabledByDefault": true,
+      "requiredByDefault": true,
+      "endpoint": {
+        "protocol": "http",
+        "env": ["NEXT_PUBLIC_APP_URL"],
+        "default": "http://localhost:3000",
+        "healthPath": "/api/ready",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "start": "npm run dev",
+        "health": "npm run doctor"
+      },
+      "dependencies": ["timescaledb", "redis", "market-data", "memory", "knowledge", "modelport", "loki"],
+      "capabilities": ["workspace", "generation-console", "evaluation", "operations"]
+    },
+    {
+      "id": "market-data",
+      "name": "Python 市场数据后端",
+      "summary": "FastAPI 市场数据、股票池、回测、ClickHouse 同步和 provider 编排。",
+      "runtime": "python",
+      "kind": "api",
+      "domain": "market-data",
+      "owner": "backend-platform",
+      "lifecycle": "core",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_MARKET_API_ENABLED",
+      "requiredEnv": "QUANTPILOT_MARKET_API_REQUIRED",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["QUANTPILOT_MARKET_API_URL", "QUANTPILOT_MARKET_API_BASE_URL"],
+        "default": "http://127.0.0.1:8000",
+        "healthPath": "/ready",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "start": "cd services/market-data && uv run quantpilot-market-api",
+        "test": "cd services/market-data && uv run pytest"
+      },
+      "dependencies": ["timescaledb", "redis", "clickhouse"],
+      "capabilities": ["quotes", "research-universe", "backtests", "analytics"]
+    },
+    {
+      "id": "memory",
+      "name": "用户记忆服务",
+      "summary": "可选的版本化 HTTP 个性化能力；独立部署、独立存储并可无状态降级。",
+      "runtime": "python",
+      "kind": "api",
+      "domain": "personalization",
+      "owner": "platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_MEMORY_ENABLED",
+      "requiredEnv": "QUANTPILOT_MEMORY_REQUIRED",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["QUANTPILOT_MEMORY_API_URL"],
+        "default": "http://127.0.0.1:38089",
+        "healthPath": "/readyz",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "health": "curl http://127.0.0.1:38089/readyz"
+      },
+      "dependencies": [],
+      "capabilities": [
+        "preference-memory",
+        "contextual-recall",
+        "attributed-outcomes",
+        "user-usage-fence",
+        "subject-scoped-token-broker"
+      ]
+    },
+    {
+      "id": "knowledge",
+      "name": "Agent Knowledge Platform",
+      "summary": "通过 AKEP v0.1 提供已发布、带引用、受 Space 与 purpose 治理的共享知识。",
+      "runtime": "node",
+      "kind": "api",
+      "domain": "governed-knowledge",
+      "owner": "platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_KNOWLEDGE_ENABLED",
+      "requiredEnv": "QUANTPILOT_KNOWLEDGE_REQUIRED",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["QUANTPILOT_KNOWLEDGE_API_URL"],
+        "default": "http://localhost:33005",
+        "healthPath": "/health/ready",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "health": "curl http://localhost:33005/health/ready",
+        "discovery": "curl http://localhost:33005/.well-known/akep"
+      },
+      "dependencies": [],
+      "capabilities": [
+        "akep-discovery",
+        "governed-context-pack",
+        "immutable-citations",
+        "exposure-usage-feedback"
+      ]
+    },
+    {
+      "id": "modelport",
+      "name": "ModelPort 模型网关",
+      "summary": "统一承接 Qwen、DeepSeek 等模型的 OpenAI/Anthropic 协议、鉴权、路由、配额和用量证据。",
+      "runtime": "rust",
+      "kind": "api",
+      "domain": "model-gateway",
+      "owner": "ai-platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_MODELPORT_ENABLED",
+      "requiredEnv": "QUANTPILOT_MODELPORT_REQUIRED",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["QUANTPILOT_MODELPORT_URL"],
+        "default": "http://127.0.0.1:38082",
+        "healthPath": "/livez",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "health": "curl http://127.0.0.1:38082/livez"
+      },
+      "dependencies": [],
+      "capabilities": [
+        "openai-compatible",
+        "anthropic-compatible",
+        "local-qwen-routing",
+        "provider-governance"
+      ]
+    },
+    {
+      "id": "timescaledb",
+      "name": "PostgreSQL / TimescaleDB",
+      "summary": "应用事实库和量化时序事实库。",
+      "runtime": "postgresql",
+      "kind": "database",
+      "domain": "storage",
+      "owner": "storage-platform",
+      "lifecycle": "core",
+      "enabledByDefault": true,
+      "requiredByDefault": true,
+      "enabledEnv": "QUANTPILOT_DATABASE_ENABLED",
+      "requiredEnv": "QUANTPILOT_DATABASE_REQUIRED",
+      "dockerService": "timescaledb",
+      "endpoint": {
+        "protocol": "postgresql",
+        "env": ["DATABASE_URL"],
+        "default": "postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:5432/quantpilot?schema=public"
+      },
+      "commands": {
+        "start": "npm run db:up",
+        "init": "npm run db:init",
+        "inspect": "npm run db:doctor"
+      },
+      "dependencies": [],
+      "capabilities": ["projects", "evaluation-state", "time-series", "strategy-data"]
+    },
+    {
+      "id": "redis",
+      "name": "Redis 短期缓存",
+      "summary": "跨进程短 TTL 缓存、热点行情摘要和后续任务进度状态。",
+      "runtime": "redis",
+      "kind": "cache",
+      "domain": "runtime-cache",
+      "owner": "backend-platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_REDIS_CACHE_ENABLED",
+      "requiredEnv": "QUANTPILOT_REDIS_REQUIRED",
+      "dockerService": "redis",
+      "endpoint": {
+        "protocol": "redis",
+        "env": ["REDIS_URL"],
+        "default": "redis://127.0.0.1:6379/0"
+      },
+      "commands": {
+        "start": "npm run redis:up",
+        "cli": "npm run redis:cli"
+      },
+      "dependencies": [],
+      "capabilities": ["cache-aside", "hot-query-cache", "runtime-state"]
+    },
+    {
+      "id": "clickhouse",
+      "name": "ClickHouse 分析加速层",
+      "summary": "append-only 评测事件、生成事件、全市场宽表和大规模研究扫描。",
+      "runtime": "clickhouse",
+      "kind": "analytics",
+      "domain": "analytics",
+      "owner": "storage-platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": false,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_CLICKHOUSE_ENABLED",
+      "requiredEnv": "QUANTPILOT_CLICKHOUSE_REQUIRED",
+      "dockerService": "clickhouse",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["CLICKHOUSE_URL"],
+        "default": "http://127.0.0.1:8123",
+        "healthPath": "/ping",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "start": "docker compose up -d clickhouse",
+        "health": "curl http://127.0.0.1:8123/ping"
+      },
+      "dependencies": ["timescaledb"],
+      "capabilities": ["analytics-acceleration", "event-log", "wide-table"]
+    },
+    {
+      "id": "loki",
+      "name": "Loki 集中日志",
+      "summary": "本地集中日志存储，承接 Docker、Next、评测和运行日志。",
+      "runtime": "loki",
+      "kind": "observability",
+      "domain": "observability",
+      "owner": "ops-platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_OBSERVABILITY_ENABLED",
+      "requiredEnv": "QUANTPILOT_OBSERVABILITY_REQUIRED",
+      "dockerService": "loki",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["LOKI_URL"],
+        "default": "http://127.0.0.1:33100",
+        "healthPath": "/ready",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "start": "npm run obs:up",
+        "logs": "npm run obs:logs"
+      },
+      "dependencies": [],
+      "capabilities": ["centralized-logs", "incident-debugging"]
+    },
+    {
+      "id": "grafana",
+      "name": "Grafana 可观测性面板",
+      "summary": "Loki 查询入口和后续指标看板承载。",
+      "runtime": "grafana",
+      "kind": "observability",
+      "domain": "observability",
+      "owner": "ops-platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_OBSERVABILITY_ENABLED",
+      "requiredEnv": "QUANTPILOT_OBSERVABILITY_REQUIRED",
+      "dockerService": "grafana",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["GRAFANA_URL"],
+        "default": "http://127.0.0.1:33012",
+        "healthPath": "/api/health",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "start": "npm run obs:up",
+        "open": "open http://localhost:33012"
+      },
+      "dependencies": ["loki"],
+      "capabilities": ["log-query", "dashboarding"]
+    },
+    {
+      "id": "alloy",
+      "name": "Grafana Alloy 日志采集器",
+      "summary": "采集 Docker 日志和本地运行日志并写入 Loki。",
+      "runtime": "alloy",
+      "kind": "observability",
+      "domain": "observability",
+      "owner": "ops-platform",
+      "lifecycle": "supporting",
+      "enabledByDefault": true,
+      "requiredByDefault": false,
+      "enabledEnv": "QUANTPILOT_OBSERVABILITY_ENABLED",
+      "requiredEnv": "QUANTPILOT_OBSERVABILITY_REQUIRED",
+      "dockerService": "alloy",
+      "endpoint": {
+        "protocol": "http",
+        "env": ["GRAFANA_ALLOY_URL"],
+        "default": "http://127.0.0.1:12345",
+        "healthPath": "/-/ready",
+        "healthMethod": "GET"
+      },
+      "commands": {
+        "start": "npm run obs:up",
+        "logs": "npm run obs:logs"
+      },
+      "dependencies": ["loki"],
+      "capabilities": ["log-collection", "docker-log-bridge"]
+    }
+  ]
+}

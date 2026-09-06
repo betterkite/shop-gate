@@ -1,0 +1,130 @@
+name: DeepSeek E2E Evaluation
+
+on:
+  schedule:
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: deepseek-e2e-evaluation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  configuration:
+    name: Check live evaluation configuration
+    runs-on: ubuntu-latest
+    outputs:
+      deepseek-configured: ${{ steps.secret.outputs.configured }}
+    steps:
+      - name: Detect DeepSeek evaluation secret
+        id: secret
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        shell: bash
+        run: |
+          if [ -n "$DEEPSEEK_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::DEEPSEEK_API_KEY must be configured in GitHub Actions secrets before manually running live E2E."
+            exit 1
+          fi
+
+          echo "::notice::DEEPSEEK_API_KEY is not configured; the scheduled live DeepSeek job is skipped. Deterministic evaluation remains enforced by Quality."
+
+  evaluate:
+    name: Real DeepSeek workspace generation
+    needs: configuration
+    if: needs.configuration.outputs.deepseek-configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      REDIS_URL: redis://127.0.0.1:36380/0
+      QUANTPILOT_MARKET_API_URL: http://127.0.0.1:8000
+      PROJECTS_DIR: ./tmp/e2e-projects
+      QUANTPILOT_EVAL_MODE: e2e
+      QUANTPILOT_EVAL_TRIGGER: nightly
+      QUANTPILOT_EVAL_MODEL: deepseek-v4-flash
+      PI_AGENT_MAX_TURNS: '3'
+      PI_AGENT_TIMEOUT_MS: '900000'
+      PI_AGENT_BUILD_REVISION: ${{ github.sha }}
+      PI_AGENT_E2E_MAX_TURNS_PER_CASE: '12'
+      PI_AGENT_E2E_MAX_CACHE_MISS_INPUT_TOKENS_PER_CASE: '84000'
+      PI_AGENT_E2E_MAX_UNEXPECTED_TOOL_FAILURES: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          uv sync --project services/market-data --locked --all-groups
+          npm run prisma:generate
+
+      - name: Verify evaluation assurance contracts
+        run: |
+          npm run check:eval-datasets
+          npm run check:eval-mutations
+          npm run check:eval-judge-calibration
+
+      - name: Start data infrastructure
+        run: |
+          docker compose up -d --wait timescaledb redis
+          npm run db:init
+          mkdir -p tmp
+          npm run dev:market > tmp/eval-market.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 tmp/eval-market.log
+          exit 1
+
+      - name: Run repair and crash controls
+        run: node scripts/checks/check-quant-e2e-suite.js --run-runtime-controls
+
+      - name: Run real DeepSeek regression suite
+        run: npm run benchmark:quant:e2e -- --model deepseek-v4-flash --concurrency 1 --repeat 2
+
+      - name: Enforce E2E gate
+        run: npm run eval:ci:e2e -- --model deepseek-v4-flash --min-pass-rate 100 --min-average-score 90 --min-first-pass-rate 75 --max-repair-rate 25 --min-stability-rate 100 --min-stability-confidence-lower 60 --max-score-standard-deviation 10
+
+      - name: Upload evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: deepseek-e2e-evidence-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            tmp/quantpilot-benchmark-reports/
+            tmp/quantpilot-benchmark-screenshots/
+            tmp/quantpilot-eval-mutations/
+            tmp/eval-market.log
+
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v

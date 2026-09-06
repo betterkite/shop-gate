@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { DATA_AGENT_GENERATION_STATE_RELATIVE_PATH } from '@/lib/data-agent/workspace-layout';
-import { appendQuantWorkspaceEvent } from '@/lib/domains/finance/workspace';
+import { appendRetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
 
 export type QuantGenerationStepId =
   | 'request_received'
@@ -228,7 +228,7 @@ async function startQuantGenerationRunUnlocked(params: {
     error: null,
   };
   await writeState(params.projectPath, state);
-  await appendQuantWorkspaceEvent(params.projectPath, {
+  await appendRetailWorkspaceEvent(params.projectPath, {
     event_type: 'generation_state_started',
     stage: 'state_machine',
     status: 'pending',
@@ -312,7 +312,7 @@ async function updateQuantGenerationStepUnlocked(params: {
   };
 
   await writeState(params.projectPath, nextState);
-  await appendQuantWorkspaceEvent(params.projectPath, {
+  await appendRetailWorkspaceEvent(params.projectPath, {
     event_type: 'generation_state_updated',
     stage: params.stepId,
     status: params.status === 'failed' ? 'error' : params.status === 'warning' ? 'warning' : params.status === 'running' ? 'pending' : 'success',

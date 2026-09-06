@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { appendQuantWorkspaceEvent, ensureQuantWorkspace } from '@/lib/domains/finance/workspace';
+import { appendRetailWorkspaceEvent, ensureRetailWorkspace } from '@/lib/domains/retail/workspace';
 
 type JsonRecord = Record<string, unknown>;
 type EvidenceStatus = 'ok' | 'warning' | 'error';
@@ -514,7 +514,7 @@ export async function ensureBaselineEvidenceFiles(
   projectPath: string,
   options: { force?: boolean } = {}
 ): Promise<BaselineEvidenceResult> {
-  await ensureQuantWorkspace(projectPath);
+  await ensureRetailWorkspace(projectPath);
 
   const sourcesPath = path.join(projectPath, SOURCES_RELATIVE_PATH);
   const qualityPath = path.join(projectPath, DATA_QUALITY_RELATIVE_PATH);
@@ -604,7 +604,7 @@ export async function ensureBaselineEvidenceFiles(
     fs.writeFile(qualityPath, `${JSON.stringify(dataQualityEvidence, null, 2)}\n`, 'utf8'),
   ]);
 
-  await appendQuantWorkspaceEvent(projectPath, {
+  await appendRetailWorkspaceEvent(projectPath, {
     event_type: 'data_quality_checked',
     stage: 'data_quality',
     status: status === 'error' ? 'error' : status === 'warning' ? 'warning' : 'success',

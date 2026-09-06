@@ -14,10 +14,10 @@ import {
   DATA_AGENT_WORKSPACE_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
 import {
-  FINANCE_QUERY_REWRITE_RELATIVE_PATH,
-  FINANCE_RUN_PLAN_RELATIVE_PATH,
-} from '@/lib/domains/finance/workspace-artifacts';
-import { appendQuantWorkspaceEvent, ensureQuantWorkspace } from '@/lib/domains/finance/workspace';
+  RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+  RETAIL_RUN_PLAN_RELATIVE_PATH,
+} from '@/lib/domains/retail/workspace-artifacts';
+import { appendRetailWorkspaceEvent, ensureRetailWorkspace } from '@/lib/domains/retail/workspace';
 
 export type QuantArtifactContractStatus = 'passed' | 'failed' | 'warning';
 
@@ -154,7 +154,7 @@ const dataAgentPlanSchema = z.object({
   }),
   capabilityId: nonEmptyString,
   taskArtifact: z.literal(DATA_AGENT_TASK_RELATIVE_PATH),
-  domainPlanArtifact: z.literal(FINANCE_RUN_PLAN_RELATIVE_PATH),
+  domainPlanArtifact: z.literal(RETAIL_RUN_PLAN_RELATIVE_PATH),
   expectedArtifacts: z.array(nonEmptyString),
   validationRuleIds: z.array(nonEmptyString),
   createdAt: nonEmptyString,
@@ -170,7 +170,7 @@ const financeQueryRewriteSchema = z.object({
   confidence: z.number().min(0).max(1),
   capabilityHint: nonEmptyString,
   targetCandidates: z.array(z.string()),
-  resolvedSymbols: z.array(z.unknown()),
+  resolvedEntities: z.array(z.unknown()),
   unresolvedTargets: z.array(z.string()),
   ambiguousTargets: z.array(z.unknown()),
   outputIntent: z.enum(['dashboard', 'answer']),
@@ -395,8 +395,8 @@ function inspectRunPlan(value: unknown) {
     DATA_AGENT_PROFILE_RELATIVE_PATH,
     DATA_AGENT_TASK_RELATIVE_PATH,
     DATA_AGENT_PLAN_RELATIVE_PATH,
-    FINANCE_QUERY_REWRITE_RELATIVE_PATH,
-    FINANCE_RUN_PLAN_RELATIVE_PATH,
+    RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+    RETAIL_RUN_PLAN_RELATIVE_PATH,
     DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
     DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
     DATA_AGENT_EVENTS_RELATIVE_PATH,
@@ -480,14 +480,14 @@ const CONTRACTS: ContractDefinition[] = [
   {
     id: 'finance_query_rewrite_contract',
     label: 'Finance Query Rewrite 契约',
-    relativePath: FINANCE_QUERY_REWRITE_RELATIVE_PATH,
+    relativePath: RETAIL_QUERY_REWRITE_RELATIVE_PATH,
     required: true,
     schema: financeQueryRewriteSchema,
   },
   {
     id: 'run_plan_contract',
     label: '运行计划契约',
-    relativePath: FINANCE_RUN_PLAN_RELATIVE_PATH,
+    relativePath: RETAIL_RUN_PLAN_RELATIVE_PATH,
     required: true,
     schema: runPlanSchema,
     extraValidate: inspectRunPlan,
@@ -626,7 +626,7 @@ export async function validateQuantArtifactContracts(params: {
 }): Promise<QuantArtifactContractReport> {
   const projectPath = path.resolve(params.projectPath);
   const now = new Date().toISOString();
-  await ensureQuantWorkspace(projectPath);
+  await ensureRetailWorkspace(projectPath);
   const checks = await Promise.all(CONTRACTS.map((definition) => checkContract(projectPath, definition)));
   const requiredFailures = checks.filter((check) => check.required && check.status === 'failed');
   const warnings = checks.filter((check) => check.status === 'warning');
@@ -648,7 +648,7 @@ export async function validateQuantArtifactContracts(params: {
     `${JSON.stringify(report, null, 2)}\n`,
     'utf8'
   );
-  await appendQuantWorkspaceEvent(projectPath, {
+  await appendRetailWorkspaceEvent(projectPath, {
     event_type: 'artifact_contracts_checked',
     stage: 'validation',
     status: status === 'failed' ? 'error' : status === 'warning' ? 'warning' : 'success',

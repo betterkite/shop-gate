@@ -11,14 +11,14 @@ const mocks = vi.hoisted(() => ({
   settleQuotaReservation: vi.fn(),
   releaseQuotaReservation: vi.fn(),
   recordQuotaUsage: vi.fn(),
-  rewriteQuantQuery: vi.fn(),
+  rewriteRetailQuery: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
-vi.mock('@/lib/domains/finance/query-rewrite', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/domains/finance/query-rewrite')>();
-  mocks.rewriteQuantQuery.mockImplementation(actual.rewriteQuantQuery);
-  return { ...actual, rewriteQuantQuery: mocks.rewriteQuantQuery };
+vi.mock('@/lib/domains/retail/query-rewrite', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/domains/retail/query-rewrite')>();
+  mocks.rewriteRetailQuery.mockImplementation(actual.rewriteRetailQuery);
+  return { ...actual, rewriteRetailQuery: mocks.rewriteRetailQuery };
 });
 vi.mock('@/lib/server/api-idempotency', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/server/api-idempotency')>(),
@@ -72,11 +72,11 @@ beforeEach(() => {
 
 describe('POST /api/commerce/query/rewrite', () => {
   it('returns a versioned executable rewrite contract', async () => {
-    mocks.rewriteQuantQuery.mockResolvedValueOnce({
+    mocks.rewriteRetailQuery.mockResolvedValueOnce({
       schemaVersion: 4,
       status: 'ready',
       targetCandidates: ['北方稀土'],
-      resolvedSymbols: [{ symbol: '600111', market: 'SH' }],
+      resolvedEntities: [{ symbol: '600111', market: 'SH' }],
       issues: [],
       execution: {
         strategy: 'llm_primary',
@@ -105,7 +105,7 @@ describe('POST /api/commerce/query/rewrite', () => {
         schemaVersion: 4,
         status: 'ready',
         targetCandidates: ['北方稀土'],
-        resolvedSymbols: [{ symbol: '600111', market: 'SH' }],
+        resolvedEntities: [{ symbol: '600111', market: 'SH' }],
       },
       meta: {
         schemaVersion: 4,
@@ -159,7 +159,7 @@ describe('POST /api/commerce/query/rewrite', () => {
       headers: expect.any(Headers),
       action: 'quant.query.rewrite.llm',
     });
-    expect(mocks.rewriteQuantQuery).toHaveBeenCalledWith(
+    expect(mocks.rewriteRetailQuery).toHaveBeenCalledWith(
       '帮我分析一下北方稀土',
       expect.objectContaining({}),
     );
@@ -184,7 +184,7 @@ describe('POST /api/commerce/query/rewrite', () => {
       headers: expect.any(Headers),
       action: 'quant.query.rewrite.llm',
     });
-    expect(mocks.rewriteQuantQuery).toHaveBeenCalledWith(
+    expect(mocks.rewriteRetailQuery).toHaveBeenCalledWith(
       '分析大位科技最近20个交易日',
       expect.objectContaining({
         requestedModel: 'local_qwen:qwen3.5-9b-q5km',
@@ -296,7 +296,7 @@ describe('POST /api/commerce/query/rewrite', () => {
 
   it('persists token usage and marks accounting only after both usage writes succeed', async () => {
     mocks.requireAction.mockResolvedValue({ session: { user: { id: 'member-1' } } });
-    mocks.rewriteQuantQuery.mockResolvedValueOnce({
+    mocks.rewriteRetailQuery.mockResolvedValueOnce({
       schemaVersion: 4,
       status: 'ready',
       execution: {

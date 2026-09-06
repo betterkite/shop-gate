@@ -9,10 +9,10 @@ import { sanitizeActiveCli } from '@/lib/utils/cliOptions';
 import { fetchCliStatusSnapshot, createCliStatusFallback } from '@/hooks/useCLI';
 import type { CLIStatus } from '@/types/cli';
 import {
-  DEFAULT_QUANT_CAPABILITY_ID,
-  QUANT_CAPABILITIES,
-  type QuantCapabilityId,
-} from '@/lib/domains/finance/capabilities';
+  DEFAULT_RETAIL_CAPABILITY_ID,
+  RETAIL_CAPABILITIES,
+  type RetailCapabilityId,
+} from '@/lib/domains/retail/capabilities';
 
 import type { CreateProjectCLIOption, GlobalSettings } from '@/types';
 
@@ -65,7 +65,7 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
   const [prompt, setPrompt] = useState('');
   const [selectedCLI, setSelectedCLI] = useState<string>(PRODUCT_CLI_ID);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL_ID);
-  const [selectedCapability, setSelectedCapability] = useState<QuantCapabilityId>(DEFAULT_QUANT_CAPABILITY_ID);
+  const [selectedCapability, setSelectedCapability] = useState<RetailCapabilityId>(DEFAULT_RETAIL_CAPABILITY_ID);
   const [useDefaultSettings, setUseDefaultSettings] = useState(true);
   const [loading, setLoading] = useState(false);
   const [initializationStep, setInitializationStep] = useState('');
@@ -273,7 +273,7 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
     setShowImageInput(false);
     setShowWebsiteInput(false);
     setUseDefaultSettings(true);
-    setSelectedCapability(DEFAULT_QUANT_CAPABILITY_ID);
+    setSelectedCapability(DEFAULT_RETAIL_CAPABILITY_ID);
     setImageError('');
     setShowInitialization(false);
     setInitializingProjectId(null);
@@ -525,7 +525,7 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
               量化能力
             </label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              {QUANT_CAPABILITIES.map((capability) => (
+              {RETAIL_CAPABILITIES.map((capability) => (
                 <button
                   key={capability.id}
                   type="button"

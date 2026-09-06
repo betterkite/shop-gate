@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAction } from '@/lib/auth/action';
 import { authErrorResponse } from '@/lib/auth/http';
 import {
-  DEFAULT_QUANT_CAPABILITY_ID,
-  serializeQuantCapabilities,
-} from '@/lib/domains/finance/capabilities';
+  DEFAULT_RETAIL_CAPABILITY_ID,
+  serializeRetailCapabilities,
+} from '@/lib/domains/retail/capabilities';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     data: {
-      defaultCapabilityId: DEFAULT_QUANT_CAPABILITY_ID,
-      capabilities: serializeQuantCapabilities(),
+      defaultCapabilityId: DEFAULT_RETAIL_CAPABILITY_ID,
+      capabilities: serializeRetailCapabilities(),
     },
   });
 }

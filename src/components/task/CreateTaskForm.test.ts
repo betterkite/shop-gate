@@ -24,11 +24,11 @@ const defaultProps: CreateTaskFormProps = {
   onModelChange: () => undefined,
   modelOptions: [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" }],
   selectedRole: {
-    id: "stock_diagnosis",
+    id: "traffic_funnel",
     name: "股票诊断",
     shortName: "诊断",
     description: "分析股票的趋势、估值与风险。",
-    capabilityId: "stock_diagnosis",
+    capabilityId: "traffic_funnel",
   },
 };
 

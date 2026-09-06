@@ -58,7 +58,7 @@ describe('restoreQuantDashboardTemplate', () => {
     ];
 
     for (const template of templates) {
-      expect(template.page, template.name).toContain('data-visual-language="financial-workbench"');
+      expect(template.page, template.name).toContain('data-visual-language="retail-workbench"');
       for (const signal of template.required) {
         expect(template.page, `${template.name}: ${signal}`).toContain(signal);
       }
@@ -124,12 +124,12 @@ describe('restoreQuantDashboardTemplate', () => {
     expect(page).toContain('K 线与量价结构');
     expect(page).toContain('className="ma-line ma60"');
     expect(page).toContain('风险结论');
-    expect(page).toContain('data-visual-language="financial-workbench"');
+    expect(page).toContain('data-visual-language="retail-workbench"');
     expect(page).not.toContain('TradingPlanPanel');
     expect(page).not.toContain('买入区间');
     expect(css).toContain('.dashboard-shell');
     expect(css).toContain('FINANCIAL WORKBENCH CANVAS');
-    expect(css).toContain('.dashboard-shell[data-visual-language="financial-workbench"] .chart-panel');
+    expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .chart-panel');
     expect(css).toContain('border-radius: 0');
   });
 
@@ -145,7 +145,7 @@ describe('restoreQuantDashboardTemplate', () => {
       fs.readFile(path.join(projectPath, 'scripts', 'run-build.js'), 'utf8'),
       fs.readFile(path.join(projectPath, 'scripts', 'run-dev.js'), 'utf8'),
     ]);
-    expect(page).toContain('data-visual-language="financial-workbench"');
+    expect(page).toContain('data-visual-language="retail-workbench"');
     expect(page).not.toContain('数据信源渠道');
     expect(page).not.toContain('技术证据');
     expect(page).not.toContain('行情源：');

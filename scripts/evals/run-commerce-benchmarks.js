@@ -918,7 +918,7 @@ async function inspectArtifacts({ projectPath, testCase, prefetch }) {
       const metrics = viewport?.metrics || {};
       assertCondition(
         metrics.hasFinancialWorkbenchMarker === true,
-        `${viewport?.id || 'unknown'} 无卡片定制缺少 financial-workbench 标记。`,
+        `${viewport?.id || 'unknown'} 无卡片定制缺少 retail-workbench 标记。`,
         failures,
       );
       assertCondition(

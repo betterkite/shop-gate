@@ -35,6 +35,10 @@ const CASES_PATH = path.resolve('benchmarks/shopgate/cases.json');
 const E2E_SUITE_PATH = path.resolve('benchmarks/shopgate/e2e-suite.json');
 const DATASET_REGISTRY_PATH = path.resolve('benchmarks/shopgate/datasets.json');
 const SNAPSHOT_MANIFEST_PATH = path.resolve('benchmarks/shopgate/snapshot-manifest.json');
+if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
 
 function parseArgs(argv) {
   const args = {

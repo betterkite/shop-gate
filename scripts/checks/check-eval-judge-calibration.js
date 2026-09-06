@@ -9,6 +9,11 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-eval
 });
 const { evaluateEvalJudgeCalibration } = jiti('../../src/lib/eval/judge-calibration.ts');
 
+if (!fs.existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
+
 function argument(name, fallback) {
   const exact = process.argv.indexOf(name);
   if (exact >= 0 && process.argv[exact + 1]) return process.argv[exact + 1];

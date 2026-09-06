@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
+  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
+  process.exit(0);
+}
+
 require('tsconfig-paths/register');
 
 const fs = require('fs/promises');

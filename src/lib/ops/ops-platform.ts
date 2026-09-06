@@ -3,7 +3,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 import { getCapabilityCenterData } from '@/lib/commerce/capability-center';
-import { getStrategyDashboardData } from '@/lib/commerce/strategies';
 import { getWorkspaceHealthDashboard, type WorkspaceHealthDashboard } from '@/lib/commerce/workspace-health';
 import { getInfrastructureHealth, type InfrastructureHealth } from '@/lib/ops/infrastructure-health';
 import {
@@ -75,7 +74,7 @@ export interface OpsHealthFactor {
 }
 
 export interface OpsHealthProfile {
-  id: 'project' | 'runtime' | 'strategy';
+  id: 'project' | 'runtime';
   label: string;
   score: number;
   status: OpsCheckStatus;
@@ -676,87 +675,6 @@ function buildProjectHealthProfile(workspace: WorkspaceHealthDashboard): OpsHeal
   };
 }
 
-function buildStrategyHealthProfile(strategy: Awaited<ReturnType<typeof getStrategyDashboardData>>): OpsHealthProfile {
-  const templateScore = percent(strategy.summary.readyTemplates, strategy.summary.templates);
-  const coverageScore = percent(strategy.summary.syncedSymbols, strategy.summary.trackedSymbols);
-  const primaryUniverse =
-    strategy.research.universes.find((universe) => universe.id === strategy.research.primaryUniverseId) ??
-    strategy.research.universes[0] ??
-    null;
-  const latestAgeDays = daysSince(primaryUniverse?.latestTs);
-  const freshnessScore = latestAgeDays === null
-    ? 0
-    : latestAgeDays <= 3
-      ? 100
-      : latestAgeDays <= 10
-        ? 82
-        : latestAgeDays <= 30
-          ? 65
-          : 40;
-  const recentRuns = strategy.scanRuns.slice(0, 20);
-  const runTotal = recentRuns.reduce((sum, run) => sum + Math.max(1, run.total), 0);
-  const runSucceeded = recentRuns.reduce((sum, run) => sum + run.succeeded, 0);
-  const activeJobs = strategy.scanJobs.filter((job) => job.status === 'queued' || job.status === 'running').length;
-  const failedJobs = strategy.scanJobs.filter((job) => job.status === 'failed').length;
-  const scanScore = recentRuns.length
-    ? clampScore(percent(runSucceeded, runTotal) - failedJobs * 8 - activeJobs * 2)
-    : strategy.summary.parameterScans > 0
-      ? 72
-      : 55;
-  const sourceScore = strategy.research.source === 'market-api' && !strategy.research.error ? 100 : 65;
-  const factors: OpsHealthFactor[] = [
-    {
-      id: 'template-readiness',
-      label: '策略目录',
-      score: templateScore,
-      weight: 25,
-      status: scoreStatus(templateScore),
-      summary: `${strategy.summary.readyTemplates}/${strategy.summary.templates} 个策略模板 ready。`,
-    },
-    {
-      id: 'universe-coverage',
-      label: '股票池覆盖',
-      score: coverageScore,
-      weight: 30,
-      status: scoreStatus(coverageScore),
-      summary: `${strategy.summary.syncedSymbols}/${strategy.summary.trackedSymbols} 个标的已有行情覆盖，${strategy.summary.syncedBars.toLocaleString('zh-CN')} 根 K 线。`,
-    },
-    {
-      id: 'freshness',
-      label: '数据新鲜度',
-      score: freshnessScore,
-      weight: 20,
-      status: scoreStatus(freshnessScore),
-      summary: primaryUniverse?.latestTs ? `主股票池最新数据 ${primaryUniverse.latestTs}，距今 ${latestAgeDays ?? '-'} 天。` : '主股票池暂无最新数据时间。',
-    },
-    {
-      id: 'scan-backtest',
-      label: '回测准备度',
-      score: scanScore,
-      weight: 15,
-      status: scoreStatus(scanScore),
-      summary: recentRuns.length ? `最近 ${recentRuns.length} 次扫描成功 ${runSucceeded}/${runTotal} 组参数。` : `${strategy.summary.parameterScans} 个参数扫描已配置，等待真实扫描沉淀。`,
-    },
-    {
-      id: 'research-source',
-      label: '研究数据源',
-      score: sourceScore,
-      weight: 10,
-      status: scoreStatus(sourceScore),
-      summary: strategy.research.error ? `market-api 降级：${strategy.research.error}` : `研究数据来自 ${strategy.research.source}。`,
-    },
-  ];
-  const score = weightedScore(factors);
-  return {
-    id: 'strategy',
-    label: '策略健康',
-    score,
-    status: scoreStatus(score),
-    summary: '衡量策略目录、股票池行情覆盖、数据新鲜度和回测扫描准备度。',
-    factors,
-  };
-}
-
 export async function getOpsPlatformDashboard(params: {
   workspaceHealth?: WorkspaceHealthDashboard | Promise<WorkspaceHealthDashboard>;
   includeLogEntries?: boolean;
@@ -772,7 +690,6 @@ export async function getOpsPlatformDashboard(params: {
     infrastructure,
     capabilityCenter,
     workspaceHealth,
-    strategyHealth,
     npmVersion,
     agentRuntimeInstalled,
     marketHealth,
@@ -783,7 +700,6 @@ export async function getOpsPlatformDashboard(params: {
     getInfrastructureHealth(),
     getCapabilityCenterData(),
     params.workspaceHealth ?? getWorkspaceHealthDashboard(),
-    getStrategyDashboardData(),
     commandOutput('npm', ['--version']),
     hasPiAgentRuntime(),
     marketApi.enabled ? probeUrl(`${MARKET_API_BASE_URL}/health`) : disabledProbe('market API'),
@@ -1006,8 +922,7 @@ export async function getOpsPlatformDashboard(params: {
   const healthProfiles = [
     buildProjectHealthProfile(workspaceHealth),
     buildRuntimeHealthProfile({ systemChecks, capabilityChecks, logSources }),
-    buildStrategyHealthProfile(strategyHealth),
-  ];
+    ];
   return {
     generatedAt: new Date().toISOString(),
     summary: buildSummary(allChecks, logSources),

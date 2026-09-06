@@ -1,6 +1,6 @@
 # 生成工作空间契约
 
-生成工作空间是 Data Agent 输出的可运行交付物；QuantPilot 当前的 Delivery Pack 是 Next.js 金融看板。平台不只看页面是否能打开，还会检查通用任务身份、领域计划、数据、证据、事件、队列、验证、视觉呈现和产物契约。
+生成工作空间是 Data Agent 输出的可运行交付物；Shop Gate 当前的 Delivery Pack 是 Next.js 金融看板。平台不只看页面是否能打开，还会检查通用任务身份、领域计划、数据、证据、事件、队列、验证、视觉呈现和产物契约。
 
 这份契约的存在，是为了避免“看起来生成成功了，但没人知道数据从哪来、哪里失败过、修复过什么”。只要产物稳定，运行治理中心、评测平台和后续自动修复就都能读同一套事实。
 
@@ -14,7 +14,7 @@ app/globals.css
 app/api/market/[...path]/route.ts
 ```
 
-`app/api/market/[...path]/route.ts` 用于同源代理到 QuantPilot 后端，避免浏览器直连外部 API。
+`app/api/market/[...path]/route.ts` 用于同源代理到 Shop Gate 后端，避免浏览器直连外部 API。
 
 ## 必需产物
 
@@ -122,8 +122,8 @@ Agent 执行完成后，平台会自动验证生成项目。验证项包括：
 手动验证：
 
 ```bash
-curl -X POST "http://localhost:3000/api/projects/<project_id>/quant/validation"
-curl "http://localhost:3000/api/projects/<project_id>/quant/validation"
+curl -X POST "http://localhost:3000/api/projects/<project_id>/commerce/validation"
+curl "http://localhost:3000/api/projects/<project_id>/commerce/validation"
 ```
 
 本地检查脚本：

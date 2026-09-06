@@ -5,7 +5,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 REPOSITORIES_ROOT = (
-    PROJECT_ROOT / "services" / "market-data" / "src" / "quantpilot_market_data" / "repositories"
+    PROJECT_ROOT / "services" / "commerce-data" / "src" / "shopgate_commerce_data" / "repositories"
 )
 
 

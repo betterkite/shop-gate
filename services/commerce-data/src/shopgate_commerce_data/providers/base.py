@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     Adjustment,
     AnnouncementItem,
     DividendEvent,

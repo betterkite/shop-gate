@@ -10,7 +10,7 @@ import type {
   StrategyDashboardData,
   StrategyFactorDefinition,
   StrategyFoundationComponent,
-} from "@/lib/quant/strategies";
+} from "@/lib/commerce/strategies";
 import { API_BASE } from "./strategy-platform-helpers";
 
 function foundationStatusLabel(status: StrategyFoundationComponent["status"]) {
@@ -72,7 +72,7 @@ export function FoundationView({
     setError(null);
     try {
       const universeId = data.research.primaryUniverseId;
-      const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

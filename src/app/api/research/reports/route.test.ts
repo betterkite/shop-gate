@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
-vi.mock('@/lib/quant/research-reports', () => ({
+vi.mock('@/lib/commerce/research-reports', () => ({
   getResearchAutomationDashboard: mocks.getDashboard,
   runDailyResearchReport: mocks.runReport,
   sendResearchReport: mocks.sendReport,

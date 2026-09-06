@@ -1,4 +1,4 @@
--- QuantPilot component bootstrap SQL.
+-- Shop Gate component bootstrap SQL.
 -- Safe to run repeatedly. Docker uses this on first database creation,
 -- and `npm run db:init` can apply it to an existing local database.
 

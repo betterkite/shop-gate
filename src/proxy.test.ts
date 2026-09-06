@@ -6,8 +6,8 @@ import { proxy } from './proxy';
 
 vi.mock('@/lib/auth/access', () => ({ getAuthSession: vi.fn() }));
 
-const originalMode = process.env.QUANTPILOT_AUTH_MODE;
-const originalSecret = process.env.QUANTPILOT_AUTH_SECRET;
+const originalMode = process.env.SHOPGATE_AUTH_MODE;
+const originalSecret = process.env.SHOPGATE_AUTH_SECRET;
 
 function request(path: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
   return new NextRequest(`http://localhost:3000${path}`, init);
@@ -16,19 +16,19 @@ function request(path: string, init?: ConstructorParameters<typeof NextRequest>[
 describe('project authentication proxy', () => {
   beforeEach(() => {
     vi.mocked(getAuthSession).mockReset();
-    process.env.QUANTPILOT_AUTH_MODE = 'local';
-    process.env.QUANTPILOT_AUTH_SECRET = 'test-secret-that-is-longer-than-thirty-two-characters';
+    process.env.SHOPGATE_AUTH_MODE = 'local';
+    process.env.SHOPGATE_AUTH_SECRET = 'test-secret-that-is-longer-than-thirty-two-characters';
   });
 
   afterEach(() => {
-    if (originalMode === undefined) delete process.env.QUANTPILOT_AUTH_MODE;
-    else process.env.QUANTPILOT_AUTH_MODE = originalMode;
-    if (originalSecret === undefined) delete process.env.QUANTPILOT_AUTH_SECRET;
-    else process.env.QUANTPILOT_AUTH_SECRET = originalSecret;
+    if (originalMode === undefined) delete process.env.SHOPGATE_AUTH_MODE;
+    else process.env.SHOPGATE_AUTH_MODE = originalMode;
+    if (originalSecret === undefined) delete process.env.SHOPGATE_AUTH_SECRET;
+    else process.env.SHOPGATE_AUTH_SECRET = originalSecret;
   });
 
   it('keeps the existing anonymous workflow when auth is disabled', async () => {
-    process.env.QUANTPILOT_AUTH_MODE = 'disabled';
+    process.env.SHOPGATE_AUTH_MODE = 'disabled';
     const response = await proxy(request('/api/projects'));
     expect(response.headers.get('x-middleware-next')).toBe('1');
     expect(getAuthSession).not.toHaveBeenCalled();
@@ -57,12 +57,12 @@ describe('project authentication proxy', () => {
   });
 
   it.each([
-    '/quantpilot-mark.svg',
+    '/shopgate-mark.svg',
     '/favicon-16.png',
     '/favicon-32.png',
     '/apple-touch-icon.png',
-    '/icons/quantpilot-192.png',
-    '/icons/quantpilot-512.png',
+    '/icons/shopgate-192.png',
+    '/icons/shopgate-512.png',
     '/manifest.webmanifest',
   ])('serves the public brand asset %s without a session', async (pathname) => {
     const response = await proxy(request(pathname));

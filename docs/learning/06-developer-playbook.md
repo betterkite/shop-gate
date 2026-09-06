@@ -1,6 +1,6 @@
 # 06. 开发者协作手册
 
-目标：知道 QuantPilot 的代码该往哪里放、怎么验证、哪些文件不该提交。
+目标：知道 Shop Gate 的代码该往哪里放、怎么验证、哪些文件不该提交。
 
 ![量化业务知识中心](assets/business-knowledge.png)
 
@@ -11,9 +11,9 @@
 | `src/app/` | Next.js App Router 页面和 API 路由 |
 | `src/components/` | 可复用前端组件 |
 | `src/lib/services/` | 主应用业务服务 |
-| `src/lib/quant/` | 量化平台领域逻辑、评测、验证、策略、skills |
+| `src/lib/commerce/` | 量化平台领域逻辑、评测、验证、策略、skills |
 | `src/lib/db/` | Prisma Client 和数据库入口 |
-| `services/market-data/` | Python/FastAPI 市场数据服务 |
+| `services/commerce-data/` | Python/FastAPI 市场数据服务 |
 | `prisma/` | PostgreSQL 主业务 schema |
 | `sqls/` | PostgreSQL / TimescaleDB 初始化 SQL |
 | `scripts/` | 开发、构建、检查、数据库、评测和 skills 脚本 |
@@ -25,13 +25,13 @@
 
 ## 分层思维
 
-QuantPilot 不是单纯的前端项目，也不是单纯的数据服务。改代码前先判断这次变更属于哪一层：
+Shop Gate 不是单纯的前端项目，也不是单纯的数据服务。改代码前先判断这次变更属于哪一层：
 
 | 层级 | 典型问题 | 应该改哪里 |
 | --- | --- | --- |
 | 页面交互 | 按钮、弹窗、分页、图表展示不合理 | `src/app/*/*Client.tsx` 或 `src/components/` |
-| 平台业务 | 项目、消息、设置、评测、策略状态 | `src/lib/services/` 或 `src/lib/quant/` |
-| 市场数据 | 行情接口、补数、股票池分页、因子口径 | `services/market-data/` 和 `sqls/` |
+| 平台业务 | 项目、消息、设置、评测、策略状态 | `src/lib/services/` 或 `src/lib/commerce/` |
+| 市场数据 | 行情接口、补数、股票池分页、因子口径 | `services/commerce-data/` 和 `sqls/` |
 | 数据结构 | 新表、新字段、索引、初始化数据 | `prisma/schema.prisma` 或 `sqls/*.sql` |
 | 生成能力 | Agent 反复生成不好看的页面或用错数据 | 仓库 Skill 权威源 `.pi/skills/`、PI Agent 编译器和评测用例 |
 | 运维基础 | 日志、健康检查、降级模式、端口 | `docker-compose.yml`、`deploy/`、`src/lib/ops/` |
@@ -42,7 +42,7 @@ QuantPilot 不是单纯的前端项目，也不是单纯的数据服务。改代
 
 - 前端页面只做组织和交互，复杂业务逻辑下沉到组件或 `src/lib/*`。
 - API route 只做参数解析、校验和服务调用。
-- 市场数据写入和读取优先通过 `services/market-data`，生成页面不要直接抓外部网页接口。
+- 市场数据写入和读取优先通过 `services/commerce-data`，生成页面不要直接抓外部网页接口。
 - PostgreSQL/TimescaleDB 是事实库，Redis 是短期缓存，不把 Redis 当长期数据源。
 - 生成工作空间的问题优先修 skill 和生成链路，不直接手改单个工作空间作为长期方案。
 - 文档、SQL 和代码需要同步更新，避免“代码会跑但新同学不知道怎么用”。
@@ -53,10 +53,10 @@ QuantPilot 不是单纯的前端项目，也不是单纯的数据服务。改代
 
 1. 先确认字段来源和口径，例如来自东方财富、Baostock、AKShare 还是本地计算。
 2. 如果需要长期保存，先补 `sqls/` 或后端数据库映射。
-3. 在 `services/market-data` 返回字段，并保证已有数据不会被空值覆盖。
-4. 在 `src/lib/quant/strategy-mappers.ts` 做类型映射，并补充 mapper 单元测试。
+3. 在 `services/commerce-data` 返回字段，并保证已有数据不会被空值覆盖。
+4. 在 `src/lib/commerce/strategy-mappers.ts` 做类型映射，并补充 mapper 单元测试。
 5. 在策略平台客户端展示，避免重复列和低价值指标。
-6. 更新 `docs/learning/03-market-data-and-strategy-platform.md` 和相关 README。
+6. 更新 `docs/learning/03-commerce-data-and-strategy-platform.md` 和相关 README。
 
 ### 新增一个基础设施组件
 
@@ -91,7 +91,7 @@ npm run db:doctor
 涉及后端：
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv run ruff check .
 uv run pytest
 ```
@@ -114,7 +114,7 @@ npm run check:platform-visuals
 - `tmp/`
 - `public/uploads/`
 - `public/generated/`
-- `services/market-data/.venv/`
+- `services/commerce-data/.venv/`
 - `services/**/.ruff_cache/`
 - 真实 token、个人路径、未脱敏日志
 
@@ -124,7 +124,7 @@ npm run check:platform-visuals
 | --- | --- |
 | 新组件、新端口、新环境变量 | `docs/infrastructure.md` |
 | 新表、新字段、新 SQL | `sqls/README.md` 和相关专题文档 |
-| 新行情源、新字段口径 | `docs/market-data-source-knowledge.md` |
+| 新行情源、新字段口径 | `docs/commerce-data-source-knowledge.md` |
 | 生成工作空间文件变化 | `docs/generated-workspace-contract.md` |
 | 新 skill 或版本治理规则 | `docs/skills-governance.md` |
 | 新评测规则 | `docs/evals-guide.md` |

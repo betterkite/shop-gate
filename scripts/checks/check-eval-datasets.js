@@ -13,7 +13,7 @@ const { attestEvalDataSnapshot, evalSnapshotPayloadSha256 } = jiti('../../src/li
 const { attestProductionReplayCase } = jiti('../../src/lib/eval/shadow-replay.ts');
 
 const root = process.cwd();
-const benchmarkRoot = path.resolve('benchmarks/quantpilot');
+const benchmarkRoot = path.resolve('benchmarks/shopgate');
 const registryPath = path.join(benchmarkRoot, 'datasets.json');
 const queryRewriteFixturesPath = path.join(benchmarkRoot, 'query-rewrite-fixtures.json');
 
@@ -24,7 +24,7 @@ function readJson(filePath) {
 function safeBenchmarkPath(relativePath, label) {
   const resolved = path.resolve(benchmarkRoot, relativePath);
   if (resolved !== benchmarkRoot && !resolved.startsWith(`${benchmarkRoot}${path.sep}`)) {
-    throw new Error(`${label} 必须位于 benchmarks/quantpilot 内`);
+    throw new Error(`${label} 必须位于 benchmarks/shopgate 内`);
   }
   return resolved;
 }
@@ -35,7 +35,7 @@ function sameStrings(left, right) {
 
 function readExternalCases(definition, problems) {
   const configuredPath = definition.pathEnv ? process.env[definition.pathEnv] : '';
-  const requiredByRelease = definition.visibility === 'hidden' && process.env.QUANTPILOT_REQUIRE_HIDDEN_EVAL === '1';
+  const requiredByRelease = definition.visibility === 'hidden' && process.env.SHOPGATE_REQUIRE_HIDDEN_EVAL === '1';
   if (!configuredPath) {
     if (definition.required || requiredByRelease) {
       problems.push(`${definition.id} 缺少 ${definition.pathEnv} 配置`);

@@ -16,7 +16,7 @@ import {
 } from './capabilities';
 
 export const FINANCE_DOMAIN_PACK_ID = 'finance.quant';
-export const QUANTPILOT_AGENT_PROFILE_ID = DEFAULT_DATA_AGENT_PROFILE_ID;
+export const SHOPGATE_AGENT_PROFILE_ID = DEFAULT_DATA_AGENT_PROFILE_ID;
 
 function operationId(endpoint: string): string {
   const normalized = endpoint
@@ -25,7 +25,7 @@ function operationId(endpoint: string): string {
     .replace(/\{[^}]+\}/g, 'entity')
     .replace(/[^a-z0-9]+/g, '.')
     .replace(/^\.|\.$/g, '');
-  return `finance.market-data.${normalized}`;
+  return `finance.commerce-data.${normalized}`;
 }
 
 function capabilityDescriptor(
@@ -48,7 +48,7 @@ const connectorOperations = Array.from(new Set(
 )).map((endpoint) => ({
   id: operationId(endpoint),
   title: endpoint,
-  description: `QuantPilot market-data operation ${endpoint}`,
+  description: `Shop Gate commerce-data operation ${endpoint}`,
   effect: 'read' as const,
   inputSchema: { type: 'object', additionalProperties: false },
 }));
@@ -61,7 +61,7 @@ export const FINANCE_DOMAIN_PACK: DataAgentDomainPack = {
   capabilities: QUANT_CAPABILITIES.map(capabilityDescriptor),
   resolverIds: ['finance.security-resolver'],
   connectors: [{
-    id: 'finance.market-data',
+    id: 'finance.commerce-data',
     version: '1.0.0',
     domain: FINANCE_DOMAIN_PACK_ID,
     operations: connectorOperations,
@@ -70,8 +70,8 @@ export const FINANCE_DOMAIN_PACK: DataAgentDomainPack = {
     QUANT_CAPABILITIES.flatMap((capability) => capability.requiredSkills),
   )),
   toolNames: [
-    'quant_api_get',
-    'quant_extract_uploaded_image',
+    'commerce_api_get',
+    'commerce_extract_uploaded_image',
     'inspect_dashboard_contract',
     'apply_dashboard_spec',
   ],
@@ -93,28 +93,28 @@ export const FINANCE_DOMAIN_PACK: DataAgentDomainPack = {
   ],
 };
 
-export const QUANTPILOT_AGENT_PROFILE: DataAgentProfile = {
-  id: QUANTPILOT_AGENT_PROFILE_ID,
+export const SHOPGATE_AGENT_PROFILE: DataAgentProfile = {
+  id: SHOPGATE_AGENT_PROFILE_ID,
   version: '1.0.0',
-  name: 'QuantPilot Finance Research',
+  name: 'Shop Gate Finance Research',
   domainPackIds: [FINANCE_DOMAIN_PACK_ID],
   defaultCapabilityId: DEFAULT_QUANT_CAPABILITY_ID,
   deliveryPackId: 'workspace.next-dashboard',
-  memoryPolicyId: 'quantpilot.personalization',
-  knowledgePolicyId: 'quantpilot.governed-knowledge',
+  memoryPolicyId: 'shopgate.personalization',
+  knowledgePolicyId: 'shopgate.governed-knowledge',
 };
 
-export function createQuantPilotDataAgentRegistry(): DataAgentRegistry {
+export function createShopGateDataAgentRegistry(): DataAgentRegistry {
   return new DataAgentRegistry()
     .registerDeliveryPack(NEXT_DASHBOARD_DELIVERY_PACK)
     .registerDomainPack(FINANCE_DOMAIN_PACK)
-    .registerProfile(QUANTPILOT_AGENT_PROFILE);
+    .registerProfile(SHOPGATE_AGENT_PROFILE);
 }
 
-export function resolveQuantPilotDataAgentProfile(
-  profileId = QUANTPILOT_AGENT_PROFILE_ID,
+export function resolveShopGateDataAgentProfile(
+  profileId = SHOPGATE_AGENT_PROFILE_ID,
 ) {
-  return createQuantPilotDataAgentRegistry().resolveProfile(profileId);
+  return createShopGateDataAgentRegistry().resolveProfile(profileId);
 }
 
 export function getFinanceSkillCapabilityDescriptor(

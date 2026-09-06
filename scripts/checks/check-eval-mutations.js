@@ -14,13 +14,13 @@ const thresholdArg = process.argv.find((arg) => arg.startsWith('--min-kill-rate=
 const thresholdIndex = process.argv.indexOf('--min-kill-rate');
 const rawThreshold = thresholdArg
   ? thresholdArg.slice('--min-kill-rate='.length)
-  : thresholdIndex >= 0 ? process.argv[thresholdIndex + 1] : process.env.QUANTPILOT_EVAL_MIN_MUTATION_KILL_RATE || '100';
+  : thresholdIndex >= 0 ? process.argv[thresholdIndex + 1] : process.env.SHOPGATE_EVAL_MIN_MUTATION_KILL_RATE || '100';
 const minKillRate = Number.parseInt(rawThreshold, 10);
 if (!Number.isSafeInteger(minKillRate) || minKillRate < 0 || minKillRate > 100) {
   throw new Error('--min-kill-rate 必须是 0 到 100 的整数');
 }
 
-const catalogPath = path.resolve('benchmarks/quantpilot/mutation-catalog.json');
+const catalogPath = path.resolve('benchmarks/shopgate/mutation-catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 if (catalog.schemaVersion !== 1 || !Array.isArray(catalog.mutations) || catalog.mutations.length === 0) {
   throw new Error('mutation catalog 必须使用 schemaVersion 1 并包含 mutations');
@@ -47,7 +47,7 @@ const report = {
     sha256: evalSnapshotPayloadSha256(catalog),
   },
 };
-const outputDir = path.resolve('tmp/quantpilot-eval-mutations');
+const outputDir = path.resolve('tmp/shopgate-eval-mutations');
 fs.mkdirSync(outputDir, { recursive: true });
 const reportPath = path.join(outputDir, `mutation-report-${Date.now()}.json`);
 fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');

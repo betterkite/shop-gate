@@ -251,7 +251,7 @@ async def probe_candidate_provider(
         async with httpx.AsyncClient(
             timeout=timeout_seconds,
             headers={
-                "User-Agent": "QuantPilot/0.1 provider-probe",
+                "User-Agent": "Shop Gate/0.1 provider-probe",
                 "Referer": "https://finance.sina.com.cn/",
             },
             follow_redirects=True,

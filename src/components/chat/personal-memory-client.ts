@@ -45,7 +45,7 @@ function apiMessage(payload: ApiEnvelope, fallback: string): string {
   if (payload.error === 'MEMORY_OPTED_OUT') {
     return '请先在“账号 → 用户记忆”中启用个性化。';
   }
-  if (payload.error === 'MEMORY_DISABLED') return 'QuantPilot 当前未启用用户记忆。';
+  if (payload.error === 'MEMORY_DISABLED') return 'Shop Gate 当前未启用用户记忆。';
   return fallback;
 }
 
@@ -60,7 +60,7 @@ export function buildPersonalPreferencePayload(input: {
     eventId: input.eventId,
     key: input.key,
     value,
-    evidenceText: `用户通过 QuantPilot“记住偏好”面板明确确认：${value}`,
+    evidenceText: `用户通过 Shop Gate“记住偏好”面板明确确认：${value}`,
     confidence: 1,
     scope: input.scope,
   };

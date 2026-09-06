@@ -35,7 +35,7 @@ import { GET, PUT } from './route';
 const control = {
   configured: true,
   personalizationEnabled: false,
-  policyVersion: 'quantpilot-personalization-v1',
+  policyVersion: 'shopgate-personalization-v1',
   enabledAt: null,
   disabledAt: new Date('2026-07-18T00:00:00Z'),
   updatedAt: new Date('2026-07-18T00:00:00Z'),

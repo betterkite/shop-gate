@@ -38,10 +38,10 @@ interface WebhookPayload {
 }
 
 const DEFAULT_WEBHOOK_ENV: Record<string, string> = {
-  wxwork: 'QUANTPILOT_WXWORK_RESEARCH_WEBHOOK',
-  feishu: 'QUANTPILOT_FEISHU_RESEARCH_WEBHOOK',
-  dingtalk: 'QUANTPILOT_DINGTALK_RESEARCH_WEBHOOK',
-  discord: 'QUANTPILOT_DISCORD_RESEARCH_WEBHOOK',
+  wxwork: 'SHOPGATE_WXWORK_RESEARCH_WEBHOOK',
+  feishu: 'SHOPGATE_FEISHU_RESEARCH_WEBHOOK',
+  dingtalk: 'SHOPGATE_DINGTALK_RESEARCH_WEBHOOK',
+  discord: 'SHOPGATE_DISCORD_RESEARCH_WEBHOOK',
 };
 
 function asRecord(value: unknown): JsonRecord {

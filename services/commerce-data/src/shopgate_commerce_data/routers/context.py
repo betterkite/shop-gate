@@ -4,15 +4,15 @@ from typing import cast
 
 from fastapi import APIRouter, HTTPException
 
-from quantpilot_market_data.cache import MarketDataCache, RedisJsonCache
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache, RedisJsonCache
+from shopgate_commerce_data.models import (
     Adjustment,
     AnalysisContextResponse,
     AnalysisContextSectionName,
     KlinePeriod,
 )
-from quantpilot_market_data.providers.base import AnalysisContextProvider
-from quantpilot_market_data.services.context import get_analysis_context
+from shopgate_commerce_data.providers.base import AnalysisContextProvider
+from shopgate_commerce_data.services.context import get_analysis_context
 
 DEFAULT_SECTIONS: tuple[AnalysisContextSectionName, ...] = (
     "quote",

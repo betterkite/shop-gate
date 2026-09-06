@@ -18,7 +18,7 @@ function InstallGuideModal({ onClose, onRefreshStatus, onCopyToast }: InstallGui
   const steps = [
     { title: "安装项目依赖", command: "npm install" },
     { title: "配置 ModelPort 客户端凭据", command: "MODELPORT_API_KEY=..." },
-    { title: "重新启动 QuantPilot", command: "npm run dev" },
+    { title: "重新启动 Shop Gate", command: "npm run dev" },
   ];
 
   return (

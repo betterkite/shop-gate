@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.models import KlineResponse, SymbolResolveResult
-from quantpilot_market_data.services import quotes
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.models import KlineResponse, SymbolResolveResult
+from shopgate_commerce_data.services import quotes
 
 
 class DummyProvider:

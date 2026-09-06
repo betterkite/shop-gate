@@ -10,11 +10,11 @@ import {
 } from './notification-adapters';
 
 const MARKET_API_BASE_URL =
-  process.env.QUANTPILOT_MARKET_API_URL ||
-  process.env.QUANTPILOT_MARKET_API_BASE_URL ||
+  process.env.SHOPGATE_MARKET_API_URL ||
+  process.env.SHOPGATE_MARKET_API_BASE_URL ||
   'http://127.0.0.1:8000';
 
-const DEFAULT_WATCHLIST_ID = 'daily-quantpilot-core';
+const DEFAULT_WATCHLIST_ID = 'daily-shopgate-core';
 const DEFAULT_CHANNEL_ID = 'dry-run-wxwork-research';
 const DEFAULT_UNIVERSE_ID = 'a-share-sample-research-pool';
 
@@ -272,7 +272,7 @@ async function fetchMarketProbe<T>(pathName: string, source: string, timeoutMs =
       evidence: {
         source,
         status: 'disabled',
-        detail: 'market-data API 已按降级配置停用。',
+        detail: 'commerce-data API 已按降级配置停用。',
         capturedAt,
       },
     };
@@ -293,7 +293,7 @@ async function fetchMarketProbe<T>(pathName: string, source: string, timeoutMs =
         evidence: {
           source,
           status: 'unavailable',
-          detail: `market-data API ${response.status}: ${body.slice(0, 180)}`,
+          detail: `commerce-data API ${response.status}: ${body.slice(0, 180)}`,
           capturedAt,
         },
       };
@@ -304,7 +304,7 @@ async function fetchMarketProbe<T>(pathName: string, source: string, timeoutMs =
       evidence: {
         source,
         status: 'available',
-        detail: '已读取本地 market-data API。',
+        detail: '已读取本地 commerce-data API。',
         capturedAt,
         metrics: probeMetrics(data),
       },
@@ -514,7 +514,7 @@ export async function ensureResearchAutomationSeed() {
     where: { id: DEFAULT_WATCHLIST_ID },
     create: {
       id: DEFAULT_WATCHLIST_ID,
-      name: 'QuantPilot 每日核心观察池',
+      name: 'Shop Gate 每日核心观察池',
       description: '围绕默认 A 股研究池和少量核心标的生成证据型日报。',
       universeId: DEFAULT_UNIVERSE_ID,
       symbols: DEFAULT_SYMBOLS,
@@ -531,7 +531,7 @@ export async function ensureResearchAutomationSeed() {
       metadata: {
         seeded: true,
         intent: 'research_automation_p0',
-        sourceProject: 'QuantPilot',
+        sourceProject: 'Shop Gate',
       },
     },
     update: {},
@@ -548,7 +548,7 @@ export async function ensureResearchAutomationSeed() {
       config: {
         mode: 'dry_run',
         adapter: 'wxwork-webhook',
-        webhookEnv: 'QUANTPILOT_WXWORK_RESEARCH_WEBHOOK',
+        webhookEnv: 'SHOPGATE_WXWORK_RESEARCH_WEBHOOK',
         secretConfigured: false,
       },
       isDryRun: true,
@@ -674,8 +674,8 @@ function buildProviderMatrix(
 
   return [
     {
-      id: 'local-market-data',
-      name: '本地 market-data',
+      id: 'local-commerce-data',
+      name: '本地 commerce-data',
       role: '股票池、行情覆盖、K 线和候选筛选的事实源',
       status: market?.status ?? 'partial',
       detail: market?.detail ?? '等待下一次日报运行采样。',
@@ -914,7 +914,7 @@ export async function runDailyResearchReport(
         contentMarkdown: builtReport.contentMarkdown,
         structured: inputJson(builtReport.structured),
         evidence: inputJson(builtReport.evidence),
-        source: 'local-market-data',
+        source: 'local-commerce-data',
       },
     });
 

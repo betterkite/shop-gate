@@ -65,7 +65,7 @@ function httpBaseUrl(value: string, label: string): string {
 function purpose(value: string | undefined): string {
   const normalized = value?.trim() || 'quant-research';
   if (!PURPOSE_PATTERN.test(normalized)) {
-    throw new Error('QUANTPILOT_KNOWLEDGE_PURPOSE is invalid.');
+    throw new Error('SHOPGATE_KNOWLEDGE_PURPOSE is invalid.');
   }
   return normalized;
 }
@@ -76,12 +76,12 @@ function spaces(value: string | undefined): string[] {
     .map((item) => item.trim())
     .filter(Boolean);
   if (items.length === 0 || items.length > 50) {
-    throw new Error('QUANTPILOT_KNOWLEDGE_SPACES must contain between 1 and 50 URI values.');
+    throw new Error('SHOPGATE_KNOWLEDGE_SPACES must contain between 1 and 50 URI values.');
   }
   for (const item of items) {
     const parsed = new URL(item);
     if (!parsed.protocol || parsed.username || parsed.password) {
-      throw new Error('QUANTPILOT_KNOWLEDGE_SPACES contains an invalid URI.');
+      throw new Error('SHOPGATE_KNOWLEDGE_SPACES contains an invalid URI.');
     }
   }
   return [...new Set(items)];
@@ -89,10 +89,10 @@ function spaces(value: string | undefined): string[] {
 
 function uriBase(value: string | undefined): string {
   const normalized = value?.trim()
-    || 'https://knowledge.local/spaces/quantpilot/projects';
+    || 'https://knowledge.local/spaces/shopgate/projects';
   const parsed = new URL(normalized);
   if (!parsed.protocol || parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error('QUANTPILOT_KNOWLEDGE_PROJECT_SPACE_BASE_URL contains an invalid URI.');
+    throw new Error('SHOPGATE_KNOWLEDGE_PROJECT_SPACE_BASE_URL contains an invalid URI.');
   }
   return parsed.toString().replace(/\/$/u, '');
 }
@@ -102,9 +102,9 @@ function oauthConfig(
   enabled: boolean,
   apiUrl: string,
 ): KnowledgeIntegrationConfig['oauth'] {
-  const tokenUrl = environment.QUANTPILOT_KNOWLEDGE_OAUTH_TOKEN_URL?.trim();
-  const clientId = environment.QUANTPILOT_KNOWLEDGE_OAUTH_CLIENT_ID?.trim();
-  const clientSecret = environment.QUANTPILOT_KNOWLEDGE_OAUTH_CLIENT_SECRET?.trim();
+  const tokenUrl = environment.SHOPGATE_KNOWLEDGE_OAUTH_TOKEN_URL?.trim();
+  const clientId = environment.SHOPGATE_KNOWLEDGE_OAUTH_CLIENT_ID?.trim();
+  const clientSecret = environment.SHOPGATE_KNOWLEDGE_OAUTH_CLIENT_SECRET?.trim();
   const configured = Boolean(tokenUrl || clientId || clientSecret);
   if (!configured) {
     if (enabled && environment.NODE_ENV === 'production') {
@@ -115,16 +115,16 @@ function oauthConfig(
   if (!tokenUrl || !clientId || !clientSecret) {
     throw new Error('Knowledge OAuth token URL, client ID, and client secret are all required.');
   }
-  const normalizedTokenUrl = httpBaseUrl(tokenUrl, 'QUANTPILOT_KNOWLEDGE_OAUTH_TOKEN_URL');
+  const normalizedTokenUrl = httpBaseUrl(tokenUrl, 'SHOPGATE_KNOWLEDGE_OAUTH_TOKEN_URL');
   if (environment.NODE_ENV === 'production' && !normalizedTokenUrl.startsWith('https://')) {
     throw new Error('Production knowledge OAuth token endpoint must use HTTPS.');
   }
   if (clientId.length > 256 || clientId.includes(':') || clientSecret.length < 16 || clientSecret.length > 4_096) {
     throw new Error('Invalid knowledge OAuth client credentials.');
   }
-  const resource = environment.QUANTPILOT_KNOWLEDGE_OAUTH_RESOURCE?.trim()
+  const resource = environment.SHOPGATE_KNOWLEDGE_OAUTH_RESOURCE?.trim()
     || new URL('/akep/0.1', `${apiUrl}/`).toString();
-  const scope = environment.QUANTPILOT_KNOWLEDGE_OAUTH_SCOPE?.trim()
+  const scope = environment.SHOPGATE_KNOWLEDGE_OAUTH_SCOPE?.trim()
     || 'akep:query akep:read akep:feedback';
   if (resource.length > 2_048 || scope.length > 2_048) {
     throw new Error('Knowledge OAuth resource or scope is too long.');
@@ -141,20 +141,20 @@ function oauthConfig(
 export function getKnowledgeIntegrationConfig(
   environment: Environment = process.env,
 ): KnowledgeIntegrationConfig {
-  const offline = environment.QUANTPILOT_DEGRADATION_MODE?.trim().toLowerCase() === 'offline';
+  const offline = environment.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() === 'offline';
   const enabled = !offline && flag(
-    environment.QUANTPILOT_KNOWLEDGE_ENABLED,
+    environment.SHOPGATE_KNOWLEDGE_ENABLED,
     environment.NODE_ENV !== 'test',
   );
-  const required = enabled && flag(environment.QUANTPILOT_KNOWLEDGE_REQUIRED, false);
+  const required = enabled && flag(environment.SHOPGATE_KNOWLEDGE_REQUIRED, false);
   const apiUrl = httpBaseUrl(
-    environment.QUANTPILOT_KNOWLEDGE_API_URL?.trim() || 'http://localhost:33005',
-    'QUANTPILOT_KNOWLEDGE_API_URL',
+    environment.SHOPGATE_KNOWLEDGE_API_URL?.trim() || 'http://localhost:33005',
+    'SHOPGATE_KNOWLEDGE_API_URL',
   );
   if (environment.NODE_ENV === 'production' && !apiUrl.startsWith('https://')) {
     throw new Error('Production governed knowledge endpoint must use HTTPS.');
   }
-  const bearerToken = environment.QUANTPILOT_KNOWLEDGE_BEARER_TOKEN?.trim() || null;
+  const bearerToken = environment.SHOPGATE_KNOWLEDGE_BEARER_TOKEN?.trim() || null;
   if (environment.NODE_ENV === 'production' && bearerToken) {
     throw new Error('Static governed knowledge bearer tokens are forbidden in production.');
   }
@@ -163,13 +163,13 @@ export function getKnowledgeIntegrationConfig(
     enabled,
     required,
     apiUrl,
-    purpose: purpose(environment.QUANTPILOT_KNOWLEDGE_PURPOSE),
-    spaces: spaces(environment.QUANTPILOT_KNOWLEDGE_SPACES),
-    projectSpacesEnabled: flag(environment.QUANTPILOT_KNOWLEDGE_PROJECT_SPACES_ENABLED, true),
-    projectSpaceBaseUrl: uriBase(environment.QUANTPILOT_KNOWLEDGE_PROJECT_SPACE_BASE_URL),
-    timeoutMs: boundedInteger(environment.QUANTPILOT_KNOWLEDGE_TIMEOUT_MS, 2_000, 100, 30_000),
+    purpose: purpose(environment.SHOPGATE_KNOWLEDGE_PURPOSE),
+    spaces: spaces(environment.SHOPGATE_KNOWLEDGE_SPACES),
+    projectSpacesEnabled: flag(environment.SHOPGATE_KNOWLEDGE_PROJECT_SPACES_ENABLED, true),
+    projectSpaceBaseUrl: uriBase(environment.SHOPGATE_KNOWLEDGE_PROJECT_SPACE_BASE_URL),
+    timeoutMs: boundedInteger(environment.SHOPGATE_KNOWLEDGE_TIMEOUT_MS, 2_000, 100, 30_000),
     maxContextCharacters: boundedInteger(
-      environment.QUANTPILOT_KNOWLEDGE_MAX_CONTEXT_CHARACTERS,
+      environment.SHOPGATE_KNOWLEDGE_MAX_CONTEXT_CHARACTERS,
       8_000,
       256,
       100_000,

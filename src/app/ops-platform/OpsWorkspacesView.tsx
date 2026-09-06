@@ -28,14 +28,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatCompactDate as formatDate } from "@/components/quant/console-primitives";
+import { formatCompactDate as formatDate } from "@/components/eval-console/console-primitives";
 import { cn } from "@/lib/utils";
 import type {
   WorkspaceDeliverySegmentId,
   WorkspaceHealthDashboard,
   WorkspaceHealthItem,
   WorkspaceHealthStatus,
-} from "@/lib/quant/workspace-health";
+} from "@/lib/commerce/workspace-health";
 import { OpsMetricCard, OpsSectionHeader } from "./OpsConsolePrimitives";
 
 type HealthFilter = WorkspaceHealthStatus | "all";

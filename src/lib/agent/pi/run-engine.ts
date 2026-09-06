@@ -97,7 +97,7 @@ let upstreamRuntimePromise:
   | undefined;
 
 /**
- * The PI packages are ESM-only. QuantPilot's standalone Worker entry is
+ * The PI packages are ESM-only. Shop Gate's standalone Worker entry is
  * intentionally CommonJS-compatible, so runtime values must cross the native
  * dynamic-import boundary instead of being transpiled into `require()`.
  */
@@ -339,7 +339,7 @@ function tokenCount(value: number, label: string): number {
 
 /**
  * PI reports non-cached input, cache reads and cache writes separately.
- * QuantPilot's historical inputTokens is the full provider input.
+ * Shop Gate's historical inputTokens is the full provider input.
  */
 export function usageFromPi(usage: Usage): PiAgentTokenUsage {
   const input = tokenCount(usage.input, 'PI input usage');
@@ -372,31 +372,31 @@ export function usageFromPi(usage: Usage): PiAgentTokenUsage {
 export function usageToPi(usage: PiAgentTokenUsage): Usage {
   const fullInput = tokenCount(
     usage.inputTokens,
-    'QuantPilot input usage',
+    'Shop Gate input usage',
   );
   const output = tokenCount(
     usage.outputTokens,
-    'QuantPilot output usage',
+    'Shop Gate output usage',
   );
   if (
-    tokenCount(usage.totalTokens, 'QuantPilot total usage') !==
+    tokenCount(usage.totalTokens, 'Shop Gate total usage') !==
       fullInput + output
   ) {
     throw new Error(
-      'QuantPilot total usage does not match input plus output usage.',
+      'Shop Gate total usage does not match input plus output usage.',
     );
   }
   let cacheRead = usage.cachedInputTokens === undefined
     ? undefined
     : tokenCount(
         usage.cachedInputTokens,
-        'QuantPilot cached-input usage',
+        'Shop Gate cached-input usage',
       );
   let cacheMiss = usage.cacheMissInputTokens === undefined
     ? undefined
     : tokenCount(
         usage.cacheMissInputTokens,
-        'QuantPilot cache-miss usage',
+        'Shop Gate cache-miss usage',
       );
   if (cacheRead === undefined && cacheMiss === undefined) {
     cacheRead = 0;
@@ -404,35 +404,35 @@ export function usageToPi(usage: PiAgentTokenUsage): Usage {
   } else if (cacheRead === undefined) {
     if (cacheMiss! > fullInput) {
       throw new Error(
-        'QuantPilot cache-miss usage cannot exceed full input usage.',
+        'Shop Gate cache-miss usage cannot exceed full input usage.',
       );
     }
     cacheRead = fullInput - cacheMiss!;
   } else if (cacheMiss === undefined) {
     if (cacheRead > fullInput) {
       throw new Error(
-        'QuantPilot cached-input usage cannot exceed full input usage.',
+        'Shop Gate cached-input usage cannot exceed full input usage.',
       );
     }
     cacheMiss = fullInput - cacheRead;
   }
   if (cacheRead === undefined || cacheMiss === undefined) {
-    throw new Error('QuantPilot usage normalization failed.');
+    throw new Error('Shop Gate usage normalization failed.');
   }
   if (cacheRead + cacheMiss !== fullInput) {
     throw new Error(
-      'QuantPilot cached and cache-miss usage must equal full input usage.',
+      'Shop Gate cached and cache-miss usage must equal full input usage.',
     );
   }
   if (
     usage.reasoningTokens !== undefined &&
     tokenCount(
       usage.reasoningTokens,
-      'QuantPilot reasoning usage',
+      'Shop Gate reasoning usage',
     ) > output
   ) {
     throw new Error(
-      'QuantPilot reasoning usage cannot exceed output usage.',
+      'Shop Gate reasoning usage cannot exceed output usage.',
     );
   }
   const totalTokens = fullInput + output;
@@ -540,8 +540,8 @@ function toPiConversation(messages: readonly PiAgentMessage[]): {
         conversation.push({
           role: 'assistant',
           content,
-          api: 'quantpilot-provider',
-          provider: 'quantpilot-history',
+          api: 'shopgate-provider',
+          provider: 'shopgate-history',
           model: 'history',
           usage: { ...EMPTY_PI_USAGE, cost: { ...EMPTY_PI_USAGE.cost } },
           stopReason: message.toolCalls?.length ? 'toolUse' : 'stop',
@@ -623,7 +623,7 @@ function modelForPi(
   return {
     id: model,
     name: model,
-    api: 'quantpilot-provider',
+    api: 'shopgate-provider',
     provider,
     baseUrl: '',
     reasoning,
@@ -737,7 +737,7 @@ function providerMessage(options: {
   return {
     role: 'assistant',
     content,
-    api: 'quantpilot-provider',
+    api: 'shopgate-provider',
     provider: providerName,
     model: request.model,
     ...(state.responseId ? { responseId: state.responseId } : {}),
@@ -763,7 +763,7 @@ function providerErrorMessage(options: {
   return {
     role: 'assistant',
     content: [],
-    api: 'quantpilot-provider',
+    api: 'shopgate-provider',
     provider: options.providerName,
     model: options.request.model,
     usage: { ...EMPTY_PI_USAGE, cost: { ...EMPTY_PI_USAGE.cost } },
@@ -776,8 +776,8 @@ function providerErrorMessage(options: {
 export type { PiAgentRunEngineOptions } from './options';
 
 /**
- * PI owns the complete multi-turn agent loop and calls the real QuantPilot
- * tools. QuantPilot remains the host governance layer for approval, durable
+ * PI owns the complete multi-turn agent loop and calls the real Shop Gate
+ * tools. Shop Gate remains the host governance layer for approval, durable
  * prepare-before-effect ledgers, fencing, budgets and Mission completion.
  */
 export class PiAgentRunEngine {
@@ -1295,7 +1295,7 @@ export class PiAgentRunEngine {
           const partial: AssistantMessage = {
             role: 'assistant',
             content: [],
-            api: 'quantpilot-provider',
+            api: 'shopgate-provider',
             provider: this.options.provider.name,
             model: this.options.model,
             usage: { ...EMPTY_PI_USAGE, cost: { ...EMPTY_PI_USAGE.cost } },

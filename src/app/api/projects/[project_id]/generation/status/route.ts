@@ -7,9 +7,9 @@ import { projectRouteAction } from '@/lib/auth/project-route-action';
 import {
   deriveQuantGenerationTerminalSnapshot,
   requiresPiAgentMissionAcceptance,
-} from '@/lib/quant/generation-terminal';
-import { readQuantGenerationState } from '@/lib/quant/generation-state';
-import { readQuantValidationReport } from '@/lib/quant/validation';
+} from '@/lib/commerce/generation-terminal';
+import { readQuantGenerationState } from '@/lib/commerce/generation-state';
+import { readQuantValidationReport } from '@/lib/commerce/validation';
 import { readPiAgentAcceptedMissionSnapshot } from '@/lib/services/pi-agent-mission-store';
 import { getProjectById } from '@/lib/services/project';
 

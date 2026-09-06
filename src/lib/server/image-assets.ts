@@ -50,7 +50,7 @@ export function detectImageType(bytes: Uint8Array): DetectedImageType | null {
   return null;
 }
 
-export function configuredMaxImageBytes(value = process.env.QUANTPILOT_MAX_IMAGE_UPLOAD_BYTES): number {
+export function configuredMaxImageBytes(value = process.env.SHOPGATE_MAX_IMAGE_UPLOAD_BYTES): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return DEFAULT_MAX_IMAGE_UPLOAD_BYTES;

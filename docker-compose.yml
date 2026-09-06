@@ -1,19 +1,19 @@
-name: quantpilot
+name: shopgate
 
 services:
   timescaledb:
     image: ${TIMESCALEDB_IMAGE:-timescale/timescaledb:2.27.1-pg18}
-    container_name: quantpilot-timescaledb
+    container_name: shopgate-timescaledb
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-quantpilot}
-      POSTGRES_USER: ${POSTGRES_USER:-quantpilot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quantpilot_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-shopgate}
+      POSTGRES_USER: ${POSTGRES_USER:-shopgate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopgate_dev_password}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-35433}:5432"
     volumes:
-      - quantpilot_timescaledb_data:/var/lib/postgresql/data
+      - shopgate_timescaledb_data:/var/lib/postgresql/data
       - ./sqls:/docker-entrypoint-initdb.d:ro
     healthcheck:
       # The image starts a temporary Unix-socket-only PostgreSQL server while
@@ -28,7 +28,7 @@ services:
 
   redis:
     image: ${REDIS_IMAGE:-redis:8-alpine}
-    container_name: quantpilot-redis
+    container_name: shopgate-redis
     restart: unless-stopped
     command:
       - redis-server
@@ -40,7 +40,7 @@ services:
     ports:
       - "127.0.0.1:${REDIS_PORT:-36380}:6379"
     volumes:
-      - quantpilot_redis_data:/data
+      - shopgate_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -50,19 +50,19 @@ services:
 
   clickhouse:
     image: ${CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:25.8}
-    container_name: quantpilot-clickhouse
+    container_name: shopgate-clickhouse
     restart: unless-stopped
     environment:
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-quantpilot}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-quantpilot}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-quantpilot_dev_password}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-shopgate}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-shopgate}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-shopgate_dev_password}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
     ports:
       - "127.0.0.1:${CLICKHOUSE_HTTP_PORT:-38123}:8123"
       - "127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-39023}:9000"
     volumes:
-      - quantpilot_clickhouse_data:/var/lib/clickhouse
-      - quantpilot_clickhouse_logs:/var/log/clickhouse-server
+      - shopgate_clickhouse_data:/var/lib/clickhouse
+      - shopgate_clickhouse_logs:/var/log/clickhouse-server
     healthcheck:
       test:
         [
@@ -76,7 +76,7 @@ services:
 
   loki:
     image: ${LOKI_IMAGE:-grafana/loki:3.6.0}
-    container_name: quantpilot-loki
+    container_name: shopgate-loki
     restart: unless-stopped
     user: "0:0"
     command:
@@ -85,15 +85,15 @@ services:
       - "127.0.0.1:${LOKI_PORT:-33100}:3100"
     volumes:
       - ./deploy/observability/loki/loki-config.yaml:/etc/loki/config.yaml:ro
-      - quantpilot_loki_data:/loki
+      - shopgate_loki_data:/loki
 
   grafana:
     image: ${GRAFANA_IMAGE:-grafana/grafana:13.0.1}
-    container_name: quantpilot-grafana
+    container_name: shopgate-grafana
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-quantpilot_dev_password}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-shopgate_dev_password}
       GF_USERS_DEFAULT_THEME: light
       GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED:-true}
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
@@ -101,13 +101,13 @@ services:
       - "127.0.0.1:${GRAFANA_PORT:-33012}:3000"
     volumes:
       - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - quantpilot_grafana_data:/var/lib/grafana
+      - shopgate_grafana_data:/var/lib/grafana
     depends_on:
       - loki
 
   alloy:
     image: ${GRAFANA_ALLOY_IMAGE:-grafana/alloy:v1.16.1}
-    container_name: quantpilot-alloy
+    container_name: shopgate-alloy
     restart: unless-stopped
     command:
       - run
@@ -118,18 +118,18 @@ services:
       - "127.0.0.1:${GRAFANA_ALLOY_PORT:-33145}:12345"
     volumes:
       - ./deploy/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - ./tmp:/var/log/quantpilot/tmp:ro
-      - ./.next:/var/log/quantpilot/.next:ro
+      - ./tmp:/var/log/shopgate/tmp:ro
+      - ./.next:/var/log/shopgate/.next:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - quantpilot_alloy_data:/var/lib/alloy
+      - shopgate_alloy_data:/var/lib/alloy
     depends_on:
       - loki
 
 volumes:
-  quantpilot_timescaledb_data:
-  quantpilot_redis_data:
-  quantpilot_clickhouse_data:
-  quantpilot_clickhouse_logs:
-  quantpilot_loki_data:
-  quantpilot_grafana_data:
-  quantpilot_alloy_data:
+  shopgate_timescaledb_data:
+  shopgate_redis_data:
+  shopgate_clickhouse_data:
+  shopgate_clickhouse_logs:
+  shopgate_loki_data:
+  shopgate_grafana_data:
+  shopgate_alloy_data:

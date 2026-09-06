@@ -102,7 +102,7 @@
         "后端 /api/v1/research/universes/{universe_id}/members",
         "后端 /api/v1/research/data-coverage",
         "后端 /api/v1/provider-candidates",
-        "docs/market-data-source-knowledge.md"
+        "docs/commerce-data-source-knowledge.md"
       ],
       "outputs": [
         "本地覆盖说明",

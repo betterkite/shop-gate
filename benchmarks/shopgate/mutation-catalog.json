@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "quantpilot-evaluator-mutations",
+  "id": "shopgate-evaluator-mutations",
   "version": "2026.07.16",
   "minimumKillRate": 100,
   "mutations": [

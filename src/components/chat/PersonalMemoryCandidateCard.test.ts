@@ -8,7 +8,7 @@ import {
 describe('PersonalMemoryCandidateCard contract parser', () => {
   it('accepts the versioned bounded candidate contract', () => {
     expect(parsePersonalMemoryCandidate({
-      contract: 'quantpilot-personal-memory-candidate/v1',
+      contract: 'shopgate-personal-memory-candidate/v1',
       key: 'output.answer_style',
       value: '以后先给结论',
       scope: 'project',

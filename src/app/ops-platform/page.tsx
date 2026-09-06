@@ -1,12 +1,12 @@
-import { getWorkspaceHealthDashboard } from '@/lib/quant/workspace-health';
-import { getGenerationObservabilityDashboard } from '@/lib/quant/generation-observability';
+import { getWorkspaceHealthDashboard } from '@/lib/commerce/workspace-health';
+import { getGenerationObservabilityDashboard } from '@/lib/commerce/generation-observability';
 import { getOpsPlatformDashboard } from '@/lib/ops/ops-platform';
 import OpsPlatformClient, { type OpsView } from './OpsPlatformClient';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '运行治理中心 · QuantPilot',
-  description: '统一治理 QuantPilot 服务运行、工作空间交付、生成链路与运行日志。',
+  title: '运行治理中心 · Shop Gate',
+  description: '统一治理 Shop Gate 服务运行、工作空间交付、生成链路与运行日志。',
 };
 
 type Props = {

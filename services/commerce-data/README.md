@@ -1,4 +1,4 @@
-# QuantPilot 市场数据服务
+# Shop Gate 市场数据服务
 
 这个子模块用于给量化分析 Agent 和策略平台提供行情、财务、事件、补数、基础组件和回测数据能力。当前以东方财富为实时行情和事件主源，历史 K 线优先走东方财富，失败时使用 Baostock 补 A 股日线增强字段，AKShare 作为补充聚合层，Yahoo Finance 仅用于海外市场方向。
 
@@ -34,11 +34,11 @@
 首次初始化：
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv sync
 ```
 
-从项目根目录执行 `npm run dev` 或 `npm run dev:market` 时会自动启用
+从项目根目录执行 `npm run dev` 或 `npm run dev:commerce` 时会自动启用
 Baostock / AKShare。仅在单独运行本服务时，需要手动安装这两个数据扩展：
 
 ```bash
@@ -48,7 +48,7 @@ uv sync --extra baostock --extra akshare
 启动服务：
 
 ```bash
-uv run quantpilot-market-api
+uv run shopgate-commerce-api
 ```
 
 默认地址：
@@ -61,34 +61,34 @@ http://127.0.0.1:8000
 
 ```bash
 # 服务监听地址
-export QUANTPILOT_MARKET_HOST=127.0.0.1
-export QUANTPILOT_MARKET_PORT=8000
+export SHOPGATE_MARKET_HOST=127.0.0.1
+export SHOPGATE_MARKET_PORT=8000
 # strict 模式或非 loopback 监听时必填；配置后本机写接口也必须携带令牌
-export QUANTPILOT_MARKET_ADMIN_TOKEN=replace-with-a-long-random-token
+export SHOPGATE_MARKET_ADMIN_TOKEN=replace-with-a-long-random-token
 
 # 东方财富主备域名，按顺序失败重试
 export EASTMONEY_BASE_URLS=https://push2.eastmoney.com,https://push2delay.eastmoney.com
 
-# 本地缓存；默认开启，默认目录为 ~/.cache/quantpilot/market_data
-export QUANTPILOT_MARKET_CACHE_ENABLED=1
-export QUANTPILOT_MARKET_CACHE_DIR=/tmp/quantpilot-market-cache
-export QUANTPILOT_QUOTE_CACHE_TTL_SECONDS=5
-export QUANTPILOT_KLINE_CACHE_TTL_SECONDS=1800
-export QUANTPILOT_FINANCIAL_CACHE_TTL_SECONDS=21600
-export QUANTPILOT_ANNOUNCEMENT_CACHE_TTL_SECONDS=600
-export QUANTPILOT_SCREENER_CACHE_TTL_SECONDS=60
+# 本地缓存；默认开启，默认目录为 ~/.cache/shopgate/market_data
+export SHOPGATE_MARKET_CACHE_ENABLED=1
+export SHOPGATE_MARKET_CACHE_DIR=/tmp/shopgate-market-cache
+export SHOPGATE_QUOTE_CACHE_TTL_SECONDS=5
+export SHOPGATE_KLINE_CACHE_TTL_SECONDS=1800
+export SHOPGATE_FINANCIAL_CACHE_TTL_SECONDS=21600
+export SHOPGATE_ANNOUNCEMENT_CACHE_TTL_SECONDS=600
+export SHOPGATE_SCREENER_CACHE_TTL_SECONDS=60
 
 # Redis 跨进程短期缓存；默认由根目录 docker-compose 拉起
 export REDIS_URL=redis://127.0.0.1:6379/0
-export REDIS_NAMESPACE=quantpilot
-export QUANTPILOT_REDIS_CACHE_ENABLED=1
+export REDIS_NAMESPACE=shopgate
+export SHOPGATE_REDIS_CACHE_ENABLED=1
 
 # ClickHouse 分析加速层；默认关闭，启用后仍以 TimescaleDB 为事实主库
-export QUANTPILOT_CLICKHOUSE_ENABLED=1
+export SHOPGATE_CLICKHOUSE_ENABLED=1
 export CLICKHOUSE_URL=http://127.0.0.1:8123
-export CLICKHOUSE_DB=quantpilot
-export CLICKHOUSE_USER=quantpilot
-export CLICKHOUSE_PASSWORD=quantpilot_dev_password
+export CLICKHOUSE_DB=shopgate
+export CLICKHOUSE_USER=shopgate
+export CLICKHOUSE_PASSWORD=shopgate_dev_password
 ```
 
 ## 接口
@@ -172,7 +172,7 @@ curl 'http://127.0.0.1:8000/api/v1/quotes/history/600519?period=daily&adjustment
 
 说明：日/周/月 K 线、技术指标和回测统一先读 `quant.stock_bars`；只有覆盖不足或显式 `refresh=true` 才访问外部历史源。响应的 `metadata.data_basis`、`coverage` 和 `freshness` 会说明实际口径。实时快照隔离写入 `quant.realtime_quote_snapshots`，不会覆盖正式复权日线。
 
-所有补数、同步、质量扫描等写接口接受 `Authorization: Bearer ...` 或 `X-QuantPilot-Admin-Token`。本机非 strict 且未配置令牌时保持开发兼容；strict 或非 loopback 监听未配置令牌时写接口关闭。
+所有补数、同步、质量扫描等写接口接受 `Authorization: Bearer ...` 或 `X-Shop Gate-Admin-Token`。本机非 strict 且未配置令牌时保持开发兼容；strict 或非 loopback 监听未配置令牌时写接口关闭。
 
 ### 历史 K 线字段补数
 
@@ -184,7 +184,7 @@ curl -X POST 'http://127.0.0.1:8000/api/v1/ingestion/baostock/history' \
   -d '{"symbols":["002156.SZ","002555.SZ"],"period":"daily","adjustment":"qfq","lookback_years":5,"limit":1260,"request_delay_seconds":0.2}'
 ```
 
-更完整的 provider 选择、字段口径和 API 总览见项目根目录的 `docs/market-data-source-knowledge.md`、`docs/data-dictionary.md` 和 `docs/api-reference.md`。
+更完整的 provider 选择、字段口径和 API 总览见项目根目录的 `docs/commerce-data-source-knowledge.md`、`docs/data-dictionary.md` 和 `docs/api-reference.md`。
 
 ### 基础组件
 
@@ -247,15 +247,15 @@ curl 'http://127.0.0.1:8000/api/v1/events/announcements/600519?limit=20'
 
 ## 代码结构
 
-- `quantpilot_market_data/cache.py`：本地 JSON 缓存、Redis JSON 缓存、TTL 和 fetch 元信息。
-- `quantpilot_market_data/providers/eastmoney.py`：东方财富数据源客户端。
-- `quantpilot_market_data/providers/baostock.py`：Baostock A 股历史字段补数 provider。
-- `quantpilot_market_data/providers/akshare.py`：AKShare 可选补数字段 provider。
-- `quantpilot_market_data/database_core.py`：数据库连接、日期和序列化等共享基础函数。
-- `quantpilot_market_data/repositories/`：TimescaleDB/PostgreSQL 查询、事务、批量写入与分页；不存在聚合 `database.py` 兼容入口。
-- `quantpilot_market_data/models.py`：行情数据模型。
-- `quantpilot_market_data/api.py`：FastAPI HTTP 服务。
-- `quantpilot_market_data/cli.py`：启动入口。
+- `shopgate_commerce_data/cache.py`：本地 JSON 缓存、Redis JSON 缓存、TTL 和 fetch 元信息。
+- `shopgate_commerce_data/providers/eastmoney.py`：东方财富数据源客户端。
+- `shopgate_commerce_data/providers/baostock.py`：Baostock A 股历史字段补数 provider。
+- `shopgate_commerce_data/providers/akshare.py`：AKShare 可选补数字段 provider。
+- `shopgate_commerce_data/database_core.py`：数据库连接、日期和序列化等共享基础函数。
+- `shopgate_commerce_data/repositories/`：TimescaleDB/PostgreSQL 查询、事务、批量写入与分页；不存在聚合 `database.py` 兼容入口。
+- `shopgate_commerce_data/models.py`：行情数据模型。
+- `shopgate_commerce_data/api.py`：FastAPI HTTP 服务。
+- `shopgate_commerce_data/cli.py`：启动入口。
 
 ## 说明
 

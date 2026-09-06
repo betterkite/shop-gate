@@ -35,7 +35,7 @@ export function buildPreferenceContext(input: {
   scope: 'global' | 'project';
   context?: Record<string, unknown>;
 }): MemoryContext {
-  const context: MemoryContext = { product: 'quantpilot' };
+  const context: MemoryContext = { product: 'shopgate' };
   if (input.scope === 'project') context.project_id = input.projectId;
   for (const [key, value] of Object.entries(input.context ?? {})) {
     if (key === 'product' || key === 'project_id') continue;
@@ -52,10 +52,10 @@ export function buildPreferenceContext(input: {
   return context;
 }
 
-export function isQuantPilotPreference(preference: { key: string; context: MemoryContext }): boolean {
+export function isShopGatePreference(preference: { key: string; context: MemoryContext }): boolean {
   try {
     assertPersonalizationKey(preference.key);
-    return preference.context.product === 'quantpilot';
+    return preference.context.product === 'shopgate';
   } catch {
     return false;
   }
@@ -92,7 +92,7 @@ export function selectPersonalizationProjection(
     const stringContext = Object.fromEntries(
       Object.entries(context).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
     );
-    if (!isQuantPilotPreference({ key, context: stringContext })) continue;
+    if (!isShopGatePreference({ key, context: stringContext })) continue;
     memories.push({ context: stringContext, key: assertPersonalizationKey(key), value });
     revisionIds.push(...segment.sources.map((source) => source.revisionId));
   }

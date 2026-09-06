@@ -43,7 +43,7 @@ describe('AKEP HTTP adapter', () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse(discovery()));
     const adapter = new AkepHttpAdapter(config, fetcher);
 
-    await expect(adapter.discover('quantpilot-test')).resolves.toMatchObject({
+    await expect(adapter.discover('shopgate-test')).resolves.toMatchObject({
       protocol: 'akep',
       versions: ['0.1'],
       baseUrl: 'https://knowledge.example/akep/0.1',
@@ -120,7 +120,7 @@ describe('AKEP HTTP adapter', () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(jsonResponse(discovery()))
       .mockResolvedValueOnce(jsonResponse({
-        feedbackId: 'urn:quantpilot:knowledge-feedback:abc',
+        feedbackId: 'urn:shopgate:knowledge-feedback:abc',
         usageId: 'urn:uuid:00000000-0000-4000-8000-000000000002',
         evidenceId: 'urn:uuid:00000000-0000-4000-8000-000000000003',
         policyEpoch: 'epoch-1',
@@ -129,7 +129,7 @@ describe('AKEP HTTP adapter', () => {
         correlationClass: 'same_organization',
         eligibleForAggregation: true,
         evaluatorVersion: {
-          uri: 'urn:quantpilot:evaluator:mission-acceptance:v1',
+          uri: 'urn:shopgate:evaluator:mission-acceptance:v1',
           digest: `sha256:${'e'.repeat(64)}`,
         },
       }, 202));
@@ -137,7 +137,7 @@ describe('AKEP HTTP adapter', () => {
 
     await adapter.discover();
     await expect(adapter.recordFeedback({
-      feedbackId: 'urn:quantpilot:knowledge-feedback:abc',
+      feedbackId: 'urn:shopgate:knowledge-feedback:abc',
       usageId: 'urn:uuid:00000000-0000-4000-8000-000000000002',
       citations: [{
         citationId: 'urn:akep:citation:one',
@@ -149,11 +149,11 @@ describe('AKEP HTTP adapter', () => {
       outcome: 'unknown',
       metrics: [{ name: 'mission.accepted', value: 1, unit: 'boolean' }],
       evaluatorVersion: {
-        uri: 'urn:quantpilot:evaluator:mission-acceptance:v1',
+        uri: 'urn:shopgate:evaluator:mission-acceptance:v1',
         digest: `sha256:${'e'.repeat(64)}`,
       },
       contextDigest: `sha256:${'b'.repeat(64)}`,
-      evidenceRefs: ['urn:quantpilot:mission-receipt:abc'],
+      evidenceRefs: ['urn:shopgate:mission-receipt:abc'],
       observedAt: '2026-07-19T00:00:02.000Z',
       privacy: { rawTaskStored: false, aggregation: 'pseudonymized' },
     }, 'feedback-idempotency', 'request-1')).resolves.toMatchObject({

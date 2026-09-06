@@ -11,7 +11,7 @@ from typing import Any, Literal
 import redis.asyncio as redis
 from redis.exceptions import RedisError
 
-from quantpilot_market_data.models import FetchMetadata
+from shopgate_commerce_data.models import FetchMetadata
 
 CacheStatus = Literal["hit", "miss", "disabled"]
 
@@ -187,7 +187,7 @@ class RedisJsonCache:
         enabled: bool | None = None,
     ) -> None:
         self.url = url if url is not None else os.getenv("REDIS_URL", "").strip()
-        self.namespace = namespace or os.getenv("REDIS_NAMESPACE", "quantpilot")
+        self.namespace = namespace or os.getenv("REDIS_NAMESPACE", "shopgate")
         self.enabled = redis_enabled_from_env() if enabled is None else enabled
         self._client: redis.Redis | None = None
         self._available = True
@@ -203,7 +203,7 @@ class RedisJsonCache:
     def key(self, cache_key: str) -> str:
         if cache_key.startswith(f"{self.namespace}:"):
             return cache_key
-        return f"{self.namespace}:market-data:{cache_key}"
+        return f"{self.namespace}:commerce-data:{cache_key}"
 
     async def read(self, cache_key: str) -> dict[str, Any] | None:
         if not self.available:
@@ -275,25 +275,25 @@ class RedisJsonCache:
 
 
 def default_cache_root() -> Path:
-    raw_dir = os.getenv("QUANTPILOT_MARKET_CACHE_DIR")
+    raw_dir = os.getenv("SHOPGATE_MARKET_CACHE_DIR")
     if raw_dir:
         return Path(raw_dir).expanduser()
 
     xdg_cache_home = os.getenv("XDG_CACHE_HOME")
     if xdg_cache_home:
-        return Path(xdg_cache_home).expanduser() / "quantpilot" / "market_data"
-    return Path("~/.cache/quantpilot/market_data").expanduser()
+        return Path(xdg_cache_home).expanduser() / "shopgate" / "market_data"
+    return Path("~/.cache/shopgate/market_data").expanduser()
 
 
 def cache_enabled_from_env() -> bool:
-    raw_value = os.getenv("QUANTPILOT_MARKET_CACHE_ENABLED")
+    raw_value = os.getenv("SHOPGATE_MARKET_CACHE_ENABLED")
     if raw_value is None:
         return True
     return raw_value.strip().lower() not in {"0", "false", "no", "off", "disabled"}
 
 
 def redis_enabled_from_env() -> bool:
-    raw_value = os.getenv("QUANTPILOT_REDIS_CACHE_ENABLED")
+    raw_value = os.getenv("SHOPGATE_REDIS_CACHE_ENABLED")
     if raw_value is None:
         return True
     return raw_value.strip().lower() not in {"0", "false", "no", "off", "disabled"}

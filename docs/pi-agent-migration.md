@@ -1,8 +1,8 @@
 # PI Agent 采用与治理边界
 
-QuantPilot 的唯一 Agent 执行框架是开源
+Shop Gate 的唯一 Agent 执行框架是开源
 [earendil-works/pi](https://github.com/earendil-works/pi)。PI Agent 负责模型与工具之间的
-完整多轮循环；QuantPilot 负责产品权限、副作用治理、持久化、并发、预算和交付验收。
+完整多轮循环；Shop Gate 负责产品权限、副作用治理、持久化、并发、预算和交付验收。
 项目不保留第二套 Agent loop、旧品牌兼容入口或旧配置回退。
 
 ## 当前版本
@@ -43,11 +43,11 @@ QuantPilot 的唯一 Agent 执行框架是开源
 ```text
 HTTP / Generation Worker
   -> Data Agent Profile + Domain Pack + Delivery Pack
-  -> QuantPilot Skills、Mission 与类型化工具
+  -> Shop Gate Skills、Mission 与类型化工具
   -> PiAgentRunEngine
-       -> QuantPilot messages/context -> PI `AgentContext`
+       -> Shop Gate messages/context -> PI `AgentContext`
        -> runAgentLoopContinue(...)
-            -> QuantPilot Provider adapter -> PI StreamFn
+            -> Shop Gate Provider adapter -> PI StreamFn
             -> PI `AgentTool` adapter -> governed tool executor
        -> PI events/messages -> durable public events/result
   -> Delivery validation
@@ -59,14 +59,14 @@ HTTP / Generation Worker
 直到 loop 结束。项目已删除原有自定义多轮 Run Engine；不得再引入另一套
 `while provider -> tool -> provider` 状态机。
 
-Provider adapter 把 QuantPilot 的 ModelPort、本地 Qwen、受控 DeepSeek 和确定性测试
+Provider adapter 把 Shop Gate 的 ModelPort、本地 Qwen、受控 DeepSeek 和确定性测试
 Provider 转成 PI `StreamFn`。Tool adapter 把 `PiAgentTool` 转成 PI `AgentTool`，并按以下
 顺序执行：
 
 ```text
 PI tool call
   -> schema validation
-  -> QuantPilot approval policy
+  -> Shop Gate approval policy
   -> durable prepare-before-effect ledger
   -> typed tool execution
   -> durable outcome
@@ -82,12 +82,12 @@ tool-call ID、超出工具/字符/Token 预算或 terminal batch 不合法时�
 | 层 | 责任 |
 | --- | --- |
 | PI Agent core | 多轮 loop、assistant/tool 消息流、结果回注、hook、取消 |
-| QuantPilot Agent 治理 | Context Manager、预算、收敛、工具允许列表、审批、operation ID |
+| Shop Gate Agent 治理 | Context Manager、预算、收敛、工具允许列表、审批、operation ID |
 | Durable runtime | Job/outbox、Worker claim、lease、heartbeat、fencing、公开事件、checkpoint |
 | Profile / Domain Pack | Skills、领域工具、实体与数据规则、Mission Definition |
 | Delivery / EvidenceVerifier | 产物验证、冻结 evidence、accepted receipt、业务完成态 |
 
-PI 不提供内建权限系统。能够被 PI 调用的工具仍必须通过 QuantPilot 的 schema、路径、
+PI 不提供内建权限系统。能够被 PI 调用的工具仍必须通过 Shop Gate 的 schema、路径、
 权限、审批、资源锁和副作用 ledger。项目不启用 PI Coding Agent 的通用 Shell、默认文件
 工具、扩展自动发现或 session 文件恢复。
 

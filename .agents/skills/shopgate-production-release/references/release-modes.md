@@ -1,4 +1,4 @@
-# QuantPilot release modes
+# Shop Gate release modes
 
 ## Purpose
 
@@ -64,7 +64,7 @@ Classify changed paths before restarting services:
 - Next.js, Prisma client, or shared TypeScript: Web and generation Worker.
 - `scripts/workers/` or Agent runtime only: generation Worker, plus Web when
   shared contracts changed.
-- `services/market-data/`: market-data, followed by dependent readiness checks.
+- `services/commerce-data/`: commerce-data, followed by dependent readiness checks.
 - `deploy/systemd/` or production configuration: validate the unit/configuration
   before applying it and restart only the affected unit.
 

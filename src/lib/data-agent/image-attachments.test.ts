@@ -19,7 +19,7 @@ afterEach(async () => {
 
 describe('Data Agent image attachments', () => {
   it('normalizes a project asset and writes a domain-neutral manifest', async () => {
-    const projectsRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-data-agent-assets-'));
+    const projectsRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-data-agent-assets-'));
     temporaryDirectories.push(projectsRoot);
     process.env.PROJECTS_DIR = projectsRoot;
     const projectRoot = path.join(projectsRoot, 'project-a');

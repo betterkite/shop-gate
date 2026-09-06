@@ -1,14 +1,14 @@
 import authConfigFile from '../../../config/auth.json';
 
-export type QuantPilotAuthMode = 'disabled' | 'local';
+export type ShopGateAuthMode = 'disabled' | 'local';
 export type AuthEnvironment = Readonly<Record<string, string | undefined>>;
 
 export interface ProjectAuthConfig {
   schemaVersion: 1;
-  mode: QuantPilotAuthMode;
+  mode: ShopGateAuthMode;
   enabled: boolean;
   basePath: '/api/auth';
-  secretEnvs: readonly ['QUANTPILOT_AUTH_SECRET', 'BETTER_AUTH_SECRET'];
+  secretEnvs: readonly ['SHOPGATE_AUTH_SECRET', 'BETTER_AUTH_SECRET'];
   baseUrlEnv: 'BETTER_AUTH_URL';
   allowSignUp: boolean;
   secureCookies: boolean;
@@ -40,14 +40,14 @@ export interface ProjectAuthConfig {
     expiredRecordGraceSeconds: number;
   };
   bootstrap: {
-    emailEnv: 'QUANTPILOT_AUTH_ADMIN_EMAIL';
-    passwordEnv: 'QUANTPILOT_AUTH_ADMIN_PASSWORD';
-    nameEnv: 'QUANTPILOT_AUTH_ADMIN_NAME';
+    emailEnv: 'SHOPGATE_AUTH_ADMIN_EMAIL';
+    passwordEnv: 'SHOPGATE_AUTH_ADMIN_PASSWORD';
+    nameEnv: 'SHOPGATE_AUTH_ADMIN_NAME';
     developmentDefaults: {
       login: 'admin';
-      email: 'admin@quantpilot.local';
+      email: 'admin@shopgate.local';
       password: 'admin';
-      name: 'QuantPilot 管理员';
+      name: 'Shop Gate 管理员';
     };
   };
   publicPaths: string[];
@@ -95,7 +95,7 @@ function configInteger(
   return parsed;
 }
 
-function modeEnv(value: string | undefined, fallback: QuantPilotAuthMode): QuantPilotAuthMode {
+function modeEnv(value: string | undefined, fallback: ShopGateAuthMode): ShopGateAuthMode {
   const normalized = value?.trim().toLowerCase();
   if (normalized === 'local' || normalized === 'disabled') return normalized;
   return fallback;
@@ -133,23 +133,23 @@ export function getProjectAuthConfig(
   const retention = record(local?.retention);
   const bootstrap = record(local?.bootstrap);
   const defaultMode = root?.defaultMode === 'local' ? 'local' : 'disabled';
-  const mode = modeEnv(environment.QUANTPILOT_AUTH_MODE, defaultMode);
+  const mode = modeEnv(environment.SHOPGATE_AUTH_MODE, defaultMode);
 
   if (
     root?.schemaVersion !== 1 ||
     local?.basePath !== '/api/auth' ||
     local?.baseUrlEnv !== 'BETTER_AUTH_URL' ||
     !Array.isArray(local?.secretEnvs) ||
-    local.secretEnvs.join(',') !== 'QUANTPILOT_AUTH_SECRET,BETTER_AUTH_SECRET' ||
-    bootstrap?.emailEnv !== 'QUANTPILOT_AUTH_ADMIN_EMAIL' ||
-    bootstrap?.passwordEnv !== 'QUANTPILOT_AUTH_ADMIN_PASSWORD' ||
-    bootstrap?.nameEnv !== 'QUANTPILOT_AUTH_ADMIN_NAME' ||
+    local.secretEnvs.join(',') !== 'SHOPGATE_AUTH_SECRET,BETTER_AUTH_SECRET' ||
+    bootstrap?.emailEnv !== 'SHOPGATE_AUTH_ADMIN_EMAIL' ||
+    bootstrap?.passwordEnv !== 'SHOPGATE_AUTH_ADMIN_PASSWORD' ||
+    bootstrap?.nameEnv !== 'SHOPGATE_AUTH_ADMIN_NAME' ||
     record(bootstrap?.developmentDefaults)?.login !== 'admin' ||
-    record(bootstrap?.developmentDefaults)?.email !== 'admin@quantpilot.local' ||
+    record(bootstrap?.developmentDefaults)?.email !== 'admin@shopgate.local' ||
     record(bootstrap?.developmentDefaults)?.password !== 'admin' ||
-    record(bootstrap?.developmentDefaults)?.name !== 'QuantPilot 管理员'
+    record(bootstrap?.developmentDefaults)?.name !== 'Shop Gate 管理员'
   ) {
-    throw new Error('config/auth.json does not match the locked QuantPilot auth contract.');
+    throw new Error('config/auth.json does not match the locked Shop Gate auth contract.');
   }
 
   const passwordMinLength = configInteger(password?.minLength, 'password.minLength', 12, 64);
@@ -183,38 +183,38 @@ export function getProjectAuthConfig(
     mode,
     enabled: mode === 'local',
     basePath: '/api/auth',
-    secretEnvs: ['QUANTPILOT_AUTH_SECRET', 'BETTER_AUTH_SECRET'],
+    secretEnvs: ['SHOPGATE_AUTH_SECRET', 'BETTER_AUTH_SECRET'],
     baseUrlEnv: 'BETTER_AUTH_URL',
     allowSignUp: booleanEnv(
-      environment.QUANTPILOT_AUTH_ALLOW_SIGNUP,
+      environment.SHOPGATE_AUTH_ALLOW_SIGNUP,
       local.allowSignUp === true,
     ),
     secureCookies: booleanEnv(
-      environment.QUANTPILOT_AUTH_SECURE_COOKIES,
+      environment.SHOPGATE_AUTH_SECURE_COOKIES,
       environment.NODE_ENV === 'production',
     ) || environment.NODE_ENV === 'production',
-    trustedOrigins: trustedOrigins(environment.QUANTPILOT_AUTH_TRUSTED_ORIGINS),
+    trustedOrigins: trustedOrigins(environment.SHOPGATE_AUTH_TRUSTED_ORIGINS),
     session: {
       expiresInSeconds: integerEnv(
-        environment.QUANTPILOT_AUTH_SESSION_EXPIRES_SECONDS,
+        environment.SHOPGATE_AUTH_SESSION_EXPIRES_SECONDS,
         defaultSessionExpires,
         900,
         2_592_000,
       ),
       updateAgeSeconds: integerEnv(
-        environment.QUANTPILOT_AUTH_SESSION_UPDATE_AGE_SECONDS,
+        environment.SHOPGATE_AUTH_SESSION_UPDATE_AGE_SECONDS,
         defaultSessionUpdateAge,
         60,
         86_400,
       ),
       freshAgeSeconds: integerEnv(
-        environment.QUANTPILOT_AUTH_SESSION_FRESH_AGE_SECONDS,
+        environment.SHOPGATE_AUTH_SESSION_FRESH_AGE_SECONDS,
         defaultSessionFreshAge,
         60,
         86_400,
       ),
       rememberMe: booleanEnv(
-        environment.QUANTPILOT_AUTH_REMEMBER_ME,
+        environment.SHOPGATE_AUTH_REMEMBER_ME,
         session?.rememberMe === true,
       ),
     },
@@ -261,13 +261,13 @@ export function getProjectAuthConfig(
     },
     retention: {
       auditDays: integerEnv(
-        environment.QUANTPILOT_AUTH_AUDIT_RETENTION_DAYS,
+        environment.SHOPGATE_AUTH_AUDIT_RETENTION_DAYS,
         configInteger(retention?.auditDays, 'retention.auditDays', 30, 3_650),
         30,
         3_650,
       ),
       expiredRecordGraceSeconds: integerEnv(
-        environment.QUANTPILOT_AUTH_EXPIRED_RECORD_GRACE_SECONDS,
+        environment.SHOPGATE_AUTH_EXPIRED_RECORD_GRACE_SECONDS,
         configInteger(
           retention?.expiredRecordGraceSeconds,
           'retention.expiredRecordGraceSeconds',
@@ -279,14 +279,14 @@ export function getProjectAuthConfig(
       ),
     },
     bootstrap: {
-      emailEnv: 'QUANTPILOT_AUTH_ADMIN_EMAIL',
-      passwordEnv: 'QUANTPILOT_AUTH_ADMIN_PASSWORD',
-      nameEnv: 'QUANTPILOT_AUTH_ADMIN_NAME',
+      emailEnv: 'SHOPGATE_AUTH_ADMIN_EMAIL',
+      passwordEnv: 'SHOPGATE_AUTH_ADMIN_PASSWORD',
+      nameEnv: 'SHOPGATE_AUTH_ADMIN_NAME',
       developmentDefaults: {
         login: 'admin',
-        email: 'admin@quantpilot.local',
+        email: 'admin@shopgate.local',
         password: 'admin',
-        name: 'QuantPilot 管理员',
+        name: 'Shop Gate 管理员',
       },
     },
     publicPaths: stringArray(local.publicPaths),
@@ -299,7 +299,7 @@ export function getDevelopmentAdminDefaults(
 ): ProjectAuthConfig['bootstrap']['developmentDefaults'] | null {
   if (
     environment.NODE_ENV?.trim().toLowerCase() === 'production' ||
-    environment.QUANTPILOT_DEGRADATION_MODE?.trim().toLowerCase() === 'strict'
+    environment.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() === 'strict'
   ) {
     return null;
   }
@@ -327,10 +327,10 @@ export function getProjectAuthSecret(
   const secret = config.secretEnvs
     .map((name) => environment[name]?.trim())
     .find(Boolean);
-  if (!config.enabled) return 'quantpilot-auth-disabled-placeholder-secret-000000000000';
+  if (!config.enabled) return 'shopgate-auth-disabled-placeholder-secret-000000000000';
   if (!secret || secret.length < 32) {
     throw new Error(
-      '本地登录已启用，但 QUANTPILOT_AUTH_SECRET/BETTER_AUTH_SECRET 未配置或少于 32 个字符。',
+      '本地登录已启用，但 SHOPGATE_AUTH_SECRET/BETTER_AUTH_SECRET 未配置或少于 32 个字符。',
     );
   }
   return secret;

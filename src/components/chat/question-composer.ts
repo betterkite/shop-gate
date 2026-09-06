@@ -18,7 +18,7 @@ export const QUESTION_MODE_COPY: Record<QuestionMode, {
 };
 
 export const QUESTION_COMPOSER_COPY = {
-  defaultPlaceholder: '向 QuantPilot 描述你的量化需求...',
+  defaultPlaceholder: '向 Shop Gate 描述你的量化需求...',
   runningPlaceholder: '补充要求将在当前任务结束后自动执行…',
   modelRewriteTitle: '提交后由所选大模型解析',
   modelRewriteHelper: '输入阶段不做关键词预判',

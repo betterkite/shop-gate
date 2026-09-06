@@ -56,7 +56,7 @@ export const CLI_OPTIONS: CLIOption[] = [
     id: 'pi',
     name: 'PI Agent',
     description: '基于开源 PI Agent 框架，支持 DeepSeek 与本地 OpenAI-compatible 模型',
-    icon: '/QuantPilot_Icon.png',
+    icon: '/ShopGate_Icon.png',
     available: true,
     configured: true,
     enabled: true,

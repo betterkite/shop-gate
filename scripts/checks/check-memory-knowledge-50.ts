@@ -29,7 +29,7 @@ import {
   setPersonalMemoryEnabled,
 } from '../../src/lib/platform/memory/service';
 import type { PersonalizationCapsule } from '../../src/lib/platform/memory/types';
-import { buildQuantPilotUserPrompt } from '../../src/lib/services/pi-agent-prompts';
+import { buildShopGateUserPrompt } from '../../src/lib/services/pi-agent-prompts';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -73,8 +73,8 @@ interface CaseResult {
 }
 
 const argv = process.argv.slice(2);
-const EXPECTED_DATASET = 'quantpilot-memory-knowledge-acceptance-50-v1';
-const DEFAULT_SUBJECT = 'quantpilot-acceptance-50-v1';
+const EXPECTED_DATASET = 'shopgate-memory-knowledge-acceptance-50-v1';
+const DEFAULT_SUBJECT = 'shopgate-acceptance-50-v1';
 
 function option(name: string): string | null {
   const prefix = `--${name}=`;
@@ -120,7 +120,7 @@ function provider(): OpenAICompatibleProvider {
     providerName: 'openai',
     apiKey,
     baseUrl: config.baseUrl,
-    headers: { 'X-Client-App': 'QuantPilot-Memory-Knowledge-50/1' },
+    headers: { 'X-Client-App': 'Shop Gate-Memory-Knowledge-50/1' },
     maxRetries: 1,
     initialRetryDelayMs: 100,
     maxRetryDelayMs: 500,
@@ -210,7 +210,7 @@ async function modelTurn(input: {
   memory: PersonalizationCapsule;
   knowledge: GovernedKnowledgeCapsule;
 }): Promise<{ parsed: JsonRecord; turn: CollectedTurn }> {
-  const prompt = buildQuantPilotUserPrompt({
+  const prompt = buildShopGateUserPrompt({
     taskPacket: `# Acceptance Case\nID: ${input.item.id}\nQuestion: ${input.item.question}`,
     skillContext: '# Acceptance Boundary\n只验证模型、个人记忆和受治理知识的组合，不生成或修改 Workspace。',
     personalizationContext: input.memory.content,
@@ -222,7 +222,7 @@ async function modelTurn(input: {
     {
       role: 'system',
       content: [
-        '你是 QuantPilot 50 题持久上下文验收器。',
+        '你是 Shop Gate 50 题持久上下文验收器。',
         'Personalization Context 和 Governed Knowledge Context 都已针对本题准备，必须实际使用。',
         '只调用 memory_knowledge_case_result 一次，不输出额外正文。',
         `memoryKeys 必须包含 ${memoryKey(input.item)}。`,
@@ -440,7 +440,7 @@ async function runCase(input: {
         taskCategory: 'memory-knowledge-50-acceptance',
         eventId: `acceptance-50-knowledge-feedback-${input.item.id.toLowerCase()}-${input.runId}`,
         outcome: 'helped',
-        acceptedReceiptId: `urn:quantpilot:acceptance-50:${input.runId}:${input.item.id}`,
+        acceptedReceiptId: `urn:shopgate:acceptance-50:${input.runId}:${input.item.id}`,
         acceptedReceiptSha256: sha256(`accepted:${input.runId}:${input.item.id}`),
         observedAt: occurredAt,
       }, { config: knowledgeConfig });
@@ -473,7 +473,7 @@ async function main(): Promise<void> {
     select: { id: true },
     orderBy: { updatedAt: 'desc' },
   }))?.id;
-  assert(projectId, 'No QuantPilot project exists for project-scoped Memory acceptance.');
+  assert(projectId, 'No Shop Gate project exists for project-scoped Memory acceptance.');
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true, name: true } });
   assert(project, `Project ${projectId} does not exist.`);
 

@@ -112,7 +112,7 @@ function mutationFixture(evaluatorId: EvalEvaluatorId): EvalMutationFixture {
       payloadSha256: evalSnapshotPayloadSha256(snapshotPayload),
       asOf: '2026-07-15T07:00:00.000Z',
       capturedAt: '2026-07-15T08:00:00.000Z',
-      source: { provider: 'quantpilot-eval', version: '1' },
+      source: { provider: 'shopgate-eval', version: '1' },
       tradingCalendarVersion: 'cn-trading-calendar-2026.07',
       adjustment: 'qfq',
       observation: {

@@ -97,7 +97,7 @@ export const EVAL_EVALUATOR_DEFINITIONS: EvalEvaluatorDefinition[] = [
   {
     id: 'rule-strict',
     version: '2.1.0',
-    rubricVersion: 'quantpilot-rule-rubric-v3',
+    rubricVersion: 'shopgate-rule-rubric-v3',
     name: '强规则评测器',
     description: '确定性检查产物、数据证据、运行链路、事实 oracle 与安全约束。',
     supportedModes: ['contract', 'e2e'],
@@ -107,7 +107,7 @@ export const EVAL_EVALUATOR_DEFINITIONS: EvalEvaluatorDefinition[] = [
   {
     id: 'agent-review',
     version: '2.1.0',
-    rubricVersion: 'quantpilot-agent-review-v2',
+    rubricVersion: 'shopgate-agent-review-v2',
     name: 'Agent 评测器',
     description: '在确定性硬门之后执行版本化语义审阅，评价意图、业务完整性、依据、风险与行动建议。',
     supportedModes: ['e2e'],
@@ -125,7 +125,7 @@ export const EVAL_EVALUATOR_DEFINITIONS: EvalEvaluatorDefinition[] = [
   {
     id: 'visual-contract',
     version: '2.1.0',
-    rubricVersion: 'quantpilot-visual-rubric-v3',
+    rubricVersion: 'shopgate-visual-rubric-v3',
     name: '视觉契约评测器',
     description: '强化多视口、可访问性、资源加载、布局和金融图表表达检查。',
     supportedModes: ['contract', 'e2e'],

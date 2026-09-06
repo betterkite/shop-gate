@@ -2,9 +2,9 @@ import { execFile } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
-import { getCapabilityCenterData } from '@/lib/quant/capability-center';
-import { getStrategyDashboardData } from '@/lib/quant/strategies';
-import { getWorkspaceHealthDashboard, type WorkspaceHealthDashboard } from '@/lib/quant/workspace-health';
+import { getCapabilityCenterData } from '@/lib/commerce/capability-center';
+import { getStrategyDashboardData } from '@/lib/commerce/strategies';
+import { getWorkspaceHealthDashboard, type WorkspaceHealthDashboard } from '@/lib/commerce/workspace-health';
 import { getInfrastructureHealth, type InfrastructureHealth } from '@/lib/ops/infrastructure-health';
 import {
   componentUnavailableStatus,
@@ -107,9 +107,9 @@ export interface OpsPlatformDashboard {
 }
 
 const ROOT = path.resolve(/*turbopackIgnore: true*/ process.cwd());
-const MARKET_API_BASE_URL = getServiceRawEndpoint('market-data') || 'http://127.0.0.1:8000';
+const MARKET_API_BASE_URL = getServiceRawEndpoint('commerce-data') || 'http://127.0.0.1:8000';
 const LOKI_BASE_URL = getServiceRawEndpoint('loki') || 'http://127.0.0.1:33100';
-const LOKI_QUERY = (process.env.LOKI_QUERY || '{app="quantpilot"}').replace(/\\"/g, '"');
+const LOKI_QUERY = (process.env.LOKI_QUERY || '{app="shopgate"}').replace(/\\"/g, '"');
 const GRAFANA_BASE_URL = getServiceRawEndpoint('grafana') || `http://127.0.0.1:${process.env.GRAFANA_PORT || '33012'}`;
 
 function relativePath(filePath: string): string {
@@ -494,7 +494,7 @@ async function inspectLokiMetadata(): Promise<OpsLogSource> {
 }
 
 async function collectLogSources(includeEntries: boolean): Promise<OpsLogSource[]> {
-  const latestEvalLog = await findLatestLogFile(path.join(ROOT, 'tmp', 'quantpilot-eval-queue', 'logs'));
+  const latestEvalLog = await findLatestLogFile(path.join(ROOT, 'tmp', 'shopgate-eval-queue', 'logs'));
   const sources: Array<{ id: string; label: string; filePath: string | null }> = [
     { id: 'next-dev', label: '前端 Next.js dev', filePath: path.join(ROOT, '.next', 'dev', 'logs', 'next-development.log') },
     { id: 'frontend-runtime', label: '前端启动脚本', filePath: path.join(ROOT, 'tmp', 'runtime', 'frontend.log') },
@@ -800,8 +800,8 @@ export async function getOpsPlatformDashboard(params: {
   const missingRequired = [
     process.env.DATABASE_URL?.trim() ? null : 'DATABASE_URL',
     process.env.MODELPORT_API_KEY?.trim() ? null : 'MODELPORT_API_KEY',
-    marketApi.enabled && !process.env.QUANTPILOT_MARKET_API_URL?.trim()
-      ? 'QUANTPILOT_MARKET_API_URL'
+    marketApi.enabled && !process.env.SHOPGATE_MARKET_API_URL?.trim()
+      ? 'SHOPGATE_MARKET_API_URL'
       : null,
   ].filter((item): item is string => Boolean(item));
   const lokiSource = logSources.find((source) => source.id === 'loki');
@@ -940,7 +940,7 @@ export async function getOpsPlatformDashboard(params: {
       detail: marketHealth.ok && marketRegistry.ok
         ? `响应 ${Math.max(marketHealth.ms, marketRegistry.ms)}ms`
         : marketHealth.error ?? marketRegistry.error ?? undefined,
-      actions: marketApi.enabled && !marketHealth.ok ? ['进入 services/market-data 后运行 uv run quantpilot-market-api。'] : [],
+      actions: marketApi.enabled && !marketHealth.ok ? ['进入 services/commerce-data 后运行 uv run shopgate-commerce-api。'] : [],
     },
     {
       id: 'workspace-storage',

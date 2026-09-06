@@ -9,7 +9,7 @@ const scannedFiles = [];
 let checkedLinks = 0;
 
 const INCLUDED_ROOT_FILES = ['README.md'];
-const INCLUDED_DIRECTORIES = ['docs', 'services/market-data', 'sqls'];
+const INCLUDED_DIRECTORIES = ['docs', 'services/commerce-data', 'sqls'];
 const IGNORED_DIRECTORIES = new Set([
   '.git',
   '.next',

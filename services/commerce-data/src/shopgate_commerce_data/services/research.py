@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     Adjustment,
     AShareScreenerResponse,
     AShareUniverseBatchImportRequest,
@@ -22,8 +22,8 @@ from quantpilot_market_data.models import (
     SectorCapitalFlowResponse,
     SymbolResolveResult,
 )
-from quantpilot_market_data.providers.base import ResearchUniverseProvider
-from quantpilot_market_data.repositories.research import (
+from shopgate_commerce_data.providers.base import ResearchUniverseProvider
+from shopgate_commerce_data.repositories.research import (
     add_securities_to_universe,
     add_security_to_universe,
     clean_research_universe_tradable_members,

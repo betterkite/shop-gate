@@ -53,7 +53,7 @@ const PREVIEW_MAX_PORT = 65_535;
 function usesGeneratedProjectNetworkNamespace(): boolean {
   return (
     process.platform === 'linux' &&
-    process.env.QUANTPILOT_GENERATED_SANDBOX !== '0'
+    process.env.SHOPGATE_GENERATED_SANDBOX !== '0'
   );
 }
 
@@ -361,7 +361,7 @@ function resolvePreviewRuntimeDirectory(projectPath: string, port: number): stri
 }
 
 function resolveMarketDataTcpTarget(): { host: string; port: number } {
-  const configured = process.env.QUANTPILOT_MARKET_API_URL?.trim()
+  const configured = process.env.SHOPGATE_MARKET_API_URL?.trim()
     || 'http://127.0.0.1:8000';
   const parsed = new URL(configured);
   if (
@@ -414,7 +414,7 @@ async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetwo
       path: `${incomingUrl.pathname}${incomingUrl.search}`,
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'QuantPilot-Generated-Preview-Market-Bridge/1',
+        'User-Agent': 'Shop Gate-Generated-Preview-Market-Bridge/1',
       },
     }, (upstreamResponse) => {
       response.writeHead(upstreamResponse.statusCode ?? 502, {
@@ -600,11 +600,11 @@ async function isPidWithinProject(pid: number, projectPath: string): Promise<boo
 
     // Generated previews run in a chroot. Linux exposes their cwd using the
     // host-side sandbox prefix, for example:
-    // /tmp/quantpilot-generated-sandbox.XYZ/<absolute project path>.
+    // /tmp/shopgate-generated-sandbox.XYZ/<absolute project path>.
     // Compare against the process root instead of trusting a loose path
     // suffix, so a different workspace cannot impersonate this project.
     const processRoot = (await fs.readlink(`/proc/${pid}/root`)).replace(/ \(deleted\)$/, '');
-    if (!path.basename(processRoot).startsWith('quantpilot-generated-sandbox.')) {
+    if (!path.basename(processRoot).startsWith('shopgate-generated-sandbox.')) {
       return false;
     }
     const sandboxProjectPath = path.resolve(
@@ -1532,7 +1532,7 @@ export class PreviewManager {
     }
 
     const projectPath = resolvePreviewProjectPath(projectId, project.repoPath);
-    const { checkQuantArtifactPolicy } = await import('@/lib/quant/validation');
+    const { checkQuantArtifactPolicy } = await import('@/lib/commerce/validation');
     const executionPolicy = await checkQuantArtifactPolicy(projectPath);
     if (executionPolicy.status === 'failed') {
       throw new Error(
@@ -1772,10 +1772,10 @@ export class PreviewManager {
       previewProcess.runtimeDirectory = runtimeDirectory;
       const previewSocketPath = path.join(runtimeDirectory, 'p.sock');
       const marketSocketPath = path.join(runtimeDirectory, 'm.sock');
-      env.QUANTPILOT_SANDBOX_PREVIEW_SOCKET = previewSocketPath;
-      env.QUANTPILOT_SANDBOX_PREVIEW_PORT = String(effectivePort);
-      env.QUANTPILOT_SANDBOX_MARKET_SOCKET = marketSocketPath;
-      env.QUANTPILOT_SANDBOX_MARKET_PORT = '8000';
+      env.SHOPGATE_SANDBOX_PREVIEW_SOCKET = previewSocketPath;
+      env.SHOPGATE_SANDBOX_PREVIEW_PORT = String(effectivePort);
+      env.SHOPGATE_SANDBOX_MARKET_SOCKET = marketSocketPath;
+      env.SHOPGATE_SANDBOX_MARKET_PORT = '8000';
       previewProcess.networkProxy = await startPreviewNetworkProxy(
         effectivePort,
         previewSocketPath,

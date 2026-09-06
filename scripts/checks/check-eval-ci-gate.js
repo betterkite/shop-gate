@@ -27,41 +27,41 @@ const {
 } = jiti('../../src/lib/constants/models.ts');
 const {
   attestProductControlEvidence,
-  loadQuantE2eSuite,
-} = require('./quant-e2e-suite');
+  loadCommerceE2eSuite,
+} = require('./commerce-e2e-suite');
 
-const REPORTS_DIR = path.resolve('tmp/quantpilot-benchmark-reports');
-const CASES_PATH = path.resolve('benchmarks/quantpilot/cases.json');
-const E2E_SUITE_PATH = path.resolve('benchmarks/quantpilot/e2e-suite.json');
-const DATASET_REGISTRY_PATH = path.resolve('benchmarks/quantpilot/datasets.json');
-const SNAPSHOT_MANIFEST_PATH = path.resolve('benchmarks/quantpilot/snapshot-manifest.json');
+const REPORTS_DIR = path.resolve('tmp/shopgate-benchmark-reports');
+const CASES_PATH = path.resolve('benchmarks/shopgate/cases.json');
+const E2E_SUITE_PATH = path.resolve('benchmarks/shopgate/e2e-suite.json');
+const DATASET_REGISTRY_PATH = path.resolve('benchmarks/shopgate/datasets.json');
+const SNAPSHOT_MANIFEST_PATH = path.resolve('benchmarks/shopgate/snapshot-manifest.json');
 
 function parseArgs(argv) {
   const args = {
-    minPassRate: Number.parseInt(process.env.QUANTPILOT_CI_MIN_PASS_RATE || '100', 10),
-    minAverageScore: Number.parseInt(process.env.QUANTPILOT_CI_MIN_AVERAGE_SCORE || '85', 10),
-    minFirstPassRate: Number.parseInt(process.env.QUANTPILOT_CI_MIN_FIRST_PASS_RATE || '0', 10),
-    minStabilityRate: Number.parseInt(process.env.QUANTPILOT_CI_MIN_STABILITY_RATE || '100', 10),
+    minPassRate: Number.parseInt(process.env.SHOPGATE_CI_MIN_PASS_RATE || '100', 10),
+    minAverageScore: Number.parseInt(process.env.SHOPGATE_CI_MIN_AVERAGE_SCORE || '85', 10),
+    minFirstPassRate: Number.parseInt(process.env.SHOPGATE_CI_MIN_FIRST_PASS_RATE || '0', 10),
+    minStabilityRate: Number.parseInt(process.env.SHOPGATE_CI_MIN_STABILITY_RATE || '100', 10),
     minStabilityConfidenceLower: Number.parseInt(
-      process.env.QUANTPILOT_CI_MIN_STABILITY_CONFIDENCE_LOWER || '0',
+      process.env.SHOPGATE_CI_MIN_STABILITY_CONFIDENCE_LOWER || '0',
       10,
     ),
     maxScoreStandardDeviation: Number.parseInt(
-      process.env.QUANTPILOT_CI_MAX_SCORE_STANDARD_DEVIATION || '100',
+      process.env.SHOPGATE_CI_MAX_SCORE_STANDARD_DEVIATION || '100',
       10,
     ),
-    maxRepairRate: Number.parseInt(process.env.QUANTPILOT_CI_MAX_REPAIR_RATE || '100', 10),
-    baselineReport: process.env.QUANTPILOT_EVAL_BASELINE_REPORT || null,
-    report: process.env.QUANTPILOT_EVAL_REPORT || null,
-    maxScoreRegression: Number.parseInt(process.env.QUANTPILOT_CI_MAX_SCORE_REGRESSION || '0', 10),
-    requireNoFailed: process.env.QUANTPILOT_CI_ALLOW_FAILED !== '1',
+    maxRepairRate: Number.parseInt(process.env.SHOPGATE_CI_MAX_REPAIR_RATE || '100', 10),
+    baselineReport: process.env.SHOPGATE_EVAL_BASELINE_REPORT || null,
+    report: process.env.SHOPGATE_EVAL_REPORT || null,
+    maxScoreRegression: Number.parseInt(process.env.SHOPGATE_CI_MAX_SCORE_REGRESSION || '0', 10),
+    requireNoFailed: process.env.SHOPGATE_CI_ALLOW_FAILED !== '1',
     runIfMissing: false,
     caseIds: [],
-    mode: process.env.QUANTPILOT_EVAL_MODE || 'contract',
-    datasetVisibility: process.env.QUANTPILOT_EVAL_DATASET_VISIBILITY || 'public',
-    casesFile: process.env.QUANTPILOT_EVAL_CASES_PATH || null,
-    model: process.env.QUANTPILOT_EVAL_MODEL || getDefaultModelForCli('pi'),
-    maxAgeHours: Number.parseInt(process.env.QUANTPILOT_EVAL_MAX_AGE_HOURS || '168', 10),
+    mode: process.env.SHOPGATE_EVAL_MODE || 'contract',
+    datasetVisibility: process.env.SHOPGATE_EVAL_DATASET_VISIBILITY || 'public',
+    casesFile: process.env.SHOPGATE_EVAL_CASES_PATH || null,
+    model: process.env.SHOPGATE_EVAL_MODEL || getDefaultModelForCli('pi'),
+    maxAgeHours: Number.parseInt(process.env.SHOPGATE_EVAL_MAX_AGE_HOURS || '168', 10),
     maxTurnsPerCase: Number.parseInt(
       process.env.PI_AGENT_E2E_MAX_TURNS_PER_CASE ||
       String(DEFAULT_PI_AGENT_E2E_QUALITY_THRESHOLDS.maxTurnsPerCase),
@@ -280,8 +280,8 @@ function parseArgs(argv) {
   }
   if (args.datasetVisibility !== 'public') {
     args.casesFile = args.casesFile || (args.datasetVisibility === 'hidden'
-      ? process.env.QUANTPILOT_HIDDEN_EVAL_CASES_PATH
-      : process.env.QUANTPILOT_PRODUCTION_REPLAY_CASES_PATH) || null;
+      ? process.env.SHOPGATE_HIDDEN_EVAL_CASES_PATH
+      : process.env.SHOPGATE_PRODUCTION_REPLAY_CASES_PATH) || null;
     if (!args.casesFile) throw new Error(`${args.datasetVisibility} 门禁缺少外部 cases file`);
     if (args.mode !== 'e2e') throw new Error(`${args.datasetVisibility} 门禁必须使用 e2e 模式`);
   } else if (args.casesFile) {
@@ -351,7 +351,7 @@ function expectedCases(args) {
   const allCases = JSON.parse(fs.readFileSync(args.casesFile, 'utf8'));
   if (!Array.isArray(allCases)) throw new Error('评测数据集必须是 case 数组');
   const configuredE2e = args.mode === 'e2e' && args.datasetVisibility === 'public'
-    ? loadQuantE2eSuite({
+    ? loadCommerceE2eSuite({
         root: process.cwd(),
         suitePath: E2E_SUITE_PATH,
         cases: allCases,
@@ -415,7 +415,7 @@ function runBenchmark(caseIds, mode, datasetVisibility, casesFile, model) {
   });
   const result = spawnSync('npm', args, {
     stdio: 'inherit',
-    env: { ...process.env, QUANTPILOT_EVAL_TRIGGER: 'ci' },
+    env: { ...process.env, SHOPGATE_EVAL_TRIGGER: 'ci' },
   });
   if (result.status !== 0) {
     process.exit(result.status || 1);

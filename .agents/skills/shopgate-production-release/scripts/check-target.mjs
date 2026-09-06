@@ -6,7 +6,7 @@ function usage() {
   console.log(`Usage:
   check-target.mjs
 
-Validate operator-provided QuantPilot production coordinates. This command
+Validate operator-provided Shop Gate production coordinates. This command
 does not connect to production or print credentials.`);
 }
 
@@ -27,47 +27,47 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 }
 
 const target = {
-  host: read('QUANTPILOT_RELEASE_HOST'),
-  publicUrl: read('QUANTPILOT_PUBLIC_URL'),
-  releaseRoot: read('QUANTPILOT_RELEASE_ROOT', '/opt/quantpilot'),
+  host: read('SHOPGATE_RELEASE_HOST'),
+  publicUrl: read('SHOPGATE_PUBLIC_URL'),
+  releaseRoot: read('SHOPGATE_RELEASE_ROOT', '/opt/shopgate'),
   environmentFile: read(
-    'QUANTPILOT_RELEASE_ENV_FILE',
-    '/etc/quantpilot/quantpilot.env',
+    'SHOPGATE_RELEASE_ENV_FILE',
+    '/etc/shopgate/shopgate.env',
   ),
-  backupRoot: read('QUANTPILOT_BACKUP_ROOT', '/var/backups/quantpilot'),
+  backupRoot: read('SHOPGATE_BACKUP_ROOT', '/var/backups/shopgate'),
 };
 
 const errors = [];
 if (!target.host) {
-  errors.push('QUANTPILOT_RELEASE_HOST is required; do not infer a production host');
+  errors.push('SHOPGATE_RELEASE_HOST is required; do not infer a production host');
 } else if (
   target.host.startsWith('-') ||
   target.host.includes('://') ||
   !/^[A-Za-z0-9._@:[\]-]+$/.test(target.host)
 ) {
-  errors.push('QUANTPILOT_RELEASE_HOST must be one SSH host or configured alias');
+  errors.push('SHOPGATE_RELEASE_HOST must be one SSH host or configured alias');
 }
 
 if (!target.publicUrl) {
-  errors.push('QUANTPILOT_PUBLIC_URL is required for production smoke tests');
+  errors.push('SHOPGATE_PUBLIC_URL is required for production smoke tests');
 } else {
   try {
     const url = new URL(target.publicUrl);
     if (url.protocol !== 'https:') {
-      errors.push('QUANTPILOT_PUBLIC_URL must use HTTPS');
+      errors.push('SHOPGATE_PUBLIC_URL must use HTTPS');
     }
     if (url.username || url.password) {
-      errors.push('QUANTPILOT_PUBLIC_URL must not contain credentials');
+      errors.push('SHOPGATE_PUBLIC_URL must not contain credentials');
     }
   } catch {
-    errors.push('QUANTPILOT_PUBLIC_URL must be a valid absolute URL');
+    errors.push('SHOPGATE_PUBLIC_URL must be a valid absolute URL');
   }
 }
 
 for (const [label, value] of [
-  ['QUANTPILOT_RELEASE_ROOT', target.releaseRoot],
-  ['QUANTPILOT_RELEASE_ENV_FILE', target.environmentFile],
-  ['QUANTPILOT_BACKUP_ROOT', target.backupRoot],
+  ['SHOPGATE_RELEASE_ROOT', target.releaseRoot],
+  ['SHOPGATE_RELEASE_ENV_FILE', target.environmentFile],
+  ['SHOPGATE_BACKUP_ROOT', target.backupRoot],
 ]) {
   if (!path.posix.isAbsolute(value)) {
     errors.push(`${label} must be an absolute POSIX path`);

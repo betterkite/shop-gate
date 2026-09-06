@@ -1,6 +1,6 @@
 # 项目结构与分层边界
 
-QuantPilot 采用一个 Next.js 主应用、一个 Python 市场数据后端和一组本地基础设施脚本。目录分层以“用户入口、业务服务、量化领域、基础设施、生成工作空间”区分。
+Shop Gate 采用一个 Next.js 主应用、一个 Python 市场数据后端和一组本地基础设施脚本。目录分层以“用户入口、业务服务、量化领域、基础设施、生成工作空间”区分。
 
 ## 顶层结构
 
@@ -11,14 +11,14 @@ QuantPilot 采用一个 Next.js 主应用、一个 Python 市场数据后端和�
 | `src/components/` | 可复用前端组件，按业务域拆分为 `chat`、`quant`、`settings`、`ui` 等 |
 | `src/hooks/`、`src/contexts/` | 前端状态、上下文和浏览器侧 hooks |
 | `src/lib/services/` | 主应用业务服务层，封装项目、消息、设置、令牌、预览和外部服务接入 |
-| `src/lib/agent/` | PI Agent loop 适配与 QuantPilot 治理层：Provider、Context Manager、durable runtime、类型化工具、Skill 编译器和运行协议类型 |
-| `src/lib/quant/` | 量化平台领域层，封装能力中心、评测、策略、工作空间健康、生成观测和验证 |
+| `src/lib/agent/` | PI Agent loop 适配与 Shop Gate 治理层：Provider、Context Manager、durable runtime、类型化工具、Skill 编译器和运行协议类型 |
+| `src/lib/commerce/` | 量化平台领域层，封装能力中心、评测、策略、工作空间健康、生成观测和验证 |
 | `src/lib/db/` | Prisma Client 和数据库访问入口 |
 | `src/types/` | 主应用共享类型 |
 | `prisma/` | PostgreSQL 主业务 schema |
 | `sqls/` | 首次使用需要的 PostgreSQL / TimescaleDB 基础 SQL |
 | `config/service-catalog.json` | Python/Node 服务目录、组件 endpoint、依赖边和启动命令 |
-| `services/market-data/` | Python/FastAPI 市场数据服务 |
+| `services/commerce-data/` | Python/FastAPI 市场数据服务 |
 | `deploy/observability/` | Loki、Grafana 和 Alloy 本地可观测性配置 |
 | `docker-compose.yml` | 本地 TimescaleDB、Redis、ClickHouse、Loki、Grafana 和 Alloy 容器编排 |
 | `scripts/` | 本地开发、诊断、迁移、评测和构建脚本，按职责拆分子目录 |
@@ -32,7 +32,7 @@ QuantPilot 采用一个 Next.js 主应用、一个 Python 市场数据后端和�
 `src/app/` 只负责页面组织和 API 入口，复杂业务逻辑应下沉：
 
 - 页面级客户端逻辑放在对应的 `*Client.tsx`。
-- 跨页面业务组件放在 `src/components/quant/`、`src/components/settings/` 等目录。
+- 跨页面业务组件放在 `src/components/eval-console/`、`src/components/settings/` 等目录。
 - 通用 UI 原语放在 `src/components/ui/`。
 - API route 只做请求解析、权限/参数校验和服务调用。
 
@@ -66,7 +66,7 @@ QuantPilot 采用一个 Next.js 主应用、一个 Python 市场数据后端和�
 
 ## 量化领域层
 
-`src/lib/quant/` 和 `src/lib/eval/` 面向 QuantPilot 自身能力：
+`src/lib/commerce/` 和 `src/lib/eval/` 面向 Shop Gate 自身能力：
 
 - `capabilities.ts`、`capability-center.ts`：能力域、数据接口、skills 和验证边界。
 - `src/lib/eval/`：评测用例、评测集、运行报告、队列、运行时选项、持久化映射和修复单；`runtime-mappers.ts` 承接纯解析/数据库映射并有单元测试。
@@ -101,19 +101,19 @@ QuantPilot 采用一个 Next.js 主应用、一个 Python 市场数据后端和�
 
 ## 后端边界
 
-`services/market-data/` 是独立 Python 服务，只负责市场数据、指标、财务、公告、基础组件、补数和回测接口。它不直接管理前端项目状态，也不直接写主应用 Prisma 表。长期行情、因子、交易日历、数据质量扫描和补数任务写入 `quant` schema，主应用通过 API 读取。
+`services/commerce-data/` 是独立 Python 服务，只负责市场数据、指标、财务、公告、基础组件、补数和回测接口。它不直接管理前端项目状态，也不直接写主应用 Prisma 表。长期行情、因子、交易日历、数据质量扫描和补数任务写入 `quant` schema，主应用通过 API 读取。
 
 后端长期按 Controller / Use Case / Repository / Provider Adapter 分层。当前 `api.py` 只作为应用装配入口并继续迁出剩余路由；旧 `database.py` 兼容门面已删除。新增能力优先落到下面这些边界：
 
 | 路径 | 责任 |
 | --- | --- |
-| `services/market-data/src/quantpilot_market_data/routers/` | FastAPI controller，只处理 HTTP 参数、状态码和响应模型 |
-| `services/market-data/src/quantpilot_market_data/services/` | use case 编排，处理缓存、降级、provider 选择和数据质量 |
-| `services/market-data/src/quantpilot_market_data/repositories/` | TimescaleDB/PostgreSQL 查询、ClickHouse 同步、读模型缓存、事务、批量写入和分页 |
-| `services/market-data/src/quantpilot_market_data/database_core.py` | 数据库连接、日期、Decimal、JSON 和证券元数据解析等无业务状态基础函数 |
-| `services/market-data/src/quantpilot_market_data/providers/` | 东方财富、Baostock、AKShare 和候选信源 adapter |
-| `services/market-data/src/quantpilot_market_data/analytics/` | ClickHouse 等分析加速 adapter |
-| `services/market-data/src/quantpilot_market_data/cache.py` | 本地 JSON 和 Redis cache-aside |
+| `services/commerce-data/src/shopgate_commerce_data/routers/` | FastAPI controller，只处理 HTTP 参数、状态码和响应模型 |
+| `services/commerce-data/src/shopgate_commerce_data/services/` | use case 编排，处理缓存、降级、provider 选择和数据质量 |
+| `services/commerce-data/src/shopgate_commerce_data/repositories/` | TimescaleDB/PostgreSQL 查询、ClickHouse 同步、读模型缓存、事务、批量写入和分页 |
+| `services/commerce-data/src/shopgate_commerce_data/database_core.py` | 数据库连接、日期、Decimal、JSON 和证券元数据解析等无业务状态基础函数 |
+| `services/commerce-data/src/shopgate_commerce_data/providers/` | 东方财富、Baostock、AKShare 和候选信源 adapter |
+| `services/commerce-data/src/shopgate_commerce_data/analytics/` | ClickHouse 等分析加速 adapter |
+| `services/commerce-data/src/shopgate_commerce_data/cache.py` | 本地 JSON 和 Redis cache-aside |
 
 完整规则见 [后端能力架构与持续优化边界](backend-capability-architecture.md)。
 
@@ -132,16 +132,16 @@ QuantPilot 采用一个 Next.js 主应用、一个 Python 市场数据后端和�
 
 `package.json` 只暴露稳定 npm 命令，其他代码应优先调用 npm scripts 或领域服务函数，避免散落硬编码脚本路径。
 
-完整开发入口固定为 `npm run dev`：`run-full.js` 启动或复用 market-data，再调用 `run-web.js` 和 `npx next dev`；仅启动主前端使用 `npm run dev:web`。项目不再保留 `next-rspack` 或 bundler 自动切换路径。生成工作空间预览由 `src/lib/services/preview.ts` 管理，默认使用 `4100-4999` 端口池，不应和主前端 `3000-3099` 混用。
+完整开发入口固定为 `npm run dev`：`run-full.js` 启动或复用 commerce-data，再调用 `run-web.js` 和 `npx next dev`；仅启动主前端使用 `npm run dev:web`。项目不再保留 `next-rspack` 或 bundler 自动切换路径。生成工作空间预览由 `src/lib/services/preview.ts` 管理，默认使用 `4100-4999` 端口池，不应和主前端 `3000-3099` 混用。
 
 ## 后续结构优化
 
 后续优化以 [持续完善路线图](ROADMAP.md) 和 [模块边界与模块化单体治理](module-boundaries.md) 为准。这里保留和项目结构直接相关的拆分方向：
 
 - `src/app/strategy-platform/StrategyPlatformClient.tsx` 已拆出 helpers、金融知识、股票池、K 线详情、板块资金、因子目录和基础组件视图；后续继续拆弹窗、hooks 和扫描编排。
-- `src/lib/quant/strategies.ts` 已拆出 types、catalog、readiness、scan repository 和 response mappers；后续继续拆 market API client 和 dashboard service。
+- `src/lib/commerce/strategies.ts` 已拆出 types、catalog、readiness、scan repository 和 response mappers；后续继续拆 market API client 和 dashboard service。
 - 市场数据持久化已经按 analytics、bars、coverage、foundation、ingestion、sector_flow、screener、universes、upserts repository 拆分，禁止恢复 `database.py` 聚合门面。
-- 将 `services/market-data/src/quantpilot_market_data/api.py` 拆为 `routers/registry.py`、`routers/quotes.py`、`routers/history.py`、`routers/ingestion.py`、`routers/analytics.py`、`routers/foundation.py` 和对应 `services/` use case。
+- 将 `services/commerce-data/src/shopgate_commerce_data/api.py` 拆为 `routers/registry.py`、`routers/quotes.py`、`routers/history.py`、`routers/ingestion.py`、`routers/analytics.py`、`routers/foundation.py` 和对应 `services/` use case。
 - `src/lib/utils/scaffold.ts` 的基础/专用模板已经迁出；后续继续拆 dependency planner、repair adapter 和 workspace writer 的文件写入策略。
 - 生成链路已落 PostgreSQL durable job/outbox、claim/attempt/fencing、独立 polling worker 和 replan 重试；下一步让评测、策略扫描复用同一调度合同。Redis 只承担可丢失的唤醒与进度缓存，锁和完成态权威始终留在 PostgreSQL。
 - 为 workspace 健康快照增加 PostgreSQL 索引表，但保留原始 workspace 文件。

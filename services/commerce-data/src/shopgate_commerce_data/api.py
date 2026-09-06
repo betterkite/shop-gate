@@ -8,13 +8,13 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from quantpilot_market_data.cache import MarketDataCache, RedisJsonCache, ttl_from_env
-from quantpilot_market_data.database_core import (
+from shopgate_commerce_data.cache import MarketDataCache, RedisJsonCache, ttl_from_env
+from shopgate_commerce_data.database_core import (
     DatabaseError,
     connect,
     normalize_fetch_symbol,
 )
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     AutoFillIngestionStartResponse,
     HistoryAutoFillIngestionRequest,
     HistoryBatchIngestionRequest,
@@ -23,37 +23,37 @@ from quantpilot_market_data.models import (
     HistoryIngestionSymbolResult,
     RealtimeSnapshotIngestionRequest,
 )
-from quantpilot_market_data.providers.akshare import AkShareClient, AkShareError
-from quantpilot_market_data.providers.baostock import BaoStockClient, BaoStockError
-from quantpilot_market_data.providers.eastmoney import EastMoneyClient, EastMoneyError
-from quantpilot_market_data.readiness import get_market_readiness
-from quantpilot_market_data.repositories.ingestion import (
+from shopgate_commerce_data.providers.akshare import AkShareClient, AkShareError
+from shopgate_commerce_data.providers.baostock import BaoStockClient, BaoStockError
+from shopgate_commerce_data.providers.eastmoney import EastMoneyClient, EastMoneyError
+from shopgate_commerce_data.readiness import get_market_readiness
+from shopgate_commerce_data.repositories.ingestion import (
     create_ingestion_job,
     finish_ingestion_job,
     get_history_ingestion_preflight,
     update_ingestion_job_progress,
 )
-from quantpilot_market_data.repositories.universes import get_universe_fetch_targets
-from quantpilot_market_data.repositories.upserts import (
+from shopgate_commerce_data.repositories.universes import get_universe_fetch_targets
+from shopgate_commerce_data.repositories.upserts import (
     upsert_kline_response,
     upsert_realtime_quote_snapshot,
 )
-from quantpilot_market_data.routers.analytics import router as analytics_router
-from quantpilot_market_data.routers.backtests import create_backtest_router
-from quantpilot_market_data.routers.context import create_context_router
-from quantpilot_market_data.routers.events import create_events_router
-from quantpilot_market_data.routers.foundation import router as foundation_router
-from quantpilot_market_data.routers.fundamentals import create_fundamentals_router
-from quantpilot_market_data.routers.indicators import create_indicators_router
-from quantpilot_market_data.routers.ingestion import router as ingestion_router
-from quantpilot_market_data.routers.provider_candidates import (
+from shopgate_commerce_data.routers.analytics import router as analytics_router
+from shopgate_commerce_data.routers.backtests import create_backtest_router
+from shopgate_commerce_data.routers.context import create_context_router
+from shopgate_commerce_data.routers.events import create_events_router
+from shopgate_commerce_data.routers.foundation import router as foundation_router
+from shopgate_commerce_data.routers.fundamentals import create_fundamentals_router
+from shopgate_commerce_data.routers.indicators import create_indicators_router
+from shopgate_commerce_data.routers.ingestion import router as ingestion_router
+from shopgate_commerce_data.routers.provider_candidates import (
     router as provider_candidates_router,
 )
-from quantpilot_market_data.routers.quotes import create_quotes_router
-from quantpilot_market_data.routers.registry import create_registry_router
-from quantpilot_market_data.routers.research import create_research_router
-from quantpilot_market_data.security import require_market_admin
-from quantpilot_market_data.services.ingestion_support import (
+from shopgate_commerce_data.routers.quotes import create_quotes_router
+from shopgate_commerce_data.routers.registry import create_registry_router
+from shopgate_commerce_data.routers.research import create_research_router
+from shopgate_commerce_data.security import require_market_admin
+from shopgate_commerce_data.services.ingestion_support import (
     baostock_required_fields,
     fetch_akshare_kline_for_ingestion,
     fetch_baostock_kline_for_ingestion,
@@ -65,18 +65,18 @@ from quantpilot_market_data.services.ingestion_support import (
     skipped_existing_result,
     wait_for_autofill_control,
 )
-from quantpilot_market_data.services.registry import ProviderRegistryTtls
+from shopgate_commerce_data.services.registry import ProviderRegistryTtls
 
-QUOTE_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_QUOTE_CACHE_TTL_SECONDS", 5)
-SYMBOL_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_SYMBOL_CACHE_TTL_SECONDS", 86400)
-KLINE_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_KLINE_CACHE_TTL_SECONDS", 1800)
-FINANCIAL_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_FINANCIAL_CACHE_TTL_SECONDS", 21600)
-ANNOUNCEMENT_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_ANNOUNCEMENT_CACHE_TTL_SECONDS", 600)
-SCREENER_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_SCREENER_CACHE_TTL_SECONDS", 60)
+QUOTE_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_QUOTE_CACHE_TTL_SECONDS", 5)
+SYMBOL_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_SYMBOL_CACHE_TTL_SECONDS", 86400)
+KLINE_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_KLINE_CACHE_TTL_SECONDS", 1800)
+FINANCIAL_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_FINANCIAL_CACHE_TTL_SECONDS", 21600)
+ANNOUNCEMENT_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_ANNOUNCEMENT_CACHE_TTL_SECONDS", 600)
+SCREENER_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_SCREENER_CACHE_TTL_SECONDS", 60)
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="QuantPilot Market Data API",
-        description="QuantPilot 量化分析 Agent 的市场数据后端",
+        title="Shop Gate Market Data API",
+        description="Shop Gate 量化分析 Agent 的市场数据后端",
         version="0.1.0",
     )
     app.add_middleware(

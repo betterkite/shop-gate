@@ -14,7 +14,7 @@ class ReadinessComponent(TypedDict):
 
 class ReadinessResult(TypedDict):
     ok: bool
-    service: Literal["quantpilot-market-data"]
+    service: Literal["shopgate-commerce-data"]
     components: dict[str, ReadinessComponent]
 
 
@@ -40,20 +40,20 @@ async def get_market_readiness(
     environment: Mapping[str, str] | None = None,
 ) -> ReadinessResult:
     env = environment or os.environ
-    strict = env.get("QUANTPILOT_DEGRADATION_MODE", "auto").strip().lower() == "strict"
-    database_enabled = env_flag(env, "QUANTPILOT_DATABASE_ENABLED", True)
-    redis_enabled = env_flag(env, "QUANTPILOT_REDIS_CACHE_ENABLED", True)
+    strict = env.get("SHOPGATE_DEGRADATION_MODE", "auto").strip().lower() == "strict"
+    database_enabled = env_flag(env, "SHOPGATE_DATABASE_ENABLED", True)
+    redis_enabled = env_flag(env, "SHOPGATE_REDIS_CACHE_ENABLED", True)
     definitions = [
         (
             "database",
             database_enabled,
-            env_flag(env, "QUANTPILOT_DATABASE_REQUIRED", True),
+            env_flag(env, "SHOPGATE_DATABASE_REQUIRED", True),
             database_probe,
         ),
         (
             "redis",
             redis_enabled,
-            env_flag(env, "QUANTPILOT_REDIS_REQUIRED", strict),
+            env_flag(env, "SHOPGATE_REDIS_REQUIRED", strict),
             redis_probe,
         ),
     ]
@@ -85,6 +85,6 @@ async def get_market_readiness(
             not component["required"] or component["ok"]
             for component in components.values()
         ),
-        "service": "quantpilot-market-data",
+        "service": "shopgate-commerce-data",
         "components": components,
     }

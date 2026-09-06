@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from quantpilot_market_data.clickhouse import is_clickhouse_enabled
-from quantpilot_market_data.models import DataProviderInfo, DataRegistryResponse
+from shopgate_commerce_data.clickhouse import is_clickhouse_enabled
+from shopgate_commerce_data.models import DataProviderInfo, DataRegistryResponse
 
 
 @dataclass(frozen=True)
@@ -23,8 +23,8 @@ def build_data_registry(ttls: ProviderRegistryTtls) -> DataRegistryResponse:
 def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
     return [
         DataProviderInfo(
-            id="quantpilot-analysis-context",
-            name="QuantPilot 分析取数合同",
+            id="shopgate-analysis-context",
+            name="Shop Gate 分析取数合同",
             category="analysis-context",
             status="available",
             description=(
@@ -41,7 +41,7 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
         DataProviderInfo(
             id="eastmoney-realtime",
             name="东方财富实时行情",
-            category="market-data",
+            category="commerce-data",
             status="available",
             description="A 股实时价格、成交额、市值等快照数据。",
             endpoints=["/api/v1/quotes/realtime/{symbol}", "/api/v1/quotes/realtime"],
@@ -63,7 +63,7 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
         DataProviderInfo(
             id="eastmoney-kline",
             name="东方财富历史 K 线 / 指数 / ETF",
-            category="market-data",
+            category="commerce-data",
             status="degraded",
             description=(
                 "A 股个股、常见指数和 ETF 的日线、周线、月线和常用分钟线历史行情；"
@@ -79,7 +79,7 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
         DataProviderInfo(
             id="eastmoney-intraday-redis",
             name="东方财富分时行情 Redis 缓存",
-            category="market-data",
+            category="commerce-data",
             status="available",
             description=(
                 "按需拉取 A 股 1/5/15/30/60 分钟分时行情，不写入 TimescaleDB；"
@@ -93,8 +93,8 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             ],
         ),
         DataProviderInfo(
-            id="quantpilot-technical-indicators",
-            name="QuantPilot 技术指标",
+            id="shopgate-technical-indicators",
+            name="Shop Gate 技术指标",
             category="indicator",
             status="available",
             description=(
@@ -105,8 +105,8 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             cache_ttl_seconds=ttls.kline,
         ),
         DataProviderInfo(
-            id="quantpilot-ma-crossover-backtest",
-            name="QuantPilot 策略回测",
+            id="shopgate-ma-crossover-backtest",
+            name="Shop Gate 策略回测",
             category="backtest",
             status="available",
             description=(
@@ -121,8 +121,8 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             limitations=["当前为单标的、全仓/空仓、日线级回测，暂不包含滑点、停牌和分红再投资建模。"],
         ),
         DataProviderInfo(
-            id="quantpilot-research-universe",
-            name="QuantPilot 策略研究股票池",
+            id="shopgate-research-universe",
+            name="Shop Gate 策略研究股票池",
             category="research-config",
             status="available",
             description=(
@@ -141,8 +141,8 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             cache_ttl_seconds=None,
         ),
         DataProviderInfo(
-            id="quantpilot-a-share-screener",
-            name="QuantPilot A 股选股筛选器",
+            id="shopgate-a-share-screener",
+            name="Shop Gate A 股选股筛选器",
             category="strategy-screener",
             status="available",
             description=(
@@ -154,8 +154,8 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             limitations=["DDE 大单金额/大单净量尚未落库，当前筛选为日线量价代理。"],
         ),
         DataProviderInfo(
-            id="quantpilot-clickhouse-analytics",
-            name="QuantPilot ClickHouse 分析加速层",
+            id="shopgate-clickhouse-analytics",
+            name="Shop Gate ClickHouse 分析加速层",
             category="analytics",
             status="available" if is_clickhouse_enabled() else "planned",
             description=(
@@ -169,7 +169,7 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             ],
             cache_ttl_seconds=None,
             limitations=[
-                "默认关闭，需要设置 QUANTPILOT_CLICKHOUSE_ENABLED=1。",
+                "默认关闭，需要设置 SHOPGATE_CLICKHOUSE_ENABLED=1。",
                 "当前使用显式同步，不替代 TimescaleDB 入库状态。",
             ],
         ),
@@ -275,7 +275,7 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             ],
             cache_ttl_seconds=None,
             limitations=[
-                "需要安装可选依赖：cd services/market-data && uv sync --extra akshare。",
+                "需要安装可选依赖：cd services/commerce-data && uv sync --extra akshare。",
                 "部分 AKShare 接口本质仍依赖东方财富或网页公开端点，需要低频补数和字段质量检查。",
             ],
         ),
@@ -343,8 +343,8 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             cache_ttl_seconds=ttls.financial,
         ),
         DataProviderInfo(
-            id="quantpilot-fundamental-indicators",
-            name="QuantPilot 财务衍生指标",
+            id="shopgate-fundamental-indicators",
+            name="Shop Gate 财务衍生指标",
             category="fundamental",
             status="available",
             description="基于财务摘要计算净利率、平均 ROE、平均毛利率和最近报告期核心指标。",

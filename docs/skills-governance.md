@@ -1,6 +1,6 @@
 # Skills 治理规范
 
-QuantPilot 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent runtime capsule”的方式管理。目标是让每个 Skill 的能力边界、版本、变更、打包产物、运行时投影和安装结果都可追溯。
+Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent runtime capsule”的方式管理。目标是让每个 Skill 的能力边界、版本、变更、打包产物、运行时投影和安装结果都可追溯。
 
 仓库根目录的 `.pi/**` 是唯一 Skill 权威源和 PI Agent 受信编译输入；完整性由 registry/lock、版本与 SHA-256 校验提供，目前没有密码学签名。生成工作空间的 `.pi/skills/` 是可检查的参考镜像，不是执行发现源，Agent 不会改写该镜像。
 
@@ -14,7 +14,7 @@ QuantPilot 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent 
 4. 修改 skill 必须同步更新版本、changelog、打包产物和 lock。
 5. 能用 Python 脚本稳定计算的内容，不要只写成提示词规则。
 6. `SKILL.md` 保持短而硬，复杂模板、字段说明和场景矩阵放到 `references/`。
-7. Skill ID 按能力 scope 命名：只有量化域能力使用 `quant-`，平台 UI 使用 `platform-`，通用工作流、图片、证据和可视化能力不使用 QuantPilot 或 quant 前缀。
+7. Skill ID 按能力 scope 命名：只有量化域能力使用 `quant-`，平台 UI 使用 `platform-`，通用工作流、图片、证据和可视化能力不使用 Shop Gate 或 quant 前缀。
 8. `SKILL.md` 是完整源材料，不直接进入模型上下文。PI Agent 只加载与当前 phase、信号和 typed tools 兼容的原子 capsule；必需 section 超出预算时失败关闭，不截断工作流。
 9. 每个源码 Skill 都必须是完整技能包：`SKILL.md`、`references/`、`scripts/`、`agents/openai.yaml` 缺一不可；`assets/` 仅在确有输出模板或素材时加入。
 10. 每个 reference 和 script 都必须由 `SKILL.md` 直接导航并说明使用时机；不允许孤儿资源，也不在 Skill 包中放 README、CHANGELOG 或安装指南。

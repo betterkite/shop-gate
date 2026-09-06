@@ -20,15 +20,15 @@ import {
   writeInitialRunPlan,
   type QuantRunPlan,
 } from "@/lib/domains/finance/workspace";
-import { prefetchQuantDataForRunPlan } from "@/lib/quant/data-prefetch";
+import { prefetchQuantDataForRunPlan } from "@/lib/commerce/data-prefetch";
 import { getQuantCapability } from "@/lib/domains/finance/capabilities";
-import type { WorkspaceProgressPublisher } from "@/lib/quant/workspace-progress";
+import type { WorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
 import { buildQuantClarificationMessage } from "@/lib/domains/finance/intent";
 import {
   startQuantGenerationRun,
   updateQuantGenerationStep,
-} from "@/lib/quant/generation-state";
-import { runQuantGenerationStage } from "@/lib/quant/generation-queue";
+} from "@/lib/commerce/generation-state";
+import { runQuantGenerationStage } from "@/lib/commerce/generation-queue";
 import {
   createQuantPiAgentMission,
   markQuantPiAgentMissionNode,
@@ -51,7 +51,7 @@ import {
   missingAgentInputArtifacts,
   publishQuantPipelineToolMessage,
   publishQuantPipelineToolStart,
-} from "@/lib/quant/chat-act-support";
+} from "@/lib/commerce/chat-act-support";
 
 export interface FinanceActPreparationInput {
   projectId: string;
@@ -829,7 +829,7 @@ export async function prepareFinanceActGeneration(
           queryRewriteQuotaReservationId = null;
         }
         console.error(
-          "[API] Failed to prepare QuantPilot run plan or data prefetch:",
+          "[API] Failed to prepare Shop Gate run plan or data prefetch:",
           error,
         );
         const preparationMessage =

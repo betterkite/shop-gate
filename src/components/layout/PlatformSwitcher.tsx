@@ -58,7 +58,7 @@ export function PlatformSwitcher({ beforeNavigate }: PlatformSwitcherProps = {})
           variant="outline"
           size="sm"
           className="h-9 w-9 gap-2 rounded-xl border-border/70 bg-background/75 px-0 shadow-sm sm:w-auto sm:px-2.5"
-          aria-label={`打开 QuantPilot 产品导航${currentProduct ? `，当前为${currentProduct.label}` : ""}`}
+          aria-label={`打开 Shop Gate 产品导航${currentProduct ? `，当前为${currentProduct.label}` : ""}`}
         >
           <Grid2X2 className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">产品</span>
@@ -71,10 +71,10 @@ export function PlatformSwitcher({ beforeNavigate }: PlatformSwitcherProps = {})
       </SheetTrigger>
       <SheetContent side="right" className="w-[min(92vw,420px)] overflow-y-auto border-border/70 p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-[420px]">
         <SheetHeader className="border-b border-border/60 px-5 py-5 pr-12">
-          <SheetTitle>QuantPilot 产品导航</SheetTitle>
+          <SheetTitle>Shop Gate 产品导航</SheetTitle>
           <SheetDescription>围绕同一研究任务，在研究、策略、交付与治理之间切换。</SheetDescription>
         </SheetHeader>
-        <nav className="p-4" aria-label="QuantPilot 产品">
+        <nav className="p-4" aria-label="Shop Gate 产品">
           {PRODUCT_GROUPS.map((group, groupIndex) => (
             <section key={group.id} className={cn(groupIndex > 0 && "mt-5 border-t border-border/55 pt-4")}>
               <p className="mb-2 px-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">

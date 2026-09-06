@@ -1,6 +1,6 @@
 # 行情数据源采集知识库
 
-QuantPilot 的行情链路以 PostgreSQL + TimescaleDB 为事实库，外部数据源只作为采集入口。生成工作空间和策略平台应优先读取本地后端，不要在页面里临时抓网页接口。
+Shop Gate 的行情链路以 PostgreSQL + TimescaleDB 为事实库，外部数据源只作为采集入口。生成工作空间和策略平台应优先读取本地后端，不要在页面里临时抓网页接口。
 
 ## 字段口径
 
@@ -91,9 +91,9 @@ flowchart TD
 ## 当前可执行补数字段链路
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv sync --extra baostock --extra akshare
-uv run quantpilot-market-api
+uv run shopgate-commerce-api
 ```
 
 ```bash

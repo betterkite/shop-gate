@@ -1,4 +1,4 @@
-import type { ResearchReportSnapshot } from "@/lib/quant/research-reports";
+import type { ResearchReportSnapshot } from "@/lib/commerce/research-reports";
 
 type JsonRecord = Record<string, unknown>;
 

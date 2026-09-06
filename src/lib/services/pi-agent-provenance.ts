@@ -64,7 +64,7 @@ export function hashPiAgentProvenance(value: unknown): string {
 
 export async function hashPiAgentWorkspaceIdentity(
   workspaceRoot: string,
-  namespace = process.env.PI_AGENT_WORKSPACE_NAMESPACE ?? 'quantpilot-local'
+  namespace = process.env.PI_AGENT_WORKSPACE_NAMESPACE ?? 'shopgate-local'
 ): Promise<string> {
   if (!namespace.trim() || Buffer.byteLength(namespace, 'utf8') > 256) {
     throw new Error('PI Agent workspace namespace must be between 1 and 256 UTF-8 bytes.');

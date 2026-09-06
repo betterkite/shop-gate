@@ -66,7 +66,7 @@ interface CaseResult {
 
 const argv = process.argv.slice(2);
 const root = process.cwd();
-const baseUrl = (process.env.QUANTPILOT_TASK_E2E_BASE_URL ?? 'http://127.0.0.1:3000').replace(/\/+$/u, '');
+const baseUrl = (process.env.SHOPGATE_TASK_E2E_BASE_URL ?? 'http://127.0.0.1:3000').replace(/\/+$/u, '');
 const projectRoot = path.resolve(root, process.env.PROJECTS_DIR || './data/projects');
 
 function option(name: string): string | null {
@@ -186,15 +186,15 @@ async function api(
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('QuantPilot API request failed.');
+  throw lastError instanceof Error ? lastError : new Error('Shop Gate API request failed.');
 }
 
 async function authenticate(context: BrowserContext): Promise<void> {
-  const login = process.env.QUANTPILOT_TASK_E2E_ADMIN_LOGIN?.trim() || 'admin';
-  const password = process.env.QUANTPILOT_TASK_E2E_ADMIN_PASSWORD?.trim() || 'admin';
+  const login = process.env.SHOPGATE_TASK_E2E_ADMIN_LOGIN?.trim() || 'admin';
+  const password = process.env.SHOPGATE_TASK_E2E_ADMIN_PASSWORD?.trim() || 'admin';
   const target = new URL(baseUrl);
   if ((login === 'admin' || password === 'admin') && !['localhost', '127.0.0.1', '::1'].includes(target.hostname)) {
-    throw new Error('Default local E2E credentials are forbidden for a non-loopback QuantPilot URL.');
+    throw new Error('Default local E2E credentials are forbidden for a non-loopback Shop Gate URL.');
   }
   const page = await context.newPage();
   try {
@@ -475,7 +475,7 @@ async function main(): Promise<void> {
   const limit = integerOption('limit', 30, 1, 30);
   const concurrency = integerOption('concurrency', 2, 1, 4);
   const timeoutMs = integerOption('timeout-ms',
-    Number.parseInt(process.env.QUANTPILOT_TASK_E2E_TIMEOUT_MS ?? '1200000', 10),
+    Number.parseInt(process.env.SHOPGATE_TASK_E2E_TIMEOUT_MS ?? '1200000', 10),
     60_000,
     3_600_000,
   );

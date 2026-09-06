@@ -1,15 +1,15 @@
 # API 总览
 
-这份文档记录 QuantPilot 当前对外和内部页面使用的主要 API。它不是替代源码的逐行说明，而是帮助维护者快速判断“这个页面读的是哪个入口、后端职责在哪里、出问题先看哪一层”。
+这份文档记录 Shop Gate 当前对外和内部页面使用的主要 API。它不是替代源码的逐行说明，而是帮助维护者快速判断“这个页面读的是哪个入口、后端职责在哪里、出问题先看哪一层”。
 
-生成类 API 由 PI Agent `0.82.1` 执行完整多轮工具循环，权限、审批、durable run、Mission 和交付验证由 QuantPilot 承担。所有 Agent API、设置和任务信封只接受规范 CLI 值 `pi`。详见 [PI Agent 采用与治理边界](pi-agent-migration.md)。
+生成类 API 由 PI Agent `0.82.1` 执行完整多轮工具循环，权限、审批、durable run、Mission 和交付验证由 Shop Gate 承担。所有 Agent API、设置和任务信封只接受规范 CLI 值 `pi`。详见 [PI Agent 采用与治理边界](pi-agent-migration.md)。
 
 ## 服务边界
 
 | 服务 | 默认地址 | 代码位置 | 责任 |
 | --- | --- | --- | --- |
 | Next.js 主应用 API | `http://localhost:3000/api/*` | `src/app/api/` | 项目、聊天、设置、评测、skills、运维和页面聚合数据 |
-| 市场数据服务 | `http://127.0.0.1:8000/api/v1/*` | `services/market-data/src/quantpilot_market_data/api.py` | 行情、K 线、财务、公告、补数、基础组件、股票池和回测 |
+| 市场数据服务 | `http://127.0.0.1:8000/api/v1/*` | `services/commerce-data/src/shopgate_commerce_data/api.py` | 行情、K 线、财务、公告、补数、基础组件、股票池和回测 |
 | 用户记忆服务 | `http://127.0.0.1:38089/*` | 独立 `evolvable-user-memory` 仓库 | 偏好证据、不可变修订、召回 Trace、上下文投影和可归因 Outcome |
 | 预览工作空间 | `http://localhost:4100+` | `data/projects/project-*` | AI 生成项目的 Next.js 预览，不承载平台状态 |
 
@@ -90,18 +90,18 @@
 
 | 路由 | 方法 | 调用方 | 责任 |
 | --- | --- | --- | --- |
-| `/api/quant/strategies` | `GET/POST` | 策略平台 | 策略平台聚合数据、扫描、补数和因子目录 |
-| `/api/quant/query/rewrite` | `POST` | 聊天页、运行规划器 | schema v4 LLM-first 问题改写；所有 purpose 均由所选 LLM 解析语义，并在取数前执行安全决策 |
-| `/api/quant/capabilities` | `GET` | 业务知识中心 | 业务能力和执行依赖摘要 |
-| `/api/quant/capability-center` | `GET` | 业务知识中心 | 业务能力、场景知识、交付契约和支撑资源 |
+| `/api/commerce/strategies` | `GET/POST` | 策略平台 | 策略平台聚合数据、扫描、补数和因子目录 |
+| `/api/commerce/query/rewrite` | `POST` | 聊天页、运行规划器 | schema v4 LLM-first 问题改写；所有 purpose 均由所选 LLM 解析语义，并在取数前执行安全决策 |
+| `/api/commerce/capabilities` | `GET` | 业务知识中心 | 业务能力和执行依赖摘要 |
+| `/api/commerce/capability-center` | `GET` | 业务知识中心 | 业务能力、场景知识、交付契约和支撑资源 |
 | `/api/research/reports` | `GET/POST` | 投研情报中心 | 观察池、证据型日报、主题洞察、运行历史和推送记录；`POST` 支持 `run-daily-report` 和 `send-latest-report` |
 | `/api/evals` | `GET/POST` | 评测平台 | 用例、评测集、运行队列、模拟链路和定时任务 |
 | `/api/evals/runs/[runId]` | `GET` | 评测平台 | 单次评测报告详情 |
 | `/api/ops/platform` | `GET` | 运行治理中心 | Worker registry/槽位/队列、基础环境、日志、健康和降级状态 |
-| `/api/infrastructure/health` | `GET` | 设置/运维 | PostgreSQL、market-data、Redis、Loki 等组件健康 |
+| `/api/infrastructure/health` | `GET` | 设置/运维 | PostgreSQL、commerce-data、Redis、Loki 等组件健康 |
 | `/api/infrastructure/service-catalog` | `GET` | 设置/运维 | 服务目录、Python/Node runtime、endpoint、依赖边和配置校验结果 |
 
-`POST /api/quant/query/rewrite` 接收 `query`、可选 `requestedCapabilityId`、`model` 和
+`POST /api/commerce/query/rewrite` 接收 `query`、可选 `requestedCapabilityId`、`model` 和
 `purpose=preview|execution`，未传时默认 `execution`；两种 purpose 都会调用用户选定的 LLM，
 因此 `preview` 不再是无模型的关键词预判。聊天输入框不会在用户输入期间频繁调用 preview，正式提交后才执行改写。
 LLM 通过 Tool Schema 解析标的原文、时间范围、分析重点和输出意图；时间、宽域范围和 answer-only 意图必须携带原文字面证据。模型只允许返回用户原文中的候选标的文本，
@@ -128,13 +128,13 @@ LLM 通过 Tool Schema 解析标的原文、时间范围、分析重点和输出
 
 | 路由 | 方法 | 调用方 | 责任 |
 | --- | --- | --- | --- |
-| `/api/projects/[project_id]/memory/preferences` | `GET/POST` | 偏好管理客户端 | 列出或显式新增当前用户的 QuantPilot 偏好 |
+| `/api/projects/[project_id]/memory/preferences` | `GET/POST` | 偏好管理客户端 | 列出或显式新增当前用户的 Shop Gate 偏好 |
 | `/api/projects/[project_id]/memory/preferences/[record_id]/corrections` | `POST` | 偏好管理客户端 | 追加不可变纠正 revision |
 | `/api/projects/[project_id]/memory/preferences/[record_id]/revisions` | `GET` | 偏好管理客户端 | 查看 revision 历史 |
 | `/api/projects/[project_id]/memory/uses/[request_id]` | `GET` | 审计/反馈入口 | 查询本轮实际暴露的 revision 与内容哈希 |
 | `/api/projects/[project_id]/memory/outcomes` | `POST` | 显式用户反馈 | 对本轮真实使用过的 revision 记录可归因结果 |
 
-聊天 `/api/chat/[project_id]/act` 会在 Agent 执行前自动调用 Memory 的 `/v1/recall` 和 `/v1/recall-contexts`。浏览器不直接提交 tenant/subject；QuantPilot 在项目授权后使用可信 `actorUserId` 构造 Scope，并再次执行产品、项目、键和长度过滤。完整配置、请求示例、效果状态与安全边界见[用户记忆服务接入、使用与效果验证](user-memory-integration.md)。
+聊天 `/api/chat/[project_id]/act` 会在 Agent 执行前自动调用 Memory 的 `/v1/recall` 和 `/v1/recall-contexts`。浏览器不直接提交 tenant/subject；Shop Gate 在项目授权后使用可信 `actorUserId` 构造 Scope，并再次执行产品、项目、键和长度过滤。完整配置、请求示例、效果状态与安全边界见[用户记忆服务接入、使用与效果验证](user-memory-integration.md)。
 
 ### 认证、权限、配额与用户治理
 
@@ -268,11 +268,11 @@ fundamental 复用 financials；单个上游故障不会丢弃其他成功区块
 | 成交额/换手率为空 | `/api/v1/ingestion/baostock/history` | `quant.stock_bars.amount`、`turnover` |
 | 板块资金慢 | `/api/v1/research/sector-capital-flow` | Redis TTL、后端是否全量扫描 |
 | 生成页面验证失败 | `/api/chat/[project_id]/act` | `.data-agent/validation.json`、`data_file/final/dashboard-data.json` |
-| 评测队列卡住 | `/api/evals` | `eval_queue_items`、`tmp/quantpilot-eval-queue/` |
+| 评测队列卡住 | `/api/evals` | `eval_queue_items`、`tmp/shopgate-eval-queue/` |
 
 ## 维护规则
 
 - 新增页面入口时，同步补充本文件中的调用方和责任。
-- 新增市场数据端点时，同步更新 `services/market-data/README.md` 和 `docs/market-data-source-knowledge.md`。
+- 新增市场数据端点时，同步更新 `services/commerce-data/README.md` 和 `docs/commerce-data-source-knowledge.md`。
 - 改变字段口径时，同步更新 [数据字典](data-dictionary.md)。
 - 新增长任务时，必须说明是否写 `quant.platform_jobs` 或专用任务表，以及暂停、继续、停止语义。

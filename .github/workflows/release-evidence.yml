@@ -24,13 +24,13 @@ jobs:
     timeout-minutes: 240
     env:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      QUANTPILOT_RELEASE_EVIDENCE_MODEL: deepseek-v4-flash
-      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      SHOPGATE_RELEASE_EVIDENCE_MODEL: deepseek-v4-flash
+      DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
-      QUANTPILOT_MARKET_API_URL: http://127.0.0.1:8000
+      SHOPGATE_MARKET_API_URL: http://127.0.0.1:8000
       PROJECTS_DIR: ./tmp/release-evidence-projects
-      QUANTPILOT_EVAL_MODE: e2e
-      QUANTPILOT_EVAL_TRIGGER: release
+      SHOPGATE_EVAL_MODE: e2e
+      SHOPGATE_EVAL_TRIGGER: release
       PI_AGENT_BUILD_REVISION: ${{ github.sha }}
       PI_AGENT_MAX_TURNS: '3'
       PI_AGENT_TIMEOUT_MS: '900000'
@@ -65,7 +65,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          uv sync --project services/market-data --locked --all-groups
+          uv sync --project services/commerce-data --locked --all-groups
           npm run prisma:generate
 
       - name: Start release evidence infrastructure
@@ -73,7 +73,7 @@ jobs:
           docker compose up -d --wait timescaledb redis
           npm run db:init
           mkdir -p tmp
-          npm run dev:market > tmp/release-market.log 2>&1 &
+          npm run dev:commerce > tmp/release-market.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
               exit 0
@@ -94,9 +94,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
           path: |
-            tmp/quantpilot-benchmark-reports/
-            tmp/quantpilot-benchmark-screenshots/
-            tmp/quantpilot-eval-mutations/
+            tmp/shopgate-benchmark-reports/
+            tmp/shopgate-benchmark-screenshots/
+            tmp/shopgate-eval-mutations/
             tmp/visual-checks/
             tmp/release-market.log
 

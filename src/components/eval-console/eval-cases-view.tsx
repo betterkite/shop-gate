@@ -24,7 +24,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { EvalPagination, EvalSelect, statusPill } from '@/components/quant/eval-console-primitives';
+import { EvalPagination, EvalSelect, statusPill } from '@/components/eval-console/eval-console-primitives';
 import type { QuantEvalCase, QuantEvalResult, QuantEvalRun } from '@/lib/eval';
 import { cn } from '@/lib/utils';
 
@@ -190,7 +190,7 @@ function CreateCaseSheet({
         <SheetHeader className="border-b border-border/40 bg-background/95 px-5 py-4 backdrop-blur-xl">
           <SheetTitle className="text-base">新增测试用例</SheetTitle>
           <SheetDescription className="text-xs">
-            创建后会写入 benchmarks/quantpilot/cases.json，并立即出现在评测平台。
+            创建后会写入 benchmarks/shopgate/cases.json，并立即出现在评测平台。
           </SheetDescription>
         </SheetHeader>
 

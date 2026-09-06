@@ -24,7 +24,7 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
-vi.mock('@/lib/quant/data-agent-application', () => ({
+vi.mock('@/lib/commerce/data-agent-application', () => ({
   getApplicationDataAgentCatalog: () => ({
     resolve: () => ({
       profile: { id: 'test.profile', version: '1.0.0' },

@@ -18,8 +18,8 @@ def _is_loopback_host(host: str) -> bool:
 
 
 def market_admin_token_required() -> bool:
-    mode = os.getenv("QUANTPILOT_DEGRADATION_MODE", "auto").strip().lower()
-    host = os.getenv("QUANTPILOT_MARKET_HOST", "127.0.0.1")
+    mode = os.getenv("SHOPGATE_DEGRADATION_MODE", "auto").strip().lower()
+    host = os.getenv("SHOPGATE_MARKET_HOST", "127.0.0.1")
     return mode == "strict" or not _is_loopback_host(host)
 
 
@@ -34,22 +34,22 @@ def _bearer_token(authorization: str | None) -> str | None:
 
 async def require_market_admin(
     authorization: str | None = Header(default=None),
-    x_quantpilot_admin_token: str | None = Header(default=None),
+    x_shopgate_admin_token: str | None = Header(default=None),
 ) -> None:
     """Protect mutating market endpoints while keeping loopback development frictionless."""
-    configured = os.getenv("QUANTPILOT_MARKET_ADMIN_TOKEN", "").strip()
+    configured = os.getenv("SHOPGATE_MARKET_ADMIN_TOKEN", "").strip()
     if not configured:
         if market_admin_token_required():
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(
                     "写接口已关闭：strict 或非 loopback 监听必须配置 "
-                    "QUANTPILOT_MARKET_ADMIN_TOKEN。"
+                    "SHOPGATE_MARKET_ADMIN_TOKEN。"
                 ),
             )
         return
 
-    presented = x_quantpilot_admin_token or _bearer_token(authorization)
+    presented = x_shopgate_admin_token or _bearer_token(authorization)
     if not presented or not hmac.compare_digest(configured, presented):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

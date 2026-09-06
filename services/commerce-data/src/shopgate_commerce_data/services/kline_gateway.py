@@ -5,16 +5,16 @@ from decimal import Decimal
 
 from psycopg import Error as PsycopgError
 
-from quantpilot_market_data.database_core import SHANGHAI_TZ, DatabaseError
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.database_core import SHANGHAI_TZ, DatabaseError
+from shopgate_commerce_data.models import (
     Adjustment,
     KlineBar,
     KlinePeriod,
     KlineResponse,
     LocalKlineResponse,
 )
-from quantpilot_market_data.providers.base import HistoricalKlineProvider
-from quantpilot_market_data.repositories.bars import (
+from shopgate_commerce_data.providers.base import HistoricalKlineProvider
+from shopgate_commerce_data.repositories.bars import (
     get_expected_latest_trade_date,
     get_local_kline,
     get_market_latest_bar_ts,

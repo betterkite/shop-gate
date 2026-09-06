@@ -16,7 +16,7 @@ import { collapseToolReadActivities } from "@/lib/chat/tool-activity";
 import {
   classifyRealtimeGenerationStatus,
   shouldRealtimeAssistantUpdateStopWaiting,
-} from "@/lib/quant/realtime-generation-status";
+} from "@/lib/commerce/realtime-generation-status";
 
 import {
   expandMessagesList,

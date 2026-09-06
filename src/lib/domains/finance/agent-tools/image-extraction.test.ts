@@ -64,7 +64,7 @@ describe('PI Agent image extraction tool', () => {
     const input = tool.parseInput?.({ prompt: '提取持仓' }) ?? { prompt: '提取持仓' };
     const result = await tool.execute(input, toolContext());
 
-    expect(tool.name).toBe('quant_extract_uploaded_image');
+    expect(tool.name).toBe('commerce_extract_uploaded_image');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.runtime).toBe('PI Agent');

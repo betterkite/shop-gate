@@ -14,7 +14,7 @@ afterEach(async () => {
 
 describe('Finance image attachment context', () => {
   it('projects the finance extraction contract onto the generic manifest', async () => {
-    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-finance-assets-'));
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-finance-assets-'));
     temporaryDirectories.push(projectRoot);
 
     const receiptPath = await writeFinanceAttachmentContext({
@@ -35,7 +35,7 @@ describe('Finance image attachment context', () => {
       attachments: [{ path: 'assets/holding.png' }],
       extractionContract: {
         requiredSkill: 'image-extraction',
-        requiredTool: 'quant_extract_uploaded_image',
+        requiredTool: 'commerce_extract_uploaded_image',
       },
     });
   });

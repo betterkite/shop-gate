@@ -41,7 +41,7 @@ vi.mock('@/lib/utils/ports', () => ({
   findAvailablePort: mocks.findAvailablePort,
 }));
 
-vi.mock('@/lib/quant/validation', () => ({
+vi.mock('@/lib/commerce/validation', () => ({
   checkQuantArtifactPolicy: mocks.checkQuantArtifactPolicy,
 }));
 
@@ -49,7 +49,7 @@ vi.mock('@/lib/security/generated-project-sandbox', () => ({
   buildGeneratedProjectEnv: (
     projectPath: string,
     overrides: Readonly<Record<string, string | undefined>> = {},
-  ) => ({ ...overrides, QUANTPILOT_WORKSPACE_ROOT: projectPath }),
+  ) => ({ ...overrides, SHOPGATE_WORKSPACE_ROOT: projectPath }),
   wrapGeneratedProjectCommand: async (
     _projectPath: string,
     command: string,
@@ -123,14 +123,14 @@ function missingFile(): NodeJS.ErrnoException {
 describe('PreviewManager start concurrency', () => {
   beforeEach(async () => {
     previewTestPort = await availableLoopbackPort();
-    mkdirSync('/tmp/quantpilot-preview-test/.next', { recursive: true });
+    mkdirSync('/tmp/shopgate-preview-test/.next', { recursive: true });
     process.env.PREVIEW_PORT_START = String(previewTestPort);
     process.env.PREVIEW_PORT_END = String(previewTestPort);
 
     mocks.getProjectById.mockResolvedValue({
       id: 'project-preview',
       previewPort: null,
-      repoPath: '/tmp/quantpilot-preview-test',
+      repoPath: '/tmp/shopgate-preview-test',
     });
     mocks.checkQuantArtifactPolicy.mockResolvedValue({
       id: 'artifact-policy',
@@ -184,8 +184,8 @@ describe('PreviewManager start concurrency', () => {
     vi.unstubAllGlobals();
     delete process.env.PREVIEW_PORT_START;
     delete process.env.PREVIEW_PORT_END;
-    delete process.env.QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE;
-    delete process.env.QUANTPILOT_GENERATED_SANDBOX;
+    delete process.env.SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE;
+    delete process.env.SHOPGATE_GENERATED_SANDBOX;
   });
 
   it('coalesces concurrent starts into one process and one ready result', async () => {
@@ -206,10 +206,10 @@ describe('PreviewManager start concurrency', () => {
       url: `http://localhost:${previewTestPort}`,
     });
     const previewEnv = mocks.spawn.mock.calls[0]?.[2]?.env as NodeJS.ProcessEnv;
-    expect(previewEnv.QUANTPILOT_SANDBOX_PREVIEW_SOCKET).toMatch(
+    expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toMatch(
       /^\/tmp\/qp-preview\/[a-f0-9]{20}\/p\.sock$/,
     );
-    expect(previewEnv.QUANTPILOT_SANDBOX_MARKET_SOCKET).toMatch(
+    expect(previewEnv.SHOPGATE_SANDBOX_MARKET_SOCKET).toMatch(
       /^\/tmp\/qp-preview\/[a-f0-9]{20}\/m\.sock$/,
     );
     expect(mocks.getProjectById).toHaveBeenCalledTimes(1);
@@ -219,8 +219,8 @@ describe('PreviewManager start concurrency', () => {
   });
 
   it('lets a trusted unsandboxed preview bind the selected TCP port directly', async () => {
-    process.env.QUANTPILOT_GENERATED_SANDBOX = '0';
-    process.env.QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE = '1';
+    process.env.SHOPGATE_GENERATED_SANDBOX = '0';
+    process.env.SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE = '1';
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, status: 200 }),
@@ -234,8 +234,8 @@ describe('PreviewManager start concurrency', () => {
     });
 
     const previewEnv = mocks.spawn.mock.calls[0]?.[2]?.env as NodeJS.ProcessEnv;
-    expect(previewEnv.QUANTPILOT_SANDBOX_PREVIEW_SOCKET).toBeUndefined();
-    expect(previewEnv.QUANTPILOT_SANDBOX_MARKET_SOCKET).toBeUndefined();
+    expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toBeUndefined();
+    expect(previewEnv.SHOPGATE_SANDBOX_MARKET_SOCKET).toBeUndefined();
 
     const directListener = createServer();
     await new Promise<void>((resolve, reject) => {
@@ -262,7 +262,7 @@ describe('PreviewManager start concurrency', () => {
     expect(mocks.spawn).toHaveBeenCalledWith(
       'npm',
       ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
-      expect.objectContaining({ cwd: '/tmp/quantpilot-preview-test' }),
+      expect.objectContaining({ cwd: '/tmp/shopgate-preview-test' }),
     );
   });
 
@@ -414,7 +414,7 @@ describe('PreviewManager start concurrency', () => {
     });
     fsMocks.readlink.mockImplementation(async (linkPath: unknown) => {
       if (String(linkPath) === '/proc/7173/cwd') {
-        return '/tmp/quantpilot-preview-test';
+        return '/tmp/shopgate-preview-test';
       }
       return '/tmp/a-different-project';
     });
@@ -456,10 +456,10 @@ describe('PreviewManager start concurrency', () => {
     });
     fsMocks.readlink.mockImplementation(async (linkPath: unknown) => {
       if (String(linkPath) === '/proc/7173/cwd') {
-        return '/tmp/quantpilot-generated-sandbox.ABC/tmp/quantpilot-preview-test';
+        return '/tmp/shopgate-generated-sandbox.ABC/tmp/shopgate-preview-test';
       }
       if (String(linkPath) === '/proc/7173/root') {
-        return '/tmp/quantpilot-generated-sandbox.ABC';
+        return '/tmp/shopgate-generated-sandbox.ABC';
       }
       throw missingFile();
     });

@@ -7,7 +7,7 @@ const dotenv = require('dotenv');
 const { parseCliArgs, startWebDevServer } = require('./run-web');
 
 const rootDir = path.join(__dirname, '..', '..');
-const marketDataDir = path.join(rootDir, 'services', 'market-data');
+const marketDataDir = path.join(rootDir, 'services', 'commerce-data');
 const isWindows = os.platform() === 'win32';
 
 dotenv.config({
@@ -24,23 +24,23 @@ function envFlag(name, fallback) {
 
 function shouldRunMarketApi() {
   return (
-    process.env.QUANTPILOT_DEGRADATION_MODE?.trim().toLowerCase() !== 'offline' &&
-    envFlag('QUANTPILOT_MARKET_API_ENABLED', true)
+    process.env.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() !== 'offline' &&
+    envFlag('SHOPGATE_MARKET_API_ENABLED', true)
   );
 }
 
 function shouldRunGenerationWorker() {
   return (
     process.env.PI_AGENT_DISPATCH_MODE?.trim().toLowerCase() === 'worker' &&
-    envFlag('QUANTPILOT_DEV_MANAGE_GENERATION_WORKER', true)
+    envFlag('SHOPGATE_DEV_MANAGE_GENERATION_WORKER', true)
   );
 }
 
 function marketApiUrl() {
   return (
-    process.env.QUANTPILOT_MARKET_API_URL ||
-    process.env.QUANTPILOT_MARKET_API_BASE_URL ||
-    `http://127.0.0.1:${process.env.QUANTPILOT_MARKET_PORT || '8000'}`
+    process.env.SHOPGATE_MARKET_API_URL ||
+    process.env.SHOPGATE_MARKET_API_BASE_URL ||
+    `http://127.0.0.1:${process.env.SHOPGATE_MARKET_PORT || '8000'}`
   ).replace(/\/$/, '');
 }
 
@@ -89,7 +89,7 @@ async function startMarketApiIfNeeded() {
 
   const url = marketApiUrl();
   if (await probeHealth(url)) {
-    process.env.QUANTPILOT_MARKET_API_ENABLED = '1';
+    process.env.SHOPGATE_MARKET_API_ENABLED = '1';
     console.log(`✅ Market API already healthy at ${url}`);
     return { child: null, managed: false };
   }
@@ -101,10 +101,10 @@ async function startMarketApiIfNeeded() {
     .filter(Boolean)
     .join(',');
 
-  console.log(`🚀 Starting market-data service on ${url}`);
+  console.log(`🚀 Starting commerce-data service on ${url}`);
   const child = spawn(
     'uv',
-    ['run', '--extra', 'baostock', '--extra', 'akshare', 'quantpilot-market-api'],
+    ['run', '--extra', 'baostock', '--extra', 'akshare', 'shopgate-commerce-api'],
     {
       cwd: marketDataDir,
       stdio: 'inherit',
@@ -114,30 +114,30 @@ async function startMarketApiIfNeeded() {
         ...process.env,
         NO_PROXY: noProxy,
         no_proxy: noProxy,
-        QUANTPILOT_MARKET_HOST: host,
-        QUANTPILOT_MARKET_PORT: port,
+        SHOPGATE_MARKET_HOST: host,
+        SHOPGATE_MARKET_PORT: port,
       },
     }
   );
 
   child.once('error', (error) => {
-    console.error(`❌ Failed to start market-data: ${error.message}`);
+    console.error(`❌ Failed to start commerce-data: ${error.message}`);
   });
 
   for (let attempt = 1; attempt <= 40; attempt += 1) {
     if (await probeHealth(url)) {
-      process.env.QUANTPILOT_MARKET_API_ENABLED = '1';
+      process.env.SHOPGATE_MARKET_API_ENABLED = '1';
       console.log(`✅ Market API ready at ${url}`);
       return { child, managed: true };
     }
     if (child.exitCode !== null) {
-      throw new Error(`market-data exited before becoming ready (code ${child.exitCode})`);
+      throw new Error(`commerce-data exited before becoming ready (code ${child.exitCode})`);
     }
     await delay(500);
   }
 
   stopChild(child);
-  throw new Error(`market-data did not become healthy within 20 seconds: ${url}/health`);
+  throw new Error(`commerce-data did not become healthy within 20 seconds: ${url}/health`);
 }
 
 function startGenerationWorkerIfNeeded() {
@@ -197,7 +197,7 @@ async function main() {
   if (market.managed) {
     market.child.on('exit', (code) => {
       if (!shuttingDown) {
-        console.error(`❌ market-data exited unexpectedly (code ${code ?? 'unknown'})`);
+        console.error(`❌ commerce-data exited unexpectedly (code ${code ?? 'unknown'})`);
         shutdown(typeof code === 'number' && code !== 0 ? code : 1);
       }
     });
@@ -214,7 +214,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error('\n❌ Failed to launch QuantPilot development stack');
+    console.error('\n❌ Failed to launch Shop Gate development stack');
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);
   });

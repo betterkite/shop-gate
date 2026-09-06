@@ -21,7 +21,7 @@ const prisma = new PrismaClient();
 async function main() {
   const config = getProjectAuthConfig();
   if (!config.enabled) {
-    throw new Error('请先设置 QUANTPILOT_AUTH_MODE=local，再初始化管理员。');
+    throw new Error('请先设置 SHOPGATE_AUTH_MODE=local，再初始化管理员。');
   }
   getProjectAuthSecret(config);
 
@@ -37,7 +37,7 @@ async function main() {
   const usesDevelopmentDefaults = !configuredEmail && !configuredPassword && Boolean(defaults);
   const email = configuredEmail || defaults?.email || '';
   const password = configuredPassword || defaults?.password || '';
-  const name = process.env[config.bootstrap.nameEnv]?.trim() || defaults?.name || 'QuantPilot 管理员';
+  const name = process.env[config.bootstrap.nameEnv]?.trim() || defaults?.name || 'Shop Gate 管理员';
 
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     throw new Error(

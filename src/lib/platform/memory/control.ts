@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { prisma } from '@/lib/db/client';
 
-export const PERSONAL_MEMORY_CONTROL_POLICY = 'quantpilot-personalization-v1' as const;
+export const PERSONAL_MEMORY_CONTROL_POLICY = 'shopgate-personalization-v1' as const;
 
 export interface PersonalMemoryControlState {
   configured: boolean;

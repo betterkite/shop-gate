@@ -17,7 +17,7 @@ export async function writeFinanceAttachmentContext(params: {
     extension: {
       extractionContract: {
         requiredSkill: 'image-extraction',
-        requiredTool: 'quant_extract_uploaded_image',
+        requiredTool: 'commerce_extract_uploaded_image',
         portfolioScreenshotFields: [
           'account_total_asset',
           'cash_available',
@@ -52,7 +52,7 @@ export function buildFinanceAttachmentInstruction(params: {
   return `
 用户为本次任务上传了 ${params.images.length} 张图片。
 - 附件清单：${params.attachmentContextPath ?? DATA_AGENT_ATTACHMENTS_RELATIVE_PATH}
-- 必须先调用 quant_extract_uploaded_image 读取每张图片，再结合量化数据接口生成结果。
+- 必须先调用 commerce_extract_uploaded_image 读取每张图片，再结合量化数据接口生成结果。
 - 当前不接入额外视觉模型或第三方 OCR；无法可靠识别的截图字段必须写 null，并在证据文件中列出需要用户确认的内容。
 - 对识别出的股票名称必须使用 quant-symbol-resolver 或 /api/v1/symbols/resolve 解析代码，再获取真实行情、K 线、指标和必要的基本面数据。
 - 必须把图片提取结果写入 evidence/image_extraction.json；没有 OCR/视觉结果时也要写明 visualRecognition.status 和 needs_manual_confirmation。

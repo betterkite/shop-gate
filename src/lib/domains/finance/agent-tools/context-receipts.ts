@@ -72,12 +72,12 @@ export function financeContextReceiptProjector(toolName: string): Projector | un
       return () => ({ targetReferences: [...CONTRACT_TARGETS] });
     case 'apply_dashboard_spec':
       return (_input, result) => dashboardReceipt(result);
-    case 'quant_api_get':
+    case 'commerce_api_get':
       return (input) => {
         const path = stringField(input, 'path');
         return { targetReferences: path ? [path] : [] };
       };
-    case 'quant_extract_uploaded_image':
+    case 'commerce_extract_uploaded_image':
       return (input, result) => imageReceipt(input, result);
     default:
       return undefined;

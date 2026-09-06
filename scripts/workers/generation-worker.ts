@@ -2,7 +2,7 @@
 
 import './worker-environment';
 
-import { createApplicationGenerationRuntime } from '../../src/lib/quant/generation-runtime';
+import { createApplicationGenerationRuntime } from '../../src/lib/commerce/generation-runtime';
 import { prisma } from '../../src/lib/db/client';
 import { PiAgentGenerationDispatchSession } from '../../src/lib/services/pi-agent-generation-dispatch-session';
 import {

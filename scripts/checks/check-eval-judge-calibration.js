@@ -18,7 +18,7 @@ function argument(name, fallback) {
 
 const configuredInput = argument(
   '--input',
-  process.env.QUANTPILOT_EVAL_JUDGE_CALIBRATION_PATH || 'benchmarks/quantpilot/judge-calibration.contract.json',
+  process.env.SHOPGATE_EVAL_JUDGE_CALIBRATION_PATH || 'benchmarks/shopgate/judge-calibration.contract.json',
 );
 const inputPath = path.resolve(configuredInput);
 if (!fs.existsSync(inputPath)) throw new Error(`Judge 校准集不存在：${configuredInput}`);
@@ -26,7 +26,7 @@ const dataset = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 if (dataset.schemaVersion !== 1 || !Array.isArray(dataset.samples)) {
   throw new Error('Judge 校准集必须使用 schemaVersion 1 并包含 samples');
 }
-const requireProduction = process.env.QUANTPILOT_REQUIRE_PRODUCTION_JUDGE_CALIBRATION === '1';
+const requireProduction = process.env.SHOPGATE_REQUIRE_PRODUCTION_JUDGE_CALIBRATION === '1';
 if (requireProduction && dataset.datasetKind !== 'human_blind_calibration') {
   throw new Error('发布门要求外部 human_blind_calibration，不能使用 pipeline_contract');
 }
@@ -35,7 +35,7 @@ const result = evaluateEvalJudgeCalibration({
   minAgreementRate: Number(argument('--min-agreement-rate', '80')),
   minKappa: Number(argument('--min-kappa', '0.6')),
   maxScoreMeanAbsoluteError: Number(argument('--max-score-mae', '15')),
-  requireIndependent: process.env.QUANTPILOT_REQUIRE_INDEPENDENT_JUDGE === '1' || dataset.datasetKind === 'human_blind_calibration',
+  requireIndependent: process.env.SHOPGATE_REQUIRE_INDEPENDENT_JUDGE === '1' || dataset.datasetKind === 'human_blind_calibration',
 });
 console.log(
   `[eval-judge] kind=${dataset.datasetKind} samples=${result.summary.caseCount} ` +

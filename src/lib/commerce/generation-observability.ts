@@ -2,17 +2,17 @@ import fs from 'fs/promises';
 import path from 'path';
 import { prisma } from '@/lib/db/client';
 import { readQuantRunPlan, type QuantWorkspaceEvent } from '@/lib/domains/finance/workspace';
-import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/quant/validation';
+import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/commerce/validation';
 import {
   DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
   DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
   DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
-import { readQuantArtifactContractReport, type QuantArtifactContractReport } from '@/lib/quant/artifact-contracts';
-import { readQuantGenerationQueue, type QuantGenerationQueueState } from '@/lib/quant/generation-queue';
-import { readQuantGenerationState, type QuantGenerationState } from '@/lib/quant/generation-state';
-import { readQuantVisualValidationReport, type QuantVisualValidationReport } from '@/lib/quant/visual-validation';
+import { readQuantArtifactContractReport, type QuantArtifactContractReport } from '@/lib/commerce/artifact-contracts';
+import { readQuantGenerationQueue, type QuantGenerationQueueState } from '@/lib/commerce/generation-queue';
+import { readQuantGenerationState, type QuantGenerationState } from '@/lib/commerce/generation-state';
+import { readQuantVisualValidationReport, type QuantVisualValidationReport } from '@/lib/commerce/visual-validation';
 import { normalizeModelId } from '@/lib/constants/models';
 
 type JsonRecord = Record<string, unknown>;

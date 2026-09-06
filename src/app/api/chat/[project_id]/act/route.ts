@@ -25,7 +25,7 @@ import {
   ChatActContractError,
   MAX_CHAT_ACT_IMAGE_ATTACHMENTS,
   parseChatActRequest,
-} from "@/lib/quant/chat-act-contract";
+} from "@/lib/commerce/chat-act-contract";
 import {
   MAX_DATA_AGENT_TOTAL_IMAGE_BYTES,
   normalizeDataAgentImageAttachment,
@@ -54,19 +54,19 @@ import {
   quotaErrorResponse,
 } from "@/lib/quota";
 import { readQuantRunPlan } from "@/lib/domains/finance/workspace";
-import { createWorkspaceProgressPublisher } from "@/lib/quant/workspace-progress";
-import { shouldEscalateStalledRepair } from "@/lib/quant/repair-convergence";
+import { createWorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
+import { shouldEscalateStalledRepair } from "@/lib/commerce/repair-convergence";
 import { buildClarificationContinuation } from "@/lib/domains/finance/intent";
 import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
   updateQuantGenerationStep,
-} from "@/lib/quant/generation-state";
+} from "@/lib/commerce/generation-state";
 import {
   finishQuantGenerationQueueItem,
   enqueueQuantGeneration,
   startQuantGenerationQueued,
-} from "@/lib/quant/generation-queue";
+} from "@/lib/commerce/generation-queue";
 import { validatePiAgentIngressInput } from "@/lib/agent/input-policy";
 import { classifyPiAgentExecutionError } from "@/lib/services/pi-agent-execution-error";
 import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-lease-store";
@@ -88,7 +88,7 @@ import {
 import {
   startPersistentValidatedPreview,
   type ValidatedGenerationPreview,
-} from "@/lib/quant/generation-preview";
+} from "@/lib/commerce/generation-preview";
 import { recallPersonalization } from "@/lib/platform/memory";
 import { detectPersonalMemoryCandidate } from "@/lib/platform/memory/candidate";
 import {
@@ -96,13 +96,13 @@ import {
   recordGovernedKnowledgeUsage,
 } from "@/lib/platform/knowledge";
 import { recordContextAcceptance } from "@/lib/platform/context/use-manifest";
-import { createFinanceGenerationEnvelope } from "@/lib/quant/finance-generation-executor";
-import { createApplicationGenerationRuntime } from "@/lib/quant/generation-runtime";
-import { prepareFinanceActGeneration } from "@/lib/quant/finance-act-preparation";
+import { createFinanceGenerationEnvelope } from "@/lib/commerce/finance-generation-executor";
+import { createApplicationGenerationRuntime } from "@/lib/commerce/generation-runtime";
+import { prepareFinanceActGeneration } from "@/lib/commerce/finance-act-preparation";
 import {
   loadQuantValidation,
   resolveProjectRoot,
-} from "@/lib/quant/chat-act-support";
+} from "@/lib/commerce/chat-act-support";
 
 interface RouteContext {
   params: Promise<{ project_id: string }>;

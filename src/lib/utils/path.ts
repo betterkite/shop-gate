@@ -6,11 +6,11 @@
  * Converts an absolute file path to a project-relative path
  * Removes the system path prefix and shows only the path relative to the project root
  *
- * @param absolutePath - The absolute file path (e.g., /Users/jjh/Downloads/QuantPilot/src/app/page.tsx)
+ * @param absolutePath - The absolute file path (e.g., /Users/jjh/Downloads/Shop Gate/src/app/page.tsx)
  * @returns The relative path from project root (e.g., /src/app/page.tsx)
  *
  * @example
- * toRelativePath('/Users/jjh/Downloads/QuantPilot/src/app/page.tsx')
+ * toRelativePath('/Users/jjh/Downloads/Shop Gate/src/app/page.tsx')
  * // Returns: '/src/app/page.tsx'
  */
 export function toRelativePath(absolutePath: string): string {
@@ -66,8 +66,8 @@ export function toRelativePath(absolutePath: string): string {
 
   // Fallback: Try to find common project directory patterns
   const projectPatterns = [
-    '/QuantPilot/',
-    '\\QuantPilot\\',
+    '/Shop Gate/',
+    '\\Shop Gate\\',
     '/Claudable-v2/',
     '\\Claudable-v2\\',
   ];

@@ -18,7 +18,7 @@ type ThemeContextValue = {
   toggleColorMode: () => void;
 };
 
-const STORAGE_KEY = "quantpilot-color-mode";
+const STORAGE_KEY = "shopgate-color-mode";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readStoredColorMode(): ColorMode {

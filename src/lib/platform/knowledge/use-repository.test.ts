@@ -26,7 +26,7 @@ function row(overrides: Record<string, unknown> = {}) {
     provider: 'akep-http-v0.1',
     projectId: 'project-1',
     requestId: 'request-1',
-    consumerId: 'quantpilot',
+    consumerId: 'shopgate',
     integrationScopeSha256: `sha256:${'9'.repeat(64)}`,
     requestedSpaceIds: ['https://knowledge.example/spaces/research'],
     projectSpaceId: 'https://knowledge.example/spaces/research',

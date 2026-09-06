@@ -17,8 +17,8 @@ import {
   readPiAgentMissionSpec,
 } from "@/lib/services/pi-agent-mission-store";
 import { getProjectById, updateProjectActivity } from "@/lib/services/project";
-import { createWorkspaceProgressPublisher } from "@/lib/quant/workspace-progress";
-import { updateQuantGenerationStep } from "@/lib/quant/generation-state";
+import { createWorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
+import { updateQuantGenerationStep } from "@/lib/commerce/generation-state";
 import {
   readQuantRunPlan,
   type QuantRunPlan,
@@ -33,11 +33,11 @@ import { getProjectIntegrationScope } from "@/lib/platform/context/integration-s
 import { recordContextExposure } from "@/lib/platform/context/use-manifest";
 import { streamManager } from "@/lib/services/stream";
 import { markUserRequestAsFailed } from "@/lib/services/user-requests";
-import { runValidationAfterExecution } from "@/lib/quant/generation-validation";
+import { runValidationAfterExecution } from "@/lib/commerce/generation-validation";
 import {
-  QUANTPILOT_AGENT_PROFILE_ID,
+  SHOPGATE_AGENT_PROFILE_ID,
 } from "@/lib/domains/finance/agent-profile";
-import { getApplicationDataAgentCatalog } from "@/lib/quant/data-agent-application";
+import { getApplicationDataAgentCatalog } from "@/lib/commerce/data-agent-application";
 
 export interface FinanceGenerationPayload {
   effectiveInstruction: string;
@@ -194,7 +194,7 @@ export function createFinanceGenerationEnvelope(
   },
 ): DataAgentGenerationEnvelope<FinanceGenerationPayload> {
   const application = getApplicationDataAgentCatalog().resolve(
-    QUANTPILOT_AGENT_PROFILE_ID,
+    SHOPGATE_AGENT_PROFILE_ID,
     input.capabilityId,
   );
   const integrationScope = getProjectIntegrationScope(input.projectId);
@@ -225,7 +225,7 @@ export function parseFinanceGenerationEnvelope(
     envelope.composition.capability.id,
   );
   if (
-    application.profile.id !== QUANTPILOT_AGENT_PROFILE_ID ||
+    application.profile.id !== SHOPGATE_AGENT_PROFILE_ID ||
     application.composition.sha256 !== envelope.composition.sha256 ||
     application.composition.profile.version !== envelope.composition.profile.version ||
     application.composition.deliveryPack.id !== envelope.composition.deliveryPack.id ||
@@ -496,7 +496,7 @@ async function executeFinanceGeneration(
 }
 
 export const FINANCE_GENERATION_HANDLER: DataAgentGenerationHandler = {
-  profileId: QUANTPILOT_AGENT_PROFILE_ID,
+  profileId: SHOPGATE_AGENT_PROFILE_ID,
   async execute(job) {
     const envelope = job.executionEnvelope as DataAgentGenerationEnvelope;
     const payload = parseFinanceGenerationEnvelope(envelope);

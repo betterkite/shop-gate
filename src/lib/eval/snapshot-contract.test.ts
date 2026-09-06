@@ -17,7 +17,7 @@ function fixture() {
     payloadSha256: evalSnapshotPayloadSha256(payload),
     asOf: '2026-07-15T07:00:00.000Z',
     capturedAt: '2026-07-15T08:00:00.000Z',
-    source: { provider: 'quantpilot-eval', version: '1' },
+    source: { provider: 'shopgate-eval', version: '1' },
     tradingCalendarVersion: 'cn-2026.07',
     adjustment: 'qfq',
     observation: {

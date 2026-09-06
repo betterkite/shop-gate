@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 const TEST_KEY = '5f'.repeat(32);
 const originalEnvironment = {
   encryptionKey: process.env.ENCRYPTION_KEY,
-  degradationMode: process.env.QUANTPILOT_DEGRADATION_MODE,
+  degradationMode: process.env.SHOPGATE_DEGRADATION_MODE,
 };
 
 async function loadCryptoModule() {
@@ -14,24 +14,24 @@ async function loadCryptoModule() {
 
 beforeEach(() => {
   process.env.ENCRYPTION_KEY = TEST_KEY;
-  delete process.env.QUANTPILOT_DEGRADATION_MODE;
+  delete process.env.SHOPGATE_DEGRADATION_MODE;
 });
 
 afterAll(() => {
   if (originalEnvironment.encryptionKey === undefined) delete process.env.ENCRYPTION_KEY;
   else process.env.ENCRYPTION_KEY = originalEnvironment.encryptionKey;
-  if (originalEnvironment.degradationMode === undefined) delete process.env.QUANTPILOT_DEGRADATION_MODE;
-  else process.env.QUANTPILOT_DEGRADATION_MODE = originalEnvironment.degradationMode;
+  if (originalEnvironment.degradationMode === undefined) delete process.env.SHOPGATE_DEGRADATION_MODE;
+  else process.env.SHOPGATE_DEGRADATION_MODE = originalEnvironment.degradationMode;
 });
 
 describe('crypto', () => {
   it('round-trips secrets with the authenticated v2 format', async () => {
     const { decrypt, encrypt, isCurrentEncryptionFormat } = await loadCryptoModule();
-    const encrypted = encrypt('quantpilot-secret-量化');
+    const encrypted = encrypt('shopgate-secret-量化');
 
     expect(isCurrentEncryptionFormat(encrypted)).toBe(true);
-    expect(encrypted).not.toContain('quantpilot-secret');
-    expect(decrypt(encrypted)).toBe('quantpilot-secret-量化');
+    expect(encrypted).not.toContain('shopgate-secret');
+    expect(decrypt(encrypted)).toBe('shopgate-secret-量化');
   });
 
   it('rejects a tampered authentication tag or ciphertext', async () => {

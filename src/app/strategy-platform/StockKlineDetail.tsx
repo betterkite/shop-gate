@@ -12,7 +12,7 @@ import type {
   StrategyRealtimeQuote,
   StrategyUniverse,
   StrategyUniverseMember,
-} from "@/lib/quant/strategies";
+} from "@/lib/commerce/strategies";
 import {
   API_BASE,
   finiteNumber,
@@ -257,7 +257,7 @@ function readCachedKlineDetail(symbol: string, timeframe: KlineTimeframe, adjust
 }
 
 async function fetchDailyKlineDetail(symbol: string, adjustment: string): Promise<StrategyLocalKlineResponse> {
-  const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+  const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -313,7 +313,7 @@ async function loadCachedDividendEvents(symbol: string) {
   if (inFlight) return inFlight;
 
   const promise = (async () => {
-    const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+    const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -345,7 +345,7 @@ function strategyApiErrorMessage(payload: unknown, fallback: string) {
 }
 
 async function fetchRealtimeQuote(symbol: string): Promise<StrategyRealtimeQuote> {
-  const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+  const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -359,7 +359,7 @@ async function fetchRealtimeQuote(symbol: string): Promise<StrategyRealtimeQuote
 }
 
 async function fetchIntradayBars(symbol: string, options?: { forceRefresh?: boolean }): Promise<StrategyLocalKlineResponse> {
-  const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+  const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

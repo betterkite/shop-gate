@@ -5,15 +5,15 @@ const { spawnSync } = require('child_process');
 const { performance } = require('perf_hooks');
 
 const ROOT = process.cwd();
-const MARKET_DATA_ROOT = path.join(ROOT, 'services', 'market-data');
+const MARKET_DATA_ROOT = path.join(ROOT, 'services', 'commerce-data');
 const includeSecurity = process.argv.includes('--security');
 const includeRuntime = process.argv.includes('--runtime');
 const includeProduction = process.argv.includes('--production');
 const generateContractEvidence = process.argv.includes('--eval-contract');
 const includeE2eEvidence = process.argv.includes('--e2e-evidence');
 const evidenceModel = String(
-  process.env.QUANTPILOT_RELEASE_EVIDENCE_MODEL
-  || process.env.QUANTPILOT_EVAL_MODEL
+  process.env.SHOPGATE_RELEASE_EVIDENCE_MODEL
+  || process.env.SHOPGATE_EVAL_MODEL
   || 'local_qwen:qwen3.5-9b-q5km',
 ).trim();
 
@@ -92,7 +92,7 @@ if (includeE2eEvidence) {
     [
       'PI Agent repair/cancellation/crash release controls',
       'node',
-      ['scripts/checks/check-quant-e2e-suite.js', '--run-runtime-controls'],
+      ['scripts/checks/check-commerce-e2e-suite.js', '--run-runtime-controls'],
       ROOT,
     ],
     [

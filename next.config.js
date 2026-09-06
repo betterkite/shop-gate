@@ -1,7 +1,7 @@
-const isStandaloneBuild = process.env.QUANTPILOT_STANDALONE_BUILD === '1';
-const enableHsts = /^(?:1|true|yes|on)$/i.test(process.env.QUANTPILOT_SECURITY_HSTS || '');
+const isStandaloneBuild = process.env.SHOPGATE_STANDALONE_BUILD === '1';
+const enableHsts = /^(?:1|true|yes|on)$/i.test(process.env.SHOPGATE_SECURITY_HSTS || '');
 const projectRoot = __dirname;
-const skipRouteOutputTracing = process.env.QUANTPILOT_SKIP_ROUTE_TRACING !== '0' && !isStandaloneBuild;
+const skipRouteOutputTracing = process.env.SHOPGATE_SKIP_ROUTE_TRACING !== '0' && !isStandaloneBuild;
 const tracingExcludes = [
   './.env',
   './.env.*',
@@ -17,7 +17,7 @@ const tracingExcludes = [
   './.ruff_cache/**',
   './data/**',
   './tmp/**',
-  './services/market-data/.venv/**',
+  './services/commerce-data/.venv/**',
   './services/**/.venv/**',
   './services/**/.ruff_cache/**',
   './coverage/**',
@@ -39,7 +39,7 @@ const tracePluginIgnores = [
   '**/.ruff_cache/**',
   '**/data/**',
   '**/tmp/**',
-  '**/services/market-data/.venv/**',
+  '**/services/commerce-data/.venv/**',
   '**/services/**/.venv/**',
   '**/services/**/.ruff_cache/**',
 ];

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     FinancialReportItem,
     FundamentalIndicatorPoint,
     FundamentalIndicatorsResponse,

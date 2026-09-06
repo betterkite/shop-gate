@@ -22,7 +22,7 @@ export class QuantPreparationError extends Error {
 }
 
 export async function loadQuantValidation() {
-  return import("@/lib/quant/validation");
+  return import("@/lib/commerce/validation");
 }
 
 export async function ensureQuantDashboardTemplateForAct(projectPath: string) {
@@ -129,7 +129,7 @@ export async function publishQuantPipelineToolStart(params: {
           input: params.input,
         }
       : {}),
-    isQuantPilotPipelineStep: true,
+    isShopGatePipelineStep: true,
   };
   const message = await createMessage({
     projectId: params.projectId,
@@ -196,7 +196,7 @@ export async function publishQuantPipelineToolMessage(params: {
           output: stringifyQuantPipelineToolDetail(params.output),
         }
       : {}),
-    isQuantPilotPipelineStep: true,
+    isShopGatePipelineStep: true,
   };
 
   const message = await createMessage({

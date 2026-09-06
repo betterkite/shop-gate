@@ -14,7 +14,7 @@ import type {
   StrategyIngestionJob,
   StrategyUniverse,
   StrategyUniverseMembersPage,
-} from "@/lib/quant/strategies";
+} from "@/lib/commerce/strategies";
 import { StockKlineDetail } from "./StockKlineDetail";
 import {
   type IngestionRangeMode,
@@ -137,7 +137,7 @@ export function UniverseView({
     if (!selectedUniverseIdForJobs) return [];
     setIsLoadingJobs(true);
     try {
-      const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -176,7 +176,7 @@ export function UniverseView({
     const requestedPage = page;
     setIsLoadingMembers(true);
     setMemberError(null);
-    void fetch(`${API_BASE}/api/quant/strategies`, {
+    void fetch(`${API_BASE}/api/commerce/strategies`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -276,7 +276,7 @@ export function UniverseView({
   const runIngestionBatchAt = useCallback(async (offset: number) => {
     if (!selectedUniverse) throw new Error("未选择补数池");
     const range = ingestionRequestRange();
-    const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+    const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -342,7 +342,7 @@ export function UniverseView({
     setMemberError(null);
     setAutoFillMessage("正在提交后端自动补齐任务...");
     try {
-      const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -379,7 +379,7 @@ export function UniverseView({
     setMemberError(null);
     const label = control === "pause" ? "暂停" : control === "resume" ? "继续" : "停止";
     try {
-      const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

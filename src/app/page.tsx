@@ -263,13 +263,13 @@ export default function HomePage() {
   useEffect(() => {
     const currentHour = new Date().getHours();
     setGreeting(currentHour < 11 ? "早上好" : currentHour < 14 ? "中午好" : currentHour < 18 ? "下午好" : "晚上好");
-    const storedMode = window.localStorage.getItem("quantpilot-question-mode");
+    const storedMode = window.localStorage.getItem("shopgate-question-mode");
     if (storedMode === "act" || storedMode === "chat") setOutputMode(storedMode);
   }, []);
 
   const handleOutputModeChange = useCallback((mode: QuestionMode) => {
     setOutputMode(mode);
-    window.localStorage.setItem("quantpilot-question-mode", mode);
+    window.localStorage.setItem("shopgate-question-mode", mode);
   }, []);
 
   useEffect(() => {
@@ -688,14 +688,14 @@ export default function HomePage() {
       <header className="platform-header sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between px-3 md:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <Image
-            src="/quantpilot-mark.svg"
+            src="/shopgate-mark.svg"
             alt=""
             width={40}
             height={40}
             priority
             className="h-10 w-10 shrink-0 rounded-xl shadow-[0_10px_22px_-12px_rgba(201,67,49,0.82)]"
           />
-          <span className="text-base font-bold tracking-tight sm:text-lg">QuantPilot</span>
+          <span className="text-base font-bold tracking-tight sm:text-lg">Shop Gate</span>
 
           <nav className="ml-4 hidden items-center gap-1 lg:flex" aria-label="首页导航">
             <Button type="button" variant="ghost" size="sm" className="h-11 gap-2 rounded-none border-b-2 border-primary px-3 text-xs font-semibold text-foreground">

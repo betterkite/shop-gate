@@ -46,13 +46,13 @@ jobs:
     timeout-minutes: 90
     env:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
-      QUANTPILOT_MARKET_API_URL: http://127.0.0.1:8000
+      SHOPGATE_MARKET_API_URL: http://127.0.0.1:8000
       PROJECTS_DIR: ./tmp/e2e-projects
-      QUANTPILOT_EVAL_MODE: e2e
-      QUANTPILOT_EVAL_TRIGGER: nightly
-      QUANTPILOT_EVAL_MODEL: deepseek-v4-flash
+      SHOPGATE_EVAL_MODE: e2e
+      SHOPGATE_EVAL_TRIGGER: nightly
+      SHOPGATE_EVAL_MODEL: deepseek-v4-flash
       PI_AGENT_MAX_TURNS: '3'
       PI_AGENT_TIMEOUT_MS: '900000'
       PI_AGENT_BUILD_REVISION: ${{ github.sha }}
@@ -79,7 +79,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          uv sync --project services/market-data --locked --all-groups
+          uv sync --project services/commerce-data --locked --all-groups
           npm run prisma:generate
 
       - name: Verify evaluation assurance contracts
@@ -93,7 +93,7 @@ jobs:
           docker compose up -d --wait timescaledb redis
           npm run db:init
           mkdir -p tmp
-          npm run dev:market > tmp/eval-market.log 2>&1 &
+          npm run dev:commerce > tmp/eval-market.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
               exit 0
@@ -104,7 +104,7 @@ jobs:
           exit 1
 
       - name: Run repair and crash controls
-        run: node scripts/checks/check-quant-e2e-suite.js --run-runtime-controls
+        run: node scripts/checks/check-commerce-e2e-suite.js --run-runtime-controls
 
       - name: Run real DeepSeek regression suite
         run: npm run benchmark:quant:e2e -- --model deepseek-v4-flash --concurrency 1 --repeat 2
@@ -120,9 +120,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
           path: |
-            tmp/quantpilot-benchmark-reports/
-            tmp/quantpilot-benchmark-screenshots/
-            tmp/quantpilot-eval-mutations/
+            tmp/shopgate-benchmark-reports/
+            tmp/shopgate-benchmark-screenshots/
+            tmp/shopgate-eval-mutations/
             tmp/eval-market.log
 
       - name: Stop infrastructure

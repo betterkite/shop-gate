@@ -18,13 +18,13 @@ describe('personal memory browser client', () => {
       eventId: 'event-a',
       key: 'output.answer_style',
       value: '先给结论，再给证据',
-      evidenceText: '用户通过 QuantPilot“记住偏好”面板明确确认：先给结论，再给证据',
+      evidenceText: '用户通过 Shop Gate“记住偏好”面板明确确认：先给结论，再给证据',
       confidence: 1,
       scope: 'project',
     });
   });
 
-  it('calls only the QuantPilot project API and never sends tenant or subject scope', async () => {
+  it('calls only the Shop Gate project API and never sends tenant or subject scope', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true }), {
       status: 201,
       headers: { 'content-type': 'application/json' },

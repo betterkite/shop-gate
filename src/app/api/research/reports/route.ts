@@ -27,7 +27,7 @@ import {
   runDailyResearchReport,
   sendResearchReport,
   type RunDailyResearchReportOptions,
-} from '@/lib/quant/research-reports';
+} from '@/lib/commerce/research-reports';
 import { assertPrivilegedMutation } from '@/lib/server/privileged-request';
 
 export const runtime = 'nodejs';

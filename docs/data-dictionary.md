@@ -1,6 +1,6 @@
 # 数据字典
 
-这份文档记录 QuantPilot 当前最重要的数据表、字段口径和使用边界。它的目标不是替代 SQL，而是让前端、后端、skills 和评测在同一套事实上工作。
+这份文档记录 Shop Gate 当前最重要的数据表、字段口径和使用边界。它的目标不是替代 SQL，而是让前端、后端、skills 和评测在同一套事实上工作。
 
 ## 存储分层
 
@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 主业务状态 | PostgreSQL public schema | Prisma models | 项目、消息、设置、token、评测、策略扫描状态、投研日报 |
 | 量化事实库 | PostgreSQL/TimescaleDB `quant` schema | `stock_bars`、`stock_factors`、`securities` | 行情、因子、股票池、补数、回测 |
-| 短期缓存 | Redis | `quantpilot:*` | 板块资金、行情摘要、接口短 TTL，不作为事实库 |
+| 短期缓存 | Redis | `shopgate:*` | 板块资金、行情摘要、接口短 TTL，不作为事实库 |
 | 生成原件 | 文件系统 | `data/projects/` | 生成工作空间源码、数据文件、证据和验证报告 |
 | 临时报表 | 文件系统 / Loki | `tmp/`、Loki | 评测报告、运行日志、视觉截图和队列日志 |
 
@@ -134,7 +134,7 @@ symbol + timeframe + adjustment + ts
 | `ts` | 因子生效日期或交易日 |
 | `factor_key` | 因子键，如 `ma5`、`ret_20d`、`pb_mrq` |
 | `factor_value` | 数值型结果 |
-| `provider` | `quantpilot`、`baostock`、`eastmoney` 等 |
+| `provider` | `shopgate`、`baostock`、`eastmoney` 等 |
 | `metadata` | 行业中性化、窗口、原始字段等扩展 |
 
 因子解释不放在这里，放在 `quant.factor_definitions`。
@@ -202,7 +202,7 @@ symbol + timeframe + adjustment + ts
 | `name` | 页面显示名 |
 | `description` | 用途说明 |
 | `status` | `active`、`archived` |
-| `source` | `eastmoney`、`manual`、`quantpilot` |
+| `source` | `eastmoney`、`manual`、`shopgate` |
 | `tags` | 分组标签 |
 | `metadata` | 池规则、统计摘要 |
 
@@ -290,6 +290,6 @@ running -> failed
 ## 维护规则
 
 - 新增 SQL 表或字段后，同步更新本文件和 `sqls/README.md`。
-- 新增 provider 字段后，同步更新 `docs/market-data-source-knowledge.md`。
+- 新增 provider 字段后，同步更新 `docs/commerce-data-source-knowledge.md`。
 - 页面新增指标时，必须能在本文件找到来源和口径。
 - 缓存字段不能作为长期事实；会影响回测或选股的结果必须落库或写入 evidence。

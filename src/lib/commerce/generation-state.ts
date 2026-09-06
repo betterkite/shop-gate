@@ -59,7 +59,7 @@ export interface QuantGenerationState {
 }
 
 const configuredMaxRepairAttempts = Number.parseInt(
-  process.env.QUANTPILOT_MAX_VALIDATION_REPAIR_ATTEMPTS ?? '',
+  process.env.SHOPGATE_MAX_VALIDATION_REPAIR_ATTEMPTS ?? '',
   10
 );
 const DEFAULT_MAX_REPAIR_ATTEMPTS =

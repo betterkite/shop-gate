@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.fundamentals import build_fundamental_indicators
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.fundamentals import build_fundamental_indicators
+from shopgate_commerce_data.models import (
     FinancialReportsResponse,
     FundamentalIndicatorsResponse,
 )
-from quantpilot_market_data.providers.base import FinancialReportProvider
-from quantpilot_market_data.services.caching import cache_response, read_cached_response
+from shopgate_commerce_data.providers.base import FinancialReportProvider
+from shopgate_commerce_data.services.caching import cache_response, read_cached_response
 
 FINANCIAL_REPORTS_CACHE_NAMESPACE = "fundamental-financials-v2"
 FUNDAMENTAL_INDICATORS_CACHE_NAMESPACE = "fundamental-indicators-v2"

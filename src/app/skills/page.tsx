@@ -1,10 +1,10 @@
-import { getSkillsDashboardData } from '@/lib/quant/skills-dashboard';
+import { getSkillsDashboardData } from '@/lib/commerce/skills-dashboard';
 import SkillsManagementClient from './SkillsManagementClient';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Skills Market · QuantPilot',
-  description: '发现、理解并治理 QuantPilot 的研究技能与工作流能力。',
+  title: 'Skills Market · Shop Gate',
+  description: '发现、理解并治理 Shop Gate 的研究技能与工作流能力。',
 };
 
 export default async function SkillsManagementPage() {

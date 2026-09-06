@@ -9,15 +9,15 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     Adjustment,
     KlineBar,
     KlinePeriod,
     KlineResponse,
     TradingCalendarDay,
 )
-from quantpilot_market_data.providers.base import ProviderCapability
-from quantpilot_market_data.providers.eastmoney import (
+from shopgate_commerce_data.providers.base import ProviderCapability
+from shopgate_commerce_data.providers.eastmoney import (
     infer_asset_type,
     market_from_secid,
     normalize_secid,
@@ -85,7 +85,7 @@ class BaoStockClient:
             )
         except ModuleNotFoundError as error:
             raise BaoStockError(
-                "当前 Python 环境未安装 baostock；请在 services/market-data 中执行 "
+                "当前 Python 环境未安装 baostock；请在 services/commerce-data 中执行 "
                 "`uv sync --extra baostock` 或 `uv pip install baostock` 后重试。"
             ) from error
         except BaoStockError:

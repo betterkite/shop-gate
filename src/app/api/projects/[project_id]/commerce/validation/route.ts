@@ -7,9 +7,9 @@ import { getProjectById } from "@/lib/services/project";
 import {
   readQuantGenerationState,
   updateQuantGenerationStep,
-} from "@/lib/quant/generation-state";
-import { startPersistentValidatedPreview } from "@/lib/quant/generation-preview";
-import { runQuantGenerationStage } from "@/lib/quant/generation-queue";
+} from "@/lib/commerce/generation-state";
+import { startPersistentValidatedPreview } from "@/lib/commerce/generation-preview";
+import { runQuantGenerationStage } from "@/lib/commerce/generation-queue";
 import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-lease-store";
 import { streamManager } from "@/lib/services/stream";
 import {
@@ -52,7 +52,7 @@ function resolveProjectPath(
 }
 
 async function loadQuantValidation() {
-  return import("@/lib/quant/validation");
+  return import("@/lib/commerce/validation");
 }
 
 async function stopProvisionalPreview(projectId: string) {

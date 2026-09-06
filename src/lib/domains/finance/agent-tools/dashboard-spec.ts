@@ -822,7 +822,7 @@ function resolveDashboardCapability(
   if (!KNOWN_TEMPLATE_IDS.has(templateId)) {
     throw new PiAgentToolError(
       'DASHBOARD_SPEC_TEMPLATE_UNSUPPORTED',
-      `No trusted QuantPilot renderer is registered for template ${templateId}.`,
+      `No trusted Shop Gate renderer is registered for template ${templateId}.`,
       { templateId, variantId },
     );
   }
@@ -830,7 +830,7 @@ function resolveDashboardCapability(
   if (!capability) {
     throw new PiAgentToolError(
       'DASHBOARD_SPEC_VARIANT_UNSUPPORTED',
-      `No trusted QuantPilot renderer capability is registered for ${templateId}/${variantId}.`,
+      `No trusted Shop Gate renderer capability is registered for ${templateId}/${variantId}.`,
       { templateId, variantId },
     );
   }
@@ -1079,7 +1079,7 @@ export function createApplyDashboardSpecTool(
   });
   return {
     name: 'apply_dashboard_spec',
-    description: 'Compile the authoritative run plan and final-data visualization contract into trusted QuantPilot page and CSS artifacts. Pass {} to accept the authoritative template; templateId/variantId are optional assertions, never overrides. Prefer this once for standard dashboard generation instead of reading and rewriting whole TSX/CSS files.',
+    description: 'Compile the authoritative run plan and final-data visualization contract into trusted Shop Gate page and CSS artifacts. Pass {} to accept the authoritative template; templateId/variantId are optional assertions, never overrides. Prefer this once for standard dashboard generation instead of reading and rewriting whole TSX/CSS files.',
     effect: 'workspace_write',
     idempotency: 'reconcile_required',
     inputSchema: {

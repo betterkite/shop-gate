@@ -10,7 +10,7 @@ import type {
   StrategySectorCapitalFlowDetail,
   StrategySectorCapitalFlowItem,
   StrategySectorCapitalFlowMarketSummary,
-} from "@/lib/quant/strategies";
+} from "@/lib/commerce/strategies";
 import {
   API_BASE,
   finiteNumber,
@@ -103,7 +103,7 @@ export function SectorCapitalFlowView({ data }: { data: StrategyDashboardData })
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -135,7 +135,7 @@ export function SectorCapitalFlowView({ data }: { data: StrategyDashboardData })
     setIsLoadingDetail(true);
     setDetailError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const response = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

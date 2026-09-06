@@ -2,12 +2,12 @@
 
 ## 先分层
 
-遇到问题时先判断是哪一层，不要一上来就重启所有服务。QuantPilot 的问题大多可以落在这几层：
+遇到问题时先判断是哪一层，不要一上来就重启所有服务。Shop Gate 的问题大多可以落在这几层：
 
 | 层 | 典型现象 | 第一入口 |
 | --- | --- | --- |
 | 环境层 | 端口打不开、CLI 找不到、数据库不可达 | `npm run doctor`、`/ops-platform` 基础环境 |
-| 数据层 | K 线为空、成交额缺失、补数很慢 | 策略平台补数弹窗、market-data 日志 |
+| 数据层 | K 线为空、成交额缺失、补数很慢 | 策略平台补数弹窗、commerce-data 日志 |
 | 生成层 | Agent 报错、达到最大轮数、页面没生成完 | 项目聊天页、生成链路观测 |
 | 契约层 | 产物缺失、验证失败、证据不完整 | 工作空间健康、`.data-agent/*.json` |
 | 视觉层 | 页面能打开但难看、溢出、图表空白 | Playwright 截图、视觉检查报告 |
@@ -51,15 +51,15 @@ npm run doctor:full
 如果本机没有启动部分组件，可通过 `.env` 控制降级：
 
 ```bash
-QUANTPILOT_DEGRADATION_MODE=offline npm run doctor
+SHOPGATE_DEGRADATION_MODE=offline npm run doctor
 ```
 
-`offline` 会跳过市场数据后端、Memory、Loki/Grafana/Alloy 和 Redis 等可选外部探测；`auto` 适合本地开发；`strict` 适合 CI 或生产巡检。只想关闭 Memory 时使用 `QUANTPILOT_MEMORY_ENABLED=0`，不要切换整个系统到 `offline`。
+`offline` 会跳过市场数据后端、Memory、Loki/Grafana/Alloy 和 Redis 等可选外部探测；`auto` 适合本地开发；`strict` 适合 CI 或生产巡检。只想关闭 Memory 时使用 `SHOPGATE_MEMORY_ENABLED=0`，不要切换整个系统到 `offline`。
 
-前端开发启动还有一个恢复保护：如果曾经用降级方式启动，但下一次启动时数据库、market-data、Redis 或 Loki 已经恢复，`npm run dev` 会在本次进程里切回 `auto` 和启用状态。只有确实要保留降级时才加：
+前端开发启动还有一个恢复保护：如果曾经用降级方式启动，但下一次启动时数据库、commerce-data、Redis 或 Loki 已经恢复，`npm run dev` 会在本次进程里切回 `auto` 和启用状态。只有确实要保留降级时才加：
 
 ```bash
-QUANTPILOT_AUTO_RESTORE_DEGRADATION=0 npm run dev
+SHOPGATE_AUTO_RESTORE_DEGRADATION=0 npm run dev
 ```
 
 ## 3000 端口被占用
@@ -91,7 +91,7 @@ http://localhost:3000
 npm run dev -> scripts/dev/run-full.js -> scripts/dev/run-web.js -> npx next dev
 ```
 
-启动器只负责环境、端口、稳定 CSS、Prisma 检查和 Next dev 缓存保护；不再接入 `next-rspack`，也不再读取 `QUANTPILOT_BUNDLER` 做 bundler 切换。
+启动器只负责环境、端口、稳定 CSS、Prisma 检查和 Next dev 缓存保护；不再接入 `next-rspack`，也不再读取 `SHOPGATE_BUNDLER` 做 bundler 切换。
 
 如果启动日志看起来混乱，先确认依赖和缓存：
 
@@ -101,7 +101,7 @@ rm -rf .next/dev/cache/webpack .next/dev/lock
 npm run dev
 ```
 
-如果日志里仍出现 `next-rspack`、`QUANTPILOT_DISABLE_RSPACK` 或 Rspack panic，说明本机依赖或旧启动进程没有清干净。先停止旧进程，再确认 `package.json` 中没有 `next-rspack` 依赖。
+如果日志里仍出现 `next-rspack`、`SHOPGATE_DISABLE_RSPACK` 或 Rspack panic，说明本机依赖或旧启动进程没有清干净。先停止旧进程，再确认 `package.json` 中没有 `next-rspack` 依赖。
 
 ## 8000 后端不可用
 
@@ -112,15 +112,15 @@ curl http://127.0.0.1:8000/health
 如果没有响应：
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv sync --extra baostock --extra akshare
-uv run quantpilot-market-api
+uv run shopgate-commerce-api
 ```
 
 如果只是浏览平台页面而不需要实时行情，可临时关闭市场数据后端探测：
 
 ```bash
-QUANTPILOT_MARKET_API_ENABLED=0 npm run doctor
+SHOPGATE_MARKET_API_ENABLED=0 npm run doctor
 ```
 
 ## Loki / Grafana 不可用
@@ -143,37 +143,37 @@ Alloy: http://localhost:12345
 
 ## 默认 ModelPort Qwen 未就绪
 
-确认 ModelPort 监听 `http://127.0.0.1:38082/v1`，并在 QuantPilot `.env.local` 中配置它签发的受限客户端 Key：
+确认 ModelPort 监听 `http://127.0.0.1:38082/v1`，并在 Shop Gate `.env.local` 中配置它签发的受限客户端 Key：
 
 ```dotenv
 MODELPORT_API_KEY="your-scoped-modelport-client-key"
 ```
 
-默认 profile 固定为 `local_qwen:qwen3.5-9b-q5km`。可先请求 `/v1/models` 验证鉴权；`401` 表示服务已连通但客户端 Key 未被接受，`403` 表示 Key 未获准访问该 provider/model。配置修改后重启 QuantPilot。新项目和未显式指定模型的 Query Rewrite 会自动使用 Qwen。
+默认 profile 固定为 `local_qwen:qwen3.5-9b-q5km`。可先请求 `/v1/models` 验证鉴权；`401` 表示服务已连通但客户端 Key 未被接受，`403` 表示 Key 未获准访问该 provider/model。配置修改后重启 Shop Gate。新项目和未显式指定模型的 Query Rewrite 会自动使用 Qwen。
 
 ## 日常 ModelPort DeepSeek 未就绪
 
-确认 ModelPort 自身运行环境包含 DeepSeek 上游 Key，QuantPilot 不保存该 Key：
+确认 ModelPort 自身运行环境包含 DeepSeek 上游 Key，Shop Gate 不保存该 Key：
 
 ```dotenv
 DEEPSEEK_ANTHROPIC_AUTH_TOKEN="your-deepseek-upstream-key"
 ```
 
-ModelPort `deepseek` provider 必须使用 `protocol = "anthropic"`、Base URL `https://api.deepseek.com/anthropic`，并公布 `deepseek:deepseek-v4-flash`。QuantPilot 的 `MODELPORT_API_KEY` 还必须获准访问 `deepseek` provider 和该限定模型。管理台“查询余额”成功但模型请求失败时，重点检查协议/工具兼容；余额查询失败时检查上游 Key 与 DeepSeek 账户状态。
+ModelPort `deepseek` provider 必须使用 `protocol = "anthropic"`、Base URL `https://api.deepseek.com/anthropic`，并公布 `deepseek:deepseek-v4-flash`。Shop Gate 的 `MODELPORT_API_KEY` 还必须获准访问 `deepseek` provider 和该限定模型。管理台“查询余额”成功但模型请求失败时，重点检查协议/工具兼容；余额查询失败时检查上游 Key 与 DeepSeek 账户状态。
 
-只有显式选择 `deepseek-v4-flash` 官方直连 profile 时，QuantPilot 运行环境才需要注入 `DEEPSEEK_API_KEY`；默认本地使用不配置它。
+只有显式选择 `deepseek-v4-flash` 官方直连 profile 时，Shop Gate 运行环境才需要注入 `DEEPSEEK_API_KEY`；默认本地使用不配置它。
 
 ## DeepSeek 官方直连失败
 
-先确认项目选择的是 `deepseek-v4-flash`，不是带命名空间的 `deepseek:deepseek-v4-flash`。前者直连官方，后者经过 ModelPort。再检查当前 QuantPilot 进程能否读取：
+先确认项目选择的是 `deepseek-v4-flash`，不是带命名空间的 `deepseek:deepseek-v4-flash`。前者直连官方，后者经过 ModelPort。再检查当前 Shop Gate 进程能否读取：
 
 ```bash
 test -n "${DEEPSEEK_API_KEY}" && echo configured || echo missing
 ```
 
-如果 Key 写在 `.env.local`，修改后必须重启 QuantPilot。官方直连不读取 `MODELPORT_API_KEY` 或 `DEEPSEEK_ANTHROPIC_AUTH_TOKEN`；也不会访问 `127.0.0.1:38082`。完全不运行 ModelPort 时，还要把账号/新项目默认模型显式改为官方直连，否则代码级默认 Qwen 的连接失败是预期行为。
+如果 Key 写在 `.env.local`，修改后必须重启 Shop Gate。官方直连不读取 `MODELPORT_API_KEY` 或 `DEEPSEEK_ANTHROPIC_AUTH_TOKEN`；也不会访问 `127.0.0.1:38082`。完全不运行 ModelPort 时，还要把账号/新项目默认模型显式改为官方直连，否则代码级默认 Qwen 的连接失败是预期行为。
 
-可直接请求 `https://api.deepseek.com/chat/completions` 区分官方鉴权问题与 QuantPilot 运行问题；该验证会产生真实 Token 费用，示例见[模型 Provider 接入](model-providers.md#deepseek-官方直连不走-modelport)。
+可直接请求 `https://api.deepseek.com/chat/completions` 区分官方鉴权问题与 Shop Gate 运行问题；该验证会产生真实 Token 费用，示例见[模型 Provider 接入](model-providers.md#deepseek-官方直连不走-modelport)。
 
 然后重启并检查：
 
@@ -297,7 +297,7 @@ PI Agent 启动恢复会处理一个严格子集：`owner.json` 必须是 schema
 优先看：
 
 - 策略平台补数弹窗里的心跳、当前标的、完成批次和预计完成时间。
-- market-data 后端日志中是否持续出现 ingestion job 更新。
+- commerce-data 后端日志中是否持续出现 ingestion job 更新。
 - `quant.market_data_ingestion_jobs` 里 parent job 的 `status`、`completed_symbols`、`rows_upserted` 和 `metadata.last_heartbeat_at`。
 
 如果本地已有完整数据，后端会返回 `skipped`，`skip_reason=local_coverage_ready`。这代表本地覆盖已满足目标，不需要再拉外部接口。
@@ -320,7 +320,7 @@ Loki 可用时优先在运行治理中心日志页查集中日志；Loki 不可�
 
 ## Memory 已启动但聊天没有个性化
 
-如果 `QUANTPILOT_MEMORY_ENABLED=0`，`personalization.status=disabled` 是正常结果，不需要启动 Memory 或继续排查 URL/token。`REQUIRED=0` 则不是关闭：服务健康时仍会召回，异常时状态为 `unavailable` 并允许核心任务继续。
+如果 `SHOPGATE_MEMORY_ENABLED=0`，`personalization.status=disabled` 是正常结果，不需要启动 Memory 或继续排查 URL/token。`REQUIRED=0` 则不是关闭：服务健康时仍会召回，异常时状态为 `unavailable` 并允许核心任务继续。
 
 先把“服务存活”“契约兼容”和“有匹配偏好”分开检查：
 
@@ -331,6 +331,6 @@ curl -fsS http://127.0.0.1:3000/api/ready
 npm run doctor
 ```
 
-根路径必须包含 `api_contract=evolvable-memory-http/v1`，`/readyz` 必须是 `ready`，QuantPilot readiness 中的 `memory` 组件必须是 `ok`。根路径返回 200 但没有 `api_contract`，通常说明旧进程或旧镜像未重启；重新构建或重启 Memory 后再验证。
+根路径必须包含 `api_contract=evolvable-memory-http/v1`，`/readyz` 必须是 `ready`，Shop Gate readiness 中的 `memory` 组件必须是 `ok`。根路径返回 200 但没有 `api_contract`，通常说明旧进程或旧镜像未重启；重新构建或重启 Memory 后再验证。
 
-服务健康但消息 metadata 为 `personalization.status=empty` 时，检查是否真的写入了允许的 `analysis.*`、`output.*` 或 `research.*` 键，`context.product` 是否为 `quantpilot`，项目级偏好的 `project_id` 是否与当前项目一致。`prepared` 表示候选偏好已通过过滤，但只有最终回复显示“本轮实际使用了 N 条个人偏好”才证明 capsule 真正进入 Agent；澄清、拒绝和平台直出不会产生可反馈归因。`unavailable` 表示可选集成已降级，核心任务会继续；具体 API 示例、状态解释和 Outcome 归因规则见[用户记忆服务接入、使用与效果验证](user-memory-integration.md)。
+服务健康但消息 metadata 为 `personalization.status=empty` 时，检查是否真的写入了允许的 `analysis.*`、`output.*` 或 `research.*` 键，`context.product` 是否为 `shopgate`，项目级偏好的 `project_id` 是否与当前项目一致。`prepared` 表示候选偏好已通过过滤，但只有最终回复显示“本轮实际使用了 N 条个人偏好”才证明 capsule 真正进入 Agent；澄清、拒绝和平台直出不会产生可反馈归因。`unavailable` 表示可选集成已降级，核心任务会继续；具体 API 示例、状态解释和 Outcome 归因规则见[用户记忆服务接入、使用与效果验证](user-memory-integration.md)。

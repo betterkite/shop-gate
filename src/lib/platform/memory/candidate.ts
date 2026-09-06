@@ -1,7 +1,7 @@
 import type { PersonalMemoryPreferenceKey, PersonalMemoryScope } from './candidate-types';
 
 export const PERSONAL_MEMORY_CANDIDATE_CONTRACT =
-  'quantpilot-personal-memory-candidate/v1' as const;
+  'shopgate-personal-memory-candidate/v1' as const;
 
 export interface PersonalMemoryCandidate {
   contract: typeof PERSONAL_MEMORY_CANDIDATE_CONTRACT;

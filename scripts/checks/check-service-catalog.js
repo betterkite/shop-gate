@@ -58,7 +58,7 @@ function validateCatalog() {
   }
   const expectedServices = [
     'web',
-    'market-data',
+    'commerce-data',
     'memory',
     'knowledge',
     'modelport',

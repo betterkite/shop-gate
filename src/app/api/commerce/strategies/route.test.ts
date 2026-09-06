@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
-vi.mock('@/lib/quant/strategies', () => ({
+vi.mock('@/lib/commerce/strategies', () => ({
   addStrategyUniverseMember: mocks.addStrategyUniverseMember,
   buildStrategyPrompt: vi.fn(() => ({ prompt: 'strategy' })),
   controlStrategyIngestionJob: vi.fn(),
@@ -58,7 +58,7 @@ function request(
   method = body === undefined ? 'GET' : 'POST',
   idempotencyKey?: string,
 ): NextRequest {
-  return new NextRequest('http://localhost/api/quant/strategies', {
+  return new NextRequest('http://localhost/api/commerce/strategies', {
     method,
     ...(body === undefined
       ? { headers: idempotencyKey ? { 'idempotency-key': idempotencyKey } : undefined }
@@ -72,7 +72,7 @@ function request(
   });
 }
 
-describe('/api/quant/strategies authorization', () => {
+describe('/api/commerce/strategies authorization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireAction.mockResolvedValue({});

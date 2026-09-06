@@ -2,17 +2,17 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getAllProjects } from '@/lib/services/project';
 import { readQuantRunPlan, type QuantWorkspaceEvent } from '@/lib/domains/finance/workspace';
-import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/quant/validation';
+import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/commerce/validation';
 import {
   DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
   DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
   DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
-import { readQuantArtifactContractReport } from '@/lib/quant/artifact-contracts';
-import { readQuantGenerationQueue } from '@/lib/quant/generation-queue';
-import { readQuantGenerationState, type QuantGenerationState } from '@/lib/quant/generation-state';
-import { readQuantVisualValidationReport } from '@/lib/quant/visual-validation';
+import { readQuantArtifactContractReport } from '@/lib/commerce/artifact-contracts';
+import { readQuantGenerationQueue } from '@/lib/commerce/generation-queue';
+import { readQuantGenerationState, type QuantGenerationState } from '@/lib/commerce/generation-state';
+import { readQuantVisualValidationReport } from '@/lib/commerce/visual-validation';
 import type { Project } from '@/types/backend';
 
 type JsonRecord = Record<string, unknown>;

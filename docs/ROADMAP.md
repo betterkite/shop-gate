@@ -1,4 +1,4 @@
-# QuantPilot 持续完善路线图
+# Shop Gate 持续完善路线图
 
 这份路线图用来回答一个朴素问题：项目已经能跑起来以后，下一步最值得把力气花在哪里。
 
@@ -6,7 +6,7 @@
 
 ## 当前判断
 
-QuantPilot 的主平台、市场数据后端、评测平台、策略平台和基础设施已经具备可用主链路。现在最大的风险不再是“有没有功能”，而是：
+Shop Gate 的主平台、市场数据后端、评测平台、策略平台和基础设施已经具备可用主链路。现在最大的风险不再是“有没有功能”，而是：
 
 - 功能多，入口多，新同学不知道先看哪条路径。
 - 生成链路已具备自动验证与修复，但仍需用持续新建的回归工作空间控制模型、模板和数据变化带来的漂移。
@@ -26,8 +26,8 @@ QuantPilot 的主平台、市场数据后端、评测平台、策略平台和基
 | 文档路线 | 各专题文档里的“后续建议” | 后续事项散落，读者不知道优先级 | 集中到本文，专题文档只保留本主题强相关下一步 |
 | 生成脚手架 | `scaffold.ts`、`scaffold-base-templates.ts`、`scaffold-dashboard-templates.ts` | 基础模板和三类专用看板模板均已迁出并加入真实 Next build 门禁，writer 主文件从 5715 行降至约 685 行 | 继续拆 workspace writer、dependency planner、repair adapter，并压缩模板内部重复 helper |
 | 聊天页面 | `src/app/[project_id]/chat/page.tsx`、`src/components/chat/ChatLog.tsx` | 页面状态、消息渲染、运行时控制和附件交互耦合 | 拆 hooks、message timeline、runtime controls、files panel |
-| 验证链路 | `src/lib/quant/validation.ts` | build、HTTP、数据、证据、截图和 stale report 检查混杂 | 拆 validators、report writer、repair summary |
-| 策略平台 | `src/lib/quant/strategies.ts`、`src/app/strategy-platform/*` | response mappers 已迁出并有单测，API client、dashboard 编排和部分页面交互仍集中 | 继续拆 market client、dashboard service、hooks、dialogs |
+| 验证链路 | `src/lib/commerce/validation.ts` | build、HTTP、数据、证据、截图和 stale report 检查混杂 | 拆 validators、report writer、repair summary |
+| 策略平台 | `src/lib/commerce/strategies.ts`、`src/app/strategy-platform/*` | response mappers 已迁出并有单测，API client、dashboard 编排和部分页面交互仍集中 | 继续拆 market client、dashboard service、hooks、dialogs |
 | 评测平台 | `src/lib/eval/runtime.ts` | report/database mappers 已迁出并有单测，当前约 1071 行，runs、queue、repairs、schedule 仍在运行时入口 | 继续拆 runs、queue、repairs、schedule |
 | 市场数据后端 | `models.py`、`api.py`、`repositories/universes.py` | contracts 和应用装配偏大，universe repository 同时处理读取、写入、清洗 | 按 contract domains、routers、membership hygiene 拆小；旧 `database.py` 门面已删除 |
 
@@ -37,7 +37,7 @@ QuantPilot 的主平台、市场数据后端、评测平台、策略平台和基
 | --- | --- | --- |
 | 文档入口收敛 | `docs/` 文档很多，重复导读会让规则分叉 | `README.md` 指向 `docs/README.md`；同一页和 learning 路径能回答“我该读哪篇” |
 | 发布前检查脚本 | 已新增确定性 `release:check` 与包含依赖审计/运行态诊断的 `release:check:full` | 后续继续把关键 API、页面 smoke 和 workspace 健康摘要纳入运行态 profile |
-| 文档路径检查 | 已新增 `check:docs`，当前覆盖根 README、docs、market-data 与 SQL 文档 | 继续扩展锚点校验和已知旧路径规则 |
+| 文档路径检查 | 已新增 `check:docs`，当前覆盖根 README、docs、commerce-data 与 SQL 文档 | 继续扩展锚点校验和已知旧路径规则 |
 | 工作空间健康分层 | 历史 workspace 失败不应和主平台故障混在一起 | 已在运行治理中心增加可演示/有风险/待修复/归档候选分层，后续接归档动作和批量修复 |
 | 基础组件状态准确性 | 状态面板误报会削弱系统可信度 | Foundation status 已按 TimescaleDB chunk 统计行情和因子估算行数，后续继续补精确审计入口 |
 | 生成生命周期准确性 | `needs_clarification`、排队、运行、修复不能被统计成失败 | 健康度按生命周期分层，仅终态任务进入交付成功率；等待输入给出明确下一步 |
@@ -102,11 +102,11 @@ QuantPilot 的主平台、市场数据后端、评测平台、策略平台和基
 
 对应文档：
 
-- [市场数据与策略平台](learning/03-market-data-and-strategy-platform.md)
+- [市场数据与策略平台](learning/03-commerce-data-and-strategy-platform.md)
 - [策略平台使用与设计指南](strategy-platform-guide.md)
 - [投研日报自动化指南](research-automation-guide.md)
 - [数据字典](data-dictionary.md)
-- [行情数据源采集知识库](market-data-source-knowledge.md)
+- [行情数据源采集知识库](commerce-data-source-knowledge.md)
 
 ## P0-P1：把长任务和队列做得更稳
 
@@ -142,7 +142,7 @@ QuantPilot 的主平台、市场数据后端、评测平台、策略平台和基
 npm run doctor:full
 npm run build
 npm run check:module-boundaries
-cd services/market-data && uv run ruff check src tests && uv run pytest
+cd services/commerce-data && uv run ruff check src tests && uv run pytest
 ```
 
 如果改了页面体验，再加 Playwright 页面烟测；如果改了市场数据，再加覆盖率、ClickHouse health 和筛选器 smoke；如果改了生成链路，再加 artifact contract、visual validation 和至少一个 benchmark case。

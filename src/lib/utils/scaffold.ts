@@ -46,7 +46,7 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
       (
         existing.includes('0 条样本') ||
         (existing.includes('最新价</span>') && !hasStandardQuantDashboard) ||
-        (existing.includes('QuantPilot 看板') && !hasStandardQuantDashboard) ||
+        (existing.includes('Shop Gate 看板') && !hasStandardQuantDashboard) ||
         existing.includes('SAMPLE_DATA') ||
         existing.includes('MOCK_DATA') ||
         existing.includes('STATIC_QUOTES')
@@ -65,7 +65,7 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
   if (normalizedPath.endsWith('/app/api/market/[...path]/route.ts')) {
     const targetsQuantBackend =
       existing.includes('127.0.0.1:8000/api/v1') ||
-      existing.includes('QUANTPILOT_MARKET_API') ||
+      existing.includes('SHOPGATE_MARKET_API') ||
       existing.includes('/api/v1/');
 
     return !targetsQuantBackend && trimmed.length < 1_200;
@@ -81,7 +81,7 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
       existing.includes('delete runtimeEnv.NEXT_RSPACK') ||
       existing.includes('delete runtimeEnv.TURBOPACK') ||
       !existing.includes("defaultBundlerArgs = hasBundlerFlag ? [] : ['--webpack']") ||
-      !existing.includes('QUANTPILOT_WORKSPACE_ROOT') ||
+      !existing.includes('SHOPGATE_WORKSPACE_ROOT') ||
       !existing.includes("fs.existsSync(path.join(projectRoot, '.next', 'BUILD_ID'))")
     );
   }
@@ -91,7 +91,7 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
       existing.includes('delete buildEnv.NEXT_RSPACK') ||
       existing.includes('delete buildEnv.TURBOPACK') ||
       !existing.includes("NODE_ENV: 'production'") ||
-      !existing.includes('QUANTPILOT_WORKSPACE_ROOT') ||
+      !existing.includes('SHOPGATE_WORKSPACE_ROOT') ||
       !existing.includes('NEXT_PRIVATE_BUILD_WORKER') ||
       !existing.includes("defaultBundlerArgs = hasBundlerFlag ? [] : ['--webpack']") ||
       !existing.includes("['next', 'build'")
@@ -124,12 +124,12 @@ const path = require('path');
 const projectRoot = path.join(__dirname, '..');
 const isWindows = process.platform === 'win32';
 const workspaceRoot =
-  process.env.QUANTPILOT_WORKSPACE_ROOT || path.resolve(projectRoot, '../../..');
+  process.env.SHOPGATE_WORKSPACE_ROOT || path.resolve(projectRoot, '../../..');
 
 const buildEnv = {
   ...process.env,
   NODE_ENV: 'production',
-  QUANTPILOT_WORKSPACE_ROOT: workspaceRoot,
+  SHOPGATE_WORKSPACE_ROOT: workspaceRoot,
   NEXT_PRIVATE_BUILD_WORKER: '1',
   NEXT_TELEMETRY_DISABLED: '1',
 };
@@ -236,8 +236,8 @@ async function ensureNextConfig(filePath: string) {
 const path = require('path');
 
 const projectRoot = __dirname;
-const workspaceRoot = process.env.QUANTPILOT_WORKSPACE_ROOT
-  ? path.resolve(process.env.QUANTPILOT_WORKSPACE_ROOT)
+const workspaceRoot = process.env.SHOPGATE_WORKSPACE_ROOT
+  ? path.resolve(process.env.SHOPGATE_WORKSPACE_ROOT)
   : path.resolve(projectRoot, '../../..');
 
 const nextConfig = {
@@ -296,8 +296,8 @@ module.exports = nextConfig;
     nextContent = nextContent.replace(
       /const projectRoot = __dirname;\n/,
       `const projectRoot = __dirname;
-const workspaceRoot = process.env.QUANTPILOT_WORKSPACE_ROOT
-  ? path.resolve(process.env.QUANTPILOT_WORKSPACE_ROOT)
+const workspaceRoot = process.env.SHOPGATE_WORKSPACE_ROOT
+  ? path.resolve(process.env.SHOPGATE_WORKSPACE_ROOT)
   : path.resolve(projectRoot, '../../..');
 `
     );
@@ -412,8 +412,8 @@ function readRecord(value: unknown): Record<string, unknown> | null {
 }
 
 async function upsertGeneratedCssBlock(cssPath: string, marker: string, block: string) {
-  const start = `/* quantpilot-${marker}:start */`;
-  const end = `/* quantpilot-${marker}:end */`;
+  const start = `/* shopgate-${marker}:start */`;
+  const end = `/* shopgate-${marker}:end */`;
   const raw = await fs.readFile(cssPath, 'utf8').catch(() => '');
   const normalizedBlock = `${start}\n${block.trim()}\n${end}`;
   const blockWithNewline = `${normalizedBlock}\n`;
@@ -507,7 +507,7 @@ async function ensureComparisonDashboardTemplate(projectPath: string) {
   const page = await fs.readFile(pagePath, 'utf8').catch(() => '');
   const hasLegacySelectionPage =
     /TradingPlanPanel|getTradingPlanRows|tradingRows|短线交易计划|买入区间|止损|目标价|仓位上限/.test(page) ||
-    /QuantPilot 选股分析|<strong>stock-selection<\/strong>|模板组件：|候选数量|候选视图|120 日收益|<dt>120 日<\/dt>/.test(page);
+    /Shop Gate 选股分析|<strong>stock-selection<\/strong>|模板组件：|候选数量|候选视图|120 日收益|<dt>120 日<\/dt>/.test(page);
   const hasReadableSelectionPage =
     /data-template="stock-selection"/.test(page) &&
     /多标的指标矩阵|指标矩阵|ComparisonTable|comparison\.rows/.test(page) &&

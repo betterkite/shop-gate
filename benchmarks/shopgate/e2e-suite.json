@@ -33,7 +33,7 @@
       ],
       "runtimeTests": [
         "src/lib/eval/benchmark-repair.test.ts",
-        "src/lib/quant/validation-repair.test.ts"
+        "src/lib/commerce/validation-repair.test.ts"
       ]
     },
     "technical": {

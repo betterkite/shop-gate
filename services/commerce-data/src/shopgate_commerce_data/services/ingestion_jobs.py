@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     IngestionJobControlRequest,
     IngestionJobControlResponse,
     IngestionJobsResponse,
 )
-from quantpilot_market_data.repositories.ingestion import (
+from shopgate_commerce_data.repositories.ingestion import (
     control_ingestion_job,
     list_ingestion_jobs,
 )

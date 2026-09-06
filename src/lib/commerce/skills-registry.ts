@@ -97,7 +97,7 @@ const FALLBACK_REGISTRY: QuantSkillsRegistry = {
     targetCoreSkillCount: 11,
     packageFormat: 'tgz',
     packageDir: '.pi/skill-packages',
-    description: 'Fallback QuantPilot skills registry.',
+    description: 'Fallback Shop Gate skills registry.',
   },
   coreSkills: FALLBACK_CORE_SKILLS,
 };
@@ -131,7 +131,7 @@ export async function readQuantSkillsRegistry(): Promise<QuantSkillsRegistry> {
     cachedRegistry = { mtimeMs: stat.mtimeMs, value: parsed };
     return parsed;
   } catch (error) {
-    if (process.env.QUANTPILOT_ALLOW_SKILLS_REGISTRY_FALLBACK === '1') {
+    if (process.env.SHOPGATE_ALLOW_SKILLS_REGISTRY_FALLBACK === '1') {
       return FALLBACK_REGISTRY;
     }
     throw new Error(
@@ -163,7 +163,7 @@ export function describeQuantSkillsForPrompt(registry: QuantSkillsRegistry): str
   });
 
   return [
-    'QuantPilot skills 治理：',
+    'Shop Gate skills 治理：',
     `- 目标核心 skill 数量：${registry.policy.targetCoreSkillCount}`,
     `- 规则：${registry.policy.description}`,
     ...coreLines,

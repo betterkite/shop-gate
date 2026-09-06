@@ -1,4 +1,4 @@
-"""QuantPilot 市场数据后端模块。"""
+"""Shop Gate 市场数据后端模块。"""
 
 __all__ = ["__version__"]
 

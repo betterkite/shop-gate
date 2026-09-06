@@ -7,7 +7,7 @@ from typing import Any
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from quantpilot_market_data.database_core import (
+from shopgate_commerce_data.database_core import (
     DatabaseError,
     bool_or_none,
     canonical_symbol,
@@ -20,7 +20,7 @@ from quantpilot_market_data.database_core import (
     security_sector_fields,
     universe_trend_status,
 )
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     ResearchUniverse,
     ResearchUniverseHygieneItem,
     ResearchUniverseHygieneResponse,

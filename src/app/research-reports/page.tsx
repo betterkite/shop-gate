@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { getResearchAutomationDashboard } from '@/lib/quant/research-reports';
+import { getResearchAutomationDashboard } from '@/lib/commerce/research-reports';
 import ResearchReportsClient, { type ResearchView } from './ResearchReportsClient';
 
 export const metadata: Metadata = {
-  title: '投研情报中心 · QuantPilot',
+  title: '投研情报中心 · Shop Gate',
   description: '统一管理观察池、研究证据、结构化报告、主题洞察与推送回执。',
 };
 

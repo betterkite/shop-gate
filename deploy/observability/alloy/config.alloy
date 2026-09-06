@@ -3,13 +3,13 @@ logging {
   format = "logfmt"
 }
 
-discovery.docker "quantpilot" {
+discovery.docker "shopgate" {
   host             = "unix:///var/run/docker.sock"
   refresh_interval = "10s"
 }
 
-discovery.relabel "quantpilot_docker" {
-  targets = discovery.docker.quantpilot.targets
+discovery.relabel "shopgate_docker" {
+  targets = discovery.docker.shopgate.targets
 
   rule {
     source_labels = ["__meta_docker_container_name"]
@@ -33,21 +33,21 @@ discovery.relabel "quantpilot_docker" {
   }
 }
 
-loki.source.docker "quantpilot" {
+loki.source.docker "shopgate" {
   host             = "unix:///var/run/docker.sock"
-  targets          = discovery.docker.quantpilot.targets
-  relabel_rules    = discovery.relabel.quantpilot_docker.rules
+  targets          = discovery.docker.shopgate.targets
+  relabel_rules    = discovery.relabel.shopgate_docker.rules
   refresh_interval = "10s"
-  forward_to       = [loki.process.quantpilot.receiver]
+  forward_to       = [loki.process.shopgate.receiver]
 }
 
-loki.source.file "quantpilot_files" {
+loki.source.file "shopgate_files" {
   targets = [
-    {__path__ = "/var/log/quantpilot/tmp/runtime/*.log", job = "quantpilot-runtime", source = "file"},
-    {__path__ = "/var/log/quantpilot/tmp/quantpilot-eval-queue/logs/*.log", job = "quantpilot-eval", source = "file"},
-    {__path__ = "/var/log/quantpilot/.next/dev/logs/*.log", job = "quantpilot-next", source = "file"},
+    {__path__ = "/var/log/shopgate/tmp/runtime/*.log", job = "shopgate-runtime", source = "file"},
+    {__path__ = "/var/log/shopgate/tmp/shopgate-eval-queue/logs/*.log", job = "shopgate-eval", source = "file"},
+    {__path__ = "/var/log/shopgate/.next/dev/logs/*.log", job = "shopgate-next", source = "file"},
   ]
-  forward_to = [loki.process.quantpilot.receiver]
+  forward_to = [loki.process.shopgate.receiver]
 
   file_match {
     enabled     = true
@@ -55,10 +55,10 @@ loki.source.file "quantpilot_files" {
   }
 }
 
-loki.process "quantpilot" {
+loki.process "shopgate" {
   stage.static_labels {
     values = {
-      app = "quantpilot",
+      app = "shopgate",
       env = "local",
     }
   }

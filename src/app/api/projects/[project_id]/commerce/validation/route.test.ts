@@ -26,17 +26,17 @@ vi.mock("@/lib/services/project", () => ({
   getProjectById: mocks.getProjectById,
 }));
 
-vi.mock("@/lib/quant/generation-state", () => ({
+vi.mock("@/lib/commerce/generation-state", () => ({
   readQuantGenerationState: mocks.readGenerationState,
   updateQuantGenerationStep: mocks.updateGenerationStep,
 }));
 
-vi.mock("@/lib/quant/generation-queue", () => ({
+vi.mock("@/lib/commerce/generation-queue", () => ({
   runQuantGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
     input.task(),
 }));
 
-vi.mock("@/lib/quant/generation-preview", () => ({
+vi.mock("@/lib/commerce/generation-preview", () => ({
   startPersistentValidatedPreview: mocks.startPreview,
 }));
 
@@ -48,7 +48,7 @@ vi.mock("@/lib/services/stream", () => ({
   streamManager: { publish: mocks.publish },
 }));
 
-vi.mock("@/lib/quant/validation", () => ({
+vi.mock("@/lib/commerce/validation", () => ({
   prepareQuantProjectForValidation: mocks.prepareValidation,
   validateQuantProject: mocks.validateProject,
   readQuantValidationReport: mocks.readReport,
@@ -174,7 +174,7 @@ function evidence(verdict = "accepted") {
 }
 
 function postRequest(body: Record<string, unknown> = { requestId }) {
-  return new Request("http://localhost/api/quant/validation", {
+  return new Request("http://localhost/api/commerce/validation", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -4,15 +4,15 @@ import asyncio
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     HistoryIngestionRequest,
     HistoryIngestionSymbolResult,
     KlineResponse,
 )
-from quantpilot_market_data.providers.akshare import AkShareClient
-from quantpilot_market_data.providers.baostock import BaoStockClient
-from quantpilot_market_data.providers.eastmoney import EastMoneyClient, EastMoneyError
-from quantpilot_market_data.repositories.ingestion import (
+from shopgate_commerce_data.providers.akshare import AkShareClient
+from shopgate_commerce_data.providers.baostock import BaoStockClient
+from shopgate_commerce_data.providers.eastmoney import EastMoneyClient, EastMoneyError
+from shopgate_commerce_data.repositories.ingestion import (
     get_ingestion_job_control,
     update_ingestion_job_progress,
 )

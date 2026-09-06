@@ -77,7 +77,7 @@ const obsoleteSkillIds = [
 ];
 
 const obsoleteContractFragments = [
-  '.quantpilot/',
+  '.shopgate/',
   '.claude/skills/',
 ];
 
@@ -521,8 +521,8 @@ function validateSkillNaming(skill) {
   if (!validScopes.has(skill.scope)) {
     fail(`core skill ${skill.id} must declare a valid scope: ${Array.from(validScopes).join(', ')}`);
   }
-  if (skill.id.startsWith('quantpilot-')) {
-    fail(`core skill ${skill.id} should not use quantpilot- prefix; use a scope-based name instead`);
+  if (skill.id.startsWith('shopgate-')) {
+    fail(`core skill ${skill.id} should not use shopgate- prefix; use a scope-based name instead`);
   }
   if (skill.scope === 'quant' && !skill.id.startsWith('quant-')) {
     fail(`quant scoped core skill ${skill.id} must use quant- prefix`);

@@ -2,7 +2,7 @@ export const CHAT_PANE_DEFAULT_WIDTH = 416;
 export const CHAT_PANE_MIN_WIDTH = 320;
 export const CHAT_PANE_MAX_WIDTH = 960;
 export const PREVIEW_PANE_MIN_WIDTH = 420;
-export const CHAT_PANE_WIDTH_STORAGE_KEY = 'quantpilot:chat-pane-width';
+export const CHAT_PANE_WIDTH_STORAGE_KEY = 'shopgate:chat-pane-width';
 
 export function clampChatPaneWidth(width: number, viewportWidth: number): number {
   const safeViewportWidth = Number.isFinite(viewportWidth) && viewportWidth > 0

@@ -93,7 +93,7 @@ npm run check:homepage
 市场数据后端：
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv run ruff check .
 uv run pytest
 ```

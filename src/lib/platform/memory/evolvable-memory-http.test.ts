@@ -40,14 +40,14 @@ describe('EvolvableMemoryHttpAdapter', () => {
     }));
     const adapter = new EvolvableMemoryHttpAdapter(config, fetcher);
 
-    await expect(adapter.discover('quantpilot.test')).resolves.toMatchObject({
+    await expect(adapter.discover('shopgate.test')).resolves.toMatchObject({
       apiContract: MEMORY_HTTP_CONTRACT,
       capabilities: ['recall.trace'],
     });
     const [url, init] = fetcher.mock.calls[0] as [URL, RequestInit];
     expect(url.toString()).toBe('https://memory.example/');
     expect(new Headers(init.headers).get('authorization')).toBeNull();
-    expect(new Headers(init.headers).get('x-request-id')).toBe('quantpilot.test');
+    expect(new Headers(init.headers).get('x-request-id')).toBe('shopgate.test');
   });
 
   it('translates provider-neutral input into the external HTTP contract', async () => {
@@ -68,7 +68,7 @@ describe('EvolvableMemoryHttpAdapter', () => {
       idempotencyKey: 'event-1',
       key: 'output.detail_level',
       value: 'concise',
-      context: { product: 'quantpilot' },
+      context: { product: 'shopgate' },
       evidenceText: 'Keep it concise',
       confidence: 0.95,
       purpose: 'personalization',
@@ -108,7 +108,7 @@ describe('EvolvableMemoryHttpAdapter', () => {
       sourceProjectionSha256: 'a'.repeat(64),
       deliveredContextSha256: 'b'.repeat(64),
       revisionIds: ['00000000-0000-0000-0000-000000000003'],
-      idempotencyKey: 'quantpilot:request-a:memory-usage',
+      idempotencyKey: 'shopgate:request-a:memory-usage',
       purpose: 'personalization',
     }, 'request-a')).resolves.toMatchObject({
       usageId: '00000000-0000-0000-0000-000000000005',

@@ -108,7 +108,7 @@ export default function ChatInput({
   const submissionLockRef = useRef(false);
   const [loadedDraftStorageKey, setLoadedDraftStorageKey] = useState<string | null>(null);
   const supportsImageUpload = true;
-  const draftStorageKey = projectId ? `quantpilot:question-draft:${projectId}` : null;
+  const draftStorageKey = projectId ? `shopgate:question-draft:${projectId}` : null;
 
   const modelOptionsForCli = useMemo(
     () => modelOptions.filter(option => option.cli === preferredCli),
@@ -510,7 +510,7 @@ export default function ChatInput({
             onKeyDown={handleKeyDown}
             className="w-full ring-offset-background placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 resize-none text-[15px] leading-6 md:text-sm bg-transparent focus:bg-transparent rounded-md px-2 py-2 text-slate-900 border-0"
             id="chatinput"
-            aria-label="向 QuantPilot 发送消息"
+            aria-label="向 Shop Gate 发送消息"
             placeholder={isRunning ? QUESTION_COMPOSER_COPY.runningPlaceholder : placeholder}
             disabled={disabled || isUploading || isSubmitting}
             style={{ minHeight: '84px' }}

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from psycopg.rows import dict_row
 
-from quantpilot_market_data.database_core import (
+from shopgate_commerce_data.database_core import (
     SHANGHAI_TZ,
     bool_or_none,
     connect,
@@ -13,7 +13,7 @@ from quantpilot_market_data.database_core import (
     first_text,
     json_object,
 )
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     LocalKlineBar,
     LocalKlineResponse,
     LocalKlineSummary,

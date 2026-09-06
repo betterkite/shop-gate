@@ -41,8 +41,8 @@ async function main() {
   requireCommand('tar');
   const root = process.cwd();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupRoot = process.env.QUANTPILOT_BACKUP_ROOT || path.join(root, 'backups');
-  const output = path.resolve(argument('--output', path.join(backupRoot, `quantpilot-${timestamp}`)));
+  const backupRoot = process.env.SHOPGATE_BACKUP_ROOT || path.join(root, 'backups');
+  const output = path.resolve(argument('--output', path.join(backupRoot, `shopgate-${timestamp}`)));
   const temporary = `${output}.partial-${process.pid}`;
   const { database, env } = databaseEnvironment();
 

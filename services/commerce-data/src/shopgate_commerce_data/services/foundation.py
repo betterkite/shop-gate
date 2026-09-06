@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 from datetime import date, datetime
 
-from quantpilot_market_data.database_core import SHANGHAI_TZ
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.database_core import SHANGHAI_TZ
+from shopgate_commerce_data.models import (
     DataQualityScanRequest,
     DataQualityScanResponse,
     FactorDefinitionResponse,
@@ -13,11 +13,11 @@ from quantpilot_market_data.models import (
     TradingCalendarRefreshResponse,
     TradingCalendarResponse,
 )
-from quantpilot_market_data.providers.baostock import (
+from shopgate_commerce_data.providers.baostock import (
     BaoStockError,
     fetch_baostock_trade_dates,
 )
-from quantpilot_market_data.repositories.foundation import (
+from shopgate_commerce_data.repositories.foundation import (
     list_factor_definitions,
     list_foundation_components,
     list_trading_calendar_days,
@@ -91,7 +91,7 @@ async def refresh_trading_calendar(
         )
     except ModuleNotFoundError as error:
         raise BaoStockError(
-            "当前 Python 环境未安装 baostock；请在 services/market-data 中执行 "
+            "当前 Python 环境未安装 baostock；请在 services/commerce-data 中执行 "
             "`uv sync --extra baostock` 或 `uv pip install baostock` 后重试。"
         ) from error
 

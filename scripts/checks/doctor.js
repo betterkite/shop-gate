@@ -81,27 +81,27 @@ function envFlag(key, fallback) {
 }
 
 function degradationConfig() {
-  const modeValue = readEnvValue('QUANTPILOT_DEGRADATION_MODE').trim().toLowerCase();
+  const modeValue = readEnvValue('SHOPGATE_DEGRADATION_MODE').trim().toLowerCase();
   const mode = modeValue === 'strict' || modeValue === 'offline' ? modeValue : 'auto';
   const offline = mode === 'offline';
   const strict = mode === 'strict';
   return {
     mode,
     database: {
-      enabled: envFlag('QUANTPILOT_DATABASE_ENABLED', true),
-      required: offline ? false : envFlag('QUANTPILOT_DATABASE_REQUIRED', true),
+      enabled: envFlag('SHOPGATE_DATABASE_ENABLED', true),
+      required: offline ? false : envFlag('SHOPGATE_DATABASE_REQUIRED', true),
     },
     marketApi: {
-      enabled: offline ? false : envFlag('QUANTPILOT_MARKET_API_ENABLED', true),
-      required: !offline && envFlag('QUANTPILOT_MARKET_API_REQUIRED', strict),
+      enabled: offline ? false : envFlag('SHOPGATE_MARKET_API_ENABLED', true),
+      required: !offline && envFlag('SHOPGATE_MARKET_API_REQUIRED', strict),
     },
     memory: {
-      enabled: offline ? false : envFlag('QUANTPILOT_MEMORY_ENABLED', true),
-      required: !offline && envFlag('QUANTPILOT_MEMORY_REQUIRED', false),
+      enabled: offline ? false : envFlag('SHOPGATE_MEMORY_ENABLED', true),
+      required: !offline && envFlag('SHOPGATE_MEMORY_REQUIRED', false),
     },
     observability: {
-      enabled: offline ? false : envFlag('QUANTPILOT_OBSERVABILITY_ENABLED', true),
-      required: !offline && envFlag('QUANTPILOT_OBSERVABILITY_REQUIRED', strict),
+      enabled: offline ? false : envFlag('SHOPGATE_OBSERVABILITY_ENABLED', true),
+      required: !offline && envFlag('SHOPGATE_OBSERVABILITY_REQUIRED', strict),
     },
   };
 }
@@ -245,7 +245,7 @@ function summarizeCommandFailure(result) {
 }
 
 function latestBenchmarkReport() {
-  const reportsDir = path.join(ROOT, 'tmp', 'quantpilot-benchmark-reports');
+  const reportsDir = path.join(ROOT, 'tmp', 'shopgate-benchmark-reports');
   if (!fs.existsSync(reportsDir)) return null;
   const files = fs
     .readdirSync(reportsDir)
@@ -271,11 +271,11 @@ function checkCommand(name, command, args, options = {}) {
 }
 
 async function main() {
-  console.log(`\nQuantPilot Doctor ${FULL_CHECKS ? '(full)' : '(quick)'}\n`);
+  console.log(`\nShop Gate Doctor ${FULL_CHECKS ? '(full)' : '(quick)'}\n`);
   const degradation = degradationConfig();
 
   const packageJson = readJson(path.join(ROOT, 'package.json'));
-  addCheck('项目配置', packageJson?.name === 'quantpilot' ? 'ok' : 'fail', packageJson ? `${packageJson.name}@${packageJson.version}` : '无法读取 package.json。');
+  addCheck('项目配置', packageJson?.name === 'shopgate' ? 'ok' : 'fail', packageJson ? `${packageJson.name}@${packageJson.version}` : '无法读取 package.json。');
   addCheck(
     '降级配置',
     'ok',
@@ -285,7 +285,7 @@ async function main() {
 
   const nodeVersion = commandOutput('node', ['--version']);
   const npmVersion = commandOutput('npm', ['--version']);
-  const uvVersion = commandOutput('uv', ['--version'], { cwd: path.join(ROOT, 'services', 'market-data') });
+  const uvVersion = commandOutput('uv', ['--version'], { cwd: path.join(ROOT, 'services', 'commerce-data') });
   addCheck(
     '工具版本',
     nodeVersion && npmVersion && uvVersion ? 'ok' : 'fail',
@@ -345,14 +345,14 @@ async function main() {
       '量化数据后端 :8000',
       backend.ok ? 'ok' : unavailableStatus(degradation.marketApi),
       backend.ok ? `HTTP ${backend.statusCode}` : '未连接，已使用数据源注册表/本地数据兜底。',
-      backend.ok ? [] : ['进入 services/market-data 后运行 uv run quantpilot-market-api。']
+      backend.ok ? [] : ['进入 services/commerce-data 后运行 uv run shopgate-commerce-api。']
     );
   } else {
     addCheck('量化数据后端 :8000', 'warn', '已按降级配置停用。', ['策略平台和业务知识中心会优先展示本地/内置兜底数据。']);
   }
 
   if (degradation.memory.enabled) {
-    const memoryBaseUrl = (readEnvValue('QUANTPILOT_MEMORY_API_URL') || 'http://127.0.0.1:38089')
+    const memoryBaseUrl = (readEnvValue('SHOPGATE_MEMORY_API_URL') || 'http://127.0.0.1:38089')
       .replace(/\/$/, '');
     const [discovery, ready] = await Promise.all([
       requestJson(`${memoryBaseUrl}/`, 2500),
@@ -399,7 +399,7 @@ async function main() {
   addCheck('工作空间目录', fs.existsSync(projectRoot) ? 'ok' : 'warn', `${path.relative(ROOT, projectRoot)} (${projectCount} 个项目)`);
   await checkDatabase();
   if (degradation.database.enabled) {
-    checkCommand('行情新鲜度', 'node', ['scripts/checks/check-market-data-freshness.js'], {
+    checkCommand('行情新鲜度', 'node', ['scripts/checks/check-commerce-data-freshness.js'], {
       successSummary: '交易日历与本地 daily/qfq 日线已跟进最近完成交易日。',
       failureSummary: '本地行情数据已过期。',
       warnOnly: true,
@@ -420,7 +420,7 @@ async function main() {
   checkCommand('验证过期检查', 'node', ['scripts/checks/check-validation-stale-report.js'], {
     successSummary: 'stale validation smoke 通过。',
   });
-  checkCommand('Benchmark 覆盖', 'node', ['scripts/checks/check-quant-benchmark-coverage.js'], {
+  checkCommand('Benchmark 覆盖', 'node', ['scripts/checks/check-commerce-benchmark-coverage.js'], {
     successSummary: '固定评测覆盖达标。',
   });
   checkCommand('服务目录', 'node', ['scripts/checks/check-service-catalog.js'], {
@@ -446,18 +446,18 @@ async function main() {
       failed ? [`失败用例：${failed}`] : []
     );
   } else {
-    addCheck('最近评测报告', 'warn', '未找到 tmp/quantpilot-benchmark-reports/report-*.json。', ['运行 npm run benchmark:quant:contract 可生成报告。']);
+    addCheck('最近评测报告', 'warn', '未找到 tmp/shopgate-benchmark-reports/report-*.json。', ['运行 npm run benchmark:quant:contract 可生成报告。']);
   }
 
   if (FULL_CHECKS) {
     checkCommand('ESLint', 'npm', ['run', 'lint'], { successSummary: 'lint 通过。' });
     checkCommand('TypeScript', 'npm', ['run', 'type-check'], { successSummary: 'type-check 通过。' });
     checkCommand('后端 Ruff', 'uv', ['run', 'ruff', 'check', '.'], {
-      cwd: path.join(ROOT, 'services', 'market-data'),
+      cwd: path.join(ROOT, 'services', 'commerce-data'),
       successSummary: 'ruff 通过。',
     });
     checkCommand('后端 Pytest', 'uv', ['run', 'pytest'], {
-      cwd: path.join(ROOT, 'services', 'market-data'),
+      cwd: path.join(ROOT, 'services', 'commerce-data'),
       successSummary: 'pytest 通过。',
     });
   } else {

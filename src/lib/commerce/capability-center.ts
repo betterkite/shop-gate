@@ -4,7 +4,7 @@ import {
   serializeQuantCapabilities,
 } from '@/lib/domains/finance/capabilities';
 import { getRuntimeDegradationConfig } from '@/lib/config/degradation';
-import { getSkillsDashboardData } from '@/lib/quant/skills-dashboard';
+import { getSkillsDashboardData } from '@/lib/commerce/skills-dashboard';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -83,15 +83,15 @@ export interface CapabilityCenterData {
 }
 
 const MARKET_API_BASE_URL =
-  process.env.QUANTPILOT_MARKET_API_URL ||
-  process.env.QUANTPILOT_MARKET_API_BASE_URL ||
+  process.env.SHOPGATE_MARKET_API_URL ||
+  process.env.SHOPGATE_MARKET_API_BASE_URL ||
   'http://127.0.0.1:8000';
 
 const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
   {
     id: 'eastmoney-realtime',
     name: '东方财富实时行情',
-    category: 'market-data',
+    category: 'commerce-data',
     status: 'available',
     description: 'A 股实时价格、成交额、市值等快照数据。',
     endpoints: ['/api/v1/quotes/realtime/{symbol}', '/api/v1/quotes/realtime'],
@@ -111,7 +111,7 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
   {
     id: 'eastmoney-kline',
     name: '东方财富历史 K 线 / 指数 / ETF',
-    category: 'market-data',
+    category: 'commerce-data',
     status: 'degraded',
     description: 'A 股个股、常见指数和 ETF 的历史行情；当前环境历史域名不可达，需要多源降级。',
     endpoints: ['/api/v1/quotes/history/{symbol}'],
@@ -160,7 +160,7 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
     endpoints: ['/api/v1/ingestion/akshare/history', 'Python SDK: akshare.stock_zh_a_hist'],
     cacheTtlSeconds: null,
     limitations: [
-      '需要安装可选依赖：cd services/market-data && uv sync --extra akshare。',
+      '需要安装可选依赖：cd services/commerce-data && uv sync --extra akshare。',
       '部分接口仍依赖东方财富网页端点，需要低频补数和字段质量检查。',
     ],
   },
@@ -185,8 +185,8 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
     limitations: ['需要商业授权、终端环境或账号登录，当前本地未配置凭证。'],
   },
   {
-    id: 'quantpilot-technical-indicators',
-    name: 'QuantPilot 技术指标',
+    id: 'shopgate-technical-indicators',
+    name: 'Shop Gate 技术指标',
     category: 'indicator',
     status: 'available',
     description: '基于历史 K 线计算均线、区间收益、最大回撤和波动率。',
@@ -195,8 +195,8 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
     limitations: [],
   },
   {
-    id: 'quantpilot-ma-crossover-backtest',
-    name: 'QuantPilot 均线突破回测',
+    id: 'shopgate-ma-crossover-backtest',
+    name: 'Shop Gate 均线突破回测',
     category: 'backtest',
     status: 'available',
     description: '基于历史 K 线运行单标的均线突破策略。',
@@ -230,8 +230,8 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
     limitations: [],
   },
   {
-    id: 'quantpilot-fundamental-indicators',
-    name: 'QuantPilot 财务衍生指标',
+    id: 'shopgate-fundamental-indicators',
+    name: 'Shop Gate 财务衍生指标',
     category: 'fundamental',
     status: 'available',
     description: '基于财务摘要计算净利率、平均 ROE、毛利率和最近报告期核心指标。',

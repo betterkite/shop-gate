@@ -1,7 +1,7 @@
 export const TOOL_OUTPUT_PREVIEW_LIMIT = 12_000;
 
 const markerFor = (omittedChars: number, originalChars: number) =>
-  `\n\n[QuantPilot 已截断 ${omittedChars} 个字符；原始输出 ${originalChars} 个字符，以下保留末尾诊断信息。]\n\n`;
+  `\n\n[Shop Gate 已截断 ${omittedChars} 个字符；原始输出 ${originalChars} 个字符，以下保留末尾诊断信息。]\n\n`;
 
 /**
  * Keep persisted/client tool output bounded while retaining both the command

@@ -36,10 +36,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatCompactDate as formatDate } from "@/components/quant/console-primitives";
+import { formatCompactDate as formatDate } from "@/components/eval-console/console-primitives";
 import { cn } from "@/lib/utils";
-import type { WorkspaceHealthDashboard, WorkspaceHealthItem } from "@/lib/quant/workspace-health";
-import type { GenerationObservabilityDashboard } from "@/lib/quant/generation-observability";
+import type { WorkspaceHealthDashboard, WorkspaceHealthItem } from "@/lib/commerce/workspace-health";
+import type { GenerationObservabilityDashboard } from "@/lib/commerce/generation-observability";
 import type { OpsCheck, OpsCheckStatus, OpsPlatformDashboard } from "@/lib/ops/ops-platform";
 import type { ResolvedServiceCatalogEntry } from "@/lib/platform/service-catalog";
 import {
@@ -433,7 +433,7 @@ export default function OpsPlatformClient({ initialData, initialTraceData, initi
     setValidatingId(projectId);
     setFeedback(null);
     try {
-      const response = await fetch(`${API_BASE}/api/projects/${projectId}/quant/validation`, {
+      const response = await fetch(`${API_BASE}/api/projects/${projectId}/commerce/validation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Validation must never mint a synthetic generation identity. The

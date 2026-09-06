@@ -69,7 +69,7 @@ def load_local_env_if_needed() -> None:
             key = key.strip()
             value = value.strip().strip('"').strip("'")
             # This helper exists only to locate the database. Loading every project
-            # secret into the market-data process violates least privilege.
+            # secret into the commerce-data process violates least privilege.
             if key == "DATABASE_URL":
                 os.environ.setdefault(key, value)
                 return

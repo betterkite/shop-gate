@@ -6,12 +6,12 @@ from typing import Any, Literal
 
 from psycopg.rows import dict_row
 
-from quantpilot_market_data.cache import RedisJsonCache, ttl_from_env
-from quantpilot_market_data.clickhouse import (
+from shopgate_commerce_data.cache import RedisJsonCache, ttl_from_env
+from shopgate_commerce_data.clickhouse import (
     is_clickhouse_enabled,
     query_screener_feature_rows,
 )
-from quantpilot_market_data.database_core import (
+from shopgate_commerce_data.database_core import (
     bool_or_none,
     connect,
     decimal_or_none,
@@ -19,16 +19,16 @@ from quantpilot_market_data.database_core import (
     percent_change,
     security_sector_fields,
 )
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     AnalyticsExecutionMetadata,
     AShareScreenerCandidate,
     AShareScreenerResponse,
     ScreenerMode,
 )
-from quantpilot_market_data.repositories.analytics import sync_clickhouse_daily_bars
+from shopgate_commerce_data.repositories.analytics import sync_clickhouse_daily_bars
 
 DEFAULT_UNIVERSE_ID = "a-share-sample-research-pool"
-SCREENER_CACHE_TTL_SECONDS = ttl_from_env("QUANTPILOT_SCREENER_CACHE_TTL_SECONDS", 60)
+SCREENER_CACHE_TTL_SECONDS = ttl_from_env("SHOPGATE_SCREENER_CACHE_TTL_SECONDS", 60)
 _SCREENER_CACHE: dict[tuple[str, str, str, int], tuple[datetime, AShareScreenerResponse]] = {}
 _SCREENER_TRADE_DATE_CACHE: dict[tuple[str, str], tuple[datetime, date | None]] = {}
 _SCREENER_REDIS_CACHE = RedisJsonCache()
@@ -1005,11 +1005,11 @@ async def screen_a_share_short_term_candidates(
     response_trade_date = resolved_trade_date
     notes = [
         (
-            "本接口通过 QuantPilot market-data API 读取 ClickHouse 分析表；"
+            "本接口通过 Shop Gate commerce-data API 读取 ClickHouse 分析表；"
             "skills 不直接访问数据库。"
             if data_basis.startswith("clickhouse.")
             else (
-                "本接口只通过 QuantPilot market-data API 读取本地 TimescaleDB；"
+                "本接口只通过 Shop Gate commerce-data API 读取本地 TimescaleDB；"
                 "skills 不直接访问数据库。"
             )
         ),

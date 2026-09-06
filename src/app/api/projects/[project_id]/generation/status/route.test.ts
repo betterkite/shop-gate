@@ -12,11 +12,11 @@ vi.mock('@/lib/services/project', () => ({
   getProjectById: mocks.getProjectById,
 }));
 
-vi.mock('@/lib/quant/generation-state', () => ({
+vi.mock('@/lib/commerce/generation-state', () => ({
   readQuantGenerationState: mocks.readGeneration,
 }));
 
-vi.mock('@/lib/quant/validation', () => ({
+vi.mock('@/lib/commerce/validation', () => ({
   readQuantValidationReport: mocks.readValidation,
 }));
 

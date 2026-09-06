@@ -144,7 +144,7 @@ async function inspectProfile(browser, storageState, profile) {
     deviceScaleFactor: 1,
   });
   await context.addInitScript((theme) => {
-    localStorage.setItem('quantpilot-color-mode', theme);
+    localStorage.setItem('shopgate-color-mode', theme);
   }, profile.theme);
 
   const page = await context.newPage();
@@ -244,7 +244,7 @@ async function inspectProfile(browser, storageState, profile) {
       }
 
       const resources = performance.getEntriesByType('resource');
-      const stableFallback = resources.filter((entry) => entry.name.includes('/generated/quantpilot-tailwind.css'));
+      const stableFallback = resources.filter((entry) => entry.name.includes('/generated/shopgate-tailwind.css'));
       const styleResources = resources
         .filter((entry) => entry.initiatorType === 'link' && entry.name.includes('.css'))
         .map((entry) => ({
@@ -302,8 +302,8 @@ async function inspectProfile(browser, storageState, profile) {
         }
       }
     }
-    if (metrics.stableFallbackCount > 0 && process.env.QUANTPILOT_STABLE_CSS_FALLBACK !== '1') {
-      problems.push(`${profile.id}: 默认运行时仍加载重复的 quantpilot-tailwind.css`);
+    if (metrics.stableFallbackCount > 0 && process.env.SHOPGATE_STABLE_CSS_FALLBACK !== '1') {
+      problems.push(`${profile.id}: 默认运行时仍加载重复的 shopgate-tailwind.css`);
     }
     problems.push(...drawer.problems);
     problems.push(...failedResources.map((item) => `${profile.id}: 资源失败 ${item}`));

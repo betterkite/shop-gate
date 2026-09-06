@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import { ensureBaselineEvidenceFiles } from '@/lib/quant/evidence';
+import { ensureBaselineEvidenceFiles } from '@/lib/commerce/evidence';
 import { appendQuantWorkspaceEvent, ensureQuantWorkspace, QuantRunPlan } from '@/lib/domains/finance/workspace';
 import { serializeQuantVisualizationTemplate } from '@/lib/domains/finance/visualization-templates';
 
@@ -16,10 +16,10 @@ interface PrefetchResult {
   summary: string;
 }
 
-const MARKET_API_BASE_URL = process.env.QUANTPILOT_MARKET_API_URL ?? 'http://127.0.0.1:8000';
-const FETCH_TIMEOUT_MS = Number.parseInt(process.env.QUANTPILOT_MARKET_PREFETCH_TIMEOUT_MS ?? '', 10) || 12_000;
+const MARKET_API_BASE_URL = process.env.SHOPGATE_MARKET_API_URL ?? 'http://127.0.0.1:8000';
+const FETCH_TIMEOUT_MS = Number.parseInt(process.env.SHOPGATE_MARKET_PREFETCH_TIMEOUT_MS ?? '', 10) || 12_000;
 const SCREENER_FETCH_TIMEOUT_MS =
-  Number.parseInt(process.env.QUANTPILOT_SCREENER_PREFETCH_TIMEOUT_MS ?? '', 10) || Math.max(FETCH_TIMEOUT_MS, 45_000);
+  Number.parseInt(process.env.SHOPGATE_SCREENER_PREFETCH_TIMEOUT_MS ?? '', 10) || Math.max(FETCH_TIMEOUT_MS, 45_000);
 
 function isQuantAnalysisPlan(plan: QuantRunPlan): boolean {
   return [
@@ -1611,7 +1611,7 @@ async function writeEmptyScreenerResult(params: {
     requested_symbols: [],
     quotes: [],
     fetched_at: now,
-    source: 'quantpilot-market-api',
+    source: 'shopgate-commerce-api',
   });
   params.rawFiles.push(path.relative(params.projectPath, batchPath).replaceAll(path.sep, '/'));
 
@@ -1634,7 +1634,7 @@ async function writeEmptyScreenerResult(params: {
     symbol: 'A_SHARE_UNIVERSE',
     name: 'A 股短线候选池',
     asset_type: 'stock_selection',
-    source: String(params.screener.source ?? 'quantpilot-market-api'),
+    source: String(params.screener.source ?? 'shopgate-commerce-api'),
     as_of: params.screener.trade_date ?? params.screener.fetched_at ?? now,
     requestedSymbols: [],
     symbols: [],

@@ -11,7 +11,7 @@ const config = getProjectAuthConfig();
 const baseURL = process.env.BETTER_AUTH_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
 
 export const auth = betterAuth({
-  appName: 'QuantPilot',
+  appName: 'Shop Gate',
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
     transaction: true,
@@ -81,7 +81,7 @@ export const auth = betterAuth({
   },
   advanced: {
     useSecureCookies: config.secureCookies,
-    cookiePrefix: 'quantpilot',
+    cookiePrefix: 'shopgate',
     defaultCookieAttributes: {
       httpOnly: true,
       secure: config.secureCookies,
@@ -95,7 +95,7 @@ export const auth = betterAuth({
       adminRoles: ['admin'],
       ac: authAdminAccess,
       roles: authAdminRoles,
-      bannedUserMessage: '账号已被停用，请联系 QuantPilot 管理员。',
+      bannedUserMessage: '账号已被停用，请联系 Shop Gate 管理员。',
     }),
   ],
 });

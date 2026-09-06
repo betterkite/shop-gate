@@ -20,7 +20,7 @@ function shouldRequireConfiguredKey(): boolean {
   if (isProductionBuildPhase()) {
     return false;
   }
-  return process.env.NODE_ENV === 'production' || process.env.QUANTPILOT_DEGRADATION_MODE === 'strict';
+  return process.env.NODE_ENV === 'production' || process.env.SHOPGATE_DEGRADATION_MODE === 'strict';
 }
 
 function resolveEncryptionKey(): string {
@@ -34,7 +34,7 @@ function resolveEncryptionKey(): string {
   }
 
   if (isProductionBuildPhase()) {
-    return crypto.createHash('sha256').update('quantpilot-local-development-encryption-key').digest('hex');
+    return crypto.createHash('sha256').update('shopgate-local-development-encryption-key').digest('hex');
   }
 
   if (configured && configured !== PLACEHOLDER_ENCRYPTION_KEY) {
@@ -43,7 +43,7 @@ function resolveEncryptionKey(): string {
     console.warn('[crypto] ENCRYPTION_KEY is not configured. Using a stable local-development fallback key.');
   }
 
-  return crypto.createHash('sha256').update('quantpilot-local-development-encryption-key').digest('hex');
+  return crypto.createHash('sha256').update('shopgate-local-development-encryption-key').digest('hex');
 }
 
 const ENCRYPTION_KEY = resolveEncryptionKey();

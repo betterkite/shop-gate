@@ -5,8 +5,8 @@ from datetime import UTC, date, datetime, timedelta
 from datetime import time as dt_time
 from zoneinfo import ZoneInfo
 
-from quantpilot_market_data.cache import MarketDataCache, RedisJsonCache
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache, RedisJsonCache
+from shopgate_commerce_data.models import (
     Adjustment,
     BatchQuoteResponse,
     FetchMetadata,
@@ -15,14 +15,14 @@ from quantpilot_market_data.models import (
     RealtimeQuote,
     SymbolResolveResponse,
 )
-from quantpilot_market_data.providers.base import (
+from shopgate_commerce_data.providers.base import (
     HistoricalKlineProvider,
     RealtimeQuoteProvider,
     SymbolResolverProvider,
 )
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.services.caching import cache_response, read_cached_response
-from quantpilot_market_data.services.kline_gateway import (
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.services.caching import cache_response, read_cached_response
+from shopgate_commerce_data.services.kline_gateway import (
     get_kline_local_first,
     get_local_kline_if_ready,
 )

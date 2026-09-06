@@ -122,7 +122,7 @@ describe('realtime generation terminal classification', () => {
 
   it.each([
     { isTransientToolMessage: true },
-    { isQuantPilotPipelineStep: true },
+    { isShopGatePipelineStep: true },
   ])('keeps waiting while a tool lifecycle projection is rendered (%o)', (metadata) => {
     expect(
       shouldRealtimeAssistantUpdateStopWaiting({

@@ -1,5 +1,5 @@
 /**
- * Shared visual language for generated QuantPilot dashboards.
+ * Shared visual language for generated Shop Gate dashboards.
  *
  * Financial workbenches should read as one continuous analytical surface. The
  * selectors deliberately have more specificity than the legacy template CSS so

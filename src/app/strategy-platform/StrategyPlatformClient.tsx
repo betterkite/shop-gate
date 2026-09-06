@@ -29,7 +29,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SubNav, subNavPanelId, subNavTabId } from "@/components/layout/SubNav";
-import { formatCompactDate as formatDate } from "@/components/quant/console-primitives";
+import { formatCompactDate as formatDate } from "@/components/eval-console/console-primitives";
 import { cn } from "@/lib/utils";
 import type {
   StrategyAutoFillIngestionStartResult,
@@ -50,7 +50,7 @@ import type {
   StrategyUniverse,
   StrategyUniverseMember,
   StrategyUniverseMembersPage,
-} from "@/lib/quant/strategies";
+} from "@/lib/commerce/strategies";
 import { FinancialKnowledgeView } from "./FinancialKnowledgeView";
 import { UniverseView } from "./UniverseView";
 import { FactorCatalogView } from "./FactorCatalogView";
@@ -319,7 +319,7 @@ export default function StrategyPlatformClient({ initialData }: Props) {
     setIsRefreshing(true);
     setToast(null);
     try {
-      const r = await fetch(`${API_BASE}/api/quant/strategies`, { cache: "no-store" });
+      const r = await fetch(`${API_BASE}/api/commerce/strategies`, { cache: "no-store" });
       const payload = await r.json();
       if (!r.ok || !payload.success) throw new Error(payload.error ?? "刷新失败");
       setData(payload.data);
@@ -339,7 +339,7 @@ export default function StrategyPlatformClient({ initialData }: Props) {
     setIsCreating(true);
     setToast(null);
     try {
-      const pr = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const pr = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ templateId: strategy.id, symbol }),
@@ -378,7 +378,7 @@ export default function StrategyPlatformClient({ initialData }: Props) {
     setRunningScanId(scanId);
     setToast(null);
     try {
-      const r = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const r = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "run-scan", templateId: selectedTemplate.id, scanId, symbol }),
@@ -400,7 +400,7 @@ export default function StrategyPlatformClient({ initialData }: Props) {
     setIsAddingMember(true);
     setToast(null);
     try {
-      const r = await fetch(`${API_BASE}/api/quant/strategies`, {
+      const r = await fetch(`${API_BASE}/api/commerce/strategies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

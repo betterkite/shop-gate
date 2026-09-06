@@ -1,24 +1,24 @@
 # 00. 项目学习地图
 
-目标：建立 QuantPilot 的整体心智模型，知道先学什么、从哪里读代码、怎样把一个需求定位到对应模块。
+目标：建立 Shop Gate 的整体心智模型，知道先学什么、从哪里读代码、怎样把一个需求定位到对应模块。
 
 这篇适合第一次接触项目时阅读。读完后不一定会改所有代码，但应该能判断一个问题属于前端、后端、数据、Skills、评测还是基础设施。
 
-先放轻松一点。QuantPilot 看起来模块很多，第一次看会有点像走进一间工具很多的工作室。你不需要马上知道每把工具怎么用，先知道哪张桌子上放着什么就够了。
+先放轻松一点。Shop Gate 看起来模块很多，第一次看会有点像走进一间工具很多的工作室。你不需要马上知道每把工具怎么用，先知道哪张桌子上放着什么就够了。
 
-![QuantPilot 学习地图](assets/learning-map-gpt-image2.png)
+![Shop Gate 学习地图](assets/learning-map-gpt-image2.png)
 
 这张图用 gpt-image2 生成，用来帮你先建立“产品、数据、生成、质量”四条主线的直觉。图里的数字只是学习顺序提示，具体术语以正文为准。
 
 ## 先建立四条主线
 
-QuantPilot 可以理解成四条主线叠在一起：
+Shop Gate 可以理解成四条主线叠在一起：
 
 | 主线 | 解决什么问题 | 关键入口 |
 | --- | --- | --- |
 | 产品主线 | 用户在哪里提问、看项目、管理平台能力 | `src/app/page.tsx`、`src/app/*/*Client.tsx` |
-| 数据主线 | 行情、K 线、因子、股票池和补数如何进入本地库 | `services/market-data/`、`sqls/` |
-| 生成主线 | 用户问题如何变成工作空间、页面和证据文件 | `src/lib/agent/`、仓库 Skill 权威源 `.pi/skills/`、`src/lib/quant/validation.ts` |
+| 数据主线 | 行情、K 线、因子、股票池和补数如何进入本地库 | `services/commerce-data/`、`sqls/` |
+| 生成主线 | 用户问题如何变成工作空间、页面和证据文件 | `src/lib/agent/`、仓库 Skill 权威源 `.pi/skills/`、`src/lib/commerce/validation.ts` |
 | 质量主线 | 如何判断页面真的可用，失败后如何修复 | `docs/evals-guide.md`、`src/lib/eval/index.ts`、`src/lib/ops/` |
 
 学习时不要一开始就陷进某个组件。先判断当前任务属于哪条主线，再顺着链路阅读。很多问题看起来是页面问题，真正原因可能是数据缺字段；也有些看起来像数据问题，最后发现是 skill 把多标的任务生成成了单股模板。
@@ -56,7 +56,7 @@ QuantPilot 可以理解成四条主线叠在一起：
 | 天数 | 学习重点 | 推荐文档 |
 | --- | --- | --- |
 | 第 1 天 | 本地启动、项目结构、基础设施 | `01`、[基础设施配置](../infrastructure.md) |
-| 第 2 天 | 市场数据、股票池、补数和策略平台 | `03`、[行情数据源采集知识库](../market-data-source-knowledge.md) |
+| 第 2 天 | 市场数据、股票池、补数和策略平台 | `03`、[行情数据源采集知识库](../commerce-data-source-knowledge.md) |
 | 第 3 天 | AI 工作空间生成链路 | `02`、[生成工作空间契约](../generated-workspace-contract.md) |
 | 第 4 天 | Skills 和可视化页面质量 | `04`、`07`、[Skills 治理规范](../skills-governance.md) |
 | 第 5 天 | 评测、运维、日志和质量门 | `05`、[Agent 评测指南](../evals-guide.md) |
@@ -71,11 +71,11 @@ QuantPilot 可以理解成四条主线叠在一起：
 | --- | --- | --- |
 | 首页任务怎么创建 | `src/app/page.tsx` | `src/components/task/`、`src/lib/services/project.ts` |
 | 项目聊天怎么运行 Agent | `src/app/[project_id]/chat/` | `src/lib/services/cli/`、`src/lib/domains/finance/workspace.ts` |
-| 策略平台怎么取数据 | `src/app/strategy-platform/StrategyPlatformClient.tsx` | `src/lib/quant/strategies.ts`、`services/market-data/` |
-| 市场数据怎么入库 | `services/market-data/src/quantpilot_market_data/services/` | `repositories/`、`database_core.py`、`providers/`、`sqls/` |
+| 策略平台怎么取数据 | `src/app/strategy-platform/StrategyPlatformClient.tsx` | `src/lib/commerce/strategies.ts`、`services/commerce-data/` |
+| 市场数据怎么入库 | `services/commerce-data/src/shopgate_commerce_data/services/` | `repositories/`、`database_core.py`、`providers/`、`sqls/` |
 | Skills 怎么配置到工作空间 | `src/lib/agent/skills/compiler.ts`、`src/lib/services/project.ts` | 仓库 registry/lock 与 SHA-256 完整性校验、workspace `.pi/skills/`；Agent 执行阶段只读编译 |
-| 验证怎么判断失败 | `src/lib/quant/validation.ts` | `artifact-contracts.ts`、`visual-validation.ts` |
-| 运行治理中心怎么聚合健康 | `src/app/ops-platform/` | `src/lib/ops/`、`src/lib/quant/workspace-health.ts` |
+| 验证怎么判断失败 | `src/lib/commerce/validation.ts` | `artifact-contracts.ts`、`visual-validation.ts` |
+| 运行治理中心怎么聚合健康 | `src/app/ops-platform/` | `src/lib/ops/`、`src/lib/commerce/workspace-health.ts` |
 
 ## 学习时的判断口诀
 

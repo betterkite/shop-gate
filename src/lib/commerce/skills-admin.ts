@@ -4,7 +4,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { JSON_SCHEMA, load as loadYaml } from 'js-yaml';
 import * as tar from 'tar';
-import { getSkillsDashboardData, type SkillsDashboardData } from '@/lib/quant/skills-dashboard';
+import { getSkillsDashboardData, type SkillsDashboardData } from '@/lib/commerce/skills-dashboard';
 
 type JsonRecord = Record<string, unknown>;
 

@@ -47,7 +47,7 @@ describe('image asset validation', () => {
   });
 
   it('accepts only regular files from the current project assets directory', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-images-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-images-'));
     temporaryDirectories.push(root);
     process.env.PROJECTS_DIR = root;
     const assets = path.join(root, 'project-safe', 'assets');

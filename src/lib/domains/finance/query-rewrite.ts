@@ -355,7 +355,7 @@ export function rankQuantSymbolCandidates(
 }
 
 async function defaultSymbolResolver(query: string, count: number): Promise<unknown> {
-  const baseUrl = (process.env.QUANTPILOT_MARKET_API_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
+  const baseUrl = (process.env.SHOPGATE_MARKET_API_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
   const url = new URL('/api/v1/symbols/resolve', baseUrl);
   url.searchParams.set('query', query);
   url.searchParams.set('count', String(count));

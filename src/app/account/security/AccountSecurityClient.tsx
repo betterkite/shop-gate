@@ -98,7 +98,7 @@ export default function AccountSecurityClient({ required }: { required: boolean 
     >
       {(required || user?.mustChangePassword) ? (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
-          当前使用的是初始密码。修改密码后才能进入其他 QuantPilot 功能。
+          当前使用的是初始密码。修改密码后才能进入其他 Shop Gate 功能。
         </div>
       ) : null}
 

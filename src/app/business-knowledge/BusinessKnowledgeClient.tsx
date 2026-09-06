@@ -39,12 +39,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatCompactDate as formatDate } from "@/components/quant/console-primitives";
+import { formatCompactDate as formatDate } from "@/components/eval-console/console-primitives";
 import type {
   CapabilityCenterData,
   CapabilityCenterDataProvider,
   CapabilityCenterItem,
-} from "@/lib/quant/capability-center";
+} from "@/lib/commerce/capability-center";
 import { cn } from "@/lib/utils";
 
 type Props = { initialData: CapabilityCenterData };
@@ -78,7 +78,7 @@ const GROUP_ICONS: Record<string, typeof Activity> = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  "market-data": "行情与价格",
+  "commerce-data": "行情与价格",
   symbol: "标的识别",
   indicator: "指标计算",
   backtest: "回测引擎",
@@ -306,7 +306,7 @@ function OverviewView({ data, groupNameById, onViewChange, onOpenCapability, onO
           <div className="max-w-3xl">
             <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary"><BriefcaseBusiness className="mr-1.5 h-3.5 w-3.5" />QUANT BUSINESS KNOWLEDGE</Badge>
             <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">把业务问题，映射为可执行的量化能力</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">这里沉淀 QuantPilot 能解决的业务场景、分析关注点、交付标准和能力边界。数据、Skills 与接口是支撑资源，而不是平台本身。</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">这里沉淀 Shop Gate 能解决的业务场景、分析关注点、交付标准和能力边界。数据、Skills 与接口是支撑资源，而不是平台本身。</p>
             <div className="mt-6 flex flex-wrap gap-2">
               <Button onClick={() => onViewChange("capabilities")} className="gap-2"><Compass className="h-4 w-4" />浏览能力目录</Button>
               <Button variant="outline" onClick={() => onViewChange("knowledge")} className="gap-2"><BookOpenCheck className="h-4 w-4" />查看业务知识</Button>
@@ -532,7 +532,7 @@ export default function BusinessKnowledgeClient({ initialData }: Props) {
     setIsRefreshing(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/quant/capability-center`, { cache: "no-store" });
+      const response = await fetch(`${API_BASE}/api/commerce/capability-center`, { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.error ?? "刷新失败");
       setData(payload.data);

@@ -1,4 +1,4 @@
-/** QuantPilot integration for the upstream PI Agent runtime. */
+/** Shop Gate integration for the upstream PI Agent runtime. */
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -39,9 +39,9 @@ import {
 import { createRealtimeMessage, serializeMessage } from '@/lib/serializers/chat';
 import {
   assessPlatformPreparedQuantArtifacts,
-  buildQuantPilotSystemPrompt,
-  buildQuantPilotTaskPrompt,
-  buildQuantPilotUserPrompt,
+  buildShopGateSystemPrompt,
+  buildShopGateTaskPrompt,
+  buildShopGateUserPrompt,
 } from '@/lib/services/pi-agent-prompts';
 import {
   completeAgentRun,
@@ -80,7 +80,7 @@ import { serializeQuantVisualizationTemplate } from '@/lib/domains/finance/visua
 import {
   quantValidationRepairWritableGlobs,
   readQuantValidationReport,
-} from '@/lib/quant/validation';
+} from '@/lib/commerce/validation';
 import { validatePiAgentProjectPath } from './pi-agent-workspace';
 import type { PiAgentCandidateSubmission } from '@/lib/agent/mission';
 import { candidateFromPiAgentRun } from '@/lib/services/pi-agent-candidate';
@@ -272,9 +272,9 @@ function toolTarget(input: unknown): string | undefined {
 function toolAction(name: string): string {
   if (/^(?:write_file)$/i.test(name)) return 'Created';
   if (/^(?:edit_file|apply_patch|semantic_edit|apply_dashboard_spec)$/i.test(name)) return 'Edited';
-  if (/^(?:read_file|read_file_range|query_json|query_text_file|inspect_dashboard_contract|quant_extract_uploaded_image|extract_image_evidence)$/i.test(name)) return 'Read';
+  if (/^(?:read_file|read_file_range|query_json|query_text_file|inspect_dashboard_contract|commerce_extract_uploaded_image|extract_image_evidence)$/i.test(name)) return 'Read';
   if (/^(?:list_files|search_files)$/i.test(name)) return 'Searched';
-  if (/^(?:quant_api_get)$/i.test(name)) return 'Executed';
+  if (/^(?:commerce_api_get)$/i.test(name)) return 'Executed';
   return 'Generated';
 }
 
@@ -284,8 +284,8 @@ function toolStartSummary(name: string, target?: string): string {
   if (name === 'inspect_dashboard_contract') return '正在核验看板结构、数据绑定和可编辑入口。';
   if (name === 'apply_dashboard_spec') return '正在按权威任务合同编译标准看板。';
   if (name === 'semantic_edit') return `正在对 ${target || '目标源码'} 执行版本化语义编辑。`;
-  if (name === 'quant_api_get') return `正在从 ${target || '量化数据接口'} 获取真实数据。`;
-  if (name === 'quant_extract_uploaded_image' || name === 'extract_image_evidence') {
+  if (name === 'commerce_api_get') return `正在从 ${target || '量化数据接口'} 获取真实数据。`;
+  if (name === 'commerce_extract_uploaded_image' || name === 'extract_image_evidence') {
     return '正在提取图片中的可验证金融字段。';
   }
   if (name === 'submit_result') return '正在提交本次候选产物，后续由平台独立验证。';
@@ -401,8 +401,8 @@ async function buildBoundedHistory(
         message.cliSource === 'pi' &&
         message.requestId &&
         metadata?.isPiAgentFinal !== true) return false;
-      return metadata?.isQuantPilotPipelineStep !== true &&
-        metadata?.toolName !== 'QuantPilot 自动验证' &&
+      return metadata?.isShopGatePipelineStep !== true &&
+        metadata?.toolName !== 'Shop Gate 自动验证' &&
         !(typeof metadata?.validationStatus === 'string' &&
           metadata?.reportPath === '.data-agent/validation.json');
     });
@@ -521,7 +521,7 @@ async function persistToolMessage(params: {
 }
 
 /**
- * Execute one upstream PI Agent run. QuantPilot owns planning/validation and
+ * Execute one upstream PI Agent run. Shop Gate owns planning/validation and
  * overall request completion; this function owns only the agent execution stage.
  */
 export async function executePiAgent(
@@ -739,7 +739,7 @@ async function executePiAgentPhase(
       dashboardSpecReady: preparedAssessment.dashboardSpecReady,
     });
     if (phaseGraph.providerMode === 'model' && !llmConfig.agent.enabled) {
-      throw new Error('项目 LLM Agent 已由 QUANTPILOT_LLM_AGENT_ENABLED 禁用。');
+      throw new Error('项目 LLM Agent 已由 SHOPGATE_LLM_AGENT_ENABLED 禁用。');
     }
     if (phaseGraph.providerMode === 'model' && !apiKey) {
       throw new Error(
@@ -901,7 +901,7 @@ async function executePiAgentPhase(
           ? positiveIntegerEnv('PI_AGENT_PREFETCHED_SKILL_CONTEXT_CHARS', 4_000)
           : positiveIntegerEnv('PI_AGENT_SKILL_CONTEXT_CHARS', 6_000),
       }),
-      buildQuantPilotTaskPrompt(instruction, workspace, {
+      buildShopGateTaskPrompt(instruction, workspace, {
         runPlan,
         platformPrepared,
         preparedIntent,
@@ -947,12 +947,12 @@ async function executePiAgentPhase(
         }
       }
     }
-    const systemPrompt = buildQuantPilotSystemPrompt({
+    const systemPrompt = buildShopGateSystemPrompt({
       phase: skillPhase,
       preparedIntent,
       skillManifest: skillBundle.systemContext,
     });
-    const userPrompt = buildQuantPilotUserPrompt({
+    const userPrompt = buildShopGateUserPrompt({
       taskPacket: taskPrompt,
       skillContext: skillBundle.taskContext,
       personalizationContext: personalization?.content ?? null,
@@ -989,7 +989,7 @@ async function executePiAgentPhase(
             apiKey: apiKey!,
             baseUrl: llmConfig.baseUrl,
             headers: {
-              'X-Client-App': `QuantPilot-PI-Agent/${PI_AGENT_VERSION}`,
+              'X-Client-App': `Shop Gate-PI-Agent/${PI_AGENT_VERSION}`,
             },
             maxRequestBytes: positiveIntegerEnv('PI_AGENT_MAX_REQUEST_BYTES', 2_000_000),
             maxRetries: nonNegativeIntegerEnv('PI_AGENT_PROVIDER_MAX_RETRIES', 2),
@@ -1001,7 +1001,7 @@ async function executePiAgentPhase(
             apiKey: apiKey!,
             baseUrl: llmConfig.baseUrl,
             headers: {
-              'X-Client-App': `QuantPilot-PI-Agent/${PI_AGENT_VERSION}`,
+              'X-Client-App': `Shop Gate-PI-Agent/${PI_AGENT_VERSION}`,
               ...modelPortScopeHeaders(integrationScope),
             },
             maxRequestBytes: positiveIntegerEnv('PI_AGENT_MAX_REQUEST_BYTES', 2_000_000),
@@ -1557,7 +1557,7 @@ export async function initializeNextJsProject(
   const instruction = `Enhance the existing, platform-scaffolded Next.js 16 application for this requirement:
 ${initialPrompt}
 
-Keep the App Router, TypeScript, package setup, local CSS, market proxy, platform-prefetched run plan, final data, evidence, and dashboard data binding. Do not recreate the project or reset package.json. At 390x844 the first viewport must show the instrument, price, at least two real metrics, and the main visualization body. At 1440x900 keep the primary visualization above the fold. QuantPilot will run build, preview, and validation after submit_result.`;
+Keep the App Router, TypeScript, package setup, local CSS, market proxy, platform-prefetched run plan, final data, evidence, and dashboard data binding. Do not recreate the project or reset package.json. At 390x844 the first viewport must show the instrument, price, at least two real metrics, and the main visualization body. At 1440x900 keep the primary visualization above the fold. Shop Gate will run build, preview, and validation after submit_result.`;
   return executePiAgent(
     projectId,
     projectPath,

@@ -13,14 +13,14 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: {
-    default: 'QuantPilot · 量化研究工作台',
+    default: 'Shop Gate · 量化研究工作台',
     template: '%s',
   },
   description: '从真实行情与证据出发，生成、评测和治理可验证的量化研究看板。',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [
-      { url: '/quantpilot-mark.svg?v=2', type: 'image/svg+xml' },
+      { url: '/shopgate-mark.svg?v=2', type: 'image/svg+xml' },
       { url: '/favicon-32.png?v=2', sizes: '32x32', type: 'image/png' },
       { url: '/favicon-16.png?v=2', sizes: '16x16', type: 'image/png' },
     ],
@@ -31,20 +31,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const authConfig = getProjectAuthConfig();
-  const includeStableCssFallback = process.env.QUANTPILOT_STABLE_CSS_FALLBACK === '1';
+  const includeStableCssFallback = process.env.SHOPGATE_STABLE_CSS_FALLBACK === '1';
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var m=localStorage.getItem('quantpilot-color-mode')==='dark'?'dark':'light';document.documentElement.classList.toggle('dark',m==='dark');document.documentElement.style.colorScheme=m;}catch(e){}`,
+            __html: `try{var m=localStorage.getItem('shopgate-color-mode')==='dark'?'dark':'light';document.documentElement.classList.toggle('dark',m==='dark');document.documentElement.style.colorScheme=m;}catch(e){}`,
           }}
         />
         {includeStableCssFallback ? (
           <>
             {/* Explicit diagnostics fallback only. Normal runtime already receives globals.css from Next. */}
             {/* eslint-disable-next-line @next/next/no-css-tags */}
-            <link rel="stylesheet" href="/generated/quantpilot-tailwind.css" />
+            <link rel="stylesheet" href="/generated/shopgate-tailwind.css" />
           </>
         ) : null}
       </head>

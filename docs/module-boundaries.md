@@ -1,6 +1,6 @@
 # 模块边界与模块化单体治理
 
-QuantPilot 目前不适合拆成多语言微服务，也不需要引入 Java/Dubbo 式运行时复杂度。更合适的方向是模块化单体：运行态保持 `Next.js + Python market-data` 两条主线，但代码组织按模块管理，模块之间只通过稳定 public surface 协作。
+Shop Gate 目前不适合拆成多语言微服务，也不需要引入 Java/Dubbo 式运行时复杂度。更合适的方向是模块化单体：运行态保持 `Next.js + Python commerce-data` 两条主线，但代码组织按模块管理，模块之间只通过稳定 public surface 协作。
 
 模块清单和质量门定义在 `config/module-boundaries.json`，检查脚本是 `npm run check:module-boundaries`。
 
@@ -16,10 +16,10 @@ QuantPilot 目前不适合拆成多语言微服务，也不需要引入 Java/Dub
 | `agent-runtime` | PI Agent Provider、执行循环、上下文、类型化工具、Skills 编译和通用 Mission 机制 | `src/lib/agent/**`、通用运行服务 |
 | `data-agent-core` | 通用数据任务、实体、指标、Connector、Domain Pack、Agent Profile 与执行计划合同 | `src/lib/data-agent/**` |
 | `finance-domain` | 证券实体、金融能力目录、行情工具、金融 Mission、验证和可视化配置 | `src/lib/domains/finance/**` |
-| `quant-core` | 金融产品编排、LLM-first Query Rewrite、Resolver、运行规划、策略、证据、验证和数据预取 | `src/lib/quant/**`、策略平台/业务知识中心 |
+| `quant-core` | 金融产品编排、LLM-first Query Rewrite、Resolver、运行规划、策略、证据、验证和数据预取 | `src/lib/commerce/**`、策略平台/业务知识中心 |
 | `eval-core` | 评测集、用例、运行、报告和 CI 质量门 | `src/lib/eval/**`、评测页面、评测脚本 |
 | `ops-core` | Docker、服务健康、日志和运维面板 | `src/lib/ops/**`、运行治理中心、观测配置 |
-| `market-data-backend` | FastAPI、行情、回测、TimescaleDB、Redis、ClickHouse | `services/market-data/**` |
+| `commerce-data-backend` | FastAPI、行情、回测、TimescaleDB、Redis、ClickHouse | `services/commerce-data/**` |
 
 ## 依赖原则
 
@@ -40,13 +40,13 @@ QuantPilot 目前不适合拆成多语言微服务，也不需要引入 Java/Dub
 | `src/lib/utils/scaffold.ts` | 基础/专用页面模板已迁入两个纯模板模块，writer 从 5715 行降至约 685 行 | 保持 writer 小于 900 行；模板继续走独立真实构建门禁 |
 | `src/app/[project_id]/chat/page.tsx` | 页面仍同时管理消息、生成、预览恢复与大部分布局 | 拆成 generation controller、message transport、preview hook 和纯页面组件 |
 | `src/lib/agent/pi/run-engine.ts` | 上游 PI loop 适配仍集中承接工具治理、事件投影与终态封存 | 保持单一 PI loop，并继续拆分 adapter、tool governance、event projection 与 terminalization |
-| `src/lib/quant/validation.ts` | artifact/data/visual/repair/acceptance 多条验证管线集中 | 拆成独立 validator，保留单一 facade |
-| `src/lib/quant/data-prefetch.ts` | 通用取数计划与金融 endpoint、证据落盘交织 | 抽离通用执行器与 Finance Data Adapter |
+| `src/lib/commerce/validation.ts` | artifact/data/visual/repair/acceptance 多条验证管线集中 | 拆成独立 validator，保留单一 facade |
+| `src/lib/commerce/data-prefetch.ts` | 通用取数计划与金融 endpoint、证据落盘交织 | 抽离通用执行器与 Finance Data Adapter |
 | `src/app/strategy-platform/StrategyPlatformClient.tsx` | 已拆出 helpers、金融知识、股票池、K 线详情、板块资金、因子目录和基础组件视图；主 client 仍承载弹窗和部分扫描编排 | 继续拆成 dialogs、hooks、tables |
-| `src/lib/quant/strategies.ts` | 已拆出 `strategy-types`、`strategy-catalog`、`strategy-scan-repository`、`strategy-readiness` 和 `strategy-mappers`，公共入口从 1787 行降至约 1140 行 | 继续拆出 `strategy-market-client.ts` 和 `strategy-dashboard-service.ts` |
+| `src/lib/commerce/strategies.ts` | 已拆出 `strategy-types`、`strategy-catalog`、`strategy-scan-repository`、`strategy-readiness` 和 `strategy-mappers`，公共入口从 1787 行降至约 1140 行 | 继续拆出 `strategy-market-client.ts` 和 `strategy-dashboard-service.ts` |
 | `src/lib/eval/runtime.ts` | cases/sets、paths、runtime-utils 和 report/database mappers 已拆出，runtime 当前约 1071 行 | 继续拆成 `src/lib/eval/runs.ts`、`queue.ts`、`repairs.ts`、`schedule.ts` |
-| `services/market-data/.../models.py` | 所有 Pydantic contract 集中在单文件 | 按 quotes、research、ingestion、financials、analytics 分包 |
-| `services/market-data/.../api.py` | app factory 仍混有少量业务装配 | 只保留应用创建、依赖注入和 router 注册；旧 `database.py` 已删除且门禁禁止恢复 |
+| `services/commerce-data/.../models.py` | 所有 Pydantic contract 集中在单文件 | 按 quotes、research、ingestion、financials、analytics 分包 |
+| `services/commerce-data/.../api.py` | app factory 仍混有少量业务装配 | 只保留应用创建、依赖注入和 router 注册；旧 `database.py` 已删除且门禁禁止恢复 |
 
 这些债务暂时以 `largeFileBudgets` 形式进入质量门。超过硬上限会失败，超过目标线会警告。
 

@@ -963,7 +963,7 @@ export default async function Home() {
   const isFundamentalSnapshot = String(visualization?.variant_id ?? visualization?.variantId ?? '') === 'single-stock-fundamental-snapshot';
   const isTechnicalTiming = String(visualization?.template_id ?? visualization?.templateId ?? '') === 'technical-timing';
   const latestBar = bars.at(-1);
-  const name = String(primaryAsset?.name ?? quote?.name ?? primaryAsset?.symbol ?? data?.name ?? 'QuantPilot');
+  const name = String(primaryAsset?.name ?? quote?.name ?? primaryAsset?.symbol ?? data?.name ?? 'Shop Gate');
   const symbol = String(primaryAsset?.symbol ?? quote?.symbol ?? data?.symbol ?? '-');
   const change = numeric(quote?.change_percent ?? latestBar?.change_percent);
   const isUp = (change ?? 0) >= 0;
@@ -2524,8 +2524,8 @@ function resolvePort(preferredPort) {
     PORT: String(port),
     WEB_PORT: String(port),
     NEXT_PUBLIC_APP_URL: url,
-    QUANTPILOT_WORKSPACE_ROOT:
-      process.env.QUANTPILOT_WORKSPACE_ROOT || path.resolve(projectRoot, '../../..'),
+    SHOPGATE_WORKSPACE_ROOT:
+      process.env.SHOPGATE_WORKSPACE_ROOT || path.resolve(projectRoot, '../../..'),
     NEXT_TELEMETRY_DISABLED: '1',
   };
 

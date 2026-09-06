@@ -142,12 +142,12 @@ async function ensureDatabaseSynced() {
     console.log('↪️  Skipping Prisma schema sync because SKIP_DB_SYNC=1.');
     return;
   }
-  if (process.env.QUANTPILOT_DEGRADATION_MODE?.trim().toLowerCase() === 'offline') {
-    console.log('↪️  Skipping Prisma schema sync because QUANTPILOT_DEGRADATION_MODE=offline.');
+  if (process.env.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() === 'offline') {
+    console.log('↪️  Skipping Prisma schema sync because SHOPGATE_DEGRADATION_MODE=offline.');
     return;
   }
-  if (!envFlag('QUANTPILOT_DATABASE_ENABLED', true)) {
-    console.log('↪️  Skipping Prisma schema sync because QUANTPILOT_DATABASE_ENABLED=0.');
+  if (!envFlag('SHOPGATE_DATABASE_ENABLED', true)) {
+    console.log('↪️  Skipping Prisma schema sync because SHOPGATE_DATABASE_ENABLED=0.');
     return;
   }
 
@@ -189,11 +189,11 @@ function envFlag(name, fallback) {
 function isDegradedStartupEnv() {
   return (
     process.env.SKIP_DB_SYNC === '1' ||
-    process.env.QUANTPILOT_DEGRADATION_MODE?.trim().toLowerCase() === 'offline' ||
-    !envFlag('QUANTPILOT_DATABASE_ENABLED', true) ||
-    !envFlag('QUANTPILOT_MARKET_API_ENABLED', true) ||
-    !envFlag('QUANTPILOT_OBSERVABILITY_ENABLED', true) ||
-    !envFlag('QUANTPILOT_REDIS_CACHE_ENABLED', true)
+    process.env.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() === 'offline' ||
+    !envFlag('SHOPGATE_DATABASE_ENABLED', true) ||
+    !envFlag('SHOPGATE_MARKET_API_ENABLED', true) ||
+    !envFlag('SHOPGATE_OBSERVABILITY_ENABLED', true) ||
+    !envFlag('SHOPGATE_REDIS_CACHE_ENABLED', true)
   );
 }
 
@@ -245,7 +245,7 @@ function probeTcp(urlText, timeoutMs = 800) {
 }
 
 async function restoreRecoveredDegradationComponents() {
-  if (process.env.QUANTPILOT_AUTO_RESTORE_DEGRADATION === '0') {
+  if (process.env.SHOPGATE_AUTO_RESTORE_DEGRADATION === '0') {
     return;
   }
   if (!isDegradedStartupEnv()) {
@@ -256,16 +256,16 @@ async function restoreRecoveredDegradationComponents() {
   const databaseReady = await probeDatabaseReady();
   if (databaseReady) {
     delete process.env.SKIP_DB_SYNC;
-    process.env.QUANTPILOT_DATABASE_ENABLED = '1';
-    process.env.QUANTPILOT_DATABASE_REQUIRED = '1';
+    process.env.SHOPGATE_DATABASE_ENABLED = '1';
+    process.env.SHOPGATE_DATABASE_REQUIRED = '1';
     recovered.push('database');
   }
 
-  const marketHealthUrl = process.env.QUANTPILOT_MARKET_API_URL
-    ? `${process.env.QUANTPILOT_MARKET_API_URL.replace(/\/$/, '')}/health`
+  const marketHealthUrl = process.env.SHOPGATE_MARKET_API_URL
+    ? `${process.env.SHOPGATE_MARKET_API_URL.replace(/\/$/, '')}/health`
     : 'http://127.0.0.1:8000/health';
   if (await probeUrl(marketHealthUrl)) {
-    process.env.QUANTPILOT_MARKET_API_ENABLED = '1';
+    process.env.SHOPGATE_MARKET_API_ENABLED = '1';
     recovered.push('market-api');
   }
 
@@ -273,17 +273,17 @@ async function restoreRecoveredDegradationComponents() {
     ? `${process.env.LOKI_URL.replace(/\/$/, '')}/ready`
     : 'http://127.0.0.1:33100/ready';
   if (await probeUrl(lokiReadyUrl)) {
-    process.env.QUANTPILOT_OBSERVABILITY_ENABLED = '1';
+    process.env.SHOPGATE_OBSERVABILITY_ENABLED = '1';
     recovered.push('observability');
   }
 
   if (await probeTcp(process.env.REDIS_URL || 'redis://127.0.0.1:6379/0')) {
-    process.env.QUANTPILOT_REDIS_CACHE_ENABLED = '1';
+    process.env.SHOPGATE_REDIS_CACHE_ENABLED = '1';
     recovered.push('redis');
   }
 
   if (recovered.length) {
-    process.env.QUANTPILOT_DEGRADATION_MODE = 'auto';
+    process.env.SHOPGATE_DEGRADATION_MODE = 'auto';
     console.log(`✅ Recovered components detected; restoring non-offline mode for this run: ${recovered.join(', ')}`);
   }
 }
@@ -384,7 +384,7 @@ async function startWebDevServer({
 
   console.log(`🚀 Starting Next.js dev server on ${resolvedUrl}`);
 
-  const defaultHost = process.env.QUANTPILOT_WEB_HOST?.trim() || '127.0.0.1';
+  const defaultHost = process.env.SHOPGATE_WEB_HOST?.trim() || '127.0.0.1';
   const hostArgs = hasHostnameArg(passthrough) ? [] : ['--hostname', defaultHost];
   const devArgs = ['next', 'dev', ...hostArgs, '--port', resolvedPort.toString(), ...passthrough];
 

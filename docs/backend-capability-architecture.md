@@ -1,6 +1,6 @@
 # 后端能力架构与持续优化边界
 
-这份文档定义 QuantPilot 后端能力的长期形态。它不是要求一次性重构完所有文件，而是给后续新增市场数据、评测分析、生成观测和基础组件能力一个稳定落点，避免逻辑继续堆进单个 route 或数据库文件里。
+这份文档定义 Shop Gate 后端能力的长期形态。它不是要求一次性重构完所有文件，而是给后续新增市场数据、评测分析、生成观测和基础组件能力一个稳定落点，避免逻辑继续堆进单个 route 或数据库文件里。
 
 ## 结论
 
@@ -44,7 +44,7 @@ flowchart LR
 
 ## 模块边界
 
-`services/market-data/src/quantpilot_market_data` 的长期结构如下：
+`services/commerce-data/src/shopgate_commerce_data` 的长期结构如下：
 
 | 目录或文件 | 角色 | 责任 |
 | --- | --- | --- |
@@ -136,7 +136,7 @@ TimescaleDB 是事实主库，ClickHouse 是旁路分析层。ClickHouse 不替�
 ```bash
 npm run check:backend-architecture
 npm run check:quant-guardrails
-cd services/market-data && uv run ruff check . && uv run pytest
+cd services/commerce-data && uv run ruff check . && uv run pytest
 ```
 
 如果只改前端 UI，也不应该破坏这些后端边界文档和 npm script，因为它们是项目长期可维护性的护栏。

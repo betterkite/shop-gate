@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from quantpilot_market_data.database_core import DatabaseError
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.database_core import DatabaseError
+from shopgate_commerce_data.models import (
     DataQualityScanRequest,
     DataQualityScanResponse,
     FactorDefinitionResponse,
@@ -12,9 +12,9 @@ from quantpilot_market_data.models import (
     TradingCalendarRefreshResponse,
     TradingCalendarResponse,
 )
-from quantpilot_market_data.providers.baostock import BaoStockError
-from quantpilot_market_data.security import require_market_admin
-from quantpilot_market_data.services.foundation import (
+from shopgate_commerce_data.providers.baostock import BaoStockError
+from shopgate_commerce_data.security import require_market_admin
+from shopgate_commerce_data.services.foundation import (
     get_factor_definitions,
     get_foundation_status,
     get_trading_calendar,

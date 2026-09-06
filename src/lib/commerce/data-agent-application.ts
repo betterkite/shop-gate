@@ -19,15 +19,15 @@ import {
   getQuantCapability,
 } from '@/lib/domains/finance/capabilities';
 import {
-  createQuantPilotDataAgentRegistry,
+  createShopGateDataAgentRegistry,
   getFinanceSkillCapabilityDescriptor,
-  QUANTPILOT_AGENT_PROFILE_ID,
+  SHOPGATE_AGENT_PROFILE_ID,
 } from '@/lib/domains/finance';
 import { serializeQuantVisualizationTemplate } from '@/lib/domains/finance/visualization-templates';
 import { FINANCE_RUN_PLAN_RELATIVE_PATH } from '@/lib/domains/finance/workspace-artifacts';
 
 const financeAdapter: DataAgentApplicationAdapter = {
-  profileId: QUANTPILOT_AGENT_PROFILE_ID,
+  profileId: SHOPGATE_AGENT_PROFILE_ID,
   async provisionProject(input, application) {
     const capability = getQuantCapability(application.capability.id);
     const visualizationTemplate = serializeQuantVisualizationTemplate(capability.id);
@@ -41,7 +41,7 @@ const financeAdapter: DataAgentApplicationAdapter = {
       workspaceId: input.projectId,
       projectId: input.projectId,
       projectName: input.projectName,
-      platform: 'QuantPilot',
+      platform: 'Shop Gate',
       composition: application.composition,
       createdAt: now,
       updatedAt: now,
@@ -138,7 +138,7 @@ const financeAdapter: DataAgentApplicationAdapter = {
 };
 
 const applicationCatalog = new DataAgentApplicationCatalog(
-  createQuantPilotDataAgentRegistry(),
+  createShopGateDataAgentRegistry(),
 ).register(financeAdapter);
 
 export function getApplicationDataAgentCatalog(): DataAgentApplicationCatalog {

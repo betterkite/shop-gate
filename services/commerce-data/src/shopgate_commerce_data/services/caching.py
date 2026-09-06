@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from quantpilot_market_data.cache import MarketDataCache
+from shopgate_commerce_data.cache import MarketDataCache
 
 
 def read_cached_response[T](

@@ -9,7 +9,7 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-gene
   interopDefault: true,
 });
 
-const { checkQuantArtifactPolicy } = jiti('../../src/lib/quant/validation.ts');
+const { checkQuantArtifactPolicy } = jiti('../../src/lib/commerce/validation.ts');
 
 async function writeFile(filePath, content) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -68,7 +68,7 @@ async function createBaseProject(projectPath) {
 }
 
 async function main() {
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-artifact-policy-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-artifact-policy-'));
 
   try {
     await createBaseProject(projectPath);
@@ -111,7 +111,7 @@ export default async function Page() {
 
   return (
     <main data-source-file={DATA_FILE}>
-      <h1>QuantPilot 看板</h1>
+      <h1>Shop Gate 看板</h1>
       <section aria-label="K 线与量价结构">
         <svg role="img" viewBox="0 0 120 60">
           <title>K 线与成交量</title>

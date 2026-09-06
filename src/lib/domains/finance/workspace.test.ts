@@ -12,7 +12,7 @@ import { writeInitialRunPlan } from './workspace';
 const temporaryProjects: string[] = [];
 
 async function createProject() {
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-run-plan-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-run-plan-'));
   temporaryProjects.push(projectPath);
   return projectPath;
 }

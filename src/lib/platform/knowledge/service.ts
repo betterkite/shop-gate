@@ -16,9 +16,9 @@ import type {
   KnowledgeUsageResult,
 } from './types';
 
-const BUSINESS_OUTCOME_EVALUATOR_URI = 'urn:quantpilot:evaluator:human-business-outcome:v1';
+const BUSINESS_OUTCOME_EVALUATOR_URI = 'urn:shopgate:evaluator:human-business-outcome:v1';
 const BUSINESS_OUTCOME_EVALUATOR_DIGEST = `sha256:${createHash('sha256')
-  .update('quantpilot-human-business-outcome-v1', 'utf8')
+  .update('shopgate-human-business-outcome-v1', 'utf8')
   .digest('hex')}`;
 
 interface KnowledgeDependencies {
@@ -203,7 +203,7 @@ export async function recordGovernedKnowledgeUsage(input: {
     for (const [spaceId, citations] of bySpace) {
       const suffix = stableSuffix(spaceId);
       const receipt = await runtime.port.recordUsage({
-        clientUsageId: `quantpilot:${input.requestId}:${suffix}`,
+        clientUsageId: `shopgate:${input.requestId}:${suffix}`,
         exposureReceiptId: input.capsule.exposureReceiptId,
         spaceId,
         citations: citations.map((citation) => ({
@@ -217,7 +217,7 @@ export async function recordGovernedKnowledgeUsage(input: {
         purpose: input.capsule.purpose,
         contextDigest: input.capsule.contextDigest,
         occurredAt,
-      }, `quantpilot-knowledge-usage-${input.requestId}-${suffix}`, input.requestId);
+      }, `shopgate-knowledge-usage-${input.requestId}-${suffix}`, input.requestId);
       if (
         receipt.exposureReceiptId !== input.capsule.exposureReceiptId
         || receipt.spaceId !== spaceId
@@ -280,7 +280,7 @@ export async function recordGovernedKnowledgeFeedback(input: {
         );
       }
       const suffix = stableSuffix(`${input.requestId}:${usage.usageId}`);
-      const feedbackId = `urn:quantpilot:knowledge-feedback:${suffix}`;
+      const feedbackId = `urn:shopgate:knowledge-feedback:${suffix}`;
       const receipt = await runtime.port.recordFeedback({
         feedbackId,
         usageId: usage.usageId,
@@ -303,14 +303,14 @@ export async function recordGovernedKnowledgeFeedback(input: {
         },
         contextDigest: input.contextDigest,
         evidenceRefs: [
-          `urn:quantpilot:mission-receipt:${stableSuffix(
+          `urn:shopgate:mission-receipt:${stableSuffix(
             `${input.acceptedReceiptId}:${input.acceptedReceiptSha256}`,
           )}`,
-          `urn:quantpilot:business-feedback:${stableSuffix(input.eventId)}`,
+          `urn:shopgate:business-feedback:${stableSuffix(input.eventId)}`,
         ],
         observedAt: input.observedAt ?? new Date().toISOString(),
         privacy: { rawTaskStored: false, aggregation: 'pseudonymized' },
-      }, `quantpilot-knowledge-feedback-${input.requestId}-${suffix}`, input.requestId);
+      }, `shopgate-knowledge-feedback-${input.requestId}-${suffix}`, input.requestId);
       if (
         receipt.feedbackId !== feedbackId
         || receipt.usageId !== usage.usageId

@@ -12,7 +12,7 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-quan
 const {
   hasExplicitTradingPlanIntent,
   inferHistoryLimit,
-} = jiti('../../src/lib/quant/data-prefetch.ts');
+} = jiti('../../src/lib/commerce/data-prefetch.ts');
 const { ensureQuantDashboardTemplate } = jiti('../../src/lib/utils/scaffold.ts');
 
 function assert(condition, message) {
@@ -159,7 +159,7 @@ async function createLegacySelectionPage(projectPath) {
   const tradingRows = [];
   return (
     <main data-template="stock-selection">
-      <p>QuantPilot 选股分析</p>
+      <p>Shop Gate 选股分析</p>
       <strong>stock-selection</strong>
       <section>
         <h2>多标的指标矩阵</h2>
@@ -192,7 +192,7 @@ async function main() {
   assert(inferHistoryLimit(researchPlan('最近半年沪深300走势如何？')) === 126, '半年 should map to 126 trading days');
   assert(inferHistoryLimit(researchPlan('最近80个交易日沪深300走势如何？')) === 80, 'explicit trading days should win');
 
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-research-guardrails-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-research-guardrails-'));
 
   try {
     await writeJson(path.join(projectPath, '.data-agent/finance-run-plan.json'), researchPlan(researchQuestion));
@@ -204,11 +204,11 @@ async function main() {
     const page = await fs.readFile(path.join(projectPath, 'app/page.tsx'), 'utf8');
     const css = await fs.readFile(path.join(projectPath, 'app/globals.css'), 'utf8');
 
-    assert(/QuantPilot 多标的对比/.test(page), 'generated page should use research comparison wording');
+    assert(/Shop Gate 多标的对比/.test(page), 'generated page should use research comparison wording');
     assert(/区间收益/.test(page), 'generated page should use period return wording');
     assert(/不构成交易指令/.test(page), 'generated page should keep research disclaimer');
     assert(!/TradingPlanPanel|getTradingPlanRows|tradingRows|短线交易计划|买入区间|止损|目标价|仓位上限/.test(page), 'generated page should not contain trading plan UI');
-    assert(!/QuantPilot 选股分析|<strong>stock-selection<\/strong>|模板组件：|候选数量|候选视图|120 日收益|<dt>120 日<\/dt>/.test(page), 'generated page should not expose legacy selection wording');
+    assert(!/Shop Gate 选股分析|<strong>stock-selection<\/strong>|模板组件：|候选数量|候选视图|120 日收益|<dt>120 日<\/dt>/.test(page), 'generated page should not expose legacy selection wording');
     assert(!/\.trading-plan-grid|\.trade-card|\.trade-title|\.trade-rationale|\.trade-abandon/.test(css), 'generated CSS should not contain trading plan styles');
 
     console.log('[quant-research-guardrails] ok');

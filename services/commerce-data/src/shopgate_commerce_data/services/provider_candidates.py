@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from quantpilot_market_data.provider_candidates import (
+from shopgate_commerce_data.provider_candidates import (
     CANDIDATE_PROVIDERS,
     CandidateProviderProbeResponse,
     CandidateProviderRegistry,

@@ -1,4 +1,4 @@
-/** Public surface for QuantPilot's PI Agent runtime and host governance layer. */
+/** Public surface for Shop Gate's PI Agent runtime and host governance layer. */
 
 export * from './types';
 export * from './input-policy';

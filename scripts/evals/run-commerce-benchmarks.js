@@ -9,7 +9,7 @@ const { spawnSync } = require('child_process');
 const dotenv = require('dotenv');
 const { PrismaClient } = require('@prisma/client');
 const { NextRequest } = require('next/server');
-const jiti = require('jiti')(path.join(process.cwd(), 'scripts/evals/run-quant-benchmarks.js'), {
+const jiti = require('jiti')(path.join(process.cwd(), 'scripts/evals/run-commerce-benchmarks.js'), {
   interopDefault: true,
 });
 
@@ -26,17 +26,17 @@ const {
   __dashboardSpecTesting,
 } = jiti('../../src/lib/domains/finance/agent-tools/dashboard-spec.ts');
 const { buildClarificationContinuation } = jiti('../../src/lib/domains/finance/intent.ts');
-const { prefetchQuantDataForRunPlan } = jiti('../../src/lib/quant/data-prefetch.ts');
+const { prefetchQuantDataForRunPlan } = jiti('../../src/lib/commerce/data-prefetch.ts');
 const {
   startQuantGenerationRun,
   updateQuantGenerationStep,
-} = jiti('../../src/lib/quant/generation-state.ts');
+} = jiti('../../src/lib/commerce/generation-state.ts');
 const {
   buildQuantValidationRepairInstruction,
   buildQuantValidationRepairPlan,
   readQuantValidationReport,
   validateQuantProject,
-} = jiti('../../src/lib/quant/validation.ts');
+} = jiti('../../src/lib/commerce/validation.ts');
 const { previewManager } = jiti('../../src/lib/services/preview.ts');
 const { createProject } = jiti('../../src/lib/services/project.ts');
 const {
@@ -69,8 +69,8 @@ const {
 } = jiti('../../src/lib/eval/report-attestation.ts');
 const {
   attestProductControlEvidence,
-  loadQuantE2eSuite,
-} = require('../checks/quant-e2e-suite');
+  loadCommerceE2eSuite,
+} = require('../checks/commerce-e2e-suite');
 const {
   applyEvalEvaluator,
   getEvalEvaluatorDefinition,
@@ -96,13 +96,13 @@ dotenv.config({ path: path.resolve('.env.local') });
 dotenv.config({ path: path.resolve('.env') });
 
 const prisma = new PrismaClient();
-const CASES_PATH = path.resolve('benchmarks/quantpilot/cases.json');
-const E2E_SUITE_PATH = path.resolve('benchmarks/quantpilot/e2e-suite.json');
-const DATASET_REGISTRY_PATH = path.resolve('benchmarks/quantpilot/datasets.json');
-const SNAPSHOT_MANIFEST_PATH = path.resolve('benchmarks/quantpilot/snapshot-manifest.json');
-const QUERY_REWRITE_FIXTURES_PATH = path.resolve('benchmarks/quantpilot/query-rewrite-fixtures.json');
+const CASES_PATH = path.resolve('benchmarks/shopgate/cases.json');
+const E2E_SUITE_PATH = path.resolve('benchmarks/shopgate/e2e-suite.json');
+const DATASET_REGISTRY_PATH = path.resolve('benchmarks/shopgate/datasets.json');
+const SNAPSHOT_MANIFEST_PATH = path.resolve('benchmarks/shopgate/snapshot-manifest.json');
+const QUERY_REWRITE_FIXTURES_PATH = path.resolve('benchmarks/shopgate/query-rewrite-fixtures.json');
 const PROJECTS_DIR = path.resolve(process.env.PROJECTS_DIR || './data/projects');
-const REPORTS_DIR = path.resolve('tmp/quantpilot-benchmark-reports');
+const REPORTS_DIR = path.resolve('tmp/shopgate-benchmark-reports');
 const DEFAULT_MODEL = getDefaultModelForCli('pi');
 const QUERY_REWRITE_FIXTURES = require(QUERY_REWRITE_FIXTURES_PATH);
 
@@ -150,15 +150,15 @@ function parseArgs(argv) {
   const selected = new Set();
   let limit = null;
   let keepProjects = false;
-  let trigger = process.env.QUANTPILOT_EVAL_TRIGGER || 'cli';
-  let evaluatorId = process.env.QUANTPILOT_EVAL_EVALUATOR || 'rule-strict';
-  let concurrency = Number.parseInt(process.env.QUANTPILOT_EVAL_CONCURRENCY || '1', 10);
-  let repeat = Number.parseInt(process.env.QUANTPILOT_EVAL_REPEAT || '1', 10);
-  let mode = process.env.QUANTPILOT_EVAL_MODE || 'contract';
-  let datasetVisibility = process.env.QUANTPILOT_EVAL_DATASET_VISIBILITY || 'public';
-  let casesFile = process.env.QUANTPILOT_EVAL_CASES_PATH || null;
+  let trigger = process.env.SHOPGATE_EVAL_TRIGGER || 'cli';
+  let evaluatorId = process.env.SHOPGATE_EVAL_EVALUATOR || 'rule-strict';
+  let concurrency = Number.parseInt(process.env.SHOPGATE_EVAL_CONCURRENCY || '1', 10);
+  let repeat = Number.parseInt(process.env.SHOPGATE_EVAL_REPEAT || '1', 10);
+  let mode = process.env.SHOPGATE_EVAL_MODE || 'contract';
+  let datasetVisibility = process.env.SHOPGATE_EVAL_DATASET_VISIBILITY || 'public';
+  let casesFile = process.env.SHOPGATE_EVAL_CASES_PATH || null;
   let cli = 'pi';
-  let model = process.env.QUANTPILOT_EVAL_MODEL || DEFAULT_MODEL;
+  let model = process.env.SHOPGATE_EVAL_MODEL || DEFAULT_MODEL;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -293,8 +293,8 @@ function parseArgs(argv) {
   }
   if (datasetVisibility !== 'public') {
     casesFile = casesFile || (datasetVisibility === 'hidden'
-      ? process.env.QUANTPILOT_HIDDEN_EVAL_CASES_PATH
-      : process.env.QUANTPILOT_PRODUCTION_REPLAY_CASES_PATH) || null;
+      ? process.env.SHOPGATE_HIDDEN_EVAL_CASES_PATH
+      : process.env.SHOPGATE_PRODUCTION_REPLAY_CASES_PATH) || null;
     if (!casesFile) {
       throw new Error(`${datasetVisibility} 评测必须通过环境变量或 --cases-file 注入外部数据集`);
     }
@@ -1666,7 +1666,7 @@ async function runVisualCheck({ projectId, testCase }) {
   }
 
   const { chromium } = require('playwright');
-  const screenshotDir = path.resolve('tmp/quantpilot-benchmark-screenshots');
+  const screenshotDir = path.resolve('tmp/shopgate-benchmark-screenshots');
   await fs.mkdir(screenshotDir, { recursive: true });
   const failures = [];
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -1744,7 +1744,7 @@ async function runVisualCheck({ projectId, testCase }) {
             accessibilityIssueCount: controlsWithoutName + inputsWithoutName + imagesWithoutAlt,
           };
         });
-        for (const keyword of testCase.expectedVisualKeywords || ['QuantPilot']) {
+        for (const keyword of testCase.expectedVisualKeywords || ['Shop Gate']) {
           assertCondition(info.text.includes(keyword), `${viewport.id} 页面缺少关键词：${keyword}`, failures);
         }
         assertCondition(info.svgCount + info.canvasCount > 0 || info.rectCount >= 12, `${viewport.id} 页面缺少可识别图表元素。`, failures);
@@ -1812,7 +1812,7 @@ async function readGenerationPrefetch(projectPath) {
 
 async function waitForAcceptedMission({ projectPath, projectId, requestId }) {
   const timeoutMs = Number.parseInt(
-    process.env.QUANTPILOT_E2E_MISSION_TIMEOUT_MS || '1200000',
+    process.env.SHOPGATE_E2E_MISSION_TIMEOUT_MS || '1200000',
     10,
   );
   const deadline = Date.now() + (Number.isSafeInteger(timeoutMs) && timeoutMs > 0
@@ -1916,7 +1916,7 @@ function expectedExecutionLaneFailures(testCase, execution, expectedRuntime) {
       rootRun.tools.total <= CUSTOM_LANE_BUDGETS.maxToolCalls &&
       rootRun?.tools?.unexpectedFailureCount === 0 &&
       rootToolNames.includes('semantic_edit') &&
-      !rootToolNames.includes('quant_api_get') &&
+      !rootToolNames.includes('commerce_api_get') &&
       !rootToolNames.includes('apply_dashboard_spec')
       ? []
       : ['期望 model_custom PI Agent 模型路径，但实际运行身份不匹配。'];
@@ -2625,7 +2625,7 @@ async function main() {
     throw new Error(`包含未知 benchmark case：${unknownSelectedIds.join(', ')}`);
   }
   const e2eSuite = args.mode === 'e2e' && args.datasetVisibility === 'public'
-    ? loadQuantE2eSuite({
+    ? loadCommerceE2eSuite({
         root: process.cwd(),
         suitePath: E2E_SUITE_PATH,
         cases: allCases,
@@ -2773,7 +2773,7 @@ async function main() {
         visibility: args.datasetVisibility,
         promptsRedacted: args.datasetVisibility !== 'public',
         sourceIdentitySha256: sha256(
-          args.datasetVisibility === 'public' ? 'benchmarks/quantpilot/cases.json' : args.datasetVisibility,
+          args.datasetVisibility === 'public' ? 'benchmarks/shopgate/cases.json' : args.datasetVisibility,
         ),
       },
       provenance: {

@@ -1,4 +1,4 @@
--- QuantPilot foundation components.
+-- Shop Gate foundation components.
 -- Adds shared tables for trading calendars, factor definitions, data quality scans
 -- and generic platform jobs. Safe to run repeatedly.
 
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS quant.factor_definitions (
   formula TEXT,
   dependencies JSONB NOT NULL DEFAULT '[]'::jsonb,
   status TEXT NOT NULL DEFAULT 'active',
-  provider TEXT NOT NULL DEFAULT 'quantpilot',
+  provider TEXT NOT NULL DEFAULT 'shopgate',
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -120,7 +120,7 @@ VALUES
     '最近 5 个交易日收盘价简单移动平均，用于短线趋势和价格支撑判断。',
     'avg(close, 5)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 10, "decision_hint": "收盘价站上 MA5 通常代表短线动能改善。"}'::jsonb
   ),
   (
@@ -132,7 +132,7 @@ VALUES
     '最近 10 个交易日收盘价简单移动平均，用于观察短中期趋势延续。',
     'avg(close, 10)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 20}'::jsonb
   ),
   (
@@ -144,7 +144,7 @@ VALUES
     '最近 20 个交易日收盘价简单移动平均，约等于月线趋势锚点。',
     'avg(close, 20)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 30, "decision_hint": "价格突破 MA20 常用于趋势转强过滤。"}'::jsonb
   ),
   (
@@ -156,7 +156,7 @@ VALUES
     '最近 30 个交易日收盘价简单移动平均，用于观察中期趋势平滑状态。',
     'avg(close, 30)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 40}'::jsonb
   ),
   (
@@ -168,7 +168,7 @@ VALUES
     '最近 60 个交易日收盘价简单移动平均，用于判断季度级趋势方向。',
     'avg(close, 60)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 50}'::jsonb
   ),
   (
@@ -204,7 +204,7 @@ VALUES
     '结合市场板块和 ST 状态推导的涨停日标记。',
     'derived from change_percent and board rule',
     '["stock_bars.change_percent", "stock_bars.is_st"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 210}'::jsonb
   ),
   (
@@ -216,7 +216,7 @@ VALUES
     '结合市场板块和 ST 状态推导的跌停日标记。',
     'derived from change_percent and board rule',
     '["stock_bars.change_percent", "stock_bars.is_st"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 220}'::jsonb
   ),
   (
@@ -288,7 +288,7 @@ VALUES
     '最近 20 个交易日区间收益，用于短线强弱排序。',
     'close / lag(close, 20) - 1',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 510, "decision_hint": "适合和成交额、换手率、涨跌停可成交性一起用于短线候选排序。"}'::jsonb
   ),
   (
@@ -300,7 +300,7 @@ VALUES
     '最近 60 个交易日区间收益，用于中期趋势强弱排序。',
     'close / lag(close, 60) - 1',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 520}'::jsonb
   ),
   (
@@ -312,7 +312,7 @@ VALUES
     'MA5/10/20/30/60 多头排列和价格相对均线位置的综合趋势质量分。',
     'I(MA5>MA10>MA20>MA30>MA60) + normalized(close/MA20 - 1)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 530}'::jsonb
   ),
   (
@@ -324,7 +324,7 @@ VALUES
     '当日成交额相对过去 20 日平均成交额的倍数，用于突破和资金热度确认。',
     'amount / avg(amount, 20)',
     '["stock_bars.amount"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 540}'::jsonb
   ),
   (
@@ -336,7 +336,7 @@ VALUES
     '20 日收益率年化波动率，用于低波动和仓位风险控制。',
     'stddev(close / lag(close, 1) - 1, 20) * sqrt(252)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 610}'::jsonb
   ),
   (
@@ -348,7 +348,7 @@ VALUES
     '最近 60 个交易日从阶段高点回撤的最大幅度。',
     'min(close / rolling_max(close, 60) - 1)',
     '["stock_bars.close"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 620}'::jsonb
   ),
   (
@@ -360,7 +360,7 @@ VALUES
     'PE/PB/PS/PCF 行业内标准化后的复合估值得分。',
     'z(-pe_ttm) + z(-pb_mrq) + z(-ps_ttm) + z(-pcf_ncf_ttm)',
     '["stock_factors.pe_ttm", "stock_factors.pb_mrq", "stock_factors.ps_ttm", "stock_factors.pcf_ncf_ttm"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 710, "data_gap": "需要全股票池估值覆盖和行业中性化。"}'::jsonb
   ),
   (
@@ -396,7 +396,7 @@ VALUES
     '上涨占比、成交额放大、20 日强弱和方向额代理组成的板块热度因子。',
     'rising_ratio + amount_ratio_20d + strength_20d + proxy_net_amount_ratio',
     '["stock_bars.amount", "stock_bars.change_percent", "security_universe_members.sector_tags"]'::jsonb,
-    'quantpilot',
+    'shopgate',
     '{"display_order": 910, "data_gap": "当前为代理口径，真实主力净流入需另接资金流。"}'::jsonb
   )
 ON CONFLICT (factor_key) DO UPDATE SET

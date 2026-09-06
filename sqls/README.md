@@ -6,15 +6,9 @@
 
 | 文件 | 组件 | 说明 |
 | --- | --- | --- |
-| `001-quant-timeseries.sql` | TimescaleDB / quant schema | 创建 TimescaleDB 扩展、`quant` schema、股票 K 线、因子、策略信号和组合快照 hypertable |
-| `002-quant-research-platform.sql` | 策略研究 / 入库 / 回测 | 补齐证券主数据、股票池、入库任务、同步水位、回测任务和示例 A 股研究池 |
-| `003-split-stock-etf-universes.sql` | 策略股票池治理 | 幂等拆分 A 股股票池与 ETF/指数池，只调整池成员，不删除历史 K 线 |
-| `004-enrich-stock-bars-fields.sql` | 行情字段增强 | 将振幅、涨跌幅、涨跌额和换手率提升为正式列，并从历史 metadata 回填有效值 |
-| `005-enrich-stock-bars-daily-context.sql` | 日频上下文增强 | 将前收盘、交易状态、ST、涨跌停标记提升为正式列，并补齐估值因子查询索引 |
-| `006-enrich-security-sector-metadata.sql` | 证券主数据增强 | 将行业、地区、概念和板块标签提升为证券 metadata 的稳定字段 |
-| `007-quant-foundation-components.sql` | 基础组件 | 创建交易日历、因子定义、数据质量扫描和通用平台任务表，并登记核心因子口径 |
-| `008-realtime-quote-snapshots.sql` | 实时行情隔离 | 创建未复权实时快照表，防止盘中观察值覆盖正式复权日线 |
-| `009-canonical-stock-bars-repair.sql` | 正式 K 线治理 | 归档并迁移历史快照污染，建立正式 K 线统一视图并重建覆盖状态 |
+| `001-commerce-timeseries.sql` | TimescaleDB / commerce schema | 创建 TimescaleDB 扩展、`commerce` schema、真实用户行为事件流（天池 UserBehavior 抽样）与商品/类目日聚合表 |
+| `002-commerce-catalog.sql` | 商品主数据 | 合成 SKU 档案（价格/库存/品牌/店铺）与类目表；`category_id`/`item_id` 继承真实行为流，合成字段带标注（PRD §5.2） |
+| `003-commerce-platform.sql` | 平台基础组件 | 数据导入任务、同步水位、数据质量扫描和通用平台任务表（自上游 `quant.*` 迁移，已移除金融外键） |
 
 主业务表由 Prisma 维护，不在这里手写：
 
@@ -23,7 +17,7 @@
 | 项目与对话 | `projects`、`messages`、`sessions`、`tool_usages`、`user_requests` |
 | 环境与集成 | `env_vars`、`service_tokens`、`project_service_connections`、`commits` |
 | 平台配置 | `platform_settings` |
-| 策略平台 | `strategy_scan_runs`、`strategy_scan_jobs` |
+| 经营情报 | `brief_watch_pools`、`operation_briefs`、`operation_brief_runs` |
 | 评测平台 | `eval_runs`、`eval_queue_items`、`eval_repair_tickets`、`eval_schedules` |
 
 ## 本地初始化
@@ -38,12 +32,12 @@ npm run db:doctor
 
 `npm run db:init` 会按顺序执行 `sqls/*.sql`，然后运行 `prisma db push` 同步 Prisma 管理的应用表。已有数据库也可以重复执行该命令。
 
-表字段、来源和页面使用位置见 [数据字典](../docs/data-dictionary.md)。如果新增 SQL 表、字段或因子定义，需要同步更新这里和数据字典。
+表字段、来源和页面使用位置见 [数据字典](../docs/data-dictionary.md)。真实/合成口径标注见 PRD §5；如果新增 SQL 表或字段，需要同步更新这里和数据字典。
 
 ## 规则
 
 - SQL 必须使用 `IF NOT EXISTS` 或等价方式，避免重复执行失败。
-- 时序、大批量行情和策略信号表放在 `quant` schema。
-- `stock_bars` 的唯一口径包含 `symbol + timeframe + adjustment + ts`，避免前复权、后复权和不复权数据互相覆盖。
+- 行为事件流与聚合表放在 `commerce` schema。
+- 真实数据（行为流、类目/商品 ID）与合成数据（价格/库存/品牌/店铺）必须在表注释和字段标注中可区分（PRD §5.3 红线）。
 - 平台主业务表继续先改 `prisma/schema.prisma`，再通过 Prisma 生成数据库结构。
 - 后续若引入 Redis、对象存储或 ClickHouse，只把 PostgreSQL/TimescaleDB 相关 SQL 放在这里。

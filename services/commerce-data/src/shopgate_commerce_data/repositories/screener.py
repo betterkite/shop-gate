@@ -476,8 +476,8 @@ async def screen_a_share_short_term_candidates(
               securities.name,
               securities.exchange,
               securities.metadata AS security_metadata
-            FROM quant.security_universe_members members
-            JOIN quant.securities securities
+            FROM commerce.security_universe_members members
+            JOIN commerce.securities securities
               ON securities.symbol = members.symbol
             WHERE members.universe_id = %s
               AND securities.asset_type = 'stock'
@@ -501,7 +501,7 @@ async def screen_a_share_short_term_candidates(
                         id,
                         COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                         COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment
-                      FROM quant.security_universes
+                      FROM commerce.security_universes
                       WHERE id = %s
                     ),
                     target_members AS (
@@ -509,10 +509,10 @@ async def screen_a_share_short_term_candidates(
                         members.symbol,
                         universe_config.timeframe,
                         universe_config.adjustment
-                      FROM quant.security_universe_members members
+                      FROM commerce.security_universe_members members
                       JOIN universe_config
                         ON universe_config.id = members.universe_id
-                      JOIN quant.securities securities
+                      JOIN commerce.securities securities
                         ON securities.symbol = members.symbol
                       WHERE members.universe_id = %s
                         AND securities.asset_type = 'stock'
@@ -525,7 +525,7 @@ async def screen_a_share_short_term_candidates(
                     SELECT max((bars.ts AT TIME ZONE 'Asia/Shanghai')::date)
                       AS trade_date
                     FROM target_members
-                    JOIN quant.canonical_stock_bars bars
+                    JOIN commerce.canonical_stock_bars bars
                       ON bars.symbol = target_members.symbol
                      AND bars.timeframe = target_members.timeframe
                      AND bars.adjustment = target_members.adjustment
@@ -543,16 +543,16 @@ async def screen_a_share_short_term_candidates(
                         id,
                         COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                         COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment
-                      FROM quant.security_universes
+                      FROM commerce.security_universes
                       WHERE id = %s
                     )
                     SELECT max((bars.ts AT TIME ZONE 'Asia/Shanghai')::date) AS trade_date
-                    FROM quant.security_universe_members members
+                    FROM commerce.security_universe_members members
                     JOIN universe_config
                       ON universe_config.id = members.universe_id
-                    JOIN quant.securities securities
+                    JOIN commerce.securities securities
                       ON securities.symbol = members.symbol
-                    JOIN quant.canonical_stock_bars bars
+                    JOIN commerce.canonical_stock_bars bars
                       ON bars.symbol = members.symbol
                      AND bars.timeframe = universe_config.timeframe
                      AND bars.adjustment = universe_config.adjustment
@@ -716,7 +716,7 @@ async def screen_a_share_short_term_candidates(
                     id,
                     COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                     COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment
-                  FROM quant.security_universes
+                  FROM commerce.security_universes
                   WHERE id = %s
                 ),
                 member_symbols AS (
@@ -728,10 +728,10 @@ async def screen_a_share_short_term_candidates(
                     securities.metadata AS security_metadata,
                     universe_config.timeframe,
                     universe_config.adjustment
-                  FROM quant.security_universe_members members
+                  FROM commerce.security_universe_members members
                   JOIN universe_config
                     ON universe_config.id = members.universe_id
-                  JOIN quant.securities securities
+                  JOIN commerce.securities securities
                     ON securities.symbol = members.symbol
                   WHERE members.universe_id = %s
                     AND securities.asset_type = 'stock'
@@ -824,7 +824,7 @@ async def screen_a_share_short_term_candidates(
                         bars.is_st,
                         bars.trade_status,
                         bars.provider
-                      FROM quant.canonical_stock_bars bars
+                      FROM commerce.canonical_stock_bars bars
                       WHERE bars.symbol = members.symbol
                         AND bars.timeframe = members.timeframe
                         AND bars.adjustment = members.adjustment

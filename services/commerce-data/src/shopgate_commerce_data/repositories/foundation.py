@@ -137,7 +137,7 @@ async def list_foundation_components() -> list[FoundationComponentStatus]:
               JOIN pg_class classes
                 ON classes.relnamespace = namespaces.oid
                AND classes.relname = chunks.table_name
-              WHERE hypertables.schema_name = 'quant'
+              WHERE hypertables.schema_name = 'commerce'
                 AND hypertables.table_name IN ('stock_bars', 'stock_factors')
               GROUP BY hypertables.table_name
             ),
@@ -151,7 +151,7 @@ async def list_foundation_components() -> list[FoundationComponentStatus]:
               FROM pg_class classes
               JOIN pg_namespace namespaces
                 ON namespaces.oid = classes.relnamespace
-              WHERE namespaces.nspname = 'quant'
+              WHERE namespaces.nspname = 'commerce'
                 AND classes.relname IN ('stock_bars', 'stock_factors')
                 AND NOT EXISTS (
                   SELECT 1
@@ -160,10 +160,10 @@ async def list_foundation_components() -> list[FoundationComponentStatus]:
                 )
             )
             SELECT
-              (SELECT count(*)::INT FROM quant.trading_calendars) AS calendar_count,
-              (SELECT count(*)::INT FROM quant.factor_definitions) AS factor_count,
-              (SELECT count(*)::INT FROM quant.data_quality_scans) AS quality_scan_count,
-              (SELECT count(*)::INT FROM quant.platform_jobs) AS platform_job_count,
+              (SELECT count(*)::INT FROM commerce.trading_calendars) AS calendar_count,
+              (SELECT count(*)::INT FROM commerce.factor_definitions) AS factor_count,
+              (SELECT count(*)::INT FROM commerce.data_quality_scans) AS quality_scan_count,
+              (SELECT count(*)::INT FROM commerce.platform_jobs) AS platform_job_count,
               COALESCE(
                 (SELECT estimated_rows FROM table_estimates WHERE relname = 'stock_bars'),
                 0
@@ -172,7 +172,7 @@ async def list_foundation_components() -> list[FoundationComponentStatus]:
                 (SELECT estimated_rows FROM table_estimates WHERE relname = 'stock_factors'),
                 0
               ) AS factor_value_count,
-              (SELECT count(*)::INT FROM quant.market_data_ingestion_jobs) AS ingestion_job_count
+              (SELECT count(*)::INT FROM commerce.market_data_ingestion_jobs) AS ingestion_job_count
             """
         )
         row = await cursor.fetchone()
@@ -285,7 +285,7 @@ async def list_factor_definitions(
               provider,
               metadata,
               updated_at
-            FROM quant.factor_definitions
+            FROM commerce.factor_definitions
             {where_sql}
             ORDER BY
               category,
@@ -334,7 +334,7 @@ async def list_trading_calendar_days(
         await cursor.execute(
             """
             SELECT market, trade_date, is_open, session, source, metadata
-            FROM quant.trading_calendars
+            FROM commerce.trading_calendars
             WHERE market = %s
               AND (%s::DATE IS NULL OR trade_date >= %s)
               AND (%s::DATE IS NULL OR trade_date <= %s)
@@ -363,8 +363,8 @@ async def list_trading_calendar_days(
         await cursor.execute(
             """
             SELECT DISTINCT bars.ts::date AS trade_date
-            FROM quant.canonical_stock_bars bars
-            JOIN quant.securities securities
+            FROM commerce.canonical_stock_bars bars
+            JOIN commerce.securities securities
               ON securities.symbol = bars.symbol
             WHERE bars.timeframe = 'daily'
               AND securities.asset_type IN ('stock', 'etf', 'index', 'fund')
@@ -449,13 +449,13 @@ async def upsert_trading_calendar_days(
                   OR calendars.metadata IS DISTINCT FROM incoming.metadata
                 ) AS is_changed
               FROM incoming
-              LEFT JOIN quant.trading_calendars calendars
+              LEFT JOIN commerce.trading_calendars calendars
                 ON calendars.market = incoming.market
                AND calendars.trade_date = incoming.trade_date
                AND calendars.session = incoming.session
             ),
             upserted AS (
-              INSERT INTO quant.trading_calendars (
+              INSERT INTO commerce.trading_calendars (
                 market, trade_date, is_open, session, source, metadata,
                 created_at, updated_at
               )
@@ -468,9 +468,9 @@ async def upsert_trading_calendar_days(
                 source = EXCLUDED.source,
                 metadata = EXCLUDED.metadata,
                 updated_at = now()
-              WHERE quant.trading_calendars.is_open IS DISTINCT FROM EXCLUDED.is_open
-                 OR quant.trading_calendars.source IS DISTINCT FROM EXCLUDED.source
-                 OR quant.trading_calendars.metadata IS DISTINCT FROM EXCLUDED.metadata
+              WHERE commerce.trading_calendars.is_open IS DISTINCT FROM EXCLUDED.is_open
+                 OR commerce.trading_calendars.source IS DISTINCT FROM EXCLUDED.source
+                 OR commerce.trading_calendars.metadata IS DISTINCT FROM EXCLUDED.metadata
               RETURNING 1
             )
             SELECT
@@ -526,7 +526,7 @@ async def run_data_quality_scan(
             await cursor.execute(
                 """
                 SELECT symbol, name, exchange
-                FROM quant.securities
+                FROM commerce.securities
                 WHERE symbol = ANY(%s::text[])
                 ORDER BY symbol
                 """,
@@ -536,8 +536,8 @@ async def run_data_quality_scan(
             await cursor.execute(
                 """
                 SELECT securities.symbol, securities.name, securities.exchange
-                FROM quant.security_universe_members members
-                JOIN quant.securities securities
+                FROM commerce.security_universe_members members
+                JOIN commerce.securities securities
                   ON securities.symbol = members.symbol
                 WHERE members.universe_id = %s
                   AND COALESCE(members.role, 'member') <> 'inactive'
@@ -700,7 +700,7 @@ async def run_data_quality_scan(
         async with await connect() as connection, connection.cursor() as cursor:
             await cursor.execute(
                 """
-                INSERT INTO quant.data_quality_scans (
+                INSERT INTO commerce.data_quality_scans (
                   id, universe_id, symbol, scope, timeframe, adjustment, status, severity,
                   checked_symbols, passed_symbols, warning_symbols, failed_symbols,
                   checked_rows, issue_count, issues, metrics, started_at, completed_at,

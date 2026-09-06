@@ -78,10 +78,10 @@ async def get_market_data_coverage_page(
                           'qfq'
                         ) AS default_adjustment,
                         COALESCE(universes.metadata->>'provider', 'eastmoney') AS default_provider
-                      FROM quant.security_universe_members members
-                      JOIN quant.security_universes universes
+                      FROM commerce.security_universe_members members
+                      JOIN commerce.security_universes universes
                         ON universes.id = members.universe_id
-                      JOIN quant.securities securities
+                      JOIN commerce.securities securities
                         ON securities.symbol = members.symbol
                       WHERE members.universe_id = %s
                         AND (
@@ -101,7 +101,7 @@ async def get_market_data_coverage_page(
                         max(sync_state.last_ts) AS last_ts,
                         COALESCE(sum(sync_state.row_count), 0)::INT AS row_count
                       FROM target_members
-                      JOIN quant.market_data_sync_state sync_state
+                      JOIN commerce.market_data_sync_state sync_state
                         ON sync_state.symbol = target_members.symbol
                        AND sync_state.timeframe = target_members.default_timeframe
                        AND sync_state.adjustment = target_members.default_adjustment
@@ -148,10 +148,10 @@ async def get_market_data_coverage_page(
                           'qfq'
                         ) AS default_adjustment,
                         COALESCE(universes.metadata->>'provider', 'eastmoney') AS default_provider
-                      FROM quant.security_universe_members members
-                      JOIN quant.security_universes universes
+                      FROM commerce.security_universe_members members
+                      JOIN commerce.security_universes universes
                         ON universes.id = members.universe_id
-                      JOIN quant.securities securities
+                      JOIN commerce.securities securities
                         ON securities.symbol = members.symbol
                       WHERE members.universe_id = %s
                         AND (
@@ -199,7 +199,7 @@ async def get_market_data_coverage_page(
                         min(sync_state.first_ts) AS first_ts,
                         max(sync_state.last_ts) AS last_ts,
                         COALESCE(sum(sync_state.row_count), 0)::INT AS row_count
-                      FROM quant.market_data_sync_state sync_state
+                      FROM commerce.market_data_sync_state sync_state
                       WHERE sync_state.symbol = paged_members.symbol
                         AND sync_state.timeframe = paged_members.default_timeframe
                         AND sync_state.adjustment = paged_members.default_adjustment
@@ -228,7 +228,7 @@ async def get_market_data_coverage_page(
                         min(sync_state.first_ts) AS first_ts,
                         max(sync_state.last_ts) AS last_ts,
                         COALESCE(sum(sync_state.row_count), 0)::INT AS row_count
-                      FROM quant.market_data_sync_state sync_state
+                      FROM commerce.market_data_sync_state sync_state
                       GROUP BY
                         sync_state.symbol,
                         sync_state.timeframe,
@@ -263,7 +263,7 @@ async def get_market_data_coverage_page(
                         min(sync_state.first_ts) AS first_ts,
                         max(sync_state.last_ts) AS last_ts,
                         COALESCE(sum(sync_state.row_count), 0)::INT AS row_count
-                      FROM quant.market_data_sync_state sync_state
+                      FROM commerce.market_data_sync_state sync_state
                       GROUP BY
                         sync_state.symbol,
                         sync_state.timeframe,
@@ -279,7 +279,7 @@ async def get_market_data_coverage_page(
                       coverage_rows.last_ts,
                       coverage_rows.row_count
                     FROM coverage_rows
-                    LEFT JOIN quant.securities securities
+                    LEFT JOIN commerce.securities securities
                       ON securities.symbol = coverage_rows.symbol
                     ORDER BY
                       coverage_rows.symbol,

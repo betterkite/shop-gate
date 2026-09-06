@@ -305,7 +305,7 @@ class DataQualityScanRequest(BaseModel):
         ],
         description="需要检查完整覆盖的字段。",
     )
-    persist: bool = Field(default=True, description="是否写入 quant.data_quality_scans。")
+    persist: bool = Field(default=True, description="是否写入 commerce.data_quality_scans。")
 
 
 class DataQualityScanResponse(BaseModel):

@@ -200,7 +200,7 @@ def build_data_providers(ttls: ProviderRegistryTtls) -> list[DataProviderInfo]:
             cache_ttl_seconds=None,
             limitations=[
                 "trade_date 必须与 quote_time 的上海日期一致，禁止借实时接口回填历史。",
-                "快照是未复权观察值，不写 quant.stock_bars/stock_factors。",
+                "快照是未复权观察值，不写 commerce.stock_bars/stock_factors。",
                 "实时行情不稳定提供全部 ETF 换手率时，换手率字段会保留为空。",
             ],
         ),

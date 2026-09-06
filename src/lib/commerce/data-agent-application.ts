@@ -15,22 +15,22 @@ import {
 import { installPiAgentSkillsForWorkspace } from '@/lib/agent/skills';
 import { getProjectLlmConfig } from '@/lib/config/llm';
 import {
-  buildQuantProjectSettings,
-  getQuantCapability,
-} from '@/lib/domains/finance/capabilities';
+  buildRetailProjectSettings,
+  getRetailCapability,
+} from '@/lib/domains/retail/capabilities';
 import {
-  createShopGateDataAgentRegistry,
-  getFinanceSkillCapabilityDescriptor,
-  SHOPGATE_AGENT_PROFILE_ID,
-} from '@/lib/domains/finance';
-import { serializeQuantVisualizationTemplate } from '@/lib/domains/finance/visualization-templates';
-import { FINANCE_RUN_PLAN_RELATIVE_PATH } from '@/lib/domains/finance/workspace-artifacts';
+  createRetailDataAgentRegistry,
+  getRetailSkillCapabilityDescriptor,
+  RETAIL_AGENT_PROFILE_ID,
+} from '@/lib/domains/retail';
+import { serializeRetailVisualizationTemplate } from '@/lib/domains/retail/visualization-templates';
+import { RETAIL_RUN_PLAN_RELATIVE_PATH } from '@/lib/domains/retail/workspace-artifacts';
 
 const financeAdapter: DataAgentApplicationAdapter = {
-  profileId: SHOPGATE_AGENT_PROFILE_ID,
+  profileId: RETAIL_AGENT_PROFILE_ID,
   async provisionProject(input, application) {
-    const capability = getQuantCapability(application.capability.id);
-    const visualizationTemplate = serializeQuantVisualizationTemplate(capability.id);
+    const capability = getRetailCapability(application.capability.id);
+    const visualizationTemplate = serializeRetailVisualizationTemplate(capability.id);
     const llm = getProjectLlmConfig(input.selectedModel);
     const now = new Date().toISOString();
     await Promise.all(application.deliveryPack.workspaceDirectories.map((directory) => (
@@ -68,7 +68,7 @@ const financeAdapter: DataAgentApplicationAdapter = {
       ),
       writeWorkspaceJsonAtomic(
         input.projectPath,
-        FINANCE_RUN_PLAN_RELATIVE_PATH,
+        RETAIL_RUN_PLAN_RELATIVE_PATH,
         {
           schemaVersion: 1,
           runId: null,
@@ -119,13 +119,13 @@ const financeAdapter: DataAgentApplicationAdapter = {
     ]);
     await installPiAgentSkillsForWorkspace(input.projectPath, {
       capabilityId: capability.id,
-      capability: getFinanceSkillCapabilityDescriptor(capability.id),
+      capability: getRetailSkillCapabilityDescriptor(capability.id),
       additionalSkillIds: ['platform-ui-product-design'],
     });
     return {
       settings: {
         llm,
-        quant: buildQuantProjectSettings(capability.id),
+        quant: buildRetailProjectSettings(capability.id),
         dataAgent: {
           profileId: application.profile.id,
           profileVersion: application.profile.version,
@@ -138,7 +138,7 @@ const financeAdapter: DataAgentApplicationAdapter = {
 };
 
 const applicationCatalog = new DataAgentApplicationCatalog(
-  createShopGateDataAgentRegistry(),
+  createRetailDataAgentRegistry(),
 ).register(financeAdapter);
 
 export function getApplicationDataAgentCatalog(): DataAgentApplicationCatalog {

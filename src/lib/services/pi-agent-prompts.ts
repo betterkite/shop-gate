@@ -290,7 +290,7 @@ ${instruction.trim()}`;
     ? `附件证据补充模式：
 - 保留平台已有 final/evidence，只通过图片提取 typed tool 补充附件事实、置信边界和人工确认缺口。
 - 只更新与图片证据直接相关的 final/evidence，再按 initial dashboard contract 定向编辑页面。
-- 不重复调用行情接口，不用图片推断值覆盖接口事实。`
+- 不重复调用数据接口，不用图片推断值覆盖接口事实。`
     : prepared && options.preparedIntent === 'standard'
     ? `平台预取标准编译模式：
 - final/evidence 与 run plan 已准备并冻结；权威看板数据是 artifact=final_dashboard（data_file/final/dashboard-data.json），绝不推断 public/data/*.json；直接使用 initial dashboard contract，不重复取数或重写数据。
@@ -320,7 +320,7 @@ ${capabilityContext}
 ${modeConstraints}
 
 任务特有业务约束：
-- 昨收/开高低/成交额/换手优先使用 quote 字段；缺失值显示真实缺口，绝不硬编码或臆造行情。
+- 接口字段缺失时显示真实缺口，绝不硬编码或臆造数据。
 - 多标的必须覆盖全部 assets/comparison；单标的不得因名称别名被改成多标的。未明确要求时，不增加买入区间、止损、目标价、仓位或确定性收益建议。
 - A 股使用红涨绿跌；宽表只在自身容器滚动，移动端不得产生页面级横向溢出。`;
 }

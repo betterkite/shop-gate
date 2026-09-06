@@ -1,32 +1,34 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { QuantRunPlan } from '@/lib/domains/finance/workspace';
+import type { RetailRunPlan } from '@/lib/domains/retail/workspace';
 import { getProjectLlmConfig } from '@/lib/config/llm';
 import {
-  createShopGateDataAgentRegistry,
-  SHOPGATE_AGENT_PROFILE_ID,
-} from '@/lib/domains/finance';
+  createRetailDataAgentRegistry,
+  RETAIL_AGENT_PROFILE_ID,
+} from '@/lib/domains/retail';
 import {
   buildWorkspaceProgressMessage,
   WORKSPACE_PROGRESS_STAGE_LABELS,
 } from './workspace-response';
 
-function plan(overrides: Partial<QuantRunPlan> = {}): QuantRunPlan {
+function plan(overrides: Partial<RetailRunPlan> = {}): RetailRunPlan {
   return {
     schemaVersion: 1,
     runId: 'run-workspace-response',
     status: 'planned',
-    capabilityId: 'stock_diagnosis',
-    composition: createShopGateDataAgentRegistry().resolveCapability(
-      SHOPGATE_AGENT_PROFILE_ID,
-      'stock_diagnosis',
+    capabilityId: 'traffic_funnel',
+    composition: createRetailDataAgentRegistry().resolveCapability(
+      RETAIL_AGENT_PROFILE_ID,
+      'traffic_funnel',
     ).composition,
     llm: getProjectLlmConfig(),
-    question: '八亿时投这个股票最近怎么样',
-    symbols: ['600589'],
-    timeRange: '最近 1 年',
-    dataRequirements: ['实时行情', '历史 K 线', '技术指标', '财务摘要', '公告事件'],
+    question: '这个类目最近转化怎么样',
+    entities: ['cat:10051'],
+    window: null,
+    plannedEntities: { categoryIds: [10051], itemIds: [] },
+    timeRange: '数据窗口内最近 9 天',
+    dataRequirements: ['GET /api/v1/commerce/funnel', 'GET /api/v1/commerce/funnel/daily'],
     analysisSteps: ['取数', '分析', '生成'],
     visualization: {
       required: true,
@@ -101,7 +103,7 @@ describe('workspace response protocol', () => {
       stage: 1,
       runPlan: plan({
         status: 'needs_clarification',
-        symbols: [],
+        entities: [],
         clarification: {
           required: true,
           reason: '存在多个同优先级标的',

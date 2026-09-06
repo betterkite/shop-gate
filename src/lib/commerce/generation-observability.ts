@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma } from '@/lib/db/client';
-import { readQuantRunPlan, type QuantWorkspaceEvent } from '@/lib/domains/finance/workspace';
+import { readRetailRunPlan, type RetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
 import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/commerce/validation';
 import {
   DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
@@ -268,7 +268,7 @@ function dateToIso(value: Date | string | null | undefined): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function timestampFromWorkspaceEvent(event: QuantWorkspaceEvent & JsonRecord): string {
+function timestampFromWorkspaceEvent(event: RetailWorkspaceEvent & JsonRecord): string {
   return (
     dateToIso(stringValue(event.created_at)) ||
     dateToIso(stringValue(event.ts)) ||
@@ -305,7 +305,7 @@ function normalizeRequestStatus(status: string): GenerationTraceStatus {
   return normalizeStatus(status);
 }
 
-function stageFromWorkspaceEvent(event: QuantWorkspaceEvent & JsonRecord): GenerationStageId {
+function stageFromWorkspaceEvent(event: RetailWorkspaceEvent & JsonRecord): GenerationStageId {
   const raw = `${stringValue(event.stage)} ${stringValue(event.event_type)}`.toLowerCase();
   if (/queue/.test(raw)) return 'request';
   if (/intent|request|clarification/.test(raw)) return raw.includes('intent') ? 'planning' : 'request';
@@ -354,7 +354,7 @@ function toolSummary(toolInput: string, toolOutput: string | null, error: string
   return `执行完成${duration || '。'}`;
 }
 
-function workspaceEventTitle(event: QuantWorkspaceEvent & JsonRecord) {
+function workspaceEventTitle(event: RetailWorkspaceEvent & JsonRecord) {
   const eventType = stringValue(event.event_type);
   if (eventType === 'run_planned') return '生成计划';
   if (eventType === 'intent_clarification_required') return '意图需要澄清';
@@ -371,7 +371,7 @@ function workspaceEventTitle(event: QuantWorkspaceEvent & JsonRecord) {
 async function readWorkspaceEvents(
   projectPath: string,
   limit = MAX_WORKSPACE_EVENTS,
-): Promise<Array<QuantWorkspaceEvent & JsonRecord>> {
+): Promise<Array<RetailWorkspaceEvent & JsonRecord>> {
   const filePath = path.join(projectPath, '.data-agent', 'events.jsonl');
   const content = await fs.readFile(filePath, 'utf8').catch(() => '');
   return content
@@ -382,12 +382,12 @@ async function readWorkspaceEvents(
     .map((line) => {
       try {
         const parsed = JSON.parse(line);
-        return isRecord(parsed) ? (parsed as QuantWorkspaceEvent & JsonRecord) : null;
+        return isRecord(parsed) ? (parsed as RetailWorkspaceEvent & JsonRecord) : null;
       } catch {
         return null;
       }
     })
-    .filter((event): event is QuantWorkspaceEvent & JsonRecord => Boolean(event));
+    .filter((event): event is RetailWorkspaceEvent & JsonRecord => Boolean(event));
 }
 
 async function readValidationReportForObservability(
@@ -545,7 +545,7 @@ function buildToolEvents(project: ProjectWithTraceSources): GenerationTimelineEv
   });
 }
 
-function buildWorkspaceEvents(projectId: string, events: Array<QuantWorkspaceEvent & JsonRecord>): GenerationTimelineEvent[] {
+function buildWorkspaceEvents(projectId: string, events: Array<RetailWorkspaceEvent & JsonRecord>): GenerationTimelineEvent[] {
   return events.map((event, index) => ({
     id: `workspace:${projectId}:${index}:${timestampFromWorkspaceEvent(event)}`,
     projectId,
@@ -564,7 +564,7 @@ function buildWorkspaceEvents(projectId: string, events: Array<QuantWorkspaceEve
   }));
 }
 
-function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof readQuantRunPlan>>): GenerationTimelineEvent[] {
+function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof readRetailRunPlan>>): GenerationTimelineEvent[] {
   if (!runPlan) return [];
   return [
     {
@@ -574,7 +574,7 @@ function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof
       stage: 'planning',
       status: runPlan.status === 'needs_clarification' ? 'warning' : normalizeStatus(runPlan.status),
       title: '当前执行计划',
-      summary: compact(runPlan.question || `${runPlan.capabilityId} · ${runPlan.symbols.join('、')}` || '已生成执行计划'),
+      summary: compact(runPlan.question || `${runPlan.capabilityId} · ${runPlan.entities.join('、')}` || '已生成执行计划'),
       timestamp: runPlan.updatedAt ?? runPlan.createdAt,
       requestId: runPlan.runId ?? null,
       artifactPath: '.data-agent/finance-run-plan.json',
@@ -582,7 +582,7 @@ function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof
         capabilityId: runPlan.capabilityId,
         requestedCapabilityId: runPlan.requestedCapabilityId,
         executionCapabilityId: runPlan.executionCapabilityId,
-        symbols: runPlan.symbols,
+        symbols: runPlan.entities,
         expectedArtifacts: runPlan.expectedArtifacts,
       },
     },
@@ -948,7 +948,7 @@ async function inspectProjectTrace(
   const projectPath = resolveProjectPath(project);
   const [workspaceEvents, runPlan, validationReport, repairPlan, generationState, generationQueue, artifactContracts, visualValidation] = await Promise.all([
     readWorkspaceEvents(projectPath, options.summaryOnly ? 20 : options.eventLimit ?? MAX_WORKSPACE_EVENTS),
-    readQuantRunPlan(projectPath),
+    readRetailRunPlan(projectPath),
     readValidationReportForObservability(projectPath),
     readValidationRepairPlanForObservability(projectPath),
     readQuantGenerationState(projectPath),
@@ -1121,7 +1121,7 @@ async function inspectProjectTrace(
       capabilityId: runPlan?.capabilityId ?? null,
       requestedCapabilityId: runPlan?.requestedCapabilityId ?? null,
       executionCapabilityId: runPlan?.executionCapabilityId ?? null,
-      symbols: runPlan?.symbols ?? [],
+      symbols: runPlan?.entities ?? [],
       expectedArtifacts: runPlan?.expectedArtifacts ?? [],
       updatedAt: runPlan?.updatedAt ?? null,
     },

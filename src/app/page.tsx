@@ -57,11 +57,11 @@ import {
   type ActiveCliId,
 } from "@/lib/utils/cliOptions";
 import {
-  DEFAULT_QUANT_CAPABILITY_ID,
-  getQuantCapability,
-  QUANT_CAPABILITIES,
-  type QuantCapabilityId,
-} from "@/lib/domains/finance/capabilities";
+  DEFAULT_RETAIL_CAPABILITY_ID,
+  getRetailCapability,
+  RETAIL_CAPABILITIES,
+  type RetailCapabilityId,
+} from "@/lib/domains/retail/capabilities";
 import { cn } from "@/lib/utils";
 import homeAnimeResearcher from "@/assets/home-anime-quant-researcher-v3.webp";
 import {
@@ -82,24 +82,24 @@ const TaskDrawer = dynamic(
 const ASSISTANT_OPTIONS = ACTIVE_CLI_OPTIONS.map(({ id, name }) => ({ id, name }));
 
 const RESEARCH_STARTERS: Array<{
-  capabilityId: QuantCapabilityId;
+  capabilityId: RetailCapabilityId;
   label: string;
   prompt: string;
 }> = [
   {
-    capabilityId: "stock_diagnosis",
-    label: "贵州茅台近 60 日趋势",
-    prompt: "分析贵州茅台近 60 个交易日的趋势、量能、估值与主要风险。",
+    capabilityId: "traffic_funnel",
+    label: "加购未购买漏斗",
+    prompt: "加购未购买的行为漏斗长什么样？哪个环节流失最大，集中在哪些类目？",
   },
   {
-    capabilityId: "fundamental_analysis",
-    label: "宁德时代基本面",
-    prompt: "评估宁德时代当前的估值、盈利质量、现金流和成长持续性。",
+    capabilityId: "catalog_structure",
+    label: "类目 GMV 结构",
+    prompt: "数据窗口内 GMV 最高的 5 个类目是哪些？给出各类目的转化率和客单价对比。",
   },
   {
-    capabilityId: "asset_comparison",
-    label: "沪深 300 对比中证 500",
-    prompt: "对比沪深 300 与中证 500 近一年的收益、波动率、最大回撤和估值水平。",
+    capabilityId: "price_inventory",
+    label: "库销比滞销清单",
+    prompt: "库销比最差的 10 个商品是哪些？它们的流量转化情况如何？",
   },
 ];
 
@@ -184,7 +184,7 @@ export default function HomePage() {
         agentProfileId: project.agentProfileId ?? DEFAULT_DATA_AGENT_PROFILE_ID,
         agentProfileVersion: project.agentProfileVersion,
         dataAgentCompositionSha256: project.dataAgentCompositionSha256,
-        capabilityId: getQuantCapability(project.capabilityId).id,
+        capabilityId: getRetailCapability(project.capabilityId).id,
       };
     },
     [sanitizeAssistant, normalizeModelForAssistant]
@@ -194,7 +194,7 @@ export default function HomePage() {
     useState<ActiveCliId>(DEFAULT_ASSISTANT);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_MODEL);
   const [selectedCapability, setSelectedCapability] =
-    useState<QuantCapabilityId>(DEFAULT_QUANT_CAPABILITY_ID);
+    useState<RetailCapabilityId>(DEFAULT_RETAIL_CAPABILITY_ID);
   const [usingGlobalDefaults, setUsingGlobalDefaults] = useState(true);
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [cliStatus, setCLIStatus] = useState<CLIStatus>(() =>
@@ -213,8 +213,8 @@ export default function HomePage() {
   const availableModels =
     ACTIVE_CLI_MODEL_OPTIONS[selectedAssistant] || [];
   const selectedRoleModule =
-    QUANT_CAPABILITIES.find((c) => c.id === selectedCapability) ??
-    QUANT_CAPABILITIES[0];
+    RETAIL_CAPABILITIES.find((c) => c.id === selectedCapability) ??
+    RETAIL_CAPABILITIES[0];
   const activeProjects = projects.filter((project) =>
     !project.previewUrl && ACTIVE_PROJECT_STATUSES.has(project.status ?? "")
   );
@@ -229,7 +229,7 @@ export default function HomePage() {
     );
     return needsAttention ?? currentlyRunning ?? null;
   }, [projects]);
-  const readyCapabilities = QUANT_CAPABILITIES.filter((capability) => capability.status === "ready");
+  const readyCapabilities = RETAIL_CAPABILITIES.filter((capability) => capability.status === "ready");
   const accountName = user?.name || user?.email || "研究员";
   const accountInitial = accountName.slice(0, 1).toUpperCase();
   const normalizedPrompt = prompt.trim();
@@ -402,7 +402,7 @@ export default function HomePage() {
   };
 
   const getCapabilityShortName = (capabilityId?: string | null) =>
-    getQuantCapability(capabilityId).shortName;
+    getRetailCapability(capabilityId).shortName;
 
   // --- Actions ---
   const showToast = useCallback(
@@ -606,11 +606,11 @@ export default function HomePage() {
     setSelectedModel(normalizeModelForAssistant(selectedAssistant, modelId));
   };
 
-  const handleCapabilityChange = (capabilityId: QuantCapabilityId) => {
+  const handleCapabilityChange = (capabilityId: RetailCapabilityId) => {
     setSelectedCapability(capabilityId);
   };
 
-  const handleCapabilityCardClick = (capabilityId: QuantCapabilityId) => {
+  const handleCapabilityCardClick = (capabilityId: RetailCapabilityId) => {
     setSelectedCapability(capabilityId);
   };
 

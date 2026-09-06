@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { QuantCapabilityId } from "@/lib/domains/finance/capabilities";
+import type { RetailCapabilityId } from "@/lib/domains/retail/capabilities";
 import type { ActiveCliId } from "@/lib/utils/cliOptions";
 
 interface ModelOption {
@@ -39,7 +39,7 @@ interface RoleModule {
   name: string;
   shortName?: string;
   description: string;
-  capabilityId?: QuantCapabilityId;
+  capabilityId?: RetailCapabilityId;
   inputPlaceholder?: string;
   inputHint?: string;
 }
@@ -69,7 +69,7 @@ interface CreateTaskFormProps {
   onModelChange: (id: string) => void;
   modelOptions: ModelOption[];
   selectedRole: RoleModule;
-  onRoleChange?: (id: QuantCapabilityId) => void;
+  onRoleChange?: (id: RetailCapabilityId) => void;
   /** Image-only tasks are disabled by default; opt in only when the downstream workflow explicitly supports them. */
   allowImageOnly?: boolean;
   /** Defaults to dashboard generation and can be controlled by the parent when it is ready to persist the choice. */

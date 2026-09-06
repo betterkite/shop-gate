@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { getAllProjects } from '@/lib/services/project';
-import { readQuantRunPlan, type QuantWorkspaceEvent } from '@/lib/domains/finance/workspace';
+import { readRetailRunPlan, type RetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
 import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/commerce/validation';
 import {
   DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
@@ -117,7 +117,7 @@ export interface WorkspaceHealthItem {
     path: string;
   };
   artifacts: WorkspaceHealthArtifact[];
-  events: QuantWorkspaceEvent[];
+  events: RetailWorkspaceEvent[];
   repairPlan: {
     needed: boolean;
     stepCount: number;
@@ -343,7 +343,7 @@ function buildDataQualitySummary(dataQuality: JsonRecord | null, sources: JsonRe
   };
 }
 
-async function readEvents(projectPath: string): Promise<QuantWorkspaceEvent[]> {
+async function readEvents(projectPath: string): Promise<RetailWorkspaceEvent[]> {
   const filePath = path.join(projectPath, '.data-agent', 'events.jsonl');
   const content = await fs.readFile(filePath, 'utf8').catch(() => '');
   return content
@@ -354,12 +354,12 @@ async function readEvents(projectPath: string): Promise<QuantWorkspaceEvent[]> {
     .map((line) => {
       try {
         const parsed = JSON.parse(line);
-        return isRecord(parsed) ? (parsed as unknown as QuantWorkspaceEvent) : null;
+        return isRecord(parsed) ? (parsed as unknown as RetailWorkspaceEvent) : null;
       } catch {
         return null;
       }
     })
-    .filter((event): event is QuantWorkspaceEvent => Boolean(event));
+    .filter((event): event is RetailWorkspaceEvent => Boolean(event));
 }
 
 function buildNextActions(params: {
@@ -507,7 +507,7 @@ async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> 
   const [validationReport, repairPlan, runPlan, events, dataQuality, sources, generationState, generationQueue, artifactContractReport, visualValidationReport] = await Promise.all([
     readValidationReport(projectPath),
     readValidationRepairPlan(projectPath),
-    readQuantRunPlan(projectPath),
+    readRetailRunPlan(projectPath),
     readEvents(projectPath),
     readJsonRecord(path.join(projectPath, 'evidence', 'data_quality.json')),
     readJsonRecord(path.join(projectPath, 'evidence', 'sources.json')),
@@ -655,7 +655,7 @@ async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> 
     runPlan: {
       status: runPlan?.status ?? null,
       capabilityId: runPlan?.capabilityId ?? null,
-      symbols: runPlan?.symbols ?? [],
+      symbols: runPlan?.entities ?? [],
       updatedAt: runPlan?.updatedAt ?? null,
     },
     generationQueue: queueSummary,

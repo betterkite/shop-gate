@@ -1,5 +1,5 @@
-import { getQuantCapability } from '@/lib/domains/finance/capabilities';
-import type { QuantRunPlan } from '@/lib/domains/finance/workspace';
+import { getRetailCapability } from '@/lib/domains/retail/capabilities';
+import type { RetailRunPlan } from '@/lib/domains/retail/workspace';
 
 export const WORKSPACE_PROGRESS_TOTAL = 5 as const;
 
@@ -15,7 +15,7 @@ export type WorkspaceProgressStage = 1 | 2 | 3 | 4 | 5;
 
 export type WorkspaceProgressOptions = {
   stage: WorkspaceProgressStage;
-  runPlan?: QuantRunPlan | null;
+  runPlan?: RetailRunPlan | null;
   skillIds?: string[];
   previewUrl?: string;
   validationCheckCount?: number;
@@ -54,7 +54,7 @@ function hasExplicitTime(question: string): boolean {
   return /(?:20\d{2}[-/.年]|(?:最近|近|过去)\s*(?:\d+|一|两|三|半)\s*(?:个)?(?:交易日|日|天|周|月|年|季度|报告期)|今日|今天|昨日|本周|本月|本季|今年|\d+\s*(?:个)?(?:交易日|日|天|周|月|年|季度|报告期)|截至)/i.test(question);
 }
 
-function inferGranularity(runPlan: QuantRunPlan, capabilityId: string): string {
+function inferGranularity(runPlan: RetailRunPlan, capabilityId: string): string {
   const source = `${runPlan.timeRange ?? ''} ${runPlan.dataRequirements.join(' ')}`;
   if (/(?:分钟|分时|小时)/.test(source)) return '分钟/分时';
   if (/(?:报告期|季度|财务|基本面)/.test(source) || capabilityId === 'fundamental_analysis') {
@@ -71,11 +71,11 @@ function listSummary(values: string[] | undefined, fallback: string, limit = 4):
   return `${selected.join('、')}${normalized.length > selected.length ? ` 等 ${normalized.length} 项` : ''}`;
 }
 
-function recognitionTable(runPlan: QuantRunPlan): string {
-  const capability = getQuantCapability(runPlan.requestedCapabilityId ?? runPlan.capabilityId);
+function recognitionTable(runPlan: RetailRunPlan): string {
+  const capability = getRetailCapability(runPlan.requestedCapabilityId ?? runPlan.capabilityId);
   const question = stripOperationalSuffix(runPlan.question);
-  const object = runPlan.symbols.length > 0
-    ? runPlan.symbols.join('、')
+  const object = runPlan.entities.length > 0
+    ? runPlan.entities.join('、')
     : runPlan.visualization.templateId === 'stock-selection'
       ? 'A 股股票池'
       : '待从问题或附件确认';
@@ -91,7 +91,7 @@ function recognitionTable(runPlan: QuantRunPlan): string {
 
   const rows = [
     ['业务场景', capability.name, '明确'],
-    ['分析对象', object, runPlan.symbols.length > 0 || runPlan.visualization.templateId === 'stock-selection' ? '明确' : '待确认'],
+    ['分析对象', object, runPlan.entities.length > 0 || runPlan.visualization.templateId === 'stock-selection' ? '明确' : '待确认'],
     ['时间范围', timeRange, timeStatus],
     ['时间粒度', granularity, granularity === '不适用' ? '不适用' : '明确'],
     ['核心数据/指标', listSummary(runPlan.dataRequirements, '按任务合同核验'), '明确'],
@@ -106,8 +106,8 @@ function recognitionTable(runPlan: QuantRunPlan): string {
   ].join('\n');
 }
 
-function stageTwoMessage(runPlan: QuantRunPlan | null | undefined, skillIds: string[]): string {
-  const symbols = runPlan?.symbols.length ? runPlan.symbols.join('、') : '任务对象';
+function stageTwoMessage(runPlan: RetailRunPlan | null | undefined, skillIds: string[]): string {
+  const symbols = runPlan?.entities.length ? runPlan.entities.join('、') : '任务对象';
   const timeRange = runPlan?.timeRange ?? '任务要求的时间范围';
   const skills = listSummary(skillIds, '按任务合同选择', 6);
   return [

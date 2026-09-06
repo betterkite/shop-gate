@@ -6,9 +6,9 @@ import type { AgentGenerationJob } from "@prisma/client";
 import { withPiAgentWorkspaceResourceLock } from "@/lib/agent/runtime/workspace-resource-lock";
 import { DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH } from "@/lib/data-agent/workspace-layout";
 import {
-  appendQuantWorkspaceEvent,
-  ensureQuantWorkspace,
-} from "@/lib/domains/finance/workspace";
+  appendRetailWorkspaceEvent,
+  ensureRetailWorkspace,
+} from "@/lib/domains/retail/workspace";
 import {
   currentPiAgentGenerationDispatchFence,
   currentPiAgentGenerationDispatchSession,
@@ -103,7 +103,7 @@ async function writeProjection(
   projectPath: string,
   state: QuantGenerationQueueState,
 ): Promise<void> {
-  await ensureQuantWorkspace(projectPath);
+  await ensureRetailWorkspace(projectPath);
   const filePath = queuePath(projectPath);
   const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   await fs.writeFile(
@@ -156,7 +156,7 @@ async function appendLifecycleEvent(params: {
   status: "pending" | "success" | "warning" | "error";
   summary: string;
 }): Promise<void> {
-  await appendQuantWorkspaceEvent(params.projectPath, {
+  await appendRetailWorkspaceEvent(params.projectPath, {
     event_type: params.eventType,
     stage: "queue",
     status: params.status,

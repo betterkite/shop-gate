@@ -22,8 +22,8 @@ describe('project integration scope', () => {
 
     expect(first).toEqual(replay);
     expect(first.knowledge.requestedSpaceIds).toEqual([
-      'https://knowledge.example/spaces/shopgate/projects/project-a',
       'https://knowledge.example/spaces/shared',
+      'https://knowledge.example/spaces/shopgate/projects/project-a',
     ]);
     expect(first.scopeSha256).toMatch(/^sha256:[a-f0-9]{64}$/u);
     expect(modelPortScopeHeaders(first)).toMatchObject({

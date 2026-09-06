@@ -383,3 +383,6 @@ export async function cancelQuantGenerationRun(params: {
     errorMessage: params.reason ?? '用户暂停了当前任务。',
   });
 }
+
+// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
+export { startQuantGenerationRun as startRetailGenerationRun, updateQuantGenerationStep as updateRetailGenerationStep };

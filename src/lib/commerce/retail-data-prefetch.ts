@@ -33,6 +33,7 @@ export interface PrefetchResult {
   finalDataPath?: string;
   datasetKeys?: string[];
   warnings?: string[];
+  rawFiles?: string[];
 }
 
 function asRecord(value: unknown): JsonRecord | null {
@@ -499,5 +500,6 @@ export async function prefetchRetailDataForRunPlan(params: {
     finalDataPath: 'data_file/final/dashboard-data.json',
     datasetKeys: Object.keys(datasets),
     warnings,
+    rawFiles,
   };
 }

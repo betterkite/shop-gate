@@ -375,7 +375,7 @@ async def list_sector_capital_flow(
                 id,
                 COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                 COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment
-              FROM quant.security_universes
+              FROM commerce.security_universes
               WHERE id = %s
             ),
             universe_members AS (
@@ -385,10 +385,10 @@ async def list_sector_capital_flow(
                 securities.metadata AS security_metadata,
                 universe_config.timeframe,
                 universe_config.adjustment
-              FROM quant.security_universe_members members
+              FROM commerce.security_universe_members members
               JOIN universe_config
                 ON universe_config.id = members.universe_id
-              JOIN quant.securities securities
+              JOIN commerce.securities securities
                 ON securities.symbol = members.symbol
               WHERE members.universe_id = %s
                 AND securities.asset_type = 'stock'
@@ -437,7 +437,7 @@ async def list_sector_capital_flow(
                   bars.limit_up,
                   bars.limit_down,
                   row_number() OVER (ORDER BY bars.ts DESC) AS rn
-                FROM quant.canonical_stock_bars bars
+                FROM commerce.canonical_stock_bars bars
                 WHERE bars.symbol = universe_members.symbol
                   AND bars.timeframe = universe_members.timeframe
                   AND bars.adjustment = universe_members.adjustment
@@ -678,7 +678,7 @@ async def build_sector_capital_flow_detail(
               SELECT
                 COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                 COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment
-              FROM quant.security_universes
+              FROM commerce.security_universes
               WHERE id = %s
             ),
             ranked_bars AS (
@@ -689,7 +689,7 @@ async def build_sector_capital_flow_detail(
                 bars.change_percent,
                 bars.limit_up,
                 dense_rank() OVER (ORDER BY bars.ts DESC) AS day_rank
-              FROM quant.canonical_stock_bars bars
+              FROM commerce.canonical_stock_bars bars
               CROSS JOIN universe_config
               WHERE bars.symbol = ANY(%s)
                 AND bars.timeframe = universe_config.timeframe

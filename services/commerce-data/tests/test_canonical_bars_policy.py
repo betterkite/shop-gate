@@ -22,8 +22,8 @@ def test_snapshot_repair_is_audited_and_repeatable() -> None:
     migration = (
         PROJECT_ROOT / "sqls" / "009-canonical-stock-bars-repair.sql"
     ).read_text(encoding="utf-8")
-    assert "quant.legacy_realtime_stock_bars" in migration
+    assert "commerce.legacy_realtime_stock_bars" in migration
     assert "ON CONFLICT (symbol, timeframe, adjustment, ts) DO UPDATE" in migration
-    assert "quant.realtime_quote_snapshots" in migration
-    assert "CREATE OR REPLACE VIEW quant.canonical_stock_bars" in migration
-    assert "FROM quant.canonical_stock_bars bars" in migration
+    assert "commerce.realtime_quote_snapshots" in migration
+    assert "CREATE OR REPLACE VIEW commerce.canonical_stock_bars" in migration
+    assert "FROM commerce.canonical_stock_bars bars" in migration

@@ -47,7 +47,7 @@ async def create_ingestion_job(
     async with await connect() as connection, connection.cursor() as cursor:
         await cursor.execute(
             """
-                INSERT INTO quant.market_data_ingestion_jobs (
+                INSERT INTO commerce.market_data_ingestion_jobs (
                   id, universe_id, provider, timeframe, adjustment, status, total_symbols,
                   metadata, started_at, created_at, updated_at
                 )
@@ -56,7 +56,7 @@ async def create_ingestion_job(
                   provider = EXCLUDED.provider,
                   status = 'running',
                   total_symbols = EXCLUDED.total_symbols,
-                  metadata = quant.market_data_ingestion_jobs.metadata || EXCLUDED.metadata,
+                  metadata = commerce.market_data_ingestion_jobs.metadata || EXCLUDED.metadata,
                   started_at = now(),
                   updated_at = now()
                 """,
@@ -73,7 +73,7 @@ async def finish_ingestion_job(response: HistoryIngestionResponse) -> None:
     async with await connect() as connection, connection.cursor() as cursor:
         await cursor.execute(
             """
-                UPDATE quant.market_data_ingestion_jobs
+                UPDATE commerce.market_data_ingestion_jobs
                 SET
                   status = %s,
                   completed_symbols = %s,
@@ -154,7 +154,7 @@ async def update_ingestion_job_progress(
     async with await connect() as connection, connection.cursor() as cursor:
         await cursor.execute(
             f"""
-                UPDATE quant.market_data_ingestion_jobs
+                UPDATE commerce.market_data_ingestion_jobs
                 SET {", ".join(updates)}
                 WHERE id = %s
                 """,
@@ -177,7 +177,7 @@ async def control_ingestion_job(
     async with await connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
         await cursor.execute(
             """
-                UPDATE quant.market_data_ingestion_jobs
+                UPDATE commerce.market_data_ingestion_jobs
                 SET
                   metadata = metadata || %s,
                   updated_at = now()
@@ -235,7 +235,7 @@ async def reconcile_stale_ingestion_jobs(
                         THEN '补数任务已请求停止，心跳未继续，已自动收口。'
                       ELSE '补数任务心跳过期，已自动标记为部分完成。'
                     END AS reason
-                  FROM quant.market_data_ingestion_jobs
+                  FROM commerce.market_data_ingestion_jobs
                   WHERE status = 'running'
                     AND (
                       (
@@ -256,7 +256,7 @@ async def reconcile_stale_ingestion_jobs(
                     )
                     {universe_sql}
                 )
-                UPDATE quant.market_data_ingestion_jobs AS job
+                UPDATE commerce.market_data_ingestion_jobs AS job
                 SET
                   status = 'partial',
                   completed_at = COALESCE(job.completed_at, now()),
@@ -319,7 +319,7 @@ async def list_ingestion_jobs(
                   completed_at,
                   created_at,
                   updated_at
-                FROM quant.market_data_ingestion_jobs
+                FROM commerce.market_data_ingestion_jobs
                 {where_sql}
                 ORDER BY created_at DESC
                 LIMIT %s
@@ -358,7 +358,7 @@ async def get_ingestion_job_control(job_id: str) -> str | None:
         await cursor.execute(
             """
                 SELECT metadata->>'control' AS control
-                FROM quant.market_data_ingestion_jobs
+                FROM commerce.market_data_ingestion_jobs
                 WHERE id = %s
                 """,
             (job_id,),
@@ -408,13 +408,13 @@ async def get_history_ingestion_preflight(
                     bars.limit_up,
                     bars.limit_down,
                     BTRIM(COALESCE(bars.trade_status, '')) = '0' AS is_suspended
-                  FROM quant.canonical_stock_bars bars
+                  FROM commerce.canonical_stock_bars bars
                   JOIN target_symbols
                     ON target_symbols.symbol = bars.symbol
                 ),
                 benchmark_dates AS (
                   SELECT DISTINCT bars.ts
-                  FROM quant.canonical_stock_bars bars
+                  FROM commerce.canonical_stock_bars bars
                   WHERE bars.timeframe = %s
                     AND bars.adjustment = %s
                     AND bars.ts >= %s
@@ -511,7 +511,7 @@ async def get_history_ingestion_preflight(
                         AND factors.ts >= %s
                         AND (%s::TIMESTAMPTZ IS NULL OR factors.ts <= %s)
                     )::INT AS pcf_ncf_ttm_count
-                  FROM quant.stock_factors factors
+                  FROM commerce.stock_factors factors
                   JOIN target_symbols
                     ON target_symbols.symbol = factors.symbol
                   GROUP BY factors.symbol

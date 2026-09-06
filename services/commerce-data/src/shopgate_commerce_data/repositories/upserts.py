@@ -46,14 +46,14 @@ async def _refresh_market_data_sync_state(
                 min(ts) AS first_ts,
                 max(ts) AS last_ts,
                 count(*)::INT AS row_count
-              FROM quant.canonical_stock_bars
+              FROM commerce.canonical_stock_bars
               WHERE symbol = %s
                 AND timeframe = %s
                 AND adjustment = %s
               GROUP BY symbol, timeframe, adjustment, provider
             ),
             upserted AS (
-              INSERT INTO quant.market_data_sync_state (
+              INSERT INTO commerce.market_data_sync_state (
                 symbol, timeframe, adjustment, provider, first_ts, last_ts, row_count,
                 last_success_at, last_error, metadata, created_at, updated_at
               )
@@ -77,11 +77,11 @@ async def _refresh_market_data_sync_state(
                 row_count = EXCLUDED.row_count,
                 last_success_at = now(),
                 last_error = NULL,
-                metadata = quant.market_data_sync_state.metadata || EXCLUDED.metadata,
+                metadata = commerce.market_data_sync_state.metadata || EXCLUDED.metadata,
                 updated_at = now()
               RETURNING symbol, timeframe, adjustment, provider
             )
-            DELETE FROM quant.market_data_sync_state sync_state
+            DELETE FROM commerce.market_data_sync_state sync_state
             WHERE sync_state.symbol = %s
               AND sync_state.timeframe = %s
               AND sync_state.adjustment = %s
@@ -210,20 +210,20 @@ async def upsert_kline_response(
     async with await connect() as connection, connection.cursor() as cursor:
         await cursor.execute(
             """
-                INSERT INTO quant.securities (
+                INSERT INTO commerce.securities (
                   symbol, code, name, exchange, asset_type, currency, timezone, secid, provider,
                   metadata, created_at, updated_at
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
                 ON CONFLICT (symbol) DO UPDATE SET
                   code = EXCLUDED.code,
-                  name = COALESCE(EXCLUDED.name, quant.securities.name),
+                  name = COALESCE(EXCLUDED.name, commerce.securities.name),
                   exchange = EXCLUDED.exchange,
                   asset_type = EXCLUDED.asset_type,
                   currency = EXCLUDED.currency,
                   timezone = EXCLUDED.timezone,
                   secid = EXCLUDED.secid,
-                  metadata = quant.securities.metadata || EXCLUDED.metadata,
+                  metadata = commerce.securities.metadata || EXCLUDED.metadata,
                   updated_at = now()
                 """,
             (
@@ -241,7 +241,7 @@ async def upsert_kline_response(
         )
         await cursor.executemany(
             """
-                INSERT INTO quant.stock_bars (
+                INSERT INTO commerce.stock_bars (
                   symbol, ts, timeframe, adjustment, open, high, low, close, previous_close,
                   volume, amount, amplitude, change_percent, change_amount, turnover,
                   trade_status, is_st, limit_up, limit_down, provider, metadata, created_at
@@ -257,49 +257,49 @@ async def upsert_kline_response(
                   close = EXCLUDED.close,
                   previous_close = COALESCE(
                     EXCLUDED.previous_close,
-                    quant.stock_bars.previous_close
+                    commerce.stock_bars.previous_close
                   ),
                   volume = EXCLUDED.volume,
-                  amount = COALESCE(EXCLUDED.amount, quant.stock_bars.amount),
-                  amplitude = COALESCE(EXCLUDED.amplitude, quant.stock_bars.amplitude),
+                  amount = COALESCE(EXCLUDED.amount, commerce.stock_bars.amount),
+                  amplitude = COALESCE(EXCLUDED.amplitude, commerce.stock_bars.amplitude),
                   change_percent = COALESCE(
                     EXCLUDED.change_percent,
-                    quant.stock_bars.change_percent
+                    commerce.stock_bars.change_percent
                   ),
                   change_amount = COALESCE(
                     EXCLUDED.change_amount,
-                    quant.stock_bars.change_amount
+                    commerce.stock_bars.change_amount
                   ),
-                  turnover = COALESCE(EXCLUDED.turnover, quant.stock_bars.turnover),
-                  trade_status = COALESCE(EXCLUDED.trade_status, quant.stock_bars.trade_status),
-                  is_st = COALESCE(EXCLUDED.is_st, quant.stock_bars.is_st),
-                  limit_up = COALESCE(EXCLUDED.limit_up, quant.stock_bars.limit_up),
-                  limit_down = COALESCE(EXCLUDED.limit_down, quant.stock_bars.limit_down),
+                  turnover = COALESCE(EXCLUDED.turnover, commerce.stock_bars.turnover),
+                  trade_status = COALESCE(EXCLUDED.trade_status, commerce.stock_bars.trade_status),
+                  is_st = COALESCE(EXCLUDED.is_st, commerce.stock_bars.is_st),
+                  limit_up = COALESCE(EXCLUDED.limit_up, commerce.stock_bars.limit_up),
+                  limit_down = COALESCE(EXCLUDED.limit_down, commerce.stock_bars.limit_down),
                   provider = CASE
                     WHEN EXCLUDED.amount IS NULL
                      AND EXCLUDED.turnover IS NULL
                      AND (
-                       quant.stock_bars.amount IS NOT NULL
-                       OR quant.stock_bars.turnover IS NOT NULL
+                       commerce.stock_bars.amount IS NOT NULL
+                       OR commerce.stock_bars.turnover IS NOT NULL
                      )
-                    THEN quant.stock_bars.provider
+                    THEN commerce.stock_bars.provider
                     ELSE EXCLUDED.provider
                   END,
-                  metadata = quant.stock_bars.metadata || jsonb_strip_nulls(EXCLUDED.metadata)
+                  metadata = commerce.stock_bars.metadata || jsonb_strip_nulls(EXCLUDED.metadata)
             """,
             bars,
         )
         if factor_rows:
             await cursor.executemany(
                 """
-                    INSERT INTO quant.stock_factors (
+                    INSERT INTO commerce.stock_factors (
                       symbol, ts, factor_key, factor_value, provider, metadata, created_at
                     )
                     VALUES (%s, %s, %s, %s, %s, %s, now())
                     ON CONFLICT (symbol, factor_key, ts) DO UPDATE SET
                       factor_value = EXCLUDED.factor_value,
                       provider = EXCLUDED.provider,
-                      metadata = quant.stock_factors.metadata || EXCLUDED.metadata
+                      metadata = commerce.stock_factors.metadata || EXCLUDED.metadata
                     """,
                 factor_rows,
             )
@@ -378,7 +378,7 @@ async def upsert_realtime_quote_snapshot(
     async with await connect() as connection, connection.cursor() as cursor:
         await cursor.execute(
             """
-            INSERT INTO quant.realtime_quote_snapshots (
+            INSERT INTO commerce.realtime_quote_snapshots (
               symbol, quote_time, trade_date, requested_adjustment,
               open, high, low, price, previous_close, volume, amount,
               amplitude, change_percent, change_amount, turnover,
@@ -401,7 +401,7 @@ async def upsert_realtime_quote_snapshot(
               change_percent = EXCLUDED.change_percent,
               change_amount = EXCLUDED.change_amount,
               turnover = EXCLUDED.turnover,
-              metadata = quant.realtime_quote_snapshots.metadata || EXCLUDED.metadata,
+              metadata = commerce.realtime_quote_snapshots.metadata || EXCLUDED.metadata,
               fetched_at = EXCLUDED.fetched_at
             """,
             (

@@ -56,7 +56,7 @@ async def get_expected_latest_trade_date(
                 WHERE is_open IS TRUE AND trade_date <= %s
               ) AS latest_open_date,
               max(trade_date) AS calendar_through
-            FROM quant.trading_calendars
+            FROM commerce.trading_calendars
             WHERE market = ANY(%s::text[])
               AND session = 'regular'
             """,
@@ -83,7 +83,7 @@ async def resolve_local_symbol(query: str) -> str | None:
         await cursor.execute(
             """
             SELECT symbol
-            FROM quant.securities
+            FROM commerce.securities
             WHERE upper(symbol) = %s
                OR upper(code) = %s
                OR upper(COALESCE(secid, '')) = %s
@@ -114,7 +114,7 @@ async def get_market_latest_bar_ts(
         await cursor.execute(
             """
             SELECT max(ts) AS latest_ts
-            FROM quant.canonical_stock_bars
+            FROM commerce.canonical_stock_bars
             WHERE timeframe = %s
               AND adjustment = %s
               AND (%s::TIMESTAMPTZ IS NULL OR ts <= %s)
@@ -247,7 +247,7 @@ async def get_local_kline(
                     END,
                     stock_bars.created_at DESC
                 ) AS provider_rank
-              FROM quant.canonical_stock_bars AS stock_bars
+              FROM commerce.canonical_stock_bars AS stock_bars
               WHERE stock_bars.symbol = %s
                 AND stock_bars.timeframe = %s
                 AND stock_bars.adjustment = %s
@@ -307,7 +307,7 @@ async def get_local_kline(
               securities.provider
             FROM selected_bars
             CROSS JOIN coverage_summary
-            LEFT JOIN quant.securities securities
+            LEFT JOIN commerce.securities securities
               ON securities.symbol = selected_bars.symbol
             ORDER BY selected_bars.ts ASC
             """,

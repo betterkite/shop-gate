@@ -110,8 +110,8 @@ async def get_universe_fetch_targets(universe_id: str) -> list[dict[str, str]]:
         await cursor.execute(
             """
                 SELECT securities.symbol, securities.code, securities.secid, securities.asset_type
-                FROM quant.security_universe_members members
-                JOIN quant.securities securities
+                FROM commerce.security_universe_members members
+                JOIN commerce.securities securities
                   ON securities.symbol = members.symbol
                 WHERE members.universe_id = %s
                   AND COALESCE(members.role, 'member') <> 'inactive'
@@ -188,11 +188,11 @@ async def list_research_universes() -> list[ResearchUniverse]:
                   factor_metrics.pb_mrq,
                   factor_metrics.ps_ttm,
                   factor_metrics.pcf_ncf_ttm
-                FROM quant.security_universes universes
-                LEFT JOIN quant.security_universe_members members
+                FROM commerce.security_universes universes
+                LEFT JOIN commerce.security_universe_members members
                   ON members.universe_id = universes.id
                  AND COALESCE(members.role, 'member') <> 'inactive'
-                LEFT JOIN quant.securities securities
+                LEFT JOIN commerce.securities securities
                   ON securities.symbol = members.symbol
                  AND COALESCE(securities.status, 'active') NOT IN ('inactive', 'delisted')
                 LEFT JOIN LATERAL (
@@ -209,7 +209,7 @@ async def list_research_universes() -> list[ResearchUniverse]:
                       ) DESC, sync_row.last_ts DESC NULLS LAST
                     ))[1] AS provider,
                     COALESCE(sum(sync_row.row_count), 0)::INT AS row_count
-                  FROM quant.market_data_sync_state sync_row
+                  FROM commerce.market_data_sync_state sync_row
                   WHERE sync_row.symbol = securities.symbol
                     AND sync_row.timeframe = COALESCE(
                       universes.metadata->>'default_timeframe',
@@ -257,7 +257,7 @@ async def list_research_universes() -> list[ResearchUniverse]:
                       bars.limit_up,
                       bars.limit_down,
                       row_number() OVER (ORDER BY bars.ts DESC) AS rn
-                    FROM quant.canonical_stock_bars bars
+                    FROM commerce.canonical_stock_bars bars
                     WHERE bars.symbol = securities.symbol
                       AND bars.timeframe = COALESCE(
                         universes.metadata->>'default_timeframe',
@@ -282,7 +282,7 @@ async def list_research_universes() -> list[ResearchUniverse]:
                     SELECT DISTINCT ON (factor_key)
                       factor_key,
                       factor_value
-                    FROM quant.stock_factors
+                    FROM commerce.stock_factors
                     WHERE symbol = securities.symbol
                     ORDER BY factor_key, ts DESC
                   ) latest_factors
@@ -371,11 +371,11 @@ async def list_research_universe_summaries() -> list[ResearchUniverseSummary]:
                       universes.metadata->>'default_adjustment',
                       'qfq'
                     ) AS default_adjustment
-                  FROM quant.security_universes universes
-                  LEFT JOIN quant.security_universe_members members
+                  FROM commerce.security_universes universes
+                  LEFT JOIN commerce.security_universe_members members
                     ON members.universe_id = universes.id
                    AND COALESCE(members.role, 'member') <> 'inactive'
-                  LEFT JOIN quant.securities securities
+                  LEFT JOIN commerce.securities securities
                     ON securities.symbol = members.symbol
                    AND COALESCE(securities.status, 'active') NOT IN ('inactive', 'delisted')
                 ),
@@ -387,7 +387,7 @@ async def list_research_universe_summaries() -> list[ResearchUniverseSummary]:
                     max(sync_state.last_ts) AS last_ts,
                     COALESCE(sum(sync_state.row_count), 0)::INT AS row_count
                   FROM member_rows
-                  JOIN quant.market_data_sync_state sync_state
+                  JOIN commerce.market_data_sync_state sync_state
                     ON sync_state.symbol = member_rows.symbol
                    AND sync_state.timeframe = member_rows.default_timeframe
                    AND sync_state.adjustment = member_rows.default_adjustment
@@ -514,8 +514,8 @@ async def list_research_universe_members_page(
         await cursor.execute(
             f"""
                 SELECT count(*)::INT AS total
-                FROM quant.security_universe_members members
-                JOIN quant.securities securities
+                FROM commerce.security_universe_members members
+                JOIN commerce.securities securities
                   ON securities.symbol = members.symbol
                 WHERE {filter_sql}
                 """,
@@ -549,10 +549,10 @@ async def list_research_universe_members_page(
                       WHEN members.metadata->>'order' ~ '^[0-9]+$'
                       THEN (members.metadata->>'order')::INT
                     END AS member_order
-                  FROM quant.security_universe_members members
-                  JOIN quant.security_universes universes
+                  FROM commerce.security_universe_members members
+                  JOIN commerce.security_universes universes
                     ON universes.id = members.universe_id
-                  JOIN quant.securities securities
+                  JOIN commerce.securities securities
                     ON securities.symbol = members.symbol
                   WHERE {filter_sql}
                   ORDER BY member_order NULLS LAST, securities.symbol
@@ -612,7 +612,7 @@ async def list_research_universe_members_page(
                       ) DESC, sync_row.last_ts DESC NULLS LAST
                     ))[1] AS provider,
                     COALESCE(sum(sync_row.row_count), 0)::INT AS row_count
-                  FROM quant.market_data_sync_state sync_row
+                  FROM commerce.market_data_sync_state sync_row
                   WHERE sync_row.symbol = filtered_members.symbol
                     AND sync_row.timeframe = COALESCE(
                       filtered_members.universe_metadata->>'default_timeframe',
@@ -660,7 +660,7 @@ async def list_research_universe_members_page(
                       bars.limit_up,
                       bars.limit_down,
                       row_number() OVER (ORDER BY bars.ts DESC) AS rn
-                    FROM quant.canonical_stock_bars bars
+                    FROM commerce.canonical_stock_bars bars
                     WHERE bars.symbol = filtered_members.symbol
                       AND bars.timeframe = COALESCE(
                         filtered_members.universe_metadata->>'default_timeframe',
@@ -685,7 +685,7 @@ async def list_research_universe_members_page(
                     SELECT DISTINCT ON (factor_key)
                       factor_key,
                       factor_value
-                    FROM quant.stock_factors
+                    FROM commerce.stock_factors
                     WHERE symbol = filtered_members.symbol
                     ORDER BY factor_key, ts DESC
                   ) latest_factors
@@ -711,7 +711,7 @@ async def clean_research_universe_tradable_members(
         await cursor.execute(
             """
             SELECT id
-            FROM quant.security_universes
+            FROM commerce.security_universes
             WHERE id = %s
             """,
             (universe_id,),
@@ -727,17 +727,17 @@ async def clean_research_universe_tradable_members(
                     id,
                     COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                     COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment
-                  FROM quant.security_universes
+                  FROM commerce.security_universes
                   WHERE id = %s
                 )
                 SELECT max((sync_state.last_ts AT TIME ZONE 'Asia/Shanghai')::date)
                   AS target_trade_date
-                FROM quant.security_universe_members members
+                FROM commerce.security_universe_members members
                 JOIN universe_config
                   ON universe_config.id = members.universe_id
-                JOIN quant.securities securities
+                JOIN commerce.securities securities
                   ON securities.symbol = members.symbol
-                JOIN quant.market_data_sync_state sync_state
+                JOIN commerce.market_data_sync_state sync_state
                   ON sync_state.symbol = members.symbol
                  AND sync_state.timeframe = universe_config.timeframe
                  AND sync_state.adjustment = universe_config.adjustment
@@ -764,7 +764,7 @@ async def clean_research_universe_tradable_members(
                 COALESCE(metadata->>'default_timeframe', 'daily') AS timeframe,
                 COALESCE(metadata->>'default_adjustment', 'qfq') AS adjustment,
                 COALESCE(metadata->>'provider', 'eastmoney') AS provider
-              FROM quant.security_universes
+              FROM commerce.security_universes
               WHERE id = %s
             ),
             preferred AS (
@@ -783,12 +783,12 @@ async def clean_research_universe_tradable_members(
                     (sync_state.provider = universe_config.provider) DESC,
                     sync_state.last_ts DESC NULLS LAST
                 ) AS rn
-              FROM quant.security_universe_members members
+              FROM commerce.security_universe_members members
               JOIN universe_config
                 ON universe_config.id = members.universe_id
-              JOIN quant.securities securities
+              JOIN commerce.securities securities
                 ON securities.symbol = members.symbol
-              LEFT JOIN quant.market_data_sync_state sync_state
+              LEFT JOIN commerce.market_data_sync_state sync_state
                 ON sync_state.symbol = members.symbol
                AND sync_state.timeframe = universe_config.timeframe
                AND sync_state.adjustment = universe_config.adjustment
@@ -921,7 +921,7 @@ async def clean_research_universe_tradable_members(
                 if not dry_run:
                     await cursor.execute(
                         """
-                        UPDATE quant.security_universe_members
+                        UPDATE commerce.security_universe_members
                         SET
                           role = %s,
                           metadata = COALESCE(metadata, '{}'::jsonb) || %s
@@ -932,7 +932,7 @@ async def clean_research_universe_tradable_members(
                     )
                     await cursor.execute(
                         """
-                        UPDATE quant.securities
+                        UPDATE commerce.securities
                         SET
                           status = %s,
                           metadata = COALESCE(metadata, '{}'::jsonb) || %s,
@@ -971,8 +971,8 @@ async def clean_research_universe_tradable_members(
                   AND COALESCE(securities.status, 'active') NOT IN ('inactive', 'delisted')
                 )
               )::INT AS inactive_count
-            FROM quant.security_universe_members members
-            JOIN quant.securities securities
+            FROM commerce.security_universe_members members
+            JOIN commerce.securities securities
               ON securities.symbol = members.symbol
             WHERE members.universe_id = %s
             """,
@@ -1013,7 +1013,7 @@ async def add_security_to_universe(
         await cursor.execute(
             """
             SELECT id
-            FROM quant.security_universes
+            FROM commerce.security_universes
             WHERE id = %s
             """,
             (universe_id,),
@@ -1023,20 +1023,20 @@ async def add_security_to_universe(
 
         await cursor.execute(
             """
-            INSERT INTO quant.securities (
+            INSERT INTO commerce.securities (
               symbol, code, name, exchange, asset_type, currency, timezone, secid, provider,
               metadata, status, created_at, updated_at
             )
             VALUES (%s, %s, %s, %s, %s, 'CNY', 'Asia/Shanghai', %s, %s, %s, 'active', now(), now())
             ON CONFLICT (symbol) DO UPDATE SET
               code = EXCLUDED.code,
-              name = COALESCE(EXCLUDED.name, quant.securities.name),
+              name = COALESCE(EXCLUDED.name, commerce.securities.name),
               exchange = EXCLUDED.exchange,
               asset_type = EXCLUDED.asset_type,
               secid = EXCLUDED.secid,
               provider = EXCLUDED.provider,
               status = 'active',
-              metadata = (COALESCE(quant.securities.metadata, '{}'::jsonb) - 'hygiene')
+              metadata = (COALESCE(commerce.securities.metadata, '{}'::jsonb) - 'hygiene')
                 || EXCLUDED.metadata,
               updated_at = now()
             """,
@@ -1054,7 +1054,7 @@ async def add_security_to_universe(
         await cursor.execute(
             """
             SELECT COALESCE(max((members.metadata->>'order')::INT), 0) + 1 AS next_order
-            FROM quant.security_universe_members members
+            FROM commerce.security_universe_members members
             WHERE members.universe_id = %s
               AND members.metadata->>'order' ~ '^[0-9]+$'
             """,
@@ -1064,7 +1064,7 @@ async def add_security_to_universe(
         next_order = int(order_row["next_order"] or 1) if order_row else 1
         await cursor.execute(
             """
-            INSERT INTO quant.security_universe_members (
+            INSERT INTO commerce.security_universe_members (
               universe_id, symbol, role, weight, metadata, added_at
             )
             VALUES (%s, %s, %s, %s, %s, now())
@@ -1072,7 +1072,7 @@ async def add_security_to_universe(
               role = EXCLUDED.role,
               weight = EXCLUDED.weight,
               metadata = (
-                COALESCE(quant.security_universe_members.metadata, '{}'::jsonb) - 'hygiene'
+                COALESCE(commerce.security_universe_members.metadata, '{}'::jsonb) - 'hygiene'
               ) || EXCLUDED.metadata
             """,
             (
@@ -1111,7 +1111,7 @@ async def add_securities_to_universe(
         await cursor.execute(
             """
             SELECT id
-            FROM quant.security_universes
+            FROM commerce.security_universes
             WHERE id = %s
             """,
             (universe_id,),
@@ -1122,7 +1122,7 @@ async def add_securities_to_universe(
         await cursor.execute(
             """
             SELECT COALESCE(max((members.metadata->>'order')::INT), 0) + 1 AS next_order
-            FROM quant.security_universe_members members
+            FROM commerce.security_universe_members members
             WHERE members.universe_id = %s
               AND members.metadata->>'order' ~ '^[0-9]+$'
             """,
@@ -1145,7 +1145,7 @@ async def add_securities_to_universe(
             }
             await cursor.execute(
                 """
-                INSERT INTO quant.securities (
+                INSERT INTO commerce.securities (
                   symbol, code, name, exchange, asset_type, currency, timezone, secid,
                   provider, metadata, status, created_at, updated_at
                 )
@@ -1155,13 +1155,13 @@ async def add_securities_to_universe(
                 )
                 ON CONFLICT (symbol) DO UPDATE SET
                   code = EXCLUDED.code,
-                  name = COALESCE(EXCLUDED.name, quant.securities.name),
+                  name = COALESCE(EXCLUDED.name, commerce.securities.name),
                   exchange = EXCLUDED.exchange,
                   asset_type = EXCLUDED.asset_type,
                   secid = EXCLUDED.secid,
                   provider = EXCLUDED.provider,
                   status = 'active',
-                  metadata = (COALESCE(quant.securities.metadata, '{}'::jsonb) - 'hygiene')
+                  metadata = (COALESCE(commerce.securities.metadata, '{}'::jsonb) - 'hygiene')
                     || EXCLUDED.metadata,
                   updated_at = now()
                 """,
@@ -1178,20 +1178,20 @@ async def add_securities_to_universe(
             )
             await cursor.execute(
                 """
-                INSERT INTO quant.security_universe_members (
+                INSERT INTO commerce.security_universe_members (
                   universe_id, symbol, role, weight, metadata, added_at
                 )
                 VALUES (%s, %s, %s, NULL, %s, now())
                 ON CONFLICT (universe_id, symbol) DO UPDATE SET
                   role = EXCLUDED.role,
                   metadata = CASE
-                    WHEN quant.security_universe_members.metadata ? 'order'
+                    WHEN commerce.security_universe_members.metadata ? 'order'
                     THEN (
-                      COALESCE(quant.security_universe_members.metadata, '{}'::jsonb)
+                      COALESCE(commerce.security_universe_members.metadata, '{}'::jsonb)
                       - 'hygiene'
                     ) || (EXCLUDED.metadata - 'order')
                     ELSE (
-                      COALESCE(quant.security_universe_members.metadata, '{}'::jsonb)
+                      COALESCE(commerce.security_universe_members.metadata, '{}'::jsonb)
                       - 'hygiene'
                     ) || EXCLUDED.metadata
                   END

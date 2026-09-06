@@ -510,7 +510,7 @@ function mapNotificationChannel(channel: {
 }
 
 export async function ensureResearchAutomationSeed() {
-  const watchlist = await prisma.researchWatchlist.upsert({
+  const watchlist = await prisma.briefWatchPool.upsert({
     where: { id: DEFAULT_WATCHLIST_ID },
     create: {
       id: DEFAULT_WATCHLIST_ID,
@@ -824,12 +824,12 @@ export async function getResearchAutomationDashboard(): Promise<ResearchAutomati
   await ensureResearchAutomationSeed();
 
   const [watchlistCount, reportCount, channelCount, watchlists, reports, runs, channels, deliveries] = await Promise.all([
-    prisma.researchWatchlist.count(),
-    prisma.researchReport.count(),
+    prisma.briefWatchPool.count(),
+    prisma.operationBrief.count(),
     prisma.notificationChannel.count({ where: { status: { not: 'disabled' } } }),
-    prisma.researchWatchlist.findMany({ orderBy: { updatedAt: 'desc' }, take: 20 }),
-    prisma.researchReport.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }),
-    prisma.researchReportRun.findMany({ orderBy: { startedAt: 'desc' }, take: 20 }),
+    prisma.briefWatchPool.findMany({ orderBy: { updatedAt: 'desc' }, take: 20 }),
+    prisma.operationBrief.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }),
+    prisma.operationBriefRun.findMany({ orderBy: { startedAt: 'desc' }, take: 20 }),
     prisma.notificationChannel.findMany({ orderBy: { updatedAt: 'desc' }, take: 10 }),
     prisma.notificationDelivery.findMany({ orderBy: { createdAt: 'desc' }, take: 20 }),
   ]);
@@ -860,7 +860,7 @@ export async function runDailyResearchReport(
 ): Promise<ResearchAutomationDashboard> {
   await ensureResearchAutomationSeed();
 
-  const watchlistRecord = await prisma.researchWatchlist.findFirst({
+  const watchlistRecord = await prisma.briefWatchPool.findFirst({
     where: {
       id: options.watchlistId ?? DEFAULT_WATCHLIST_ID,
       status: { not: 'disabled' },
@@ -873,7 +873,7 @@ export async function runDailyResearchReport(
 
   const watchlist = mapWatchlist(watchlistRecord);
   const startedAt = new Date();
-  const run = await prisma.researchReportRun.create({
+  const run = await prisma.operationBriefRun.create({
     data: {
       watchlistId: watchlist.id,
       status: 'running',
@@ -896,7 +896,7 @@ export async function runDailyResearchReport(
     ]);
 
     const builtReport = buildReport({ watchlist, universesProbe, screenerProbe, clickhouseProbe });
-    const report = await prisma.researchReport.create({
+    const report = await prisma.operationBrief.create({
       data: {
         runId: run.id,
         watchlistId: watchlist.id,
@@ -926,7 +926,7 @@ export async function runDailyResearchReport(
       dryRun: options.dryRun ?? true,
     });
 
-    await prisma.researchReportRun.update({
+    await prisma.operationBriefRun.update({
       where: { id: run.id },
       data: {
         status: 'completed',
@@ -948,7 +948,7 @@ export async function runDailyResearchReport(
       },
     });
   } catch (error) {
-    await prisma.researchReportRun.update({
+    await prisma.operationBriefRun.update({
       where: { id: run.id },
       data: {
         status: 'failed',
@@ -968,15 +968,15 @@ export async function sendResearchReport(
   await ensureResearchAutomationSeed();
 
   const report = options.reportId
-    ? await prisma.researchReport.findUnique({ where: { id: options.reportId } })
-    : await prisma.researchReport.findFirst({ orderBy: { createdAt: 'desc' } });
+    ? await prisma.operationBrief.findUnique({ where: { id: options.reportId } })
+    : await prisma.operationBrief.findFirst({ orderBy: { createdAt: 'desc' } });
 
   if (!report) {
     throw new Error(options.reportId ? `Research report not found: ${options.reportId}` : 'No research report available to send');
   }
 
   const watchlistRecord = report.watchlistId
-    ? await prisma.researchWatchlist.findUnique({ where: { id: report.watchlistId } })
+    ? await prisma.briefWatchPool.findUnique({ where: { id: report.watchlistId } })
     : null;
   const watchlist = watchlistRecord ? mapWatchlist(watchlistRecord) : null;
   const deliveryChannels = await findChannelsForWatchlist(watchlist);

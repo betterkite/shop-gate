@@ -898,7 +898,7 @@ model StrategyScanJob {
 // Research Automation State
 // ============================================================
 
-model ResearchWatchlist {
+model BriefWatchPool {
   id                     String   @id @default(cuid())
   name                   String
   description            String?
@@ -913,15 +913,15 @@ model ResearchWatchlist {
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")
 
-  runs    ResearchReportRun[]
-  reports ResearchReport[]
+  runs    OperationBriefRun[]
+  reports OperationBrief[]
 
   @@index([status])
   @@index([updatedAt])
-  @@map("research_watchlists")
+  @@map("brief_watch_pools")
 }
 
-model ResearchReportRun {
+model OperationBriefRun {
   id           String    @id @default(cuid())
   watchlistId  String?   @map("watchlist_id")
   status       String
@@ -936,17 +936,17 @@ model ResearchReportRun {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  watchlist  ResearchWatchlist?     @relation(fields: [watchlistId], references: [id], onDelete: SetNull)
-  reports    ResearchReport[]
+  watchlist  BriefWatchPool?     @relation(fields: [watchlistId], references: [id], onDelete: SetNull)
+  reports    OperationBrief[]
   deliveries NotificationDelivery[]
 
   @@index([watchlistId])
   @@index([status])
   @@index([startedAt])
-  @@map("research_report_runs")
+  @@map("operation_brief_runs")
 }
 
-model ResearchReport {
+model OperationBrief {
   id              String   @id @default(cuid())
   runId           String   @map("run_id")
   watchlistId     String?  @map("watchlist_id")
@@ -964,14 +964,14 @@ model ResearchReport {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  run        ResearchReportRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
-  watchlist  ResearchWatchlist?     @relation(fields: [watchlistId], references: [id], onDelete: SetNull)
+  run        OperationBriefRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  watchlist  BriefWatchPool?     @relation(fields: [watchlistId], references: [id], onDelete: SetNull)
   deliveries NotificationDelivery[]
 
   @@index([runId])
   @@index([watchlistId])
   @@index([reportDate])
-  @@map("research_reports")
+  @@map("operation_briefs")
 }
 
 model NotificationChannel {
@@ -1007,8 +1007,8 @@ model NotificationDelivery {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  run     ResearchReportRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
-  report  ResearchReport?      @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  run     OperationBriefRun?   @relation(fields: [runId], references: [id], onDelete: SetNull)
+  report  OperationBrief?      @relation(fields: [reportId], references: [id], onDelete: SetNull)
   channel NotificationChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([runId])

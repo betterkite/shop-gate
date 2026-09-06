@@ -21,8 +21,8 @@ export class QuantPreparationError extends Error {
   }
 }
 
-export async function loadQuantValidation() {
-  return import("@/lib/commerce/validation");
+export async function loadRetailValidation() {
+  return import("@/lib/commerce/retail-validation");
 }
 
 export async function ensureQuantDashboardTemplateForAct(projectPath: string) {

@@ -1,13 +1,13 @@
 import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
-  updateQuantGenerationStep,
+  updateRetailGenerationStep,
 } from '@/lib/commerce/generation-state';
 import {
-  buildQuantValidationRepairInstruction,
-  repairQuantPlatformOwnedArtifacts,
-  type QuantValidationReport,
-} from '@/lib/commerce/validation';
+  buildRetailValidationRepairInstruction,
+  repairRetailPlatformOwnedArtifacts,
+  type RetailValidationReport,
+} from '@/lib/commerce/retail-validation';
 
 export interface BenchmarkRepairInvocation {
   attempt: number;
@@ -18,7 +18,7 @@ export interface BenchmarkRepairInvocation {
 }
 
 export interface BenchmarkRepairLoopResult {
-  validation: QuantValidationReport;
+  validation: RetailValidationReport;
   repairAttempts: number;
   platformRepairCount: number;
 }
@@ -32,10 +32,10 @@ export async function runBenchmarkRepairLoop(params: {
   projectId: string;
   parentRequestId: string;
   originalInstruction: string;
-  initialValidation: QuantValidationReport;
+  initialValidation: RetailValidationReport;
   maxRepairAttempts?: number;
   applyRepair: (invocation: BenchmarkRepairInvocation) => Promise<void>;
-  validate: (requestId: string) => Promise<QuantValidationReport>;
+  validate: (requestId: string) => Promise<RetailValidationReport>;
   preparePlatformArtifacts?: () => Promise<{ runPlanRebuilt: boolean }>;
 }): Promise<BenchmarkRepairLoopResult> {
   const generationState = await readQuantGenerationState(params.projectPath);
@@ -50,7 +50,7 @@ export async function runBenchmarkRepairLoop(params: {
   while (!validation.passed && repairAttempts < maxRepairAttempts) {
     const platformRepair = await (
       params.preparePlatformArtifacts ??
-      (() => repairQuantPlatformOwnedArtifacts({
+      (() => repairRetailPlatformOwnedArtifacts({
         projectPath: params.projectPath,
         requestId: params.parentRequestId,
         originalInstruction: params.originalInstruction,
@@ -67,11 +67,11 @@ export async function runBenchmarkRepairLoop(params: {
     repairAttempts += 1;
     const repairRequestId = `${params.parentRequestId}-validation-repair-${repairAttempts}`;
     const failedChecks = validation.checks.filter((check) => check.status === 'failed');
-    const repairInstruction = buildQuantValidationRepairInstruction(validation, {
+    const repairInstruction = buildRetailValidationRepairInstruction(validation, {
       originalInstruction: params.originalInstruction,
     });
 
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.parentRequestId,
@@ -90,7 +90,7 @@ export async function runBenchmarkRepairLoop(params: {
       projectId: params.projectId,
       requestId: params.parentRequestId,
     });
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.parentRequestId,
@@ -114,7 +114,7 @@ export async function runBenchmarkRepairLoop(params: {
         instruction: repairInstruction,
       });
     } catch (error) {
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.parentRequestId,
@@ -128,7 +128,7 @@ export async function runBenchmarkRepairLoop(params: {
       throw error;
     }
 
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.parentRequestId,
@@ -137,7 +137,7 @@ export async function runBenchmarkRepairLoop(params: {
       summary: `第 ${recordedAttempt}/${maxRepairAttempts} 次自动修复执行完成。`,
       metadata: { parentRequestId: params.parentRequestId, repairRequestId },
     });
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.parentRequestId,
@@ -152,7 +152,7 @@ export async function runBenchmarkRepairLoop(params: {
       // the parent request; the repairRequestId only identifies the Agent call.
       validation = await params.validate(params.parentRequestId);
     } catch (error) {
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.parentRequestId,
@@ -166,7 +166,7 @@ export async function runBenchmarkRepairLoop(params: {
       throw error;
     }
 
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.parentRequestId,
@@ -198,7 +198,7 @@ export async function failBenchmarkGenerationRun(params: {
     return state;
   }
 
-  return updateQuantGenerationStep({
+  return updateRetailGenerationStep({
     projectPath: params.projectPath,
     projectId: params.projectId,
     requestId: params.parentRequestId,

@@ -1,6 +1,6 @@
 import type { PiAgentAcceptedMissionSnapshot } from '@/lib/agent/mission';
 import type { QuantGenerationRunStatus } from '@/lib/commerce/generation-state';
-import type { QuantValidationReport } from '@/lib/commerce/validation';
+import type { RetailValidationReport } from '@/lib/commerce/retail-validation';
 import type { PreviewInfo } from '@/lib/services/preview';
 
 export type QuantGenerationTerminalStatus =
@@ -28,7 +28,7 @@ export type QuantGenerationTerminalGenerationInput = {
 type GenerationStateInput = QuantGenerationTerminalGenerationInput;
 
 type ValidationReportInput = Pick<
-  QuantValidationReport,
+  RetailValidationReport,
   'runId' | 'status' | 'passed' | 'checks'
 > | null;
 

@@ -6,10 +6,10 @@ import { authErrorResponse } from "@/lib/auth/http";
 import { getProjectById } from "@/lib/services/project";
 import {
   readQuantGenerationState,
-  updateQuantGenerationStep,
+  updateRetailGenerationStep,
 } from "@/lib/commerce/generation-state";
 import { startPersistentValidatedPreview } from "@/lib/commerce/generation-preview";
-import { runQuantGenerationStage } from "@/lib/commerce/generation-queue";
+import { runRetailGenerationStage } from "@/lib/commerce/generation-queue";
 import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-lease-store";
 import { streamManager } from "@/lib/services/stream";
 import {
@@ -51,8 +51,8 @@ function resolveProjectPath(
   return path.join(PROJECTS_DIR_ABSOLUTE, projectId);
 }
 
-async function loadQuantValidation() {
-  return import("@/lib/commerce/validation");
+async function loadRetailValidation() {
+  return import("@/lib/commerce/retail-validation");
 }
 
 async function stopProvisionalPreview(projectId: string) {
@@ -169,10 +169,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
 
     const projectPath = resolveProjectPath(project_id, project.repoPath);
-    const quantValidation = await loadQuantValidation();
+    const quantValidation = await loadRetailValidation();
     const [report, repairPlan, generationState] = await Promise.all([
-      quantValidation.readQuantValidationReport(projectPath),
-      quantValidation.readQuantValidationRepairPlan(projectPath),
+      quantValidation.readRetailValidationReport(projectPath),
+      quantValidation.readRetailValidationRepairPlan(projectPath),
       readQuantGenerationState(projectPath),
     ]);
     const acceptance = generationState?.requestId
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         throw error;
       }
     }
-    return await runQuantGenerationStage({
+    return await runRetailGenerationStage({
       projectPath,
       projectId: project_id,
       requestId: requestedRequestId ?? null,
@@ -345,7 +345,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           activeMission = missionContext(releasedMission, projectPath);
         }
 
-        const quantValidation = await loadQuantValidation();
+        const quantValidation = await loadRetailValidation();
         let candidateReceipt:
           | Awaited<
               ReturnType<typeof sealQuantPiAgentMissionCandidate>
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             activeMission.status,
           )
         ) {
-          await quantValidation.prepareQuantProjectForValidation({
+          await quantValidation.prepareRetailProjectForValidation({
             projectId: project_id,
             projectPath,
           });
@@ -394,7 +394,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         }
 
         if (requestId) {
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath,
             projectId: project_id,
             requestId,
@@ -415,7 +415,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               : {}),
           });
         }
-        const report = await quantValidation.validateQuantProject({
+        const report = await quantValidation.validateRetailProject({
           projectId: project_id,
           projectPath,
           requestId,
@@ -423,7 +423,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           cliSource: "validator",
         });
         const repairPlan =
-          await quantValidation.readQuantValidationRepairPlan(projectPath);
+          await quantValidation.readRetailValidationRepairPlan(projectPath);
         const failedChecks = report.checks.filter(
           (check) => check.status === "failed",
         );
@@ -451,7 +451,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             });
           }
           if (requestId) {
-            await updateQuantGenerationStep({
+            await updateRetailGenerationStep({
               projectPath,
               projectId: project_id,
               requestId,
@@ -482,7 +482,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           });
         }
 
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId: activeMission.requestId,
@@ -509,7 +509,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         > | null = null;
         let previewStartError: string | null = null;
         if (report.passed) {
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath,
             projectId: project_id,
             requestId: activeMission.requestId,
@@ -521,7 +521,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             provisionalPreview = await startPersistentValidatedPreview({
               projectId: project_id,
             });
-            await updateQuantGenerationStep({
+            await updateRetailGenerationStep({
               projectPath,
               projectId: project_id,
               requestId: activeMission.requestId,
@@ -536,7 +536,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           } catch (error) {
             previewStartError =
               error instanceof Error ? error.message : String(error);
-            await updateQuantGenerationStep({
+            await updateRetailGenerationStep({
               projectPath,
               projectId: project_id,
               requestId: activeMission.requestId,
@@ -549,7 +549,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           }
         }
 
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId: activeMission.requestId,
@@ -595,7 +595,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           );
         }
 
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId: activeMission.requestId,
@@ -638,7 +638,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               "Mission acceptance requires a passed report and a ready persistent preview.",
             );
           }
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath,
             projectId: project_id,
             requestId: activeMission.requestId,

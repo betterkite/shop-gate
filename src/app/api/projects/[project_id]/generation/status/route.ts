@@ -9,7 +9,7 @@ import {
   requiresPiAgentMissionAcceptance,
 } from '@/lib/commerce/generation-terminal';
 import { readQuantGenerationState } from '@/lib/commerce/generation-state';
-import { readQuantValidationReport } from '@/lib/commerce/validation';
+import { readRetailValidationReport } from '@/lib/commerce/retail-validation';
 import { readPiAgentAcceptedMissionSnapshot } from '@/lib/services/pi-agent-mission-store';
 import { getProjectById } from '@/lib/services/project';
 
@@ -43,7 +43,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const [{ previewManager }, generation, validation] = await Promise.all([
       import('@/lib/services/preview'),
       readQuantGenerationState(projectPath),
-      readQuantValidationReport(projectPath),
+      readRetailValidationReport(projectPath),
     ]);
     const preview = await previewManager.getReconciledStatus(
       project_id,

@@ -2,14 +2,14 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { rewriteQuantQuery } from '@/lib/domains/finance/query-rewrite';
+import { rewriteRetailQuery } from '@/lib/domains/retail/query-rewrite';
 import {
-  buildQuantValidationRepairInstruction,
-  buildQuantValidationRepairPlan,
-  quantValidationRepairWritableGlobs,
-  repairQuantPlatformOwnedArtifacts,
-  type QuantValidationReport,
-} from './validation';
+  buildRetailValidationRepairInstruction,
+  buildRetailValidationRepairPlan,
+  retailValidationRepairWritableGlobs,
+  repairRetailPlatformOwnedArtifacts,
+  type RetailValidationReport,
+} from './retail-validation';
 
 const temporaryProjects: string[] = [];
 
@@ -21,7 +21,7 @@ afterEach(async () => {
   );
 });
 
-function failedReport(projectId = 'project-validation'): QuantValidationReport {
+function failedReport(projectId = 'project-validation'): RetailValidationReport {
   const timestamp = '2026-07-14T00:00:00.000Z';
   return {
     schemaVersion: 1,
@@ -49,7 +49,7 @@ function failedReport(projectId = 'project-validation'): QuantValidationReport {
   };
 }
 
-function visualOnlyFailedReport(projectId = 'project-visual-validation'): QuantValidationReport {
+function visualOnlyFailedReport(projectId = 'project-visual-validation'): RetailValidationReport {
   const timestamp = '2026-07-14T00:00:00.000Z';
   return {
     schemaVersion: 1,
@@ -74,11 +74,11 @@ function visualOnlyFailedReport(projectId = 'project-visual-validation'): QuantV
 describe('validation repair ownership', () => {
   it('keeps every .data-agent artifact platform-owned in Agent repair instructions', () => {
     const report = failedReport();
-    const plan = buildQuantValidationRepairPlan(report);
-    const instruction = buildQuantValidationRepairInstruction(report, {
+    const plan = buildRetailValidationRepairPlan(report);
+    const instruction = buildRetailValidationRepairInstruction(report, {
       originalInstruction: '比较贵州茅台 600519 与宁德时代 300750 的表现',
     });
-    const writableGlobs = quantValidationRepairWritableGlobs(report);
+    const writableGlobs = retailValidationRepairWritableGlobs(report);
 
     expect(plan.steps.flatMap((step) => step.actions).join('\n')).not.toMatch(
       /修复 \.data-agent|修改 \.data-agent|把 \.data-agent\/run_plan/,
@@ -95,10 +95,10 @@ describe('validation repair ownership', () => {
 
   it('keeps visual-only repair scoped to app sources and platform-owned validation', () => {
     const report = visualOnlyFailedReport();
-    const plan = buildQuantValidationRepairPlan(report);
-    const instruction = buildQuantValidationRepairInstruction(report);
+    const plan = buildRetailValidationRepairPlan(report);
+    const instruction = buildRetailValidationRepairInstruction(report);
     const actions = plan.steps.flatMap((step) => step.actions).join('\n');
-    const writableGlobs = quantValidationRepairWritableGlobs(report);
+    const writableGlobs = retailValidationRepairWritableGlobs(report);
 
     expect(instruction).toContain('失败 ID：visual_presentation');
     expect(instruction).toContain('唯一可写范围：app/page.tsx 和 app/globals.css');
@@ -118,7 +118,7 @@ describe('validation repair ownership', () => {
     const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-platform-repair-'));
     temporaryProjects.push(projectPath);
     const originalInstruction = '比较贵州茅台 600519 与宁德时代 300750 的表现并生成看板';
-    const queryRewrite = await rewriteQuantQuery(originalInstruction, {
+    const queryRewrite = await rewriteRetailQuery(originalInstruction, {
       semanticRewriter: async () => ({
         ok: true,
         provider: 'openai',
@@ -143,7 +143,7 @@ describe('validation repair ownership', () => {
         }],
       }),
     });
-    const result = await repairQuantPlatformOwnedArtifacts({
+    const result = await repairRetailPlatformOwnedArtifacts({
       projectPath,
       requestId: 'parent-request',
       originalInstruction,

@@ -12,8 +12,8 @@ import {
   verifyPiAgentMissionEvidence,
 } from '@/lib/agent/mission';
 import { withPiAgentWorkspaceResourceLock } from '@/lib/agent/runtime/workspace-resource-lock';
-import type { QuantRunPlan } from '@/lib/domains/finance/workspace';
-import { createFinanceMissionDefinition } from '@/lib/domains/finance';
+import type { RetailRunPlan } from '@/lib/domains/retail/workspace';
+import { createRetailMissionDefinition } from '@/lib/domains/retail';
 import { capturePiAgentCandidate } from '@/lib/services/pi-agent-candidate';
 import { PiAgentMissionVerificationSession } from '@/lib/services/pi-agent-mission-verification-session';
 import {
@@ -38,7 +38,7 @@ function missionRef(mission: PiAgentMissionContext) {
   };
 }
 
-export async function createQuantPiAgentMission(input: {
+export async function createRetailPiAgentMission(input: {
   projectId: string;
   projectPath: string;
   requestId: string;
@@ -47,7 +47,7 @@ export async function createQuantPiAgentMission(input: {
     runId: string;
     capabilityId: string;
     requestedCapabilityId?: string;
-    composition: QuantRunPlan["composition"];
+    composition: RetailRunPlan["composition"];
     question: string;
     entities?: string[];
     symbols?: string[];
@@ -73,12 +73,12 @@ export async function createQuantPiAgentMission(input: {
       deliveryPackVersion: input.runPlan.composition.deliveryPack.version,
       compositionSha256: input.runPlan.composition.sha256,
     },
-    entities: (input.runPlan.entities ?? input.runPlan.symbols ?? []).map((symbol) => ({
+    entities: (input.runPlan.entities ?? input.runPlan.entities ?? []).map((symbol) => ({
       entityType: 'finance.security',
       canonicalId: symbol,
     })),
     maxRepairAttempts: input.maxRepairAttempts,
-    definition: createFinanceMissionDefinition({
+    definition: createRetailMissionDefinition({
       maxRepairAttempts: input.maxRepairAttempts,
       expectedArtifacts: input.runPlan.expectedArtifacts,
     }),
@@ -116,7 +116,7 @@ export async function loadPiAgentMissionContext(input: {
   return { ...mission, projectPath: input.projectPath };
 }
 
-export async function markQuantPiAgentMissionNode(input: {
+export async function markRetailPiAgentMissionNode(input: {
   mission: PiAgentMissionContext;
   nodeKey: PiAgentMissionNodeKey;
   status: PiAgentMissionNodeStatus;
@@ -254,6 +254,3 @@ export async function verifyAndRecordQuantPiAgentMission(input: {
     await verificationSession.dispose();
   }
 }
-
-// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
-export { createQuantPiAgentMission as createRetailPiAgentMission, markQuantPiAgentMissionNode as markRetailPiAgentMissionNode };

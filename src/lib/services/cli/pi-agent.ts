@@ -74,13 +74,13 @@ import {
   isUserRequestCancelled,
   markUserRequestAsRunning,
 } from '@/lib/services/user-requests';
-import { DEFAULT_QUANT_CAPABILITY_ID } from '@/lib/domains/finance/capabilities';
-import { readQuantRunPlan } from '@/lib/domains/finance/workspace';
-import { serializeQuantVisualizationTemplate } from '@/lib/domains/finance/visualization-templates';
+import { DEFAULT_RETAIL_CAPABILITY_ID } from '@/lib/domains/retail/capabilities';
+import { readRetailRunPlan } from '@/lib/domains/retail/workspace';
+import { serializeRetailVisualizationTemplate } from '@/lib/domains/retail/visualization-templates';
 import {
-  quantValidationRepairWritableGlobs,
-  readQuantValidationReport,
-} from '@/lib/commerce/validation';
+  retailValidationRepairWritableGlobs,
+  readRetailValidationReport,
+} from '@/lib/commerce/retail-validation';
 import { validatePiAgentProjectPath } from './pi-agent-workspace';
 import type { PiAgentCandidateSubmission } from '@/lib/agent/mission';
 import { candidateFromPiAgentRun } from '@/lib/services/pi-agent-candidate';
@@ -92,12 +92,12 @@ import {
 import type { PersonalizationCapsule } from '@/lib/platform/memory';
 import type { GovernedKnowledgeCapsule } from '@/lib/platform/knowledge';
 import {
-  createFinancePiAgentTools,
+  createRetailPiAgentTools,
   createInspectDashboardContractTool,
-  FINANCE_PREPARED_SOURCE_WRITE_GLOBS,
-  getFinanceSkillCapabilityDescriptor,
-  isDashboardSpecCapabilitySupported,
-} from '@/lib/domains/finance';
+  RETAIL_PREPARED_SOURCE_WRITE_GLOBS,
+  getRetailSkillCapabilityDescriptor,
+  isRetailDashboardSpecCapabilitySupported,
+} from '@/lib/domains/retail';
 
 export type PiAgentImageAttachment = {
   name: string;
@@ -701,11 +701,11 @@ async function executePiAgentPhase(
     }
     publishStatus('starting', '正在初始化 PI Agent 并核验可信工作区状态...');
 
-    const runPlan = await readQuantRunPlan(workspace);
+    const runPlan = await readRetailRunPlan(workspace);
     const capabilityId = runPlan?.requestedCapabilityId ?? runPlan?.capabilityId ?? null;
     const [preparedAssessment, repairReport] = await Promise.all([
       assessPlatformPreparedQuantArtifacts(workspace, runPlan),
-      profile === 'repair' ? readQuantValidationReport(workspace) : Promise.resolve(null),
+      profile === 'repair' ? readRetailValidationReport(workspace) : Promise.resolve(null),
     ]);
     const platformPrepared = preparedAssessment.ready;
     const skillPhase = profile === 'repair'
@@ -713,20 +713,19 @@ async function executePiAgentPhase(
       : platformPrepared && !images?.length
         ? 'workspace-generation' as const
         : 'data-preparation' as const;
-    const visualization = serializeQuantVisualizationTemplate(
-      capabilityId ?? DEFAULT_QUANT_CAPABILITY_ID,
+    const visualization = serializeRetailVisualizationTemplate(
+      capabilityId ?? DEFAULT_RETAIL_CAPABILITY_ID,
       {
         instruction: runPlan?.question ?? instruction,
-        symbolCount: runPlan?.symbols?.length,
+        entityCount: runPlan?.entities?.length,
         requestedVariantId: runPlan?.visualization?.variantId,
-        dataSignals: runPlan?.visualization?.dataSignals,
       },
     );
     const templateId = runPlan?.visualization?.templateId ?? visualization.templateId;
     const variantId = runPlan?.visualization?.variantId ?? visualization.variantId;
     const standardCompilerEligible =
       classifyPiAgentPreparedIntent(instruction) === 'standard' &&
-      isDashboardSpecCapabilitySupported(templateId, variantId) &&
+      isRetailDashboardSpecCapabilitySupported(templateId, variantId) &&
       preparedAssessment.dashboardSpecReady;
     const preparedIntent = profile === 'generation' && platformPrepared && !images?.length
       ? standardCompilerEligible ? 'standard' as const : 'custom' as const
@@ -794,22 +793,22 @@ async function executePiAgentPhase(
         : undefined;
     const dashboardContractRequired = profile !== 'repair' || needsDashboardRepairSkill;
     const repairWriteGlobs = repairReport
-      ? quantValidationRepairWritableGlobs(repairReport)
+      ? retailValidationRepairWritableGlobs(repairReport)
       : undefined;
     if (profile === 'repair' && (!repairWriteGlobs || repairWriteGlobs.length === 0)) {
       throw new Error('PI Agent repair 无法把当前失败安全归因到明确文件，拒绝启动宽权限自动修复。');
     }
     const repairNeedsSourceWrites = repairWriteGlobs?.some((glob) => glob.startsWith('app/')) ?? false;
     const repairUsesCertifiedSourceScope = repairWriteGlobs?.every((glob) =>
-      FINANCE_PREPARED_SOURCE_WRITE_GLOBS.includes(
-        glob as (typeof FINANCE_PREPARED_SOURCE_WRITE_GLOBS)[number],
+      RETAIL_PREPARED_SOURCE_WRITE_GLOBS.includes(
+        glob as (typeof RETAIL_PREPARED_SOURCE_WRITE_GLOBS)[number],
       ),
     ) ?? false;
     const repairProfileWriteGlobs = repairWriteGlobs;
     const runtimeProfileWriteGlobs = profile === 'repair'
       ? repairProfileWriteGlobs
       : preparedIntent
-        ? [...FINANCE_PREPARED_SOURCE_WRITE_GLOBS]
+        ? [...RETAIL_PREPARED_SOURCE_WRITE_GLOBS]
         : undefined;
     const canWriteDashboardSource = profile !== 'repair' || repairNeedsSourceWrites;
     // Validation repair has already received a deterministic platform repair
@@ -844,7 +843,7 @@ async function executePiAgentPhase(
           ]
         : [];
     const maxToolOutputChars = positiveIntegerEnv('PI_AGENT_TOOL_OUTPUT_CHARS', 6_000);
-    const tools = createFinancePiAgentTools({
+    const tools = createRetailPiAgentTools({
       workspaceRoot: workspace,
       profile,
       ...(runtimeProfileWriteGlobs
@@ -855,7 +854,7 @@ async function executePiAgentPhase(
         : {}),
       maxOutputChars: maxToolOutputChars,
       includeImageExtraction: Boolean(images?.length),
-      includeQuantApi: !(platformPrepared || repairPreparedSurface),
+      includeCommerceApi: !(platformPrepared || repairPreparedSurface),
       targetedReadsOnly: platformPrepared || Boolean(repairPreparedSurface),
       ...(preparedIntent || repairPreparedSurface
         ? { preparedSurface: preparedIntent ?? repairPreparedSurface! }
@@ -881,9 +880,9 @@ async function executePiAgentPhase(
         // Runtime work is always a generated financial workspace. Falling
         // back to the default quant capability avoids the compiler's broad
         // "all stable skills" mode, which includes platform-only UI guidance.
-        capabilityId: capabilityId ?? DEFAULT_QUANT_CAPABILITY_ID,
-        capability: getFinanceSkillCapabilityDescriptor(
-          capabilityId ?? DEFAULT_QUANT_CAPABILITY_ID,
+        capabilityId: capabilityId ?? DEFAULT_RETAIL_CAPABILITY_ID,
+        capability: getRetailSkillCapabilityDescriptor(
+          capabilityId ?? DEFAULT_RETAIL_CAPABILITY_ID,
         ),
         ...(selectedSkillIds ? { requiredSkillIds: selectedSkillIds } : {}),
         phase: skillPhase,
@@ -892,7 +891,7 @@ async function executePiAgentPhase(
           : [],
         excludedSkillIds: [
           ...(!images?.length ? ['image-extraction'] : []),
-          ...(runPlan?.symbols?.length ? ['quant-symbol-resolver'] : []),
+          ...(runPlan?.entities?.length ? ['quant-symbol-resolver'] : []),
         ],
         templateId,
         variantId,

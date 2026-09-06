@@ -41,7 +41,7 @@ vi.mock('@/lib/utils/ports', () => ({
   findAvailablePort: mocks.findAvailablePort,
 }));
 
-vi.mock('@/lib/commerce/validation', () => ({
+vi.mock('@/lib/commerce/retail-validation', () => ({
   checkQuantArtifactPolicy: mocks.checkQuantArtifactPolicy,
 }));
 

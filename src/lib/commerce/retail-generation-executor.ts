@@ -18,7 +18,7 @@ import {
 } from "@/lib/services/pi-agent-mission-store";
 import { getProjectById, updateProjectActivity } from "@/lib/services/project";
 import { createWorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
-import { updateQuantGenerationStep } from "@/lib/commerce/generation-state";
+import { updateRetailGenerationStep } from "@/lib/commerce/generation-state";
 import {
   readRetailRunPlan,
   type RetailRunPlan,
@@ -423,7 +423,7 @@ async function executeRetailGeneration(
 
   await runValidationAfterExecution({
     execution: (async () => {
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: workspace,
         projectId: job.projectId,
         requestId: job.requestId,
@@ -517,7 +517,7 @@ export const RETAIL_GENERATION_HANDLER: DataAgentGenerationHandler = {
           code: "GENERATION_WORKER_FAILED",
           message,
         }),
-        updateQuantGenerationStep({
+        updateRetailGenerationStep({
           projectPath: workspace,
           projectId: job.projectId,
           requestId: job.requestId,

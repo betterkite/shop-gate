@@ -3,12 +3,12 @@ import path from 'path';
 import type { PiAgentSkillPhase } from '@/lib/agent/skills';
 import {
   assessDashboardSpecReadiness,
-  isDashboardSpecCapabilitySupported,
-} from '@/lib/domains/finance/agent-tools/dashboard-spec';
-import { assessQuantDatasetIdentity } from '@/lib/domains/finance/data-identity';
-import { getQuantCapability } from '@/lib/domains/finance/capabilities';
-import { readQuantRunPlan, type QuantRunPlan } from '@/lib/domains/finance/workspace';
-import { serializeQuantVisualizationTemplate } from '@/lib/domains/finance/visualization-templates';
+  isRetailDashboardSpecCapabilitySupported,
+} from '@/lib/domains/retail/agent-tools/dashboard-spec';
+import { assessRetailDatasetIdentity } from '@/lib/domains/retail/data-identity';
+import { getRetailCapability } from '@/lib/domains/retail/capabilities';
+import { readRetailRunPlan, type RetailRunPlan } from '@/lib/domains/retail/workspace';
+import { serializeRetailVisualizationTemplate } from '@/lib/domains/retail/visualization-templates';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -27,18 +27,17 @@ async function readJsonRecord(filePath: string): Promise<JsonRecord | null> {
 }
 
 function buildCapabilityContext(
-  runPlan: QuantRunPlan | null = null,
+  runPlan: RetailRunPlan | null = null,
 ): string {
   const runCapabilityId = runPlan?.requestedCapabilityId ?? runPlan?.capabilityId;
-  const capability = getQuantCapability(runCapabilityId);
+  const capability = getRetailCapability(runCapabilityId);
   const validationRules = runPlan?.validationRules?.length
     ? runPlan.validationRules
     : capability.validationRules;
-  const serializedTemplate = serializeQuantVisualizationTemplate(capability.id, {
+  const serializedTemplate = serializeRetailVisualizationTemplate(capability.id, {
     instruction: runPlan?.question,
-    symbolCount: runPlan?.symbols?.length,
+    entityCount: runPlan?.entities?.length,
     requestedVariantId: runPlan?.visualization?.variantId,
-    dataSignals: runPlan?.visualization?.dataSignals,
   });
   const visualization = {
     templateId: runPlan?.visualization?.templateId ?? serializedTemplate.templateId,
@@ -58,7 +57,7 @@ function buildCapabilityContext(
   return `任务合同：
 - 能力：${capability.id} / ${capability.name}；执行能力：${runPlan?.executionCapabilityId ?? capability.executionCapabilityId}
 - LLM：${runPlan?.llm?.provider ?? 'openai'} / ${runPlan?.llm?.model ?? 'local_qwen:qwen3.5-9b-q5km'}；Query Rewrite：${(runPlan?.llm?.queryRewrite.enabled ?? true) ? 'LLM-first' : 'disabled（失败关闭）'}
-- 标的：${runPlan?.symbols?.join(', ') || '以只读运行计划为准'}
+- 标的：${runPlan?.entities?.join(', ') || '以只读运行计划为准'}
 - 页面模板：${visualization.templateId} / ${visualization.variantId}（${visualization.variantName}）
 - 布局与密度：${visualization.layout} / ${visualization.density}
 - 首屏：${visualization.firstViewport.join('；')}
@@ -69,7 +68,7 @@ function buildCapabilityContext(
 
 export async function hasPlatformPreparedQuantArtifacts(
   projectPath: string,
-  runPlan?: QuantRunPlan | null,
+  runPlan?: RetailRunPlan | null,
 ): Promise<boolean> {
   return (await assessPlatformPreparedQuantArtifacts(projectPath, runPlan)).ready;
 }
@@ -105,7 +104,7 @@ function collectedFinalSymbols(finalData: JsonRecord): Set<string> {
   };
   add(finalData.symbol);
   if (Array.isArray(finalData.requestedSymbols)) finalData.requestedSymbols.forEach(add);
-  if (Array.isArray(finalData.symbols)) finalData.symbols.forEach(add);
+  if (Array.isArray(finalData.entities)) finalData.entities.forEach(add);
   if (Array.isArray(finalData.assets)) {
     for (const asset of finalData.assets) {
       const record = asRecord(asset);
@@ -176,10 +175,10 @@ function hasUsableQualityEvidence(quality: JsonRecord | null): boolean {
  */
 export async function assessPlatformPreparedQuantArtifacts(
   projectPath: string,
-  runPlan?: QuantRunPlan | null,
+  runPlan?: RetailRunPlan | null,
 ): Promise<PlatformPreparedQuantArtifactsAssessment> {
   const normalizedProjectPath = path.resolve(projectPath);
-  const authoritativePlan = runPlan ?? await readQuantRunPlan(normalizedProjectPath);
+  const authoritativePlan = runPlan ?? await readRetailRunPlan(normalizedProjectPath);
   const reasons: string[] = [];
   if (authoritativePlan?.status !== 'planned') {
     reasons.push('run_plan_not_planned');
@@ -204,10 +203,10 @@ export async function assessPlatformPreparedQuantArtifacts(
     reasons.push('quality_evidence_not_usable');
   }
   if (finalData) {
-    const identity = assessQuantDatasetIdentity(authoritativePlan, finalData);
+    const identity = assessRetailDatasetIdentity(authoritativePlan, finalData);
     reasons.push(...identity.reasons.map((reason) => `dataset_identity:${reason}`));
     const covered = collectedFinalSymbols(finalData);
-    const missingSymbols = authoritativePlan.symbols.filter((symbol) => !covered.has(symbol));
+    const missingSymbols = authoritativePlan.entities.filter((symbol) => !covered.has(symbol));
     if (missingSymbols.length > 0) reasons.push(`missing_planned_symbols:${missingSymbols.join(',')}`);
     const finalTemplate = stringValue(asRecord(finalData.visualization)?.template_id);
     const plannedTemplate = stringValue(authoritativePlan.visualization?.templateId);
@@ -225,12 +224,12 @@ export async function assessPlatformPreparedQuantArtifacts(
     finalData &&
     plannedTemplate &&
     plannedVariant &&
-    isDashboardSpecCapabilitySupported(plannedTemplate, plannedVariant)
+    isRetailDashboardSpecCapabilitySupported(plannedTemplate, plannedVariant)
   ) {
-    const preflight = assessDashboardSpecReadiness(
-      authoritativePlan as unknown as JsonRecord,
+    const preflight = assessDashboardSpecReadiness({
+      runPlan: authoritativePlan as unknown as JsonRecord,
       finalData,
-    );
+    });
     dashboardSpecReady = preflight.ready;
     dashboardSpecErrorCode = preflight.errorCode;
     dashboardSpecReasons = preflight.reasons;
@@ -256,7 +255,7 @@ export async function buildShopGateTaskPrompt(
   instruction: string,
   projectPath: string,
   options: {
-    runPlan?: QuantRunPlan | null;
+    runPlan?: RetailRunPlan | null;
     platformPrepared?: boolean;
     preparedIntent?: 'standard' | 'custom' | null;
     phase?: PiAgentSkillPhase;
@@ -264,24 +263,24 @@ export async function buildShopGateTaskPrompt(
   } = {},
 ): Promise<string> {
   const normalizedProjectPath = path.resolve(projectPath);
-  const runPlan = options.runPlan ?? await readQuantRunPlan(normalizedProjectPath);
+  const runPlan = options.runPlan ?? await readRetailRunPlan(normalizedProjectPath);
   const prepared = options.platformPrepared ??
     await hasPlatformPreparedQuantArtifacts(normalizedProjectPath, runPlan);
   const phase = options.phase ?? (prepared ? 'workspace-generation' : 'data-preparation');
   if (phase === 'validation-repair') {
-    const capability = getQuantCapability(
+    const capability = getRetailCapability(
       runPlan?.requestedCapabilityId ?? runPlan?.capabilityId,
     );
-    const visualization = serializeQuantVisualizationTemplate(capability.id, {
+    const visualization = serializeRetailVisualizationTemplate(capability.id, {
       instruction: runPlan?.question,
-      symbolCount: runPlan?.symbols?.length,
+      entityCount: runPlan?.entities?.length,
       requestedVariantId: runPlan?.visualization?.variantId,
       dataSignals: runPlan?.visualization?.dataSignals,
     });
     return `# Shop Gate Task Packet
 
 数据阶段：validation-repair
-权威定位：${capability.id}；标的 ${runPlan?.symbols?.join(', ') || '无显式标的'}；模板 ${runPlan?.visualization?.templateId ?? visualization.templateId} / ${runPlan?.visualization?.variantId ?? visualization.variantId}
+权威定位：${capability.id}；标的 ${runPlan?.entities?.join(', ') || '无显式标的'}；模板 ${runPlan?.visualization?.templateId ?? visualization.templateId} / ${runPlan?.visualization?.variantId ?? visualization.variantId}
 
 ${instruction.trim()}`;
   }

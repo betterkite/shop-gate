@@ -4,10 +4,10 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   readQuantGenerationState,
-  startQuantGenerationRun,
-  updateQuantGenerationStep,
+  startRetailGenerationRun,
+  updateRetailGenerationStep,
 } from '@/lib/commerce/generation-state';
-import type { QuantValidationReport } from '@/lib/commerce/validation';
+import type { RetailValidationReport } from '@/lib/commerce/retail-validation';
 import { failBenchmarkGenerationRun, runBenchmarkRepairLoop } from './benchmark-repair';
 
 const temporaryProjects: string[] = [];
@@ -20,7 +20,7 @@ afterEach(async () => {
   );
 });
 
-function report(passed: boolean): QuantValidationReport {
+function report(passed: boolean): RetailValidationReport {
   const timestamp = '2026-07-14T00:00:00.000Z';
   return {
     schemaVersion: 1,
@@ -49,7 +49,7 @@ async function setupRun(maxRepairAttempts = 2) {
     projectId: 'benchmark-project',
     parentRequestId: 'benchmark-project-run',
   };
-  await startQuantGenerationRun({
+  await startRetailGenerationRun({
     projectPath,
     projectId: identifiers.projectId,
     requestId: identifiers.parentRequestId,
@@ -115,7 +115,7 @@ describe('benchmark repair state machine', () => {
 
   it('closes a running initialization stage when the benchmark escapes', async () => {
     const identifiers = await setupRun();
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: identifiers.projectPath,
       projectId: identifiers.projectId,
       requestId: identifiers.parentRequestId,

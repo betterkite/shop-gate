@@ -1,8 +1,8 @@
 import { DataAgentGenerationRuntimeRegistry } from "@/lib/data-agent";
-import { FINANCE_GENERATION_HANDLER } from "@/lib/commerce/finance-generation-executor";
+import { RETAIL_GENERATION_HANDLER } from "@/lib/commerce/retail-generation-executor";
 
 export function createApplicationGenerationRuntime(): DataAgentGenerationRuntimeRegistry {
   return new DataAgentGenerationRuntimeRegistry().register(
-    FINANCE_GENERATION_HANDLER,
+    RETAIL_GENERATION_HANDLER,
   );
 }

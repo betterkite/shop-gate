@@ -2,7 +2,7 @@ import { execFile } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
-import { getCapabilityCenterData } from '@/lib/commerce/capability-center';
+import { getCapabilityCenterData } from '@/lib/commerce/retail-capability-center';
 import { getWorkspaceHealthDashboard, type WorkspaceHealthDashboard } from '@/lib/commerce/workspace-health';
 import { getInfrastructureHealth, type InfrastructureHealth } from '@/lib/ops/infrastructure-health';
 import {

@@ -33,8 +33,8 @@ import {
   setPersonalMemoryEnabled,
 } from '../../src/lib/platform/memory/service';
 import type { PersonalizationCapsule } from '../../src/lib/platform/memory/types';
-import { rewriteQuantQuery } from '../../src/lib/domains/finance/query-rewrite';
-import { rewriteQuantQuerySemanticsWithConfiguredProvider } from '../../src/lib/domains/finance/query-rewrite-llm';
+import { rewriteRetailQuery } from '../../src/lib/domains/retail/query-rewrite';
+import { rewriteRetailQuerySemanticsWithConfiguredProvider } from '../../src/lib/domains/retail/query-rewrite-llm';
 import { buildShopGateUserPrompt } from '../../src/lib/services/pi-agent-prompts';
 
 type JsonRecord = Record<string, unknown>;
@@ -243,12 +243,12 @@ function makeResult(
 async function runQueryRewriteCase(item: ExperienceCase): Promise<CaseResult> {
   const expected = item.expected;
   if (expected.safetyRefusal === true) {
-    const measured = await timed(() => rewriteQuantQuery(item.question, {
+    const measured = await timed(() => rewriteRetailQuery(item.question, {
       requestedModel: LOCAL_QWEN_MODEL_ID,
       resolver: async () => ({ results: [] }),
     }));
     const failures = measured.value.status === 'refused'
-      && measured.value.safety.code === 'GUARANTEED_RETURN_REQUEST'
+      && measured.value.safety.code === 'GUARANTEED_SALES_REQUEST'
       ? []
       : ['未触发确定性收益承诺拒绝。'];
     return makeResult(item, measured.latencyMs, ['safety_refusal'], failures, {
@@ -261,7 +261,7 @@ async function runQueryRewriteCase(item: ExperienceCase): Promise<CaseResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   timeout.unref?.();
-  const measured = await timed(() => rewriteQuantQuerySemanticsWithConfiguredProvider({
+  const measured = await timed(() => rewriteRetailQuerySemanticsWithConfiguredProvider({
     originalQuery: item.question,
     normalizedQuery: item.question,
     trigger: 'primary',

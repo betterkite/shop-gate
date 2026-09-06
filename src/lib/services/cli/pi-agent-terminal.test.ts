@@ -96,11 +96,11 @@ vi.mock('@/lib/services/pi-agent-recovery', () => ({
 }));
 
 vi.mock('@/lib/domains/finance/workspace', () => ({
-  readQuantRunPlan: mocks.readRunPlan,
+  readRetailRunPlan: mocks.readRunPlan,
 }));
 
-vi.mock('@/lib/commerce/validation', () => ({
-  readQuantValidationReport: mocks.readValidationReport,
+vi.mock('@/lib/commerce/retail-validation', () => ({
+  readRetailValidationReport: mocks.readValidationReport,
   quantValidationRepairWritableGlobs: mocks.repairWritableGlobs,
 }));
 
@@ -705,7 +705,7 @@ describe('PI Agent terminal ownership', () => {
     );
 
     expect(mocks.compileSkills).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'stock_diagnosis',
+      capabilityId: 'traffic_funnel',
     }));
     expect(mocks.compileSkills.mock.calls[0]?.[0]).not.toHaveProperty('additionalSkillIds');
   });
@@ -721,7 +721,7 @@ describe('PI Agent terminal ownership', () => {
     });
     const runPlan = {
       status: 'planned',
-      requestedCapabilityId: 'stock_diagnosis',
+      requestedCapabilityId: 'traffic_funnel',
     };
     mocks.readRunPlan.mockResolvedValue(runPlan);
 
@@ -735,7 +735,7 @@ describe('PI Agent terminal ownership', () => {
 
     expect(mocks.assessPreparedArtifacts).toHaveBeenCalledWith(workspace, runPlan);
     expect(mocks.compileSkills).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'stock_diagnosis',
+      capabilityId: 'traffic_funnel',
       requiredSkillIds: ['dashboard-visualization'],
       phase: 'workspace-generation',
       activatedSkillIds: [],
@@ -786,7 +786,7 @@ describe('PI Agent terminal ownership', () => {
     });
     mocks.readRunPlan.mockResolvedValue({
       status: 'planned',
-      requestedCapabilityId: 'stock_diagnosis',
+      requestedCapabilityId: 'traffic_funnel',
     });
     process.env.PI_AGENT_MAX_RUN_CACHE_MISS_INPUT_TOKENS = '1000';
 
@@ -820,7 +820,7 @@ describe('PI Agent terminal ownership', () => {
     mocks.readRunPlan.mockResolvedValue({
       runId: 'plan-standard',
       status: 'planned',
-      requestedCapabilityId: 'stock_diagnosis',
+      requestedCapabilityId: 'traffic_funnel',
       visualization: {
         templateId: 'single-stock-diagnosis',
         variantId: 'single-stock-command-center',
@@ -875,7 +875,7 @@ describe('PI Agent terminal ownership', () => {
     mocks.readRunPlan.mockResolvedValue({
       runId: 'plan-zero-model',
       status: 'planned',
-      requestedCapabilityId: 'stock_diagnosis',
+      requestedCapabilityId: 'traffic_funnel',
       visualization: {
         templateId: 'single-stock-diagnosis',
         variantId: 'single-stock-command-center',
@@ -936,8 +936,8 @@ describe('PI Agent terminal ownership', () => {
     mocks.run.mockResolvedValue(result('completed'));
     const runPlan = {
       status: 'planned',
-      requestedCapabilityId: 'stock_diagnosis',
-      symbols: [{ symbol: '600519', market: 'CN' }],
+      requestedCapabilityId: 'traffic_funnel',
+      entities: [{ symbol: '600519', market: 'CN' }],
     };
     mocks.readRunPlan.mockResolvedValue(runPlan);
     mocks.assessPreparedArtifacts.mockResolvedValue({
@@ -957,7 +957,7 @@ describe('PI Agent terminal ownership', () => {
     );
 
     expect(mocks.compileSkills).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'stock_diagnosis',
+      capabilityId: 'traffic_funnel',
       phase: 'data-preparation',
       excludedSkillIds: ['image-extraction', 'quant-symbol-resolver'],
     }));

@@ -196,7 +196,7 @@ function deriveRunStatus(params: {
   return 'running';
 }
 
-async function startQuantGenerationRunUnlocked(params: {
+async function startRetailGenerationRunUnlocked(params: {
   projectPath: string;
   projectId: string;
   requestId: string;
@@ -240,13 +240,13 @@ async function startQuantGenerationRunUnlocked(params: {
   return state;
 }
 
-export async function startQuantGenerationRun(
-  params: Parameters<typeof startQuantGenerationRunUnlocked>[0]
+export async function startRetailGenerationRun(
+  params: Parameters<typeof startRetailGenerationRunUnlocked>[0]
 ) {
-  return withStateLock(params.projectPath, () => startQuantGenerationRunUnlocked(params));
+  return withStateLock(params.projectPath, () => startRetailGenerationRunUnlocked(params));
 }
 
-async function updateQuantGenerationStepUnlocked(params: {
+async function updateRetailGenerationStepUnlocked(params: {
   projectPath: string;
   projectId: string;
   requestId: string;
@@ -324,10 +324,10 @@ async function updateQuantGenerationStepUnlocked(params: {
   return nextState;
 }
 
-export async function updateQuantGenerationStep(
-  params: Parameters<typeof updateQuantGenerationStepUnlocked>[0]
+export async function updateRetailGenerationStep(
+  params: Parameters<typeof updateRetailGenerationStepUnlocked>[0]
 ) {
-  return withStateLock(params.projectPath, () => updateQuantGenerationStepUnlocked(params));
+  return withStateLock(params.projectPath, () => updateRetailGenerationStepUnlocked(params));
 }
 
 export async function incrementQuantGenerationRepairAttempt(params: {
@@ -338,7 +338,7 @@ export async function incrementQuantGenerationRepairAttempt(params: {
   return withStateLock(params.projectPath, async () => {
     const existing = await readState(params.projectPath);
     if (!existing || existing.requestId !== params.requestId) {
-      await updateQuantGenerationStepUnlocked({
+      await updateRetailGenerationStepUnlocked({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -372,7 +372,7 @@ export async function cancelQuantGenerationRun(params: {
   requestId: string;
   reason?: string | null;
 }) {
-  return updateQuantGenerationStep({
+  return updateRetailGenerationStep({
     projectPath: params.projectPath,
     projectId: params.projectId,
     requestId: params.requestId,
@@ -383,6 +383,3 @@ export async function cancelQuantGenerationRun(params: {
     errorMessage: params.reason ?? '用户暂停了当前任务。',
   });
 }
-
-// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
-export { startQuantGenerationRun as startRetailGenerationRun, updateQuantGenerationStep as updateRetailGenerationStep };

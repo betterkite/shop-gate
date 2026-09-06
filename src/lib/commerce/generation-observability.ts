@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { prisma } from '@/lib/db/client';
 import { readRetailRunPlan, type RetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
-import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/commerce/validation';
+import type { RetailValidationRepairPlan, RetailValidationReport } from '@/lib/commerce/retail-validation';
 import {
   DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
   DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
@@ -392,14 +392,14 @@ async function readWorkspaceEvents(
 
 async function readValidationReportForObservability(
   projectPath: string
-): Promise<QuantValidationReport | null> {
+): Promise<RetailValidationReport | null> {
   const content = await fs
     .readFile(path.join(projectPath, VALIDATION_REPORT_RELATIVE_PATH), 'utf8')
     .catch(() => null);
   if (!content) return null;
   try {
     const parsed = JSON.parse(content);
-    return isRecord(parsed) ? (parsed as unknown as QuantValidationReport) : null;
+    return isRecord(parsed) ? (parsed as unknown as RetailValidationReport) : null;
   } catch {
     return null;
   }
@@ -407,14 +407,14 @@ async function readValidationReportForObservability(
 
 async function readValidationRepairPlanForObservability(
   projectPath: string
-): Promise<QuantValidationRepairPlan | null> {
+): Promise<RetailValidationRepairPlan | null> {
   const content = await fs
     .readFile(path.join(projectPath, VALIDATION_REPAIR_PLAN_RELATIVE_PATH), 'utf8')
     .catch(() => null);
   if (!content) return null;
   try {
     const parsed = JSON.parse(content);
-    return isRecord(parsed) ? (parsed as unknown as QuantValidationRepairPlan) : null;
+    return isRecord(parsed) ? (parsed as unknown as RetailValidationRepairPlan) : null;
   } catch {
     return null;
   }
@@ -589,7 +589,7 @@ function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof
   ];
 }
 
-function buildValidationEvent(projectId: string, report: QuantValidationReport | null): GenerationTimelineEvent[] {
+function buildValidationEvent(projectId: string, report: RetailValidationReport | null): GenerationTimelineEvent[] {
   if (!report) return [];
   const failed = report.checks.filter((check) => check.status === 'failed').length;
   const warnings = report.checks.filter((check) => check.status === 'warning').length;
@@ -616,7 +616,7 @@ function buildValidationEvent(projectId: string, report: QuantValidationReport |
   ];
 }
 
-function buildRepairEvent(projectId: string, repairPlan: QuantValidationRepairPlan | null): GenerationTimelineEvent[] {
+function buildRepairEvent(projectId: string, repairPlan: RetailValidationRepairPlan | null): GenerationTimelineEvent[] {
   if (!repairPlan?.steps.length) return [];
   return [
     {
@@ -839,7 +839,7 @@ function getCurrentIssueWindow(timeline: GenerationTimelineEvent[]) {
   return checkpointIndex >= 0 ? timeline.slice(checkpointIndex + 1) : timeline;
 }
 
-function isRepairPlanCurrent(repairPlan: QuantValidationRepairPlan | null, validationReport: QuantValidationReport | null) {
+function isRepairPlanCurrent(repairPlan: RetailValidationRepairPlan | null, validationReport: RetailValidationReport | null) {
   if (!repairPlan?.steps.length) return false;
   if (!validationReport?.passed) return true;
   const repairCreatedAt = new Date(repairPlan.createdAt).getTime();

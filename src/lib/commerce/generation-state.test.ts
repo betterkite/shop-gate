@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   cancelQuantGenerationRun,
   readQuantGenerationState,
-  startQuantGenerationRun,
-  updateQuantGenerationStep,
+  startRetailGenerationRun,
+  updateRetailGenerationStep,
 } from './generation-state';
 
 const temporaryProjects: string[] = [];
@@ -29,12 +29,12 @@ describe('generation state terminal transitions', () => {
       requestId: 'request-state',
     };
 
-    await startQuantGenerationRun({
+    await startRetailGenerationRun({
       ...identifiers,
       instruction: 'generate a dashboard',
     });
     await cancelQuantGenerationRun({ ...identifiers, reason: 'user paused' });
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       ...identifiers,
       stepId: 'completed',
       status: 'success',

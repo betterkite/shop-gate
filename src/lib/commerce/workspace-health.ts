@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getAllProjects } from '@/lib/services/project';
 import { readRetailRunPlan, type RetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
-import type { QuantValidationRepairPlan, QuantValidationReport } from '@/lib/commerce/validation';
+import type { RetailValidationRepairPlan, RetailValidationReport } from '@/lib/commerce/retail-validation';
 import {
   DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
   DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
@@ -205,14 +205,14 @@ async function readJsonRecord(filePath: string): Promise<JsonRecord | null> {
   return isRecord(parsed) ? parsed : null;
 }
 
-async function readValidationReport(projectPath: string): Promise<QuantValidationReport | null> {
+async function readValidationReport(projectPath: string): Promise<RetailValidationReport | null> {
   const parsed = await readJson(path.join(projectPath, VALIDATION_REPORT_RELATIVE_PATH)).catch(() => null);
-  return isRecord(parsed) ? (parsed as unknown as QuantValidationReport) : null;
+  return isRecord(parsed) ? (parsed as unknown as RetailValidationReport) : null;
 }
 
-async function readValidationRepairPlan(projectPath: string): Promise<QuantValidationRepairPlan | null> {
+async function readValidationRepairPlan(projectPath: string): Promise<RetailValidationRepairPlan | null> {
   const parsed = await readJson(path.join(projectPath, VALIDATION_REPAIR_PLAN_RELATIVE_PATH)).catch(() => null);
-  return isRecord(parsed) ? (parsed as unknown as QuantValidationRepairPlan) : null;
+  return isRecord(parsed) ? (parsed as unknown as RetailValidationRepairPlan) : null;
 }
 
 async function statFile(filePath: string) {
@@ -285,7 +285,7 @@ export function deriveWorkspaceLifecycle(params: {
   };
 }
 
-function normalizeArtifactStatus(exists: boolean, id: string, validation: QuantValidationReport | null, dataQuality: JsonRecord | null): WorkspaceHealthStatus {
+function normalizeArtifactStatus(exists: boolean, id: string, validation: RetailValidationReport | null, dataQuality: JsonRecord | null): WorkspaceHealthStatus {
   if (!exists) {
     if (id === 'generation_state') return 'unknown';
     if (id === 'generation_queue') return 'unknown';
@@ -307,7 +307,7 @@ function normalizeArtifactStatus(exists: boolean, id: string, validation: QuantV
   return 'healthy';
 }
 
-function countValidationChecks(report: QuantValidationReport | null, status: 'failed' | 'warning') {
+function countValidationChecks(report: RetailValidationReport | null, status: 'failed' | 'warning') {
   return report?.checks.filter((check) => check.status === status).length ?? 0;
 }
 

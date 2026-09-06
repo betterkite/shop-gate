@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { rewriteQuantQuery } from '@/lib/domains/finance/query-rewrite';
-import { writeInitialRunPlan } from '@/lib/domains/finance/workspace';
+import { rewriteRetailQuery } from '@/lib/domains/retail/query-rewrite';
+import { writeInitialRunPlan } from '@/lib/domains/retail/workspace';
 import {
   assessPlatformPreparedQuantArtifacts,
   buildShopGateSystemPrompt,
@@ -25,11 +25,11 @@ async function technicalRewrite(instruction: string) {
     ? {
         label: '最近120个交易日',
         value: 120,
-        unit: 'trading_day' as const,
+        unit: 'day' as const,
         evidence: '最近120个交易日',
       }
     : null;
-  return rewriteQuantQuery(instruction, {
+  return rewriteRetailQuery(instruction, {
     semanticRewriter: async () => ({
       ok: true,
       provider: 'openai',
@@ -37,7 +37,7 @@ async function technicalRewrite(instruction: string) {
       data: {
         targetCandidates: ['贵州茅台'],
         timeRange,
-        analysisFocusId: 'technical',
+        analysisFocusId: 'funnel',
         outputIntent: 'dashboard',
         answerOnlyEvidence: null,
         broadUniverse: false,

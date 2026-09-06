@@ -3,10 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  assessQuantValidationReportFreshness,
-  readQuantValidationReport,
-  type QuantValidationReport,
-} from './validation';
+  assessRetailValidationReportFreshness,
+  readRetailValidationReport,
+  type RetailValidationReport,
+} from './retail-validation';
 
 const temporaryProjects: string[] = [];
 
@@ -27,7 +27,7 @@ async function writeJson(filePath: string, value: unknown) {
 function validationReport(
   status: 'passed' | 'failed',
   runId = 'run-current',
-): QuantValidationReport {
+): RetailValidationReport {
   const timestamp = '2026-07-14T00:00:00.000Z';
   return {
     schemaVersion: 1,
@@ -79,7 +79,7 @@ describe('validation report freshness', () => {
         new Date('2026-07-14T00:01:00.000Z'),
       );
 
-      const report = await readQuantValidationReport(projectPath);
+      const report = await readRetailValidationReport(projectPath);
       const staleCheck = report?.checks.find(
         (check) => check.id === 'validation_report_stale',
       );
@@ -97,7 +97,7 @@ describe('validation report freshness', () => {
 
   it('treats a report from another generation run as stale', () => {
     expect(
-      assessQuantValidationReportFreshness({
+      assessRetailValidationReportFreshness({
         reportRunId: 'run-previous',
         currentRunId: 'run-current',
         reportMtimeMs: 200,
@@ -142,7 +142,7 @@ describe('validation report freshness', () => {
       new Date('2026-07-14T00:01:00.000Z'),
     );
 
-    const report = await readQuantValidationReport(projectPath);
+    const report = await readRetailValidationReport(projectPath);
     expect(
       report?.checks.find((check) => check.id === 'validation_report_stale'),
     ).toMatchObject({
@@ -156,7 +156,7 @@ describe('validation report freshness', () => {
 
   it('keeps the current run report fresh when covered artifacts are not newer', () => {
     expect(
-      assessQuantValidationReportFreshness({
+      assessRetailValidationReportFreshness({
         reportRunId: 'run-current',
         currentRunId: 'run-current',
         reportMtimeMs: 200,

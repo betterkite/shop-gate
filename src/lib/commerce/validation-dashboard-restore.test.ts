@@ -3,11 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  isQuantDashboardTemplateRecoveryEligible,
+  isRetailDashboardTemplateRecoveryEligible,
   restoreQuantDashboardTemplateAfterRepairExhaustion,
-  type QuantValidationCheck,
-  type QuantValidationReport,
-} from './validation';
+  type RetailValidationCheck,
+  type RetailValidationReport,
+} from './retail-validation';
 
 const temporaryProjects: string[] = [];
 
@@ -19,9 +19,9 @@ afterEach(async () => {
   );
 });
 
-function failedReport(failedCheckIds: string[]): QuantValidationReport {
+function failedReport(failedCheckIds: string[]): RetailValidationReport {
   const timestamp = '2026-07-14T00:00:00.000Z';
-  const checks: QuantValidationCheck[] = failedCheckIds.map((id) => ({
+  const checks: RetailValidationCheck[] = failedCheckIds.map((id) => ({
     id,
     name: id,
     status: 'failed',
@@ -90,10 +90,10 @@ async function createGeneratedProject() {
 
 describe('dashboard template restore fallback', () => {
   it('only declares presentation-only reports eligible for deterministic recovery', () => {
-    expect(isQuantDashboardTemplateRecoveryEligible(
+    expect(isRetailDashboardTemplateRecoveryEligible(
       failedReport(['visual_presentation', 'chart_presence']),
     )).toBe(true);
-    expect(isQuantDashboardTemplateRecoveryEligible(
+    expect(isRetailDashboardTemplateRecoveryEligible(
       failedReport(['visual_presentation', 'final_data_file']),
     )).toBe(false);
   });

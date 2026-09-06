@@ -3,7 +3,7 @@ import { refreshPiAgentCandidateWorkspace } from '@/lib/services/pi-agent-candid
 import {
   capturePlatformMissionCandidate,
   claimQuantPiAgentMissionVerification,
-  markQuantPiAgentMissionNode,
+  markRetailPiAgentMissionNode,
   refreshPiAgentMissionContext,
   sealQuantPiAgentMissionCandidate,
   verifyAndRecordQuantPiAgentMission,
@@ -31,7 +31,7 @@ import { recordContextAcceptance } from '@/lib/platform/context/use-manifest';
 import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
-  updateQuantGenerationStep,
+  updateRetailGenerationStep,
 } from '@/lib/commerce/generation-state';
 import { finishQuantGenerationQueueItem } from '@/lib/commerce/generation-queue';
 import type { WorkspaceProgressPublisher } from '@/lib/commerce/workspace-progress';
@@ -50,7 +50,7 @@ import { streamManager } from '@/lib/services/stream';
 import { serializeMessage } from '@/lib/serializers/chat';
 
 async function loadQuantValidation() {
-  return import('@/lib/commerce/validation');
+  return import('@/lib/commerce/retail-validation');
 }
 
 async function ensureQuantDashboardTemplateForAct(projectPath: string) {
@@ -177,7 +177,7 @@ export function runValidationAfterExecution(params: {
       recoveredProjection: true,
     };
     const projectionResults = await Promise.allSettled([
-      updateQuantGenerationStep({
+      updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -231,7 +231,7 @@ export function runValidationAfterExecution(params: {
       );
     }
     activeVerificationSession = activeMission.verificationSession;
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.requestId,
@@ -300,7 +300,7 @@ export function runValidationAfterExecution(params: {
       activeVerificationSession = null;
     }
     activeMission = verified.mission;
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.requestId,
@@ -333,7 +333,7 @@ export function runValidationAfterExecution(params: {
   ) => {
     if (await isUserRequestCancelled(params.projectId, params.requestId)) {
       await cancelMission("请求已取消，Mission 不再接受候选或验收证据。");
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -366,7 +366,7 @@ export function runValidationAfterExecution(params: {
         ? executionError.message
         : String(executionError || "Agent execution failed"));
 
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.requestId,
@@ -394,7 +394,7 @@ export function runValidationAfterExecution(params: {
       !classifiedExecutionError.repairableByValidation
     ) {
       await failMission(classifiedExecutionError.code, executionFailureMessage);
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -439,7 +439,7 @@ export function runValidationAfterExecution(params: {
 
     await params.publishWorkspaceProgress({ stage: 4 });
     const quantValidation = await loadQuantValidation();
-    await quantValidation.prepareQuantProjectForValidation({
+    await quantValidation.prepareRetailProjectForValidation({
       projectId: params.projectId,
       projectPath: params.projectPath,
     });
@@ -457,7 +457,7 @@ export function runValidationAfterExecution(params: {
       );
     }
 
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.requestId,
@@ -465,7 +465,7 @@ export function runValidationAfterExecution(params: {
       status: "running",
       summary: "开始自动验证生成产物。",
     });
-    const firstReport = await quantValidation.validateQuantProject({
+    const firstReport = await quantValidation.validateRetailProject({
       projectId: params.projectId,
       projectPath: params.projectPath,
       requestId: params.requestId,
@@ -474,7 +474,7 @@ export function runValidationAfterExecution(params: {
     });
 
     const startValidatedPreview = async () => {
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -498,7 +498,7 @@ export function runValidationAfterExecution(params: {
         const preview = await startPersistentValidatedPreview({
           projectId: params.projectId,
         });
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -552,7 +552,7 @@ export function runValidationAfterExecution(params: {
       }
       if (await isUserRequestCancelled(params.projectId, params.requestId)) {
         await cancelMission("证据验收完成前请求已取消，拒绝投影完成态。");
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -576,7 +576,7 @@ export function runValidationAfterExecution(params: {
         return;
       }
 
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -594,7 +594,7 @@ export function runValidationAfterExecution(params: {
           acceptedReceiptSha256: acceptance.receipt.receiptHash,
         },
       });
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -723,7 +723,7 @@ export function runValidationAfterExecution(params: {
       (check) => check.status === "failed",
     );
 
-    await updateQuantGenerationStep({
+    await updateRetailGenerationStep({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.requestId,
@@ -764,14 +764,14 @@ export function runValidationAfterExecution(params: {
       );
       await beginRepair();
       const platformRepair =
-        await quantValidation.repairQuantPlatformOwnedArtifacts({
+        await quantValidation.repairRetailPlatformOwnedArtifacts({
           projectPath: params.projectPath,
           requestId: params.requestId,
           originalInstruction: params.instruction,
           report: latestReport,
         });
       if (platformRepair.runPlanRebuilt) {
-        await quantValidation.prepareQuantProjectForValidation({
+        await quantValidation.prepareRetailProjectForValidation({
           projectId: params.projectId,
           projectPath: params.projectPath,
         });
@@ -779,7 +779,7 @@ export function runValidationAfterExecution(params: {
           "platform_repair",
           "平台重建只读规划产物后封存新的验证候选。",
         );
-        latestReport = await quantValidation.validateQuantProject({
+        latestReport = await quantValidation.validateRetailProject({
           projectId: params.projectId,
           projectPath: params.projectPath,
           requestId: params.requestId,
@@ -814,7 +814,7 @@ export function runValidationAfterExecution(params: {
         await beginRepair();
       }
       const repairInstruction =
-        quantValidation.buildQuantValidationRepairInstruction(latestReport, {
+        quantValidation.buildRetailValidationRepairInstruction(latestReport, {
           originalInstruction: params.instruction,
         });
 
@@ -859,7 +859,7 @@ export function runValidationAfterExecution(params: {
 
       if (await isUserRequestCancelled(params.projectId, params.requestId)) {
         await cancelMission("原始请求已取消，自动修复未继续执行。");
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -899,7 +899,7 @@ export function runValidationAfterExecution(params: {
           projectId: params.projectId,
           requestId: params.requestId,
         });
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -929,7 +929,7 @@ export function runValidationAfterExecution(params: {
           error instanceof Error
             ? error.message
             : String(error || "Validation repair execution failed");
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -959,7 +959,7 @@ export function runValidationAfterExecution(params: {
       if (await isUserRequestCancelled(params.projectId, params.requestId)) {
         await cancelMission("原始请求已取消，修复后证据不再接受。");
         if (!repairExecutionFailed) {
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath: params.projectPath,
             projectId: params.projectId,
             requestId: params.requestId,
@@ -992,7 +992,7 @@ export function runValidationAfterExecution(params: {
         return;
       }
 
-      await quantValidation.prepareQuantProjectForValidation({
+      await quantValidation.prepareRetailProjectForValidation({
         projectId: params.projectId,
         projectPath: params.projectPath,
       });
@@ -1014,7 +1014,7 @@ export function runValidationAfterExecution(params: {
       }
 
       if (!repairExecutionFailed) {
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -1024,7 +1024,7 @@ export function runValidationAfterExecution(params: {
         });
       }
 
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -1032,7 +1032,7 @@ export function runValidationAfterExecution(params: {
         status: "running",
         summary: `开始第 ${repairAttempt}/${maxRepairAttempts} 次修复后自动验证。`,
       });
-      const finalReport = await quantValidation.validateQuantProject({
+      const finalReport = await quantValidation.validateRetailProject({
         projectId: params.projectId,
         projectPath: params.projectPath,
         requestId: params.requestId,
@@ -1051,7 +1051,7 @@ export function runValidationAfterExecution(params: {
           if (activeRepairRequestId === repairRequestId) {
             activeRepairRequestId = null;
           }
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath: params.projectPath,
             projectId: params.projectId,
             requestId: params.requestId,
@@ -1128,7 +1128,7 @@ export function runValidationAfterExecution(params: {
       });
       const earlyTemplateRecovery =
         stalledRepair &&
-        quantValidation.isQuantDashboardTemplateRecoveryEligible(latestReport);
+        quantValidation.isRetailDashboardTemplateRecoveryEligible(latestReport);
       if (repairAttempt < maxRepairAttempts && !earlyTemplateRecovery) {
         await markUserRequestAsFailed(
           params.projectId,
@@ -1138,7 +1138,7 @@ export function runValidationAfterExecution(params: {
         if (activeRepairRequestId === repairRequestId) {
           activeRepairRequestId = null;
         }
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -1182,7 +1182,7 @@ export function runValidationAfterExecution(params: {
             },
           },
         });
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -1197,7 +1197,7 @@ export function runValidationAfterExecution(params: {
           },
         });
 
-        await quantValidation.prepareQuantProjectForValidation({
+        await quantValidation.prepareRetailProjectForValidation({
           projectId: params.projectId,
           projectPath: params.projectPath,
         });
@@ -1207,7 +1207,7 @@ export function runValidationAfterExecution(params: {
           repairRequestId,
         );
 
-        const recoveredReport = await quantValidation.validateQuantProject({
+        const recoveredReport = await quantValidation.validateRetailProject({
           projectId: params.projectId,
           projectPath: params.projectPath,
           requestId: params.requestId,
@@ -1226,7 +1226,7 @@ export function runValidationAfterExecution(params: {
               `平台安全模板恢复后的证据未被接受：${acceptance.decision.reasonCodes.join(", ") || acceptance.decision.verdict}`,
             );
           }
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath: params.projectPath,
             projectId: params.projectId,
             requestId: params.requestId,
@@ -1264,7 +1264,7 @@ export function runValidationAfterExecution(params: {
       }
 
       if (earlyTemplateRecovery && repairAttempt < maxRepairAttempts) {
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -1292,7 +1292,7 @@ export function runValidationAfterExecution(params: {
         "MISSION_VALIDATION_EXHAUSTED",
         "自动验证和修复耗尽后仍未通过平台验收。",
       );
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -1406,7 +1406,7 @@ export function runValidationAfterExecution(params: {
           : "MISSION_VALIDATION_PIPELINE_FAILED",
         message,
       );
-      await updateQuantGenerationStep({
+      await updateRetailGenerationStep({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,

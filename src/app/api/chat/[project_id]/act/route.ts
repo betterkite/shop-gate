@@ -60,7 +60,7 @@ import { buildClarificationContinuation } from "@/lib/domains/retail/intent";
 import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
-  updateQuantGenerationStep,
+  updateRetailGenerationStep,
 } from "@/lib/commerce/generation-state";
 import {
   finishQuantGenerationQueueItem,
@@ -100,7 +100,7 @@ import { createRetailGenerationEnvelope } from "@/lib/commerce/retail-generation
 import { createApplicationGenerationRuntime } from "@/lib/commerce/generation-runtime";
 import { prepareRetailActGeneration } from "@/lib/commerce/retail-act-preparation";
 import {
-  loadQuantValidation,
+  loadRetailValidation,
   resolveProjectRoot,
 } from "@/lib/commerce/chat-act-support";
 

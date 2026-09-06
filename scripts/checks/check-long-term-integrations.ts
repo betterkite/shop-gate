@@ -20,7 +20,7 @@ import {
   MEMORY_INTEGRATION_CAPABILITIES,
   type PersonalizationCapsule,
 } from '../../src/lib/platform/memory/types';
-import { rewriteQuantQuerySemanticsWithConfiguredProvider } from '../../src/lib/domains/finance/query-rewrite-llm';
+import { rewriteRetailQuerySemanticsWithConfiguredProvider } from '../../src/lib/domains/retail/query-rewrite-llm';
 import { buildShopGateUserPrompt } from '../../src/lib/services/pi-agent-prompts';
 
 const argv = process.argv.slice(2);
@@ -246,7 +246,7 @@ async function checkQwen() {
   queryTimeout.unref?.();
   let queryRewrite;
   try {
-    queryRewrite = await rewriteQuantQuerySemanticsWithConfiguredProvider({
+    queryRewrite = await rewriteRetailQuerySemanticsWithConfiguredProvider({
       originalQuery: '分析大位科技最近一个季度的财务与估值，并生成看板',
       normalizedQuery: '分析大位科技最近一个季度的财务与估值，并生成看板',
       trigger: 'primary',

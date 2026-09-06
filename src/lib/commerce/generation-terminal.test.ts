@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { QuantValidationCheck } from './validation';
+import type { RetailValidationCheck } from './retail-validation';
 import { deriveQuantGenerationTerminalSnapshot } from './generation-terminal';
 
 const validation = (runId: string | undefined, passed = true) => ({
   runId,
   status: passed ? ('passed' as const) : ('failed' as const),
   passed,
-  checks: [] as QuantValidationCheck[],
+  checks: [] as RetailValidationCheck[],
 });
 
 const preview = (

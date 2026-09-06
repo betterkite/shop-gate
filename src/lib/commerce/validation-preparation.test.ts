@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { prepareQuantProjectForValidation } from './validation';
+import { prepareRetailProjectForValidation } from './retail-validation';
 
 const temporaryProjects: string[] = [];
 let previousSettleTimeout: string | undefined;
@@ -62,7 +62,7 @@ module.exports = withRspack(nextConfig);
       ),
     ]);
 
-    const resolvedPath = await prepareQuantProjectForValidation({
+    const resolvedPath = await prepareRetailProjectForValidation({
       projectId: 'project-validation-prep',
       projectPath,
     });
@@ -83,7 +83,7 @@ module.exports = withRspack(nextConfig);
       ),
     );
 
-    await prepareQuantProjectForValidation({
+    await prepareRetailProjectForValidation({
       projectId: 'project-validation-prep',
       projectPath,
     });

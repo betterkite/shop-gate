@@ -1532,8 +1532,8 @@ export class PreviewManager {
     }
 
     const projectPath = resolvePreviewProjectPath(projectId, project.repoPath);
-    const { checkQuantArtifactPolicy } = await import('@/lib/commerce/validation');
-    const executionPolicy = await checkQuantArtifactPolicy(projectPath);
+    const { checkRetailArtifactPolicy } = await import('@/lib/commerce/retail-validation');
+    const executionPolicy = await checkRetailArtifactPolicy(projectPath);
     if (executionPolicy.status === 'failed') {
       throw new Error(
         `Refusing to execute generated preview before artifact security policy passes: ${executionPolicy.details ?? executionPolicy.summary}`,

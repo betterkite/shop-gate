@@ -528,3 +528,50 @@ export function createApplyDashboardSpecTool(
       }),
   };
 }
+
+export function isRetailDashboardSpecCapabilitySupported(
+  templateId?: string | null,
+  variantId?: string | null,
+): boolean {
+  return SUPPORTED_RETAIL_RENDERERS.some((entry) => entry.templateId === templateId);
+}
+
+export function assessDashboardSpecReadiness(params: {
+  runPlan: JsonRecord;
+  finalData: JsonRecord;
+}): DashboardSpecReadinessAssessment {
+  const capabilityId = contractString(
+    (isRecord(params.runPlan.requestedCapabilityId) ? '' : String(params.runPlan.requestedCapabilityId ?? '')) ||
+    String(params.runPlan.capabilityId ?? ''),
+  ) || 'traffic_funnel';
+  const capability = resolveRetailDashboardCapability({
+    capabilityId,
+    finalData: params.finalData,
+  });
+  if (!capability.supported) {
+    const reasons = capability.reason
+      ? capability.reason.split('; ').filter(Boolean)
+      : [];
+    return {
+      ready: false,
+      errorCode: reasons.length > 0 ? 'DASHBOARD_SPEC_DATA_PREREQUISITE_FAILED' : 'DASHBOARD_SPEC_CONTRACT_INCOMPLETE',
+      reasons,
+      spec: null,
+    };
+  }
+  return {
+    ready: true,
+    errorCode: null,
+    reasons: [],
+    spec: {
+      schemaVersion: 1,
+      templateId: capability.templateId,
+      variantId: capability.variantId,
+      renderer: capability.renderer,
+      requiredComponents: [...capability.requiredComponents],
+      dataPrerequisites: capability.dataPrerequisites.map((prerequisite) => prerequisite.id),
+      dataArtifact: FINAL_DATA_PATH,
+      outputArtifacts: [PAGE_PATH, STYLES_PATH],
+    },
+  };
+}

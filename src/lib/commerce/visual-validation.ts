@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH } from '@/lib/data-agent/workspace-layout';
-import { appendQuantWorkspaceEvent, ensureQuantWorkspace } from '@/lib/domains/finance/workspace';
+import { appendRetailWorkspaceEvent, ensureRetailWorkspace } from '@/lib/domains/retail/workspace';
 
 export type QuantVisualValidationStatus = 'passed' | 'failed' | 'warning';
 
@@ -164,7 +164,7 @@ export function isVisualValidationInfrastructureError(error: unknown): boolean {
 }
 
 async function writeReport(projectPath: string, report: QuantVisualValidationReport) {
-  await ensureQuantWorkspace(projectPath);
+  await ensureRetailWorkspace(projectPath);
   await fs.writeFile(
     path.join(projectPath, DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH),
     `${JSON.stringify(report, null, 2)}\n`,
@@ -512,7 +512,7 @@ export async function validateQuantVisualPresentation(params: {
       updatedAt,
     };
     await writeReport(projectPath, report);
-    await appendQuantWorkspaceEvent(projectPath, {
+    await appendRetailWorkspaceEvent(projectPath, {
       event_type: 'visual_validation_completed',
       stage: 'validation',
       status: status === 'failed' ? 'error' : status === 'warning' ? 'warning' : 'success',
@@ -548,7 +548,7 @@ export async function validateQuantVisualPresentation(params: {
       updatedAt,
     };
     await writeReport(projectPath, report);
-    await appendQuantWorkspaceEvent(projectPath, {
+    await appendRetailWorkspaceEvent(projectPath, {
       event_type: 'visual_validation_completed',
       stage: 'validation',
       status: infrastructureUnavailable ? 'warning' : 'error',

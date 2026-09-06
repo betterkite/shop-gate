@@ -44,7 +44,7 @@ import type {
   CapabilityCenterData,
   CapabilityCenterDataProvider,
   CapabilityCenterItem,
-} from "@/lib/commerce/capability-center";
+} from "@/lib/commerce/retail-capability-center";
 import { cn } from "@/lib/utils";
 
 type Props = { initialData: CapabilityCenterData };

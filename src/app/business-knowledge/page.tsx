@@ -1,4 +1,4 @@
-import { getCapabilityCenterData } from '@/lib/commerce/capability-center';
+import { getCapabilityCenterData } from '@/lib/commerce/retail-capability-center';
 import BusinessKnowledgeClient from './BusinessKnowledgeClient';
 import type { Metadata } from 'next';
 

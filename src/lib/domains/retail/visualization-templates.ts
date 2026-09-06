@@ -161,6 +161,7 @@ export function serializeRetailVisualizationTemplate(
     instruction?: string;
     entityCount?: number;
     requestedVariantId?: string | null;
+    dataSignals?: string[];
   } = {},
 ): RetailVisualizationTemplate & { matchReasons: string[] } {
   const template = getRetailVisualizationTemplate(capabilityId);
@@ -178,5 +179,8 @@ export function serializeRetailVisualizationTemplate(
     matchReasons.push('指令包含环比/异动词，优先展示当日摘要与异动榜。');
   }
   void params.requestedVariantId;
-  return { ...template, matchReasons };
+  const dataSignals = params.dataSignals?.length
+    ? params.dataSignals
+    : [...template.dataSignals];
+  return { ...template, dataSignals, matchReasons };
 }

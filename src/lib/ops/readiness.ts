@@ -38,7 +38,7 @@ export interface ReadinessComponent {
 
 export interface ReadinessResult {
   ok: boolean;
-  service: 'quantpilot-web';
+  service: 'shopgate-web';
   checkedAt: string;
   components: ReadinessComponent[];
 }
@@ -91,7 +91,7 @@ export async function runReadinessProbes(
 
   return {
     ok: components.every((component) => !component.required || component.ok),
-    service: 'quantpilot-web',
+    service: 'shopgate-web',
     checkedAt: now().toISOString(),
     components,
   };
@@ -162,9 +162,9 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
         /* turbopackIgnore: true */ process.cwd(),
         /* turbopackIgnore: true */ process.env.PROJECTS_DIR || './data/projects',
       );
-  const marketBaseUrl = (process.env.QUANTPILOT_MARKET_API_URL || 'http://127.0.0.1:8000')
+  const marketBaseUrl = (process.env.SHOPGATE_MARKET_API_URL || 'http://127.0.0.1:8000')
     .replace(/\/$/, '');
-  const modelPortBaseUrl = (process.env.QUANTPILOT_MODELPORT_URL || 'http://127.0.0.1:38082')
+  const modelPortBaseUrl = (process.env.SHOPGATE_MODELPORT_URL || 'http://127.0.0.1:38082')
     .replace(/\/$/, '');
   const lokiBaseUrl = (process.env.LOKI_URL || 'http://127.0.0.1:33100').replace(/\/$/, '');
   let memoryRuntime:
@@ -199,10 +199,10 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
       ...degradation.components.knowledge,
       run: async () => {
         if ('error' in knowledgeRuntime) throw knowledgeRuntime.error;
-        const discovery = await knowledgeRuntime.adapter.discover('quantpilot-readiness');
+        const discovery = await knowledgeRuntime.adapter.discover('shopgate-readiness');
         const issues = knowledgeCompatibilityIssues(discovery, knowledgeRuntime.config);
         if (issues.length > 0) throw new Error('Incompatible governed knowledge service');
-        await knowledgeRuntime.adapter.checkReady('quantpilot-readiness');
+        await knowledgeRuntime.adapter.checkReady('shopgate-readiness');
       },
     },
     {
@@ -215,14 +215,14 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
       ...degradation.components.memory,
       run: async () => {
         if ('error' in memoryRuntime) throw memoryRuntime.error;
-        const discovery = await memoryRuntime.adapter.discover('quantpilot-readiness');
+        const discovery = await memoryRuntime.adapter.discover('shopgate-readiness');
         const issues = memoryCompatibilityIssues(
           discovery,
           memoryRuntime.config,
           MEMORY_CHAT_CAPABILITIES,
         );
         if (issues.length > 0) throw new Error('Incompatible memory service');
-        await memoryRuntime.adapter.checkReady('quantpilot-readiness');
+        await memoryRuntime.adapter.checkReady('shopgate-readiness');
       },
     },
     {

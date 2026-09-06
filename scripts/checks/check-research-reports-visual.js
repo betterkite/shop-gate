@@ -5,7 +5,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const rootDir = path.join(__dirname, '..', '..');
-const baseUrl = (process.env.QUANTPILOT_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'research-reports');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const views = [
@@ -21,7 +21,7 @@ function cleanMessage(value) {
 
 async function inspectProfile(browser, profile) {
   const context = await browser.newContext({ viewport: profile.viewport, deviceScaleFactor: 1, colorScheme: profile.theme });
-  await context.addInitScript((theme) => localStorage.setItem('quantpilot-color-mode', theme), profile.theme);
+  await context.addInitScript((theme) => localStorage.setItem('shopgate-color-mode', theme), profile.theme);
   const page = await context.newPage();
   const problems = [];
   const pageErrors = [];

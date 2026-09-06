@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import type { ResearchAutomationDashboard } from "@/lib/quant/research-reports";
+import type { ResearchAutomationDashboard } from "@/lib/commerce/research-reports";
 import {
   ResearchMetricCard,
   ResearchSectionHeader,

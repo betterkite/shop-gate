@@ -91,7 +91,7 @@ describe('PI Agent typed quant and terminal tools', () => {
     expect(result.content.length).toBeLessThanOrEqual(2_500);
     const content = JSON.parse(result.content);
     expect(content.$piAgent).toMatchObject({
-      kind: 'quant_api_result_window',
+      kind: 'commerce_api_result_window',
       version: 1,
       strategy: 'head_and_recent_tail',
       sourcePath: '/api/v1/research/bars/600589.SH',
@@ -131,7 +131,7 @@ describe('PI Agent typed quant and terminal tools', () => {
     expect(result.content.length).toBeLessThanOrEqual(1_000);
     const content = JSON.parse(result.content);
     expect(content.$piAgent).toMatchObject({
-      kind: 'quant_api_result_window',
+      kind: 'commerce_api_result_window',
       responseByteLimitReached: true,
       strategy: 'response_byte_limit',
     });
@@ -233,9 +233,9 @@ describe('PI Agent typed quant and terminal tools', () => {
       'inspect_dashboard_contract',
       'query_json',
       'query_text_file',
-      'quant_api_get',
+      'commerce_api_get',
       'submit_result',
-      'quant_extract_uploaded_image',
+      'commerce_extract_uploaded_image',
       'image_extract',
     ]);
     expect(generation.some((tool) => /bash|shell/i.test(tool.name))).toBe(false);
@@ -271,7 +271,7 @@ describe('PI Agent typed quant and terminal tools', () => {
       'read_file',
       'read_file_range',
       'search_files',
-      'quant_api_get',
+      'commerce_api_get',
     ].includes(tool.name))).toBe(false);
     const dashboard = prepared.find((tool) => tool.name === 'apply_dashboard_spec')!;
     expect(dashboard.projectContextReceipt?.({}, {

@@ -9,7 +9,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from quantpilot_market_data.providers.baostock import (
+from shopgate_commerce_data.providers.baostock import (
     BaoStockError,
     baostock_code,
     baostock_volume_hands,

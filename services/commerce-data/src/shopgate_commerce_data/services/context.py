@@ -7,10 +7,10 @@ from time import perf_counter
 
 from pydantic import BaseModel
 
-from quantpilot_market_data.cache import MarketDataCache, RedisJsonCache
-from quantpilot_market_data.fundamentals import build_fundamental_indicators
-from quantpilot_market_data.indicators import build_technical_indicators
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache, RedisJsonCache
+from shopgate_commerce_data.fundamentals import build_fundamental_indicators
+from shopgate_commerce_data.indicators import build_technical_indicators
+from shopgate_commerce_data.models import (
     Adjustment,
     AnalysisContextResponse,
     AnalysisContextSectionError,
@@ -21,10 +21,10 @@ from quantpilot_market_data.models import (
     KlinePeriod,
     KlineResponse,
 )
-from quantpilot_market_data.providers.base import AnalysisContextProvider
-from quantpilot_market_data.services.events import get_announcements
-from quantpilot_market_data.services.fundamentals import get_financial_reports
-from quantpilot_market_data.services.quotes import get_history_quote, get_realtime_quote
+from shopgate_commerce_data.providers.base import AnalysisContextProvider
+from shopgate_commerce_data.services.events import get_announcements
+from shopgate_commerce_data.services.fundamentals import get_financial_reports
+from shopgate_commerce_data.services.quotes import get_history_quote, get_realtime_quote
 
 
 class _CapturedResult:

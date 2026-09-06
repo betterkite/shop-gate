@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit
 
-from quantpilot_market_data.models import ClickHouseHealthResponse
+from shopgate_commerce_data.models import ClickHouseHealthResponse
 
 try:
     import clickhouse_connect
@@ -21,7 +21,7 @@ except ImportError:  # pragma: no cover - exercised when optional dependency is 
 
 TRUE_VALUES = {"1", "true", "yes", "on", "enabled"}
 FALSE_VALUES = {"0", "false", "no", "off", "disabled"}
-DEFAULT_DATABASE = "quantpilot"
+DEFAULT_DATABASE = "shopgate"
 DAILY_BARS_TABLE = "quant_bars_daily"
 DAILY_FACTORS_TABLE = "quant_factors_daily"
 SYNC_BATCH_SIZE = 10_000
@@ -101,10 +101,10 @@ def clickhouse_config() -> ClickHouseConfig:
         port = parsed.port or (8443 if secure else 8123)
 
     return ClickHouseConfig(
-        enabled=_env_flag("QUANTPILOT_CLICKHOUSE_ENABLED", False),
+        enabled=_env_flag("SHOPGATE_CLICKHOUSE_ENABLED", False),
         host=host,
         port=port,
-        username=os.getenv("CLICKHOUSE_USER", "quantpilot").strip() or "quantpilot",
+        username=os.getenv("CLICKHOUSE_USER", "shopgate").strip() or "shopgate",
         password=os.getenv("CLICKHOUSE_PASSWORD", "").strip(),
         database=(
             os.getenv("CLICKHOUSE_DATABASE")

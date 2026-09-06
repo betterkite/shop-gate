@@ -28,7 +28,7 @@ export async function POST(
     const body = await request.json().catch(() => null);
     if (
       !isExplicitPreviewStopIntent({
-        headerIntent: request.headers.get('x-quantpilot-preview-intent'),
+        headerIntent: request.headers.get('x-shopgate-preview-intent'),
         bodyIntent:
           body && typeof body === 'object'
             ? (body as Record<string, unknown>).intent

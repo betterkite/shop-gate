@@ -1,6 +1,6 @@
 # 08. Agent 设计思想路线图（v2 · Agent 主线）
 
-目标：吃透 QuantPilot **作为一个 Agent 系统的设计思想**——它的每个关键机制解决什么问题、不做的代价是什么、为什么这样实现而不是那样——最终能自己设计并讲清一个同类项目。
+目标：吃透 Shop Gate **作为一个 Agent 系统的设计思想**——它的每个关键机制解决什么问题、不做的代价是什么、为什么这样实现而不是那样——最终能自己设计并讲清一个同类项目。
 
 > **版本说明**：v1（量化优先）见 git 历史（`37e5d36` 之前）。按陪学共识，市场数据线已降级为**案例库**：它学到的所有事实（provider→ingestion→stock_bars→freshness）在新路线里作为"Agent 输出凭什么可信"的活体证据反复调用，不再是独立主线。
 
@@ -22,7 +22,7 @@
    参照实现：<文件路径>
    ```
 
-6. **毕业产物**：一份《我的类 QuantPilot Agent 项目设计》文档（架构图＋每个决策的 why＋本项目参照实现）＋ 脱稿讲述达标。
+6. **毕业产物**：一份《我的类 Shop Gate Agent 项目设计》文档（架构图＋每个决策的 why＋本项目参照实现）＋ 脱稿讲述达标。
 
 ## 主线排序（已共识）
 
@@ -93,7 +93,7 @@
 
 ### 挖掘路径
 
-`src/lib/quant/generation-*.ts`（队列/状态/执行器）→ `generation-validation.ts`（验证分类：代码验证/视觉检查/产物契约）→ `artifact-contracts.ts`（产物长什么样才合格）→ `src/lib/eval/`（评测平台怎么判分）。
+`src/lib/commerce/generation-*.ts`（队列/状态/执行器）→ `generation-validation.ts`（验证分类：代码验证/视觉检查/产物契约）→ `artifact-contracts.ts`（产物长什么样才合格）→ `src/lib/eval/`（评测平台怎么判分）。
 
 ### 动手清单
 
@@ -177,7 +177,7 @@
 
 ## 阶段 4：数据契约与可信度（半周，案例库主场）
 
-对应教材：[03 市场数据与策略平台](03-market-data-and-strategy-platform.md)、`src/lib/quant/artifact-contracts.ts`、`evidence.ts`。
+对应教材：[03 市场数据与策略平台](03-commerce-data-and-strategy-platform.md)、`src/lib/commerce/artifact-contracts.ts`、`evidence.ts`。
 
 ### 现象
 
@@ -205,7 +205,7 @@
 
 ## 阶段 5：毕业设计（1 周）
 
-**产物**：《我的类 QuantPilot Agent 项目设计》文档，必须包含：
+**产物**：《我的类 Shop Gate Agent 项目设计》文档，必须包含：
 
 1. 架构图（Agent loop、Skills 注入、验证闭环、治理约束、数据契约五个板块）
 2. 每个设计决策的 why，且**每条都能引用本项目对应实现作参照**（取舍卡复用）

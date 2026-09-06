@@ -7,7 +7,7 @@ import {
 
 const broker = {
   url: 'https://identity.example/memory-token',
-  clientId: 'quantpilot',
+  clientId: 'shopgate',
   clientSecret: 'test-client-secret-with-length',
   audience: 'evolvable-memory-api',
 };

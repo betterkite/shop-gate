@@ -58,10 +58,10 @@ export async function GET(request: NextRequest) {
 
     if (config?.enabled) {
       try {
-        service = await inspectPersonalMemory('quantpilot-account-memory');
+        service = await inspectPersonalMemory('shopgate-account-memory');
         preferences = await listPersonalPreferences({
           actorUserId: session.user.id,
-          requestId: 'quantpilot-account-memory',
+          requestId: 'shopgate-account-memory',
         });
         status = 'ready';
       } catch (cause) {
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
         lifecycle: {
           productUsageFenceAvailable: true,
           providerErasureAvailable: false,
-          notice: '关闭后 QuantPilot 不再把外部记忆用于新任务，但不会删除 Memory 服务中已经保存的数据。',
+          notice: '关闭后 Shop Gate 不再把外部记忆用于新任务，但不会删除 Memory 服务中已经保存的数据。',
         },
       },
     });

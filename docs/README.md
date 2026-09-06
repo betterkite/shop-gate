@@ -1,6 +1,6 @@
-# QuantPilot 文档总览
+# Shop Gate 文档总览
 
-这个目录保存 QuantPilot 的项目知识，也是唯一的完整文档索引。根目录 README 负责定位和首次启动；长期配置、架构设计、教学材料、数据口径和排障经验在这里维护，避免再建立内容重复的二级导读。
+这个目录保存 Shop Gate 的项目知识，也是唯一的完整文档索引。根目录 README 负责定位和首次启动；长期配置、架构设计、教学材料、数据口径和排障经验在这里维护，避免再建立内容重复的二级导读。
 
 ## 先读哪几篇
 
@@ -22,7 +22,7 @@
 | 想理解生成链路 | [教学 02：AI 工作空间生成链路](learning/02-ai-workspace-generation.md) |
 | 想理解或扩展 Agent 执行内核 | [PI Agent 采用与治理边界](pi-agent-migration.md) / [PI Agent 架构](pi-agent.md) |
 | 想把 Data Agent 接入新业务系统 | [Data Agent 平台与 Domain Pack 架构](data-agent-architecture.md) |
-| 想理解数据和策略平台 | [教学 03：市场数据与策略平台](learning/03-market-data-and-strategy-platform.md) |
+| 想理解数据和策略平台 | [教学 03：市场数据与策略平台](learning/03-commerce-data-and-strategy-platform.md) |
 | 想优化生成页面 | [教学 04：Skills 与可视化看板](learning/04-skills-and-visual-dashboard.md) |
 | 想做评测和运维 | [教学 05：评测、运维与质量门](learning/05-evaluation-and-operations.md) |
 | 想查页面和后端接口 | [API 总览](api-reference.md) |
@@ -44,9 +44,9 @@
 | 只想把项目跑起来 | [配置指南](configuration.md)、[本地启动与健康检查](learning/01-quick-start.md) | [故障排查](troubleshooting.md) |
 | 第一次接手项目 | [项目学习地图](learning/00-project-study-map.md) | [项目结构](project-structure.md)、[内部组件](internal-components.md) |
 | 改前端页面 | [项目结构](project-structure.md) | [模块边界](module-boundaries.md)、对应页面专题 |
-| 改市场数据后端 | [后端能力架构](backend-capability-architecture.md) | [API](api-reference.md)、[数据字典](data-dictionary.md)、[行情数据源](market-data-source-knowledge.md) |
+| 改市场数据后端 | [后端能力架构](backend-capability-architecture.md) | [API](api-reference.md)、[数据字典](data-dictionary.md)、[行情数据源](commerce-data-source-knowledge.md) |
 | 处理生成页面质量 | [AI 工作空间生成链路](learning/02-ai-workspace-generation.md) | [Skills 与可视化看板](learning/04-skills-and-visual-dashboard.md)、[工作空间契约](generated-workspace-contract.md) |
-| 做策略平台或股票数据 | [市场数据与策略平台](learning/03-market-data-and-strategy-platform.md) | [策略平台指南](strategy-platform-guide.md)、[数据字典](data-dictionary.md) |
+| 做策略平台或股票数据 | [市场数据与策略平台](learning/03-commerce-data-and-strategy-platform.md) | [策略平台指南](strategy-platform-guide.md)、[数据字典](data-dictionary.md) |
 | 配模型或 Query Rewrite | [配置指南](configuration.md) | [模型 Provider](model-providers.md)、[PI Agent 迁移边界](pi-agent-migration.md) |
 | 接入或关闭用户记忆 | [配置指南](configuration.md#memory-接入方式) | [Memory 专题](user-memory-integration.md) |
 | 做评测与发布 | [评测、运维与质量门](learning/05-evaluation-and-operations.md) | [评测指南](evals-guide.md)、[生产发布](release-runbook.md) |
@@ -60,22 +60,22 @@
 | --- | --- | --- |
 | 配置与运行方式 | [配置、模型接入与可选组件指南](configuration.md) | 文件优先级、ModelPort/直连、Memory 开关、secret 边界与模式验收 |
 | 总体架构 | [架构总览](architecture.md) | 主链路、运行时、数据层、控制台和质量门 |
-| Agent 框架 | [PI Agent 采用与治理边界](pi-agent-migration.md) / [PI Agent 架构](pi-agent.md) | PI Agent loop、Provider 适配、QuantPilot durable ledger、类型化工具、Skills 与安全边界 |
+| Agent 框架 | [PI Agent 采用与治理边界](pi-agent-migration.md) / [PI Agent 架构](pi-agent.md) | PI Agent loop、Provider 适配、Shop Gate durable ledger、类型化工具、Skills 与安全边界 |
 | Data Agent 与业务扩展 | [Data Agent 平台与 Domain Pack 架构](data-agent-architecture.md) | 通用任务合同、Agent Profile、Domain Pack、工具与 Mission 注入、金融迁移边界 |
 | 内部组件 | [内部组件学习指南](internal-components.md) | 页面、服务、数据、Skills、验证、运维和降级如何协作 |
 | 项目结构 | [项目结构与分层边界](project-structure.md) | 前端、后端、量化领域层、脚本和生成工作空间边界 |
 | 模块边界 | [模块边界与模块化单体治理](module-boundaries.md) | 模块清单、允许依赖、质量门和拆分顺序 |
 | 路线图 | [持续完善路线图](ROADMAP.md) | 后续优先级、验收标准和暂不建议事项 |
 | 后端能力 | [后端能力架构与持续优化边界](backend-capability-architecture.md) | Python 后端、设计模式、模块落点、ClickHouse 和迁移路线 |
-| API | [API 总览](api-reference.md) | Next.js API、market-data API、调用方和排查路径 |
+| API | [API 总览](api-reference.md) | Next.js API、commerce-data API、调用方和排查路径 |
 | 数据字典 | [数据字典](data-dictionary.md) | Prisma 表、quant schema、字段来源、因子和数据质量口径 |
 | 基础设施 | [基础设施配置](infrastructure.md) | PostgreSQL、TimescaleDB、Redis、Loki/Grafana/Alloy、SQL 初始化和降级模式 |
 | 认证与访问治理 | [用户、权限与会话管理](authentication.md) | 用户生命周期、capability 与项目角色双层授权、用量配额、数据库会话、安全审计和页面/API/WebSocket 边界 |
 | 用户记忆 | [用户记忆服务接入、使用与效果验证](user-memory-integration.md) | 启动接入、HTTP 解耦、实际效果、个性化键、归因反馈、鉴权与降级 |
 | 受治理知识 | [Agent Knowledge Platform 接入与解耦边界](knowledge-platform-integration.md) | AKEP ContextPack、Citation/Usage、OAuth、降级与 ModelPort 分工 |
-| 联合上下文 | [Memory、Knowledge 与 QuantPilot 联合上下文](context-composition.md) | Consumer/Workspace 两层隔离、后续产品接入、Usage Receipt、ContextUseManifest 与结果回流 |
+| 联合上下文 | [Memory、Knowledge 与 Shop Gate 联合上下文](context-composition.md) | Consumer/Workspace 两层隔离、后续产品接入、Usage Receipt、ContextUseManifest 与结果回流 |
 | 模型 Provider | [模型 Provider 接入与使用](model-providers.md) | DeepSeek、本地 Qwen、凭据、模型选择、协议要求与排障 |
-| 行情数据 | [行情数据源采集知识库](market-data-source-knowledge.md) | 东方财富、Baostock、AKShare、字段口径和补数规则 |
+| 行情数据 | [行情数据源采集知识库](commerce-data-source-knowledge.md) | 东方财富、Baostock、AKShare、字段口径和补数规则 |
 | 策略平台 | [策略平台使用与设计指南](strategy-platform-guide.md) | 股票池、ETF/指数池、策略目录、因子目录、补数控制和策略数据依赖 |
 | 投研情报中心 | [投研情报中心与日报自动化指南](research-automation-guide.md) | 观察池、证据采样、报告库、主题洞察和自动化交付 |
 | 运行治理中心 | [运行治理中心使用与评分指南](ops-platform-guide.md) | 工作空间健康、治理评分、日志、降级模式和排查路径 |
@@ -87,7 +87,7 @@
 | 评测 | [Agent 评测指南](evals-guide.md) | 用例、评测集、评测器、队列、运行记录和 CI 门禁 |
 | 本地产物 | [本地产物与生成文件边界](local-generated-files.md) | 哪些文件可提交、哪些文件只保留本地 |
 | 排障 | [故障排查](troubleshooting.md) | 端口、数据库、生成工作空间、验证和常见失败 |
-| 市场数据服务 | [市场数据服务 README](../services/market-data/README.md) | FastAPI 接口、provider、补数端点和后端开发 |
+| 市场数据服务 | [市场数据服务 README](../services/commerce-data/README.md) | FastAPI 接口、provider、补数端点和后端开发 |
 | 文档写作 | [文档写作风格指南](documentation-style-guide.md) | 如何写得准确、可读、少一点机器味 |
 
 ## 当前能力分层
@@ -95,8 +95,8 @@
 ```mermaid
 flowchart TB
   U[用户问题 / 截图] --> W[Next.js AI 工作台]
-  W --> R[PI Agent Runtime + QuantPilot Governance]
-  R --> SK[QuantPilot Skills]
+  W --> R[PI Agent Runtime + Shop Gate Governance]
+  R --> SK[Shop Gate Skills]
   W --> MD[FastAPI 市场数据服务]
   MD --> PG[(PostgreSQL)]
   MD --> TS[(TimescaleDB)]

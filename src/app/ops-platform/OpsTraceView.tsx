@@ -26,20 +26,20 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatCompactDate as formatDate } from "@/components/quant/console-primitives";
+import { formatCompactDate as formatDate } from "@/components/eval-console/console-primitives";
 import {
   TimelineItem,
   traceDotClass,
   traceStageIcon,
   traceStatusLabel,
-} from "@/components/quant/workspace-console-primitives";
+} from "@/components/eval-console/workspace-console-primitives";
 import { cn } from "@/lib/utils";
 import type {
   GenerationObservabilityDashboard,
   GenerationStageId,
   GenerationTraceProject,
   GenerationTraceStatus,
-} from "@/lib/quant/generation-observability";
+} from "@/lib/commerce/generation-observability";
 import { OpsMetricCard, OpsSectionHeader } from "./OpsConsolePrimitives";
 
 type TraceFilter = GenerationTraceStatus | "all";

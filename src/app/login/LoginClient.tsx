@@ -63,7 +63,7 @@ export default function LoginClient({
         <section className="relative min-h-[260px] overflow-hidden border-b border-border/70 bg-muted lg:min-h-[720px] lg:border-b-0 lg:border-r">
           <Image
             src={loginHero}
-            alt="动漫风格的 QuantPilot 量化研究员正在分析数据"
+            alt="动漫风格的 Shop Gate 量化研究员正在分析数据"
             fill
             priority
             sizes="(min-width: 1024px) 55vw, 100vw"
@@ -75,7 +75,7 @@ export default function LoginClient({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <BarChart3 className="h-5 w-5" />
             </span>
-            QuantPilot
+            Shop Gate
           </div>
 
           <div className="absolute bottom-7 left-7 right-7 hidden overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/88 text-slate-950 shadow-[0_20px_52px_-28px_rgba(15,23,42,0.34)] backdrop-blur-xl lg:block">

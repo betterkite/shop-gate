@@ -50,6 +50,6 @@ describe('tool output serialization', () => {
     expect(serialized.metadata?.toolOutputOriginalChars).toBe(raw.length);
     expect(serialized.content).toContain('BEGIN:');
     expect(serialized.content).toContain(':END_STACK');
-    expect(serialized.content.match(/QuantPilot 已截断/g)).toHaveLength(1);
+    expect(serialized.content.match(/Shop Gate 已截断/g)).toHaveLength(1);
   });
 });

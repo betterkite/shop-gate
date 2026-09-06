@@ -1,6 +1,6 @@
-# QuantPilot SQL Bootstrap
+# Shop Gate SQL Bootstrap
 
-`sqls/` 保存 QuantPilot 组件第一次使用时需要的基础数据库对象。所有 SQL 都应保持可重复执行，方便 Docker 首次建库、已有本地库补齐和后续部署检查。
+`sqls/` 保存 Shop Gate 组件第一次使用时需要的基础数据库对象。所有 SQL 都应保持可重复执行，方便 Docker 首次建库、已有本地库补齐和后续部署检查。
 
 ## 执行顺序
 

@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const {
   attestProductControlEvidence,
-  loadQuantE2eSuite,
-} = require('../../../scripts/checks/quant-e2e-suite.js') as {
-  loadQuantE2eSuite(options?: Record<string, unknown>): {
+  loadCommerceE2eSuite,
+} = require('../../../scripts/checks/commerce-e2e-suite.js') as {
+  loadCommerceE2eSuite(options?: Record<string, unknown>): {
     id: string;
     schemaVersion: number;
     caseIds: string[];
@@ -26,7 +26,7 @@ const {
 };
 
 function validProductControlEvidence() {
-  const suite = loadQuantE2eSuite({ requireReleaseCoverage: true });
+  const suite = loadCommerceE2eSuite({ requireReleaseCoverage: true });
   const frameworkVersion = 'pi-agent:test';
   const buildRevision = 'build:test';
   const gitRevision = 'a'.repeat(40);
@@ -143,7 +143,7 @@ function validProductControlEvidence() {
 
 describe('PI Agent release E2E suite', () => {
   it('requires all production scenarios and separates zero-model controls', () => {
-    const suite = loadQuantE2eSuite({ requireReleaseCoverage: true });
+    const suite = loadCommerceE2eSuite({ requireReleaseCoverage: true });
 
     expect(suite).toMatchObject({
       schemaVersion: 2,
@@ -170,11 +170,11 @@ describe('PI Agent release E2E suite', () => {
   });
 
   it('rejects an incomplete release scenario matrix', () => {
-    const suite = loadQuantE2eSuite({ requireReleaseCoverage: true });
+    const suite = loadCommerceE2eSuite({ requireReleaseCoverage: true });
     const raw = structuredClone(suite.raw);
     delete (raw.scenarios as Record<string, unknown>).repair;
 
-    expect(() => loadQuantE2eSuite({
+    expect(() => loadCommerceE2eSuite({
       suite: raw,
       requireReleaseCoverage: true,
     })).toThrow(/缺少场景 repair/);

@@ -19,7 +19,7 @@ describe('personal memory policy', () => {
       scope: 'project',
       context: { product: 'forged', project_id: 'other', market: 'cn-a', invalid: 1 },
     })).toEqual({
-      product: 'quantpilot',
+      product: 'shopgate',
       project_id: 'project-a',
       market: 'cn-a',
     });
@@ -37,7 +37,7 @@ describe('personal memory policy', () => {
       segments: [
         {
           content: JSON.stringify({
-            context: { product: 'quantpilot' },
+            context: { product: 'shopgate' },
             key: 'output.detail_level',
             value: unsafeValue,
           }),
@@ -53,7 +53,7 @@ describe('personal memory policy', () => {
         },
         {
           content: JSON.stringify({
-            context: { product: 'quantpilot', project_id: 'project-b' },
+            context: { product: 'shopgate', project_id: 'project-b' },
             key: 'research.default_horizon',
             value: 'one year',
           }),
@@ -65,7 +65,7 @@ describe('personal memory policy', () => {
     expect(selected.revisionIds).toEqual(['rev-1']);
     expect(JSON.parse(selected.content)).toEqual({
       memories: [{
-        context: { product: 'quantpilot' },
+        context: { product: 'shopgate' },
         key: 'output.detail_level',
         value: unsafeValue,
       }],

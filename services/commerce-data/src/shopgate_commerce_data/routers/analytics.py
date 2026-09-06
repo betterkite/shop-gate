@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from quantpilot_market_data.clickhouse import ClickHouseError
-from quantpilot_market_data.database_core import DatabaseError
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.clickhouse import ClickHouseError
+from shopgate_commerce_data.database_core import DatabaseError
+from shopgate_commerce_data.models import (
     ClickHouseHealthResponse,
     ClickHouseSyncRequest,
     ClickHouseSyncResponse,
 )
-from quantpilot_market_data.security import require_market_admin
-from quantpilot_market_data.services.analytics import (
+from shopgate_commerce_data.security import require_market_admin
+from shopgate_commerce_data.services.analytics import (
     get_clickhouse_analytics_health,
     initialize_clickhouse_analytics,
     sync_clickhouse_analytics,

@@ -1,1 +1,1 @@
-"""Persistence boundary modules for the market-data service."""
+"""Persistence boundary modules for the commerce-data service."""

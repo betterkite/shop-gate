@@ -12,21 +12,21 @@ describe('governed knowledge integration config', () => {
     expect(config.purpose).toBe('quant-research');
     expect(config.spaces).toEqual(['https://knowledge.local/spaces/default']);
     expect(config.projectSpacesEnabled).toBe(true);
-    expect(config.projectSpaceBaseUrl).toBe('https://knowledge.local/spaces/quantpilot/projects');
+    expect(config.projectSpaceBaseUrl).toBe('https://knowledge.local/spaces/shopgate/projects');
   });
 
   it('accepts an independent AKEP endpoint and bounded scope', () => {
     const config = getKnowledgeIntegrationConfig({
       NODE_ENV: 'development',
-      QUANTPILOT_KNOWLEDGE_ENABLED: '1',
-      QUANTPILOT_KNOWLEDGE_REQUIRED: '1',
-      QUANTPILOT_KNOWLEDGE_API_URL: 'https://knowledge.example/platform',
-      QUANTPILOT_KNOWLEDGE_PURPOSE: 'quant-research',
-      QUANTPILOT_KNOWLEDGE_SPACES: 'https://knowledge.example/spaces/research,https://knowledge.example/spaces/risk',
-      QUANTPILOT_KNOWLEDGE_PROJECT_SPACE_BASE_URL: 'https://knowledge.example/spaces/projects/',
-      QUANTPILOT_KNOWLEDGE_TIMEOUT_MS: '900',
-      QUANTPILOT_KNOWLEDGE_MAX_CONTEXT_CHARACTERS: '6000',
-      QUANTPILOT_KNOWLEDGE_BEARER_TOKEN: 'test-reader',
+      SHOPGATE_KNOWLEDGE_ENABLED: '1',
+      SHOPGATE_KNOWLEDGE_REQUIRED: '1',
+      SHOPGATE_KNOWLEDGE_API_URL: 'https://knowledge.example/platform',
+      SHOPGATE_KNOWLEDGE_PURPOSE: 'quant-research',
+      SHOPGATE_KNOWLEDGE_SPACES: 'https://knowledge.example/spaces/research,https://knowledge.example/spaces/risk',
+      SHOPGATE_KNOWLEDGE_PROJECT_SPACE_BASE_URL: 'https://knowledge.example/spaces/projects/',
+      SHOPGATE_KNOWLEDGE_TIMEOUT_MS: '900',
+      SHOPGATE_KNOWLEDGE_MAX_CONTEXT_CHARACTERS: '6000',
+      SHOPGATE_KNOWLEDGE_BEARER_TOKEN: 'test-reader',
     });
 
     expect(config).toMatchObject({
@@ -45,13 +45,13 @@ describe('governed knowledge integration config', () => {
   it('requires OAuth and HTTPS in production', () => {
     expect(() => getKnowledgeIntegrationConfig({
       NODE_ENV: 'production',
-      QUANTPILOT_KNOWLEDGE_ENABLED: '1',
-      QUANTPILOT_KNOWLEDGE_API_URL: 'https://knowledge.example',
+      SHOPGATE_KNOWLEDGE_ENABLED: '1',
+      SHOPGATE_KNOWLEDGE_API_URL: 'https://knowledge.example',
     })).toThrow('requires OAuth client credentials');
     expect(() => getKnowledgeIntegrationConfig({
       NODE_ENV: 'production',
-      QUANTPILOT_KNOWLEDGE_ENABLED: '1',
-      QUANTPILOT_KNOWLEDGE_API_URL: 'http://knowledge.example',
+      SHOPGATE_KNOWLEDGE_ENABLED: '1',
+      SHOPGATE_KNOWLEDGE_API_URL: 'http://knowledge.example',
     })).toThrow('must use HTTPS');
   });
 });

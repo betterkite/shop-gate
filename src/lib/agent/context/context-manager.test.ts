@@ -154,10 +154,10 @@ describe('PiAgentContextManager', () => {
     expect(highEntropy).toBeGreaterThan(prose);
   });
 
-  it('does not falsely reject a six-result active market-data fan-out', () => {
+  it('does not falsely reject a six-result active commerce-data fan-out', () => {
     const toolCalls = Array.from({ length: 6 }, (_, index) => ({
       id: `call-${index}`,
-      name: 'quant_api_get',
+      name: 'commerce_api_get',
       arguments: JSON.stringify({ path: `/api/v1/research/bars/60058${index}` }),
     }));
     const resultContent = JSON.stringify({
@@ -447,7 +447,7 @@ describe('PiAgentContextManager', () => {
   it('summarizes active result bodies only as a last resort while preserving parallel-call atomicity', () => {
     const calls = Array.from({ length: 3 }, (_, index) => ({
       id: `active-${index}`,
-      name: 'quant_api_get',
+      name: 'commerce_api_get',
       arguments: '{}',
     }));
     const messages: PiAgentMessage[] = [

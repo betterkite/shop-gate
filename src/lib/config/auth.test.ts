@@ -26,7 +26,7 @@ describe('project auth config', () => {
       bootstrap: {
         developmentDefaults: {
           login: 'admin',
-          email: 'admin@quantpilot.local',
+          email: 'admin@shopgate.local',
           password: 'admin',
         },
       },
@@ -35,8 +35,8 @@ describe('project auth config', () => {
 
   it('accepts bounded authentication retention overrides', () => {
     const config = getProjectAuthConfig({
-      QUANTPILOT_AUTH_AUDIT_RETENTION_DAYS: '365',
-      QUANTPILOT_AUTH_EXPIRED_RECORD_GRACE_SECONDS: '7200',
+      SHOPGATE_AUTH_AUDIT_RETENTION_DAYS: '365',
+      SHOPGATE_AUTH_EXPIRED_RECORD_GRACE_SECONDS: '7200',
     });
     expect(config.retention).toEqual({
       auditDays: 365,
@@ -56,7 +56,7 @@ describe('project auth config', () => {
     })).toBeNull();
     expect(getDevelopmentAdminDefaults(config, {
       NODE_ENV: 'development',
-      QUANTPILOT_DEGRADATION_MODE: 'strict',
+      SHOPGATE_DEGRADATION_MODE: 'strict',
       BETTER_AUTH_URL: 'http://localhost:3000',
     })).toBeNull();
     expect(getDevelopmentAdminDefaults(config, {
@@ -68,9 +68,9 @@ describe('project auth config', () => {
   it('enables local auth only with an explicit mode and requires a strong secret', () => {
     const environment = {
       NODE_ENV: 'production',
-      QUANTPILOT_AUTH_MODE: 'local',
-      QUANTPILOT_AUTH_SECRET: 'a'.repeat(32),
-      QUANTPILOT_AUTH_TRUSTED_ORIGINS: 'https://quant.example.com,http://127.0.0.1:3000',
+      SHOPGATE_AUTH_MODE: 'local',
+      SHOPGATE_AUTH_SECRET: 'a'.repeat(32),
+      SHOPGATE_AUTH_TRUSTED_ORIGINS: 'https://quant.example.com,http://127.0.0.1:3000',
     };
     const config = getProjectAuthConfig(environment);
     expect(config).toMatchObject({ mode: 'local', enabled: true, secureCookies: true });
@@ -82,7 +82,7 @@ describe('project auth config', () => {
   });
 
   it('fails closed when local auth has no deploy secret', () => {
-    const config = getProjectAuthConfig({ QUANTPILOT_AUTH_MODE: 'local' });
+    const config = getProjectAuthConfig({ SHOPGATE_AUTH_MODE: 'local' });
     expect(() => getProjectAuthSecret(config, {})).toThrow('未配置或少于 32 个字符');
   });
 

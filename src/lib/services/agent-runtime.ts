@@ -14,12 +14,12 @@ interface AgentRunRecord {
 }
 
 const globalForAgentRuntime = globalThis as unknown as {
-  __quantpilot_agent_runs__?: Map<string, AgentRunRecord>;
+  __shopgate_agent_runs__?: Map<string, AgentRunRecord>;
 };
 
 const agentRuns =
-  globalForAgentRuntime.__quantpilot_agent_runs__ ??
-  (globalForAgentRuntime.__quantpilot_agent_runs__ = new Map<string, AgentRunRecord>());
+  globalForAgentRuntime.__shopgate_agent_runs__ ??
+  (globalForAgentRuntime.__shopgate_agent_runs__ = new Map<string, AgentRunRecord>());
 
 function runKey(projectId: string, requestId?: string | null): string {
   return requestId ? `${projectId}:${requestId}` : projectId;

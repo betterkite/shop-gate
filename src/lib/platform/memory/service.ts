@@ -24,7 +24,7 @@ import {
 import {
   assertPersonalizationKey,
   buildPreferenceContext,
-  isQuantPilotPreference,
+  isShopGatePreference,
   selectPersonalizationProjection,
 } from './policy';
 import {
@@ -210,7 +210,7 @@ export async function recallPersonalization(input: {
       subjectId: actor,
       query: input.instruction.trim().slice(0, 4_096),
       context: {
-        product: 'quantpilot',
+        product: 'shopgate',
         project_id: input.projectId,
         ...(input.capabilityId ? { capability: input.capabilityId.slice(0, 512) } : {}),
       },
@@ -325,7 +325,7 @@ export async function exposePersonalization(input: {
       sourceProjectionSha256: prepared.sourceProjectionSha256,
       deliveredContextSha256: prepared.deliveredContextSha256,
       revisionIds: prepared.exposedRevisionIds,
-      idempotencyKey: `quantpilot:${requestId}:memory-usage`,
+      idempotencyKey: `shopgate:${requestId}:memory-usage`,
       purpose: runtime.config.purpose,
     }, requestId);
     const usageMatchesCapsule =
@@ -388,7 +388,7 @@ export async function listPersonalPreferences(input: {
     subjectId: actor,
     purpose: runtime.config.purpose,
   }, input.requestId);
-  return preferences.filter(isQuantPilotPreference);
+  return preferences.filter(isShopGatePreference);
 }
 
 export async function rememberPersonalPreference(input: {
@@ -424,8 +424,8 @@ export async function rememberPersonalPreference(input: {
   return runtime.port.rememberPreference({
     tenantId: runtime.config.tenantId,
     subjectId: actor,
-    source: 'quantpilot-explicit-confirmation',
-    idempotencyKey: `quantpilot:${stableEventId}:preference`,
+    source: 'shopgate-explicit-confirmation',
+    idempotencyKey: `shopgate:${stableEventId}:preference`,
     key,
     value,
     context,
@@ -464,15 +464,15 @@ export async function correctPersonalPreference(input: {
     subjectId: actor,
     purpose: runtime.config.purpose,
   }, input.eventId);
-  if (!visible.some((item) => item.recordId === recordId && isQuantPilotPreference(item))) {
+  if (!visible.some((item) => item.recordId === recordId && isShopGatePreference(item))) {
     throw new MemoryIntegrationError('MEMORY_PREFERENCE_NOT_FOUND', 404, 'Memory preference was not found.');
   }
   return runtime.port.correctPreference({
     tenantId: runtime.config.tenantId,
     subjectId: actor,
     recordId,
-    source: 'quantpilot-explicit-correction',
-    idempotencyKey: `quantpilot:${stableEventId}:correction`,
+    source: 'shopgate-explicit-correction',
+    idempotencyKey: `shopgate:${stableEventId}:correction`,
     value,
     evidenceText,
     reason,
@@ -500,7 +500,7 @@ export async function getPersonalPreferenceRevisions(input: {
     subjectId: actor,
     purpose: runtime.config.purpose,
   }, input.requestId);
-  if (!visible.some((item) => item.recordId === recordId && isQuantPilotPreference(item))) {
+  if (!visible.some((item) => item.recordId === recordId && isShopGatePreference(item))) {
     throw new MemoryIntegrationError('MEMORY_PREFERENCE_NOT_FOUND', 404, 'Memory preference was not found.');
   }
   return runtime.port.getRevisions({
@@ -641,7 +641,7 @@ export async function recordPersonalMemoryFeedback(input: {
       revisionId: input.revisionId,
       usageId: use.providerUsageId ?? undefined,
       kind: input.kind,
-      idempotencyKey: `quantpilot:${stableEventId}:outcome`,
+      idempotencyKey: `shopgate:${stableEventId}:outcome`,
       weight,
       purpose: runtime.config.purpose,
       note: input.note?.trim().slice(0, 4_096),

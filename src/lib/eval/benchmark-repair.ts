@@ -2,12 +2,12 @@ import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
   updateQuantGenerationStep,
-} from '@/lib/quant/generation-state';
+} from '@/lib/commerce/generation-state';
 import {
   buildQuantValidationRepairInstruction,
   repairQuantPlatformOwnedArtifacts,
   type QuantValidationReport,
-} from '@/lib/quant/validation';
+} from '@/lib/commerce/validation';
 
 export interface BenchmarkRepairInvocation {
   attempt: number;

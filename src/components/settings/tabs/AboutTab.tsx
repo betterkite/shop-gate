@@ -9,21 +9,21 @@ function AboutTab() {
         <div className="relative mx-auto mb-4 h-20 w-20">
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#DE7356]/20 to-[#DE7356]/5 blur-xl" />
           <Image
-            src="/quantpilot-mark.svg"
-            alt="QuantPilot 图标"
+            src="/shopgate-mark.svg"
+            alt="Shop Gate 图标"
             width={80}
             height={80}
             className="relative z-10 h-full w-full rounded-2xl object-contain shadow-lg"
           />
         </div>
-        <h3 className="text-2xl font-bold text-slate-900">QuantPilot</h3>
+        <h3 className="text-2xl font-bold text-slate-900">Shop Gate</h3>
         <p className="mt-2 font-medium text-slate-600">Version 1.0.0</p>
       </div>
 
       <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-6">
         <div className="text-center">
           <p className="mx-auto max-w-2xl text-base leading-relaxed text-slate-700">
-            QuantPilot 是面向量化研发的 AI 工作台，通过开源 PI Agent 与 ModelPort 使用本地 Qwen、
+            Shop Gate 是面向量化研发的 AI 工作台，通过开源 PI Agent 与 ModelPort 使用本地 Qwen、
             托管 DeepSeek 及可选官方直连，并串联 GitHub、Supabase 与 Vercel 等工程化服务。
           </p>
         </div>
@@ -51,7 +51,7 @@ function AboutTab() {
       <div className="text-center">
         <div className="flex justify-center gap-6">
           <a
-            href="https://github.com/tiammomo/QuantPilot"
+            href="https://github.com/tiammomo/Shop Gate"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[#DE7356] transition-colors hover:text-[#c95940]"

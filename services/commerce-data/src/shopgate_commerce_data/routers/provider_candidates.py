@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from quantpilot_market_data.provider_candidates import (
+from shopgate_commerce_data.provider_candidates import (
     CandidateProviderProbeResponse,
     CandidateProviderRegistry,
 )
-from quantpilot_market_data.services.provider_candidates import (
+from shopgate_commerce_data.services.provider_candidates import (
     CandidateProviderNotFoundError,
     get_provider_candidates,
     probe_provider_candidates,

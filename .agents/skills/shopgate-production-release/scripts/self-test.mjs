@@ -38,7 +38,7 @@ function commit(repo, message) {
 }
 
 function repository() {
-  const repo = mkdtempSync(path.join(tmpdir(), 'quantpilot-release-skill-'));
+  const repo = mkdtempSync(path.join(tmpdir(), 'shopgate-release-skill-'));
   roots.push(repo);
   git(repo, 'init', '--quiet');
   git(repo, 'config', 'user.name', 'Release Skill Test');
@@ -61,11 +61,11 @@ function checkTarget(overrides = {}) {
     encoding: 'utf8',
     env: {
       PATH: process.env.PATH,
-      QUANTPILOT_RELEASE_HOST: 'deployer@quantpilot-prod',
-      QUANTPILOT_PUBLIC_URL: 'https://quantpilot.example.com',
-      QUANTPILOT_RELEASE_ROOT: '/opt/quantpilot',
-      QUANTPILOT_RELEASE_ENV_FILE: '/etc/quantpilot/quantpilot.env',
-      QUANTPILOT_BACKUP_ROOT: '/var/backups/quantpilot',
+      SHOPGATE_RELEASE_HOST: 'deployer@shopgate-prod',
+      SHOPGATE_PUBLIC_URL: 'https://shopgate.example.com',
+      SHOPGATE_RELEASE_ROOT: '/opt/shopgate',
+      SHOPGATE_RELEASE_ENV_FILE: '/etc/shopgate/shopgate.env',
+      SHOPGATE_BACKUP_ROOT: '/var/backups/shopgate',
       ...overrides,
     },
   });
@@ -153,22 +153,22 @@ try {
     assert.equal(valid.status, 0, valid.stderr);
     const result = JSON.parse(valid.stdout);
     assert.equal(result.ok, true);
-    assert.equal(result.host, 'deployer@quantpilot-prod');
+    assert.equal(result.host, 'deployer@shopgate-prod');
 
     const injection = checkTarget({
-      QUANTPILOT_RELEASE_HOST: '-oProxyCommand=malicious',
+      SHOPGATE_RELEASE_HOST: '-oProxyCommand=malicious',
     });
     assert.equal(injection.status, 2);
     assert.match(injection.stderr, /must be one SSH host/);
 
     const traversal = checkTarget({
-      QUANTPILOT_RELEASE_ROOT: '/opt/quantpilot/../other',
+      SHOPGATE_RELEASE_ROOT: '/opt/shopgate/../other',
     });
     assert.equal(traversal.status, 2);
     assert.match(traversal.stderr, /normalized POSIX path/);
   }
 
-  console.log('[quantpilot-production-release] self-test passed');
+  console.log('[shopgate-production-release] self-test passed');
 } finally {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 }

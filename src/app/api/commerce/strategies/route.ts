@@ -40,7 +40,7 @@ import {
   runStrategyDataQualityScan,
   runStrategyParameterScan,
   startStrategyUniverseHistoryAutoFill,
-} from '@/lib/quant/strategies';
+} from '@/lib/commerce/strategies';
 
 const STRATEGY_DATA_UNIT_WEIGHTS: Readonly<Record<string, number>> = {
   'universe-members': 1,

@@ -42,22 +42,22 @@ http://localhost:3000/eval-platform
 npm run check:eval-mutations
 ```
 
-命令会生成 `tmp/quantpilot-eval-mutations/mutation-report-*.json`，CI 默认要求 mutation kill rate 为 100%。评测平台“评测可信度”面板会展示最新 kill rate、snapshot 覆盖和 Judge 校准状态。
+命令会生成 `tmp/shopgate-eval-mutations/mutation-report-*.json`，CI 默认要求 mutation kill rate 为 100%。评测平台“评测可信度”面板会展示最新 kill rate、snapshot 覆盖和 Judge 校准状态。
 
 ## 数据集、隐藏集与可重放快照
 
-数据集登记位于 `benchmarks/quantpilot/datasets.json`，生产用例的固定事实锚点位于 `benchmarks/quantpilot/snapshot-manifest.json`。报告会保存 dataset registry 和 snapshot manifest 的 SHA-256，并列出本次 case 绑定的 snapshot；数据合同变化后，旧 baseline 不再允许直接比较。
+数据集登记位于 `benchmarks/shopgate/datasets.json`，生产用例的固定事实锚点位于 `benchmarks/shopgate/snapshot-manifest.json`。报告会保存 dataset registry 和 snapshot manifest 的 SHA-256，并列出本次 case 绑定的 snapshot；数据合同变化后，旧 baseline 不再允许直接比较。
 
 当前仓库快照使用 `oracle_fixture` 固定标的、as-of 和 oracle 身份。需要完全离线重放市场响应时应登记 `market_response` fixture，并同样保存 provider/version、交易日历版本、复权规则、观察窗口和 payload hash。任何观察时间晚于 `asOf` 都会被未来数据泄漏门禁拒绝。
 
 隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入：
 
 ```text
-QUANTPILOT_HIDDEN_EVAL_CASES_PATH
-QUANTPILOT_PRODUCTION_REPLAY_CASES_PATH
+SHOPGATE_HIDDEN_EVAL_CASES_PATH
+SHOPGATE_PRODUCTION_REPLAY_CASES_PATH
 ```
 
-`npm run check:eval-datasets` 会检查公开/隐藏 prompt hash 重叠、case ID 污染、Git 跟踪泄漏、生产 snapshot 覆盖、fixture hash 和 oracle 漂移。发布环境可以设置 `QUANTPILOT_REQUIRE_HIDDEN_EVAL=1`，在隐藏集缺失时直接阻断。
+`npm run check:eval-datasets` 会检查公开/隐藏 prompt hash 重叠、case ID 污染、Git 跟踪泄漏、生产 snapshot 覆盖、fixture hash 和 oracle 漂移。发布环境可以设置 `SHOPGATE_REQUIRE_HIDDEN_EVAL=1`，在隐藏集缺失时直接阻断。
 
 隐藏集和生产回放可以直接进入真实 E2E runner；非公开 prompt 在执行时可用，但报告中的 `question` 只保存 redacted hash 证据：
 
@@ -72,13 +72,13 @@ npm run eval:ci:shadow
 生产事件应先经过脱敏准备器。它会删除用户、项目、请求和会话身份，替换手机号、邮箱、证件、长账户号与 IP，并用部署私钥生成源 prompt HMAC，避免可枚举的裸 SHA-256：
 
 ```bash
-QUANTPILOT_REPLAY_HASH_KEY='<至少16字符的部署密钥>' \
+SHOPGATE_REPLAY_HASH_KEY='<至少16字符的部署密钥>' \
   npm run eval:prepare-shadow -- \
   --input /secure/raw-shadow-events.jsonl \
-  --output /secure/quantpilot-shadow-cases.json
+  --output /secure/shopgate-shadow-cases.json
 ```
 
-原始生产事件和 HMAC 密钥不得写入仓库或评测报告。准备后的外部文件通过 `QUANTPILOT_PRODUCTION_REPLAY_CASES_PATH` 注入。
+原始生产事件和 HMAC 密钥不得写入仓库或评测报告。准备后的外部文件通过 `SHOPGATE_PRODUCTION_REPLAY_CASES_PATH` 注入。
 
 ## Judge 人工校准
 
@@ -88,7 +88,7 @@ QUANTPILOT_REPLAY_HASH_KEY='<至少16字符的部署密钥>' \
 npm run check:eval-judge-calibration
 ```
 
-仓库内 `judge-calibration.contract.json` 只证明计算和门禁管线可用，不代表生产 Judge 已完成人工校准。生产发布应通过 `QUANTPILOT_EVAL_JUDGE_CALIBRATION_PATH` 注入 `human_blind_calibration`，并可设置 `QUANTPILOT_REQUIRE_PRODUCTION_JUDGE_CALIBRATION=1` 与 `QUANTPILOT_REQUIRE_INDEPENDENT_JUDGE=1` 强制独立 Judge。
+仓库内 `judge-calibration.contract.json` 只证明计算和门禁管线可用，不代表生产 Judge 已完成人工校准。生产发布应通过 `SHOPGATE_EVAL_JUDGE_CALIBRATION_PATH` 注入 `human_blind_calibration`，并可设置 `SHOPGATE_REQUIRE_PRODUCTION_JUDGE_CALIBRATION=1` 与 `SHOPGATE_REQUIRE_INDEPENDENT_JUDGE=1` 强制独立 Judge。
 
 ## 页面分栏
 
@@ -201,7 +201,7 @@ cache-miss input tokens 和异常 tool failures；缺少任一证明时 CI 会�
 和一次 `submit_result`。`workspace_recovery`、`platform_repair`、平台安全模板等
 兜底候选只证明产品恢复能力，不计入 PI Agent 能力 E2E。
 
-契约模式从 `benchmarks/quantpilot/query-rewrite-fixtures.json` 回放经过版本化的
+契约模式从 `benchmarks/shopgate/query-rewrite-fixtures.json` 回放经过版本化的
 Qwen Query Rewrite 语义输出，并使用版本化行情合同服务，再进入与生产一致的
 schema v4 字面证据校验、证券 Resolver、run plan 和数据预取链路。这样 GitHub
 Runner 不需要访问开发机上的 ModelPort 或公网行情源，也不会退回关键词匹配。
@@ -210,8 +210,8 @@ fixture 缺失或结构不合法会由
 `benchmark:quant:e2e` 与集成体验集验真。
 
 GitHub 托管 Runner 不允许 `unshare --map-root-user` 写入 `uid_map`。因此仅该
-确定性 contract job 同时设置 `QUANTPILOT_GENERATED_SANDBOX=0` 与
-`QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE=1`，执行通过产物策略检查的仓库内
+确定性 contract job 同时设置 `SHOPGATE_GENERATED_SANDBOX=0` 与
+`SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE=1`，执行通过产物策略检查的仓库内
 标准模板。单独设置任一变量都会失败；生产生成和真实 E2E 不设置这两个变量，
 继续要求 Linux user/mount/PID namespace，不能把 CI 兼容配置带入部署环境。
 
@@ -224,7 +224,7 @@ npm run eval:ci
 npm run eval:ci:e2e
 ```
 
-E2E 门默认要求 `benchmarks/quantpilot/e2e-suite.json` 中的完整发布回归集，
+E2E 门默认要求 `benchmarks/shopgate/e2e-suite.json` 中的完整发布回归集，
 同时要求报告来自当前 checkout/build。DeepSeek live-model、零模型 standard
 product control、repair/cancellation/crash runtime control 与 security-boundary
 runtime control 分开验真，不能相互冒充。安全边界场景固定检查不可信上下文注入、
@@ -258,7 +258,7 @@ npm run eval:ci -- --min-pass-rate 100 --min-average-score 90 \
   --min-first-pass-rate 100 --max-repair-rate 0 --min-stability-rate 100 \
   --min-stability-confidence-lower 75 --max-score-standard-deviation 0
 
-npm run eval:ci -- --report tmp/quantpilot-benchmark-reports/report-<timestamp>.json
+npm run eval:ci -- --report tmp/shopgate-benchmark-reports/report-<timestamp>.json
 
 npm run eval:ci:e2e -- \
   --baseline-report tmp/baselines/e2e-approved.json \
@@ -266,18 +266,18 @@ npm run eval:ci:e2e -- \
 ```
 
 baseline 必须使用相同 case 数据集、snapshot 合同、报告 schema、评测器和 rubric 版本。比较会逐 case 配对，阻断 pass→fail、first-pass→repair/fail、case 集不一致、逐 case 分数回归和超阈值平均分回归。
-`--report`（或 `QUANTPILOT_EVAL_REPORT`）可以固定复核某一份报告；未指定时才选择对应模式的最新报告。
+`--report`（或 `SHOPGATE_EVAL_REPORT`）可以固定复核某一份报告；未指定时才选择对应模式的最新报告。
 
 ## 报告目录
 
 评测报告写入：
 
 ```text
-tmp/quantpilot-benchmark-reports/
-tmp/quantpilot-benchmark-screenshots/
-tmp/quantpilot-eval-queue/
-tmp/quantpilot-eval-repairs/
-tmp/quantpilot-eval-mutations/
+tmp/shopgate-benchmark-reports/
+tmp/shopgate-benchmark-screenshots/
+tmp/shopgate-eval-queue/
+tmp/shopgate-eval-repairs/
+tmp/shopgate-eval-mutations/
 ```
 
 这些目录不进入 Git。
@@ -304,7 +304,7 @@ CI 固定保留：
 - 全量确定性契约 benchmark 与 100% 通过率 gate。
 - lint 和 type-check。
 
-仓库的 Quality workflow 会启动本地 TimescaleDB、Redis 和 market-data，运行全量确定性契约并上传 14 天证据；夜间 workflow 在配置 GitHub Actions secret `DEEPSEEK_API_KEY` 后，通过 `QUANTPILOT_EVAL_MODEL=deepseek-v4-flash` 和显式 `--model deepseek-v4-flash` 运行真实 DeepSeek 回归集，并保留 30 天报告、截图和市场数据日志。生成器、语义评审器、逐 case AgentRun 证明和独立 CI gate 都校验该外部预期的 provider/model，报告不能通过修改自身 runtime 字段绕过门禁。真实失败问题应先加入固定用例，再修 Skills 或平台代码。
+仓库的 Quality workflow 会启动本地 TimescaleDB、Redis 和 commerce-data，运行全量确定性契约并上传 14 天证据；夜间 workflow 在配置 GitHub Actions secret `DEEPSEEK_API_KEY` 后，通过 `SHOPGATE_EVAL_MODEL=deepseek-v4-flash` 和显式 `--model deepseek-v4-flash` 运行真实 DeepSeek 回归集，并保留 30 天报告、截图和市场数据日志。生成器、语义评审器、逐 case AgentRun 证明和独立 CI gate 都校验该外部预期的 provider/model，报告不能通过修改自身 runtime 字段绕过门禁。真实失败问题应先加入固定用例，再修 Skills 或平台代码。
 
 定时触发时如果仓库尚未配置 `DEEPSEEK_API_KEY`，configuration job 会写出 notice，并把真实 DeepSeek job 标记为 skipped；确定性评测仍由 Quality workflow 强制执行。手动触发夜间真实评测和 release evidence 仍然 fail-closed，缺少 secret 会直接失败，避免把“未运行模型”误报为真实 E2E 通过。
 

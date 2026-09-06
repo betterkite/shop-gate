@@ -1,12 +1,12 @@
-# Memory、Knowledge 与 QuantPilot 联合上下文
+# Memory、Knowledge 与 Shop Gate 联合上下文
 
-QuantPilot 是两个外部上下文平台的编排者，但不是它们的共同数据库：
+Shop Gate 是两个外部上下文平台的编排者，但不是它们的共同数据库：
 
 - Evolvable User Memory 提供“这个用户怎样工作和表达”的个性化偏好。
 - Agent Knowledge Platform 提供“团队已经发布了什么”的受治理共享知识。
-- QuantPilot 提供“本次任务做什么、用了什么数据、是否通过验证”的任务与结果事实。
+- Shop Gate 提供“本次任务做什么、用了什么数据、是否通过验证”的任务与结果事实。
 
-三方保持独立仓库、部署、数据库、身份和发布周期。QuantPilot 只依赖两个版本化 HTTP Port，不导入平台源码或持久化实体；Memory 与 Knowledge 也不直接调用对方。
+三方保持独立仓库、部署、数据库、身份和发布周期。Shop Gate 只依赖两个版本化 HTTP Port，不导入平台源码或持久化实体；Memory 与 Knowledge 也不直接调用对方。
 
 ## 两层空间模型
 
@@ -15,40 +15,40 @@ QuantPilot 是两个外部上下文平台的编排者，但不是它们的共同
 | 层级 | 含义 | ModelPort | Memory | AKEP |
 | --- | --- | --- | --- | --- |
 | Consumer | 一个独立接入应用 | API Key 绑定 `organization/project/environment` | 独占 `tenant_id` | 独占 Tenant 或生产实例 |
-| Workspace | QuantPilot 中的一个项目 | 通过本地 scope digest 关联，预算默认按 Consumer | `context.project_id` 且交付前再次过滤 | `shared Spaces + <project-base>/<Project.id>` |
+| Workspace | Shop Gate 中的一个项目 | 通过本地 scope digest 关联，预算默认按 Consumer | `context.project_id` 且交付前再次过滤 | `shared Spaces + <project-base>/<Project.id>` |
 | Subject | 当前用户 | principal/usage | `subject_id` | 不保存个人偏好 |
 
-ModelPort 请求头只是对 API Key 绑定的断言；伪造另一 project 会返回 403。Memory 的 `tenant_id` 是硬安全边界，`context.project_id` 是工作区个性化选择器，不能把多个互不信任的产品放进同一 Memory tenant。AKEP Space 是工作区硬检索边界，返回任一未请求 Space 的 passage/citation 会被 QuantPilot 拒绝。
+ModelPort 请求头只是对 API Key 绑定的断言；伪造另一 project 会返回 403。Memory 的 `tenant_id` 是硬安全边界，`context.project_id` 是工作区个性化选择器，不能把多个互不信任的产品放进同一 Memory tenant。AKEP Space 是工作区硬检索边界，返回任一未请求 Space 的 passage/citation 会被 Shop Gate 拒绝。
 
-`consumerId` 是 QuantPilot 自己的接入身份，不是三个外部平台共享的 tenant 主键。Memory tenant、AKEP Tenant/Space 与 ModelPort organization/project 各自属于独立命名空间，不能相互 join 或用同一个字符串推导权限；联合清单只保存这些作用域的不可变投影与摘要。
+`consumerId` 是 Shop Gate 自己的接入身份，不是三个外部平台共享的 tenant 主键。Memory tenant、AKEP Tenant/Space 与 ModelPort organization/project 各自属于独立命名空间，不能相互 join 或用同一个字符串推导权限；联合清单只保存这些作用域的不可变投影与摘要。
 
 作用域的 canonical SHA-256 同时写入 PostgreSQL 归因记录和 `ContextUseManifest`。同一 request ID 若换项目、租户或 Space 集合重放，会触发幂等冲突。
 
 ## 后续产品接入规范
 
-ModelPort、Memory 与 AKEP 是共享基础设施，不代表接入它们的产品可以共享身份。每增加一个消费产品，至少分配下面这组资源；禁止复制 QuantPilot 的 Key、tenant 或项目私有 Space：
+ModelPort、Memory 与 AKEP 是共享基础设施，不代表接入它们的产品可以共享身份。每增加一个消费产品，至少分配下面这组资源；禁止复制 Shop Gate 的 Key、tenant 或项目私有 Space：
 
-| 资源 | QuantPilot 示例 | 新产品要求 |
+| 资源 | Shop Gate 示例 | 新产品要求 |
 | --- | --- | --- |
-| Consumer ID | `quantpilot` | 全局稳定且不复用，用于本地证据命名和审计 |
-| ModelPort | `prj_quantpilot` + 独立 API Key | 管理员创建独立 project/environment、Key、预算与模型策略，再绑定 Key；请求头只是绑定断言 |
-| Memory | `quantpilot-local` tenant | 独立 tenant、服务凭据和 subject token grant；不能只靠 `context.product` 隔离互不信任产品 |
-| AKEP | QuantPilot Tenant/shared Spaces/project-Space base | 独立 Tenant 或明确授权的 Space 集合；每个 workspace 只追加自己的确定性 project Space |
+| Consumer ID | `shopgate` | 全局稳定且不复用，用于本地证据命名和审计 |
+| ModelPort | `prj_shopgate` + 独立 API Key | 管理员创建独立 project/environment、Key、预算与模型策略，再绑定 Key；请求头只是绑定断言 |
+| Memory | `shopgate-local` tenant | 独立 tenant、服务凭据和 subject token grant；不能只靠 `context.product` 隔离互不信任产品 |
+| AKEP | Shop Gate Tenant/shared Spaces/project-Space base | 独立 Tenant 或明确授权的 Space 集合；每个 workspace 只追加自己的确定性 project Space |
 | 本地数据库 | `Project.id` + scope digest | 保存完整作用域摘要；所有 Exposure、Usage、Feedback 必须带可追溯的 project 外键 |
 
 接入顺序固定为“先建控制面资源，再注入 Secret，最后启用 REQUIRED 模式”。不要先共享一把通配 Key 再计划后续拆分，因为历史账本、配额和反馈归因无法可靠回切。生产验收必须包含至少四个负向用例：伪造 ModelPort project 返回 403、跨 Memory tenant/subject 无结果或拒绝、AKEP 返回未请求 Space 时消费者失败关闭、同一 request ID 换 scope 重放触发冲突。
 
-QuantPilot 内新建 workspace 不需要创建新的 ModelPort Key 或 Memory tenant：它继承 QuantPilot Consumer 边界，并以服务端可信 `Project.id` 隔离 Memory facet、AKEP project Space 和本地 evidence。只有预算或合规要求必须按 workspace 独立核算时，才把 ModelPort scope 从 Consumer 级升级为 workspace 级；这需要显式的服务端 scope registry，不能允许浏览器自行选择 Key 或 project header。
+Shop Gate 内新建 workspace 不需要创建新的 ModelPort Key 或 Memory tenant：它继承 Shop Gate Consumer 边界，并以服务端可信 `Project.id` 隔离 Memory facet、AKEP project Space 和本地 evidence。只有预算或合规要求必须按 workspace 独立核算时，才把 ModelPort scope 从 Consumer 级升级为 workspace 级；这需要显式的服务端 scope registry，不能允许浏览器自行选择 Key 或 project header。
 
 ## 一次任务的证据链
 
 ```text
 Memory:    RecallTrace -> Projection -> Usage Receipt -> explicit Outcome
 Knowledge: ContextPack -> Exposure Receipt -> Usage -> explicit business Feedback
-QuantPilot: RunPlan -> ContextUseManifest -> Mission -> Accepted Receipt
+Shop Gate: RunPlan -> ContextUseManifest -> Mission -> Accepted Receipt
 ```
 
-QuantPilot 在 Agent 真正收到上下文前写入 `evidence/context-uses/<requestId>.json`。该清单只连接不透明 receipt、revision/citation ID 和摘要：
+Shop Gate 在 Agent 真正收到上下文前写入 `evidence/context-uses/<requestId>.json`。该清单只连接不透明 receipt、revision/citation ID 和摘要：
 
 - Memory `usageId`、`traceId`、revision ID、源投影摘要和实际交付摘要；
 - Knowledge `contextPackId`、Exposure Receipt、context digest、Policy Epoch、citation/revision/space ID；
@@ -60,7 +60,7 @@ QuantPilot 在 Agent 真正收到上下文前写入 `evidence/context-uses/<requ
 
 `prepared` 不等于使用。只有满足以下条件才生成联合清单：
 
-1. QuantPilot 已完成项目和用户授权；
+1. Shop Gate 已完成项目和用户授权；
 2. Memory capsule 已取得服务端可验证的 Usage Receipt；
 3. Knowledge ContextPack 已通过本地契约、purpose 和边界检查；
 4. 清单已原子写入工作空间；
@@ -86,7 +86,7 @@ QuantPilot 在 Agent 真正收到上下文前写入 `evidence/context-uses/<requ
 - `src/lib/platform/memory/`：Memory Port、Usage Receipt、本地归因与显式 Outcome。
 - `src/lib/platform/knowledge/`：AKEP ContextPack、Usage 和显式业务结果 Feedback。
 - `src/lib/platform/context/integration-scope.ts`：从可信 Project 派生跨平台作用域和 digest。
-- `src/lib/platform/context/use-manifest.ts`：仅在 QuantPilot 内连接两类不透明 receipt。
+- `src/lib/platform/context/use-manifest.ts`：仅在 Shop Gate 内连接两类不透明 receipt。
 - `src/app/api/chat/[project_id]/act/route.ts`：真实任务编排和 Mission 验收时机。
 
 验证命令：
@@ -104,7 +104,7 @@ npm run check:task-e2e -- --campaign=20260719a
 
 这些 service-level case 不创建 Project，不能用任务抽屉数量证明执行过。`check:task-e2e` 才走和首页一致的认证后端入口：创建带 `[E2E <campaign>/<case>]` 前缀的 Project，提交 `/api/chat/:projectId/act`，轮询权威 generation terminal snapshot，并核对当前 run 的 Validation、Mission accepted receipt、Workspace 核心产物、持久预览 HTTP 200 和任务抽屉可见性。固定数据集有 30 个任务，默认并发 2、单任务最长 20 分钟；可先用 `--limit=2` 校准，再用同一 campaign 继续全量，已有 Project 会被恢复而不是复制。失败子集使用 `--only=Cxx,Cyy --retry-failed=N` 在原任务记录内重试；运行中或自动修复中的 generation 保持非终态，不能被中间 Validation 失败抢先判死。报告写入 `tmp/task-e2e-<campaign>-latest.json`。部分运行或存在失败时保留 Project，便于复查和重试；完整 30 题全部通过后，脚本在验证任务抽屉后自动删除该批测试 Project 与 Workspace，避免污染真实任务记录。需要人工长期复核时显式传 `--retain-projects`；需要清理失败/部分批次时传 `--cleanup`。`latest` 反映最后一次命令选择的 case，正式留档前必须再跑一次完整 30 题。
 
-AKEP 的验收记录位于隔离 Space `https://knowledge.local/spaces/quantpilot-acceptance`；若本地长期运行也要使用这些已发布规则，需要把该 Space 显式加入 `QUANTPILOT_KNOWLEDGE_SPACES`，不能用空的默认 Space 假装知识接入有效。
+AKEP 的验收记录位于隔离 Space `https://knowledge.local/spaces/shopgate-acceptance`；若本地长期运行也要使用这些已发布规则，需要把该 Space 显式加入 `SHOPGATE_KNOWLEDGE_SPACES`，不能用空的默认 Space 假装知识接入有效。
 
 ## 50 题持久闭环验收
 
@@ -114,16 +114,16 @@ AKEP 的验收记录位于隔离 Space `https://knowledge.local/spaces/quantpilo
 
 ```bash
 cd /home/tiammomo/projects/dev/agent-knowledge-platform
-pnpm seed:quantpilot-acceptance-50 -- \
-  --output=/home/tiammomo/projects/dev/QuantPilot/tmp/quantpilot-acceptance-50-v1-manifest.json
+pnpm seed:shopgate-acceptance-50 -- \
+  --output=/home/tiammomo/projects/dev/Shop Gate/tmp/shopgate-acceptance-50-v1-manifest.json
 ```
 
-再由 QuantPilot 对清单逐条执行完整链路：
+再由 Shop Gate 对清单逐条执行完整链路：
 
 ```bash
-cd /home/tiammomo/projects/dev/QuantPilot
+cd /home/tiammomo/projects/dev/Shop Gate
 npm run check:memory-knowledge-50 -- \
-  --manifest=/home/tiammomo/projects/dev/QuantPilot/tmp/quantpilot-acceptance-50-v1-manifest.json
+  --manifest=/home/tiammomo/projects/dev/Shop Gate/tmp/shopgate-acceptance-50-v1-manifest.json
 ```
 
 每个 case 必须同时通过以下门禁：
@@ -137,12 +137,12 @@ npm run check:memory-knowledge-50 -- \
 
 默认作用域是：
 
-- Memory tenant：当前 `QUANTPILOT_MEMORY_TENANT_ID`；
-- Memory subject：`quantpilot-acceptance-50-v1`；
-- AKEP Space：`https://knowledge.local/spaces/quantpilot-acceptance-50-v1`；
-- 数据集：`quantpilot-memory-knowledge-acceptance-50-v1`；
+- Memory tenant：当前 `SHOPGATE_MEMORY_TENANT_ID`；
+- Memory subject：`shopgate-acceptance-50-v1`；
+- AKEP Space：`https://knowledge.local/spaces/shopgate-acceptance-50-v1`；
+- 数据集：`shopgate-memory-knowledge-acceptance-50-v1`；
 - 模型：`local_qwen:qwen3.5-9b-q5km`。
 
-这是一套**有意保留数据**的长期复核批次，不会像完整通过的 Workspace E2E 那样自动清理。清单和最新报告分别写入 `tmp/quantpilot-acceptance-50-v1-manifest.json` 与 `tmp/memory-knowledge-acceptance-50-latest.json`；报告包含每题的 record/revision/usage/outcome、ContextPack/exposure/usage/feedback、模型 citation 和 token 用量。发布脚本与 Memory event 都可幂等重跑；如需清理，必须按 [数据生命周期与安全清理](data-lifecycle.md) 先备份并按精确 subject/Space 操作，不能按时间范围或模糊名称批量删除。
+这是一套**有意保留数据**的长期复核批次，不会像完整通过的 Workspace E2E 那样自动清理。清单和最新报告分别写入 `tmp/shopgate-acceptance-50-v1-manifest.json` 与 `tmp/memory-knowledge-acceptance-50-latest.json`；报告包含每题的 record/revision/usage/outcome、ContextPack/exposure/usage/feedback、模型 citation 和 token 用量。发布脚本与 Memory event 都可幂等重跑；如需清理，必须按 [数据生命周期与安全清理](data-lifecycle.md) 先备份并按精确 subject/Space 操作，不能按时间范围或模糊名称批量删除。
 
 批量发布结束后可能短暂占满 AKEP 查询限额；验收脚本会对 readiness 的 HTTP 429/503 做有限指数退避，其他认证、契约或作用域错误立即失败，不会用无限重试掩盖真实故障。

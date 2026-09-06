@@ -120,7 +120,7 @@ export default function PersonalMemoryComposer({
           {saved ? (
             <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-700">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-              已保存。下一轮匹配的 QuantPilot 任务会尝试召回这条偏好。
+              已保存。下一轮匹配的 Shop Gate 任务会尝试召回这条偏好。
             </div>
           ) : null}
 
@@ -139,7 +139,7 @@ export default function PersonalMemoryComposer({
           </label>
 
           <label className="block space-y-2 text-sm font-medium text-foreground">
-            希望 QuantPilot 记住什么
+            希望 Shop Gate 记住什么
             <textarea
               value={value}
               onChange={(event) => {

@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     Adjustment,
     AnnouncementItem,
     AssetType,
@@ -21,7 +21,7 @@ from quantpilot_market_data.models import (
     RealtimeQuote,
     SymbolResolveResult,
 )
-from quantpilot_market_data.providers.base import ProviderCapability
+from shopgate_commerce_data.providers.base import ProviderCapability
 
 EASTMONEY_REALTIME_QUOTE_PATH = "/api/qt/ulist.np/get"
 EASTMONEY_KLINE_PATH = "/api/qt/stock/kline/get"

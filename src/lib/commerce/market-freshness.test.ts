@@ -7,7 +7,7 @@ const {
   countWeekdaySessions,
   estimateLatestCompletedTradeDate,
   evaluateFreshness,
-} = require('../../../scripts/checks/check-market-data-freshness.js');
+} = require('../../../scripts/checks/check-commerce-data-freshness.js');
 
 describe('market data freshness check', () => {
   it('uses the previous weekday before the daily bar ready hour', () => {

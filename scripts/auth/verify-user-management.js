@@ -4,9 +4,9 @@ const { PrismaClient } = require('@prisma/client');
 const { chromium } = require('playwright');
 
 const baseUrl = process.env.BETTER_AUTH_URL || 'http://127.0.0.1:3000';
-const adminEmail = process.env.QUANTPILOT_AUTH_ADMIN_EMAIL || 'admin@quantpilot.local';
-const adminPassword = process.env.QUANTPILOT_AUTH_ADMIN_PASSWORD || 'admin';
-const memberEmail = 'authz-e2e-member@quantpilot.local';
+const adminEmail = process.env.SHOPGATE_AUTH_ADMIN_EMAIL || 'admin@shopgate.local';
+const adminPassword = process.env.SHOPGATE_AUTH_ADMIN_PASSWORD || 'admin';
+const memberEmail = 'authz-e2e-member@shopgate.local';
 const projectId = 'authz-e2e-project';
 const memberTestPassword = 'MemberVerification!2026';
 

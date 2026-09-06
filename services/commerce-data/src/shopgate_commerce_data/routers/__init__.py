@@ -1,1 +1,1 @@
-"""HTTP router modules for the market-data service."""
+"""HTTP router modules for the commerce-data service."""

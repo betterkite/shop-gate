@@ -4,11 +4,11 @@ from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Request
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.models import Adjustment, BacktestResponse, KlinePeriod
-from quantpilot_market_data.providers.base import HistoricalKlineProvider
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.services.backtests import (
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.models import Adjustment, BacktestResponse, KlinePeriod
+from shopgate_commerce_data.providers.base import HistoricalKlineProvider
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.services.backtests import (
     get_ma_crossover_backtest,
     get_strategy_backtest,
 )

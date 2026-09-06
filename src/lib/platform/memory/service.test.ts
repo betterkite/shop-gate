@@ -107,7 +107,7 @@ function controls(enabled = true): PersonalMemoryControlRepository & {
   const state = {
     configured: true,
     personalizationEnabled: enabled,
-    policyVersion: 'quantpilot-personalization-v1',
+    policyVersion: 'shopgate-personalization-v1',
     enabledAt: enabled ? new Date() : null,
     disabledAt: enabled ? null : new Date(),
     updatedAt: new Date(),
@@ -189,7 +189,7 @@ describe('personal memory application service', () => {
         projectionSha256: 'a'.repeat(64),
         segments: [{
           content: JSON.stringify({
-            context: { product: 'quantpilot' },
+            context: { product: 'shopgate' },
             key: 'output.detail_level',
             value: 'concise',
           }),
@@ -227,7 +227,7 @@ describe('personal memory application service', () => {
       usageId: '00000000-0000-0000-0000-000000000005',
     });
     expect(memoryPort.recordUsage).toHaveBeenCalledWith(expect.objectContaining({
-      idempotencyKey: 'quantpilot:request-a:memory-usage',
+      idempotencyKey: 'shopgate:request-a:memory-usage',
       traceId: '00000000-0000-0000-0000-000000000001',
       revisionIds: ['00000000-0000-0000-0000-000000000003'],
     }), 'request-a');
@@ -241,7 +241,7 @@ describe('personal memory application service', () => {
     expect(memoryPort.recall).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant-a',
       subjectId: 'user-a',
-      context: expect.objectContaining({ product: 'quantpilot', project_id: 'project-a' }),
+      context: expect.objectContaining({ product: 'shopgate', project_id: 'project-a' }),
     }), 'request-a');
   });
 
@@ -311,8 +311,8 @@ describe('personal memory application service', () => {
     expect(remember).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant-a',
       subjectId: 'user-a',
-      idempotencyKey: 'quantpilot:event-1:preference',
-      context: { product: 'quantpilot', project_id: 'project-a' },
+      idempotencyKey: 'shopgate:event-1:preference',
+      context: { product: 'shopgate', project_id: 'project-a' },
     }), 'event-1');
   });
 
@@ -376,7 +376,7 @@ describe('personal memory application service', () => {
       traceId: '00000000-0000-0000-0000-000000000001',
       usageId: '00000000-0000-0000-0000-000000000005',
       revisionId: '00000000-0000-0000-0000-000000000003',
-      idempotencyKey: 'quantpilot:feedback-1:outcome',
+      idempotencyKey: 'shopgate:feedback-1:outcome',
     }), 'feedback-1');
     expect(feedbackRepository.complete).toHaveBeenCalledWith('receipt-a', 'outcome');
 
@@ -547,7 +547,7 @@ describe('personal memory application service', () => {
     });
     expect(outcome).toHaveBeenCalledTimes(2);
     for (const call of outcome.mock.calls) {
-      expect(call[0]).toMatchObject({ idempotencyKey: 'quantpilot:feedback-1:outcome' });
+      expect(call[0]).toMatchObject({ idempotencyKey: 'shopgate:feedback-1:outcome' });
     }
     expect(feedbackRepository.complete).toHaveBeenCalledWith(
       'receipt-a',
@@ -587,7 +587,7 @@ describe('personal memory application service', () => {
       .mockResolvedValueOnce({
         configured: true,
         personalizationEnabled: true,
-        policyVersion: 'quantpilot-personalization-v1',
+        policyVersion: 'shopgate-personalization-v1',
         enabledAt: new Date(),
         disabledAt: null,
         updatedAt: new Date(),
@@ -595,7 +595,7 @@ describe('personal memory application service', () => {
       .mockResolvedValueOnce({
         configured: true,
         personalizationEnabled: false,
-        policyVersion: 'quantpilot-personalization-v1',
+        policyVersion: 'shopgate-personalization-v1',
         enabledAt: null,
         disabledAt: new Date(),
         updatedAt: new Date(),
@@ -644,7 +644,7 @@ describe('personal memory application service', () => {
       .mockResolvedValueOnce({
         configured: true,
         personalizationEnabled: true,
-        policyVersion: 'quantpilot-personalization-v1',
+        policyVersion: 'shopgate-personalization-v1',
         enabledAt: new Date(),
         disabledAt: null,
         updatedAt: new Date(),
@@ -652,7 +652,7 @@ describe('personal memory application service', () => {
       .mockResolvedValueOnce({
         configured: true,
         personalizationEnabled: true,
-        policyVersion: 'quantpilot-personalization-v1',
+        policyVersion: 'shopgate-personalization-v1',
         enabledAt: new Date(),
         disabledAt: null,
         updatedAt: new Date(),
@@ -660,7 +660,7 @@ describe('personal memory application service', () => {
       .mockResolvedValueOnce({
         configured: true,
         personalizationEnabled: false,
-        policyVersion: 'quantpilot-personalization-v1',
+        policyVersion: 'shopgate-personalization-v1',
         enabledAt: null,
         disabledAt: new Date(),
         updatedAt: new Date(),
@@ -684,7 +684,7 @@ describe('personal memory application service', () => {
         projectionSha256: 'a'.repeat(64),
         segments: [{
           content: JSON.stringify({
-            context: { product: 'quantpilot' },
+            context: { product: 'shopgate' },
             key: 'output.detail_level',
             value: 'concise',
           }),

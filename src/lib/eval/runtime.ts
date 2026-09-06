@@ -539,7 +539,7 @@ async function writeScheduleConfig(config: QuantEvalScheduleConfig): Promise<Qua
 
 function buildBenchmarkArgs(item: QuantEvalQueueItem): string[] {
   const args = [
-    'scripts/evals/run-quant-benchmarks.js',
+    'scripts/evals/run-commerce-benchmarks.js',
     '--trigger=eval-backend',
     `--evaluator=${item.evaluatorId}`,
     `--concurrency=${item.concurrency}`,
@@ -581,14 +581,14 @@ function runBenchmarkQueueItem(item: QuantEvalQueueItem) {
       cwd: ROOT,
       env: {
         ...process.env,
-        QUANTPILOT_EVAL_TRIGGER: 'eval-backend',
-        QUANTPILOT_EVAL_EVALUATOR: item.evaluatorId,
-        QUANTPILOT_EVAL_CONCURRENCY: String(item.concurrency),
-        QUANTPILOT_EVAL_REPEAT: String(item.repeat),
-        QUANTPILOT_EVAL_MODE: item.mode,
-        QUANTPILOT_EVAL_CLI: item.cli,
-        QUANTPILOT_EVAL_MODEL: item.model,
-        ...(supportsReasoningEffort(item.cli) ? { QUANTPILOT_EVAL_REASONING_EFFORT: item.reasoningEffort || 'low' } : {}),
+        SHOPGATE_EVAL_TRIGGER: 'eval-backend',
+        SHOPGATE_EVAL_EVALUATOR: item.evaluatorId,
+        SHOPGATE_EVAL_CONCURRENCY: String(item.concurrency),
+        SHOPGATE_EVAL_REPEAT: String(item.repeat),
+        SHOPGATE_EVAL_MODE: item.mode,
+        SHOPGATE_EVAL_CLI: item.cli,
+        SHOPGATE_EVAL_MODEL: item.model,
+        ...(supportsReasoningEffort(item.cli) ? { SHOPGATE_EVAL_REASONING_EFFORT: item.reasoningEffort || 'low' } : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -791,7 +791,7 @@ export async function simulateQuantEvalFlow(options: StartQuantEvalOptions = {})
     detail: runtime && !modelKnown ? '底层模型不在运行器白名单内，将按传入配置尝试执行。' : null,
   });
 
-  const benchmarkScript = path.join(ROOT, 'scripts', 'evals', 'run-quant-benchmarks.js');
+  const benchmarkScript = path.join(ROOT, 'scripts', 'evals', 'run-commerce-benchmarks.js');
   const scriptStat = await fs.stat(benchmarkScript).catch(() => null);
   pushStep({
     id: 'benchmark-script',
@@ -976,7 +976,7 @@ export async function getQuantEvalDashboardData(): Promise<QuantEvalDashboardDat
   ]);
   const latestRun = runs[0] ?? null;
   const capabilities = new Set(cases.map((testCase) => testCase.capabilityId));
-  const mutationDir = path.join(ROOT, 'tmp', 'quantpilot-eval-mutations');
+  const mutationDir = path.join(ROOT, 'tmp', 'shopgate-eval-mutations');
   const mutationReport = await fs.readdir(mutationDir, { withFileTypes: true })
     .then(async (entries) => {
       const files = await Promise.all(entries
@@ -989,11 +989,11 @@ export async function getQuantEvalDashboardData(): Promise<QuantEvalDashboardDat
       return latest ? readJson(latest.filePath).then((value) => ({ value, filePath: latest.filePath })) : null;
     })
     .catch(() => null);
-  const datasetRegistry = await readJson(path.join(ROOT, 'benchmarks', 'quantpilot', 'datasets.json')).catch(() => null);
-  const snapshotManifest = await readJson(path.join(ROOT, 'benchmarks', 'quantpilot', 'snapshot-manifest.json')).catch(() => null);
+  const datasetRegistry = await readJson(path.join(ROOT, 'benchmarks', 'shopgate', 'datasets.json')).catch(() => null);
+  const snapshotManifest = await readJson(path.join(ROOT, 'benchmarks', 'shopgate', 'snapshot-manifest.json')).catch(() => null);
   const calibrationPath = path.resolve(
-    process.env.QUANTPILOT_EVAL_JUDGE_CALIBRATION_PATH ||
-      'benchmarks/quantpilot/judge-calibration.contract.json',
+    process.env.SHOPGATE_EVAL_JUDGE_CALIBRATION_PATH ||
+      'benchmarks/shopgate/judge-calibration.contract.json',
   );
   const calibrationDataset = await readJson(calibrationPath).catch(() => null);
   const calibration = isRecord(calibrationDataset) && Array.isArray(calibrationDataset.samples)

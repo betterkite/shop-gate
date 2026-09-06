@@ -5,15 +5,15 @@ from typing import Any
 
 from psycopg.rows import dict_row
 
-from quantpilot_market_data.clickhouse import (
+from shopgate_commerce_data.clickhouse import (
     ClickHouseError,
     delete_daily_bars,
     initialize_clickhouse,
     insert_daily_bars,
     is_clickhouse_enabled,
 )
-from quantpilot_market_data.database_core import connect
-from quantpilot_market_data.models import ClickHouseSyncResponse
+from shopgate_commerce_data.database_core import connect
+from shopgate_commerce_data.models import ClickHouseSyncResponse
 
 DEFAULT_UNIVERSE_ID = "a-share-sample-research-pool"
 
@@ -38,7 +38,7 @@ async def sync_clickhouse_daily_bars(
             adjustment=adjustment,
             start=start,
             end=end,
-            message="ClickHouse 分析层未启用，设置 QUANTPILOT_CLICKHOUSE_ENABLED=1 后可同步。",
+            message="ClickHouse 分析层未启用，设置 SHOPGATE_CLICKHOUSE_ENABLED=1 后可同步。",
         )
 
     safe_limit = None if limit is None else max(1, min(limit, 2_000_000))

@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  createQuantPilotDataAgentRegistry,
+  createShopGateDataAgentRegistry,
   getFinanceSkillCapabilityDescriptor,
-  QUANTPILOT_AGENT_PROFILE,
+  SHOPGATE_AGENT_PROFILE,
 } from './agent-profile';
 
 describe('Quant finance Data Agent profile', () => {
   it('registers as a domain pack without teaching Data Agent core about finance', () => {
-    const resolved = createQuantPilotDataAgentRegistry()
-      .resolveProfile(QUANTPILOT_AGENT_PROFILE.id);
+    const resolved = createShopGateDataAgentRegistry()
+      .resolveProfile(SHOPGATE_AGENT_PROFILE.id);
 
     expect(resolved.defaultCapability.id).toBe('stock_diagnosis');
     expect(resolved.domainPacks[0].resolverIds).toContain('finance.security-resolver');

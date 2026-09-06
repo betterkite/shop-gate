@@ -40,7 +40,7 @@ function failedReport(failedCheckIds: string[]): QuantValidationReport {
 }
 
 async function createGeneratedProject() {
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-dashboard-restore-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-dashboard-restore-'));
   temporaryProjects.push(projectPath);
 
   const protectedContents = {
@@ -51,7 +51,7 @@ async function createGeneratedProject() {
     finalData: `${JSON.stringify({
       symbol: '600111',
       name: '北方稀土',
-      source: 'market-data-service',
+      source: 'commerce-data-service',
       as_of: '2026-07-14T00:00:00.000Z',
       quote: { price: 42.75 },
       visualization: { template_id: 'single-stock-diagnosis' },
@@ -59,7 +59,7 @@ async function createGeneratedProject() {
     }, null, 2)}\n`,
     sources: `${JSON.stringify({
       schemaVersion: 1,
-      sources: [{ name: 'market-data-service', url: '/api/market/quote' }],
+      sources: [{ name: 'commerce-data-service', url: '/api/market/quote' }],
       preservationMarker: 'keep-sources-byte-for-byte',
     }, null, 2)}\n`,
     dataQuality: `${JSON.stringify({

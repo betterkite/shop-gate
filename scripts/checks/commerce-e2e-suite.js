@@ -96,17 +96,17 @@ function assertScenarioCaseShape(name, testCase, problems) {
   }
 }
 
-function loadQuantE2eSuite(options = {}) {
+function loadCommerceE2eSuite(options = {}) {
   const root = path.resolve(options.root || process.cwd());
-  const suitePath = path.resolve(root, options.suitePath || 'benchmarks/quantpilot/e2e-suite.json');
-  const casesPath = path.resolve(root, options.casesPath || 'benchmarks/quantpilot/cases.json');
+  const suitePath = path.resolve(root, options.suitePath || 'benchmarks/shopgate/e2e-suite.json');
+  const casesPath = path.resolve(root, options.casesPath || 'benchmarks/shopgate/cases.json');
   const suite = options.suite || JSON.parse(fs.readFileSync(suitePath, 'utf8'));
   const cases = options.cases || JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const requireReleaseCoverage = options.requireReleaseCoverage === true;
   const problems = [];
 
   if (!Array.isArray(cases)) {
-    throw new Error('benchmarks/quantpilot/cases.json 必须是数组。');
+    throw new Error('benchmarks/shopgate/cases.json 必须是数组。');
   }
   const caseById = new Map();
   for (const testCase of cases) {
@@ -445,5 +445,5 @@ function attestProductControlEvidence(evidence, options) {
 module.exports = {
   REQUIRED_SCENARIOS,
   attestProductControlEvidence,
-  loadQuantE2eSuite,
+  loadCommerceE2eSuite,
 };

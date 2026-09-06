@@ -25,18 +25,18 @@ describe('development setup runtime environment updates', () => {
 
   it('applies newly generated trusted origins during the current launch', () => {
     const target = {
-      QUANTPILOT_AUTH_TRUSTED_ORIGINS: 'http://localhost:3000',
+      SHOPGATE_AUTH_TRUSTED_ORIGINS: 'http://localhost:3000',
     };
 
     applyRuntimeEnvUpdates(
       {
-        QUANTPILOT_AUTH_TRUSTED_ORIGINS:
+        SHOPGATE_AUTH_TRUSTED_ORIGINS:
           'http://localhost:3000,http://127.0.0.1:3000',
       },
       { target },
     );
 
-    expect(target.QUANTPILOT_AUTH_TRUSTED_ORIGINS).toBe(
+    expect(target.SHOPGATE_AUTH_TRUSTED_ORIGINS).toBe(
       'http://localhost:3000,http://127.0.0.1:3000',
     );
   });

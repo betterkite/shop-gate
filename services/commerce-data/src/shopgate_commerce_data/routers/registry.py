@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from quantpilot_market_data.models import DataRegistryResponse
-from quantpilot_market_data.services.registry import ProviderRegistryTtls, build_data_registry
+from shopgate_commerce_data.models import DataRegistryResponse
+from shopgate_commerce_data.services.registry import ProviderRegistryTtls, build_data_registry
 
 
 def create_registry_router(ttls: ProviderRegistryTtls) -> APIRouter:

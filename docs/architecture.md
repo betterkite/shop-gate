@@ -1,6 +1,6 @@
 # 架构总览
 
-QuantPilot 是通用 Data Agent 平台上的第一个金融应用。核心链路是：用户提出研究问题，Data Agent 使用所选 LLM 形成通用任务合同，Finance Domain Pack 再通过独立 Resolver 核验证券、生成金融 run plan 并注入数据、Skills、工具和 Mission；PI Agent 根据受控合同运行完整多轮工具循环，QuantPilot 治理层约束副作用并生成工作空间，最后由 Delivery 验证、视觉检查、产物契约和评测决定是否可交付。
+Shop Gate 是通用 Data Agent 平台上的第一个金融应用。核心链路是：用户提出研究问题，Data Agent 使用所选 LLM 形成通用任务合同，Finance Domain Pack 再通过独立 Resolver 核验证券、生成金融 run plan 并注入数据、Skills、工具和 Mission；PI Agent 根据受控合同运行完整多轮工具循环，Shop Gate 治理层约束副作用并生成工作空间，最后由 Delivery 验证、视觉检查、产物契约和评测决定是否可交付。
 
 ```mermaid
 flowchart LR
@@ -71,10 +71,10 @@ flowchart LR
 | 内部执行器 | 模型 | 接口边界 | 用途 |
 | --- | --- | --- | --- |
 | PI Agent（执行器 `pi`） | `local_qwen:qwen3.5-9b-q5km`（默认） | 本机 `http://127.0.0.1:38082/v1/chat/completions` | 分析、生成与评测 |
-| PI Agent（执行器 `pi`） | `deepseek:deepseek-v4-flash`（日常可选） | QuantPilot 调 ModelPort OpenAI-compatible `/chat/completions`；ModelPort 调 DeepSeek Anthropic `/v1/messages` | 分析与生成 |
+| PI Agent（执行器 `pi`） | `deepseek:deepseek-v4-flash`（日常可选） | Shop Gate 调 ModelPort OpenAI-compatible `/chat/completions`；ModelPort 调 DeepSeek Anthropic `/v1/messages` | 分析与生成 |
 | PI Agent（执行器 `pi`） | `deepseek-v4-flash`（备用直连） | DeepSeek 官方 OpenAI-compatible `/chat/completions` | 绕过 ModelPort 的部署/CI 备用链路 |
 
-PI Agent `0.82.1` 是 QuantPilot 的进程内开源 Agent loop，不启动 Agent CLI 子进程；它可以运行在 Web 的本地开发进程，也可以运行在生产独立 Worker 进程。QuantPilot 把既有 Provider 和类型化工具适配给 PI，并继续负责权限、上下文、预算与 durable runtime。Provider 地址和模型标识由 `config/llm.json` 的版本化 profile 锁定，客户端不能提交任意 Base URL；凭据仅从服务端环境读取。运行前由 Context Manager 控制输入预算；generation job/outbox、项目级 generation lease、物理运行状态、公开事件、replan checkpoint、工具 operation ledger、MissionSpec 物化节点和不可变 evidence receipt 进入 PostgreSQL，hidden reasoning 永不持久化。generation lease 在 run plan 落盘前串行化外层编排，数据库唯一 active Mission slot 再保证同一项目不会被两个合规入口同时创建非终态 generation。
+PI Agent `0.82.1` 是 Shop Gate 的进程内开源 Agent loop，不启动 Agent CLI 子进程；它可以运行在 Web 的本地开发进程，也可以运行在生产独立 Worker 进程。Shop Gate 把既有 Provider 和类型化工具适配给 PI，并继续负责权限、上下文、预算与 durable runtime。Provider 地址和模型标识由 `config/llm.json` 的版本化 profile 锁定，客户端不能提交任意 Base URL；凭据仅从服务端环境读取。运行前由 Context Manager 控制输入预算；generation job/outbox、项目级 generation lease、物理运行状态、公开事件、replan checkpoint、工具 operation ledger、MissionSpec 物化节点和不可变 evidence receipt 进入 PostgreSQL，hidden reasoning 永不持久化。generation lease 在 run plan 落盘前串行化外层编排，数据库唯一 active Mission slot 再保证同一项目不会被两个合规入口同时创建非终态 generation。
 
 模型和 CLI 的注册入口：
 
@@ -130,9 +130,9 @@ Mission 表只保存有界结构和摘要哈希，不保存 prompt、hidden reas
 
 ## 服务目录
 
-QuantPilot 当前采用 Python/Node 长期主线，不引入 Dubbo3 作为配置中心、服务发现或服务注册。对应能力由轻量服务目录承担：
+Shop Gate 当前采用 Python/Node 长期主线，不引入 Dubbo3 作为配置中心、服务发现或服务注册。对应能力由轻量服务目录承担：
 
-- `config/service-catalog.json` 记录 web、market-data、TimescaleDB、Redis、ClickHouse、Loki、Grafana 和 Alloy 的职责、runtime、endpoint、启动命令和依赖。
+- `config/service-catalog.json` 记录 web、commerce-data、TimescaleDB、Redis、ClickHouse、Loki、Grafana 和 Alloy 的职责、runtime、endpoint、启动命令和依赖。
 - `src/lib/platform/service-catalog.ts` 负责 Node 侧解析、环境变量覆盖、endpoint 脱敏、依赖图和配置校验。
 - `/api/infrastructure/service-catalog` 暴露给运行治理中心和设置页，避免页面继续散落硬编码端口。
 - `npm run check:service-catalog` 作为 CI guardrail，确保服务目录、Docker、API、ops 页面和文档同步。
@@ -141,9 +141,9 @@ QuantPilot 当前采用 Python/Node 长期主线，不引入 Dubbo3 作为配置
 
 ## 模块化单体
 
-QuantPilot 当前采用模块化单体，而不是微服务化。运行态继续保持 `Next.js + Python market-data`，代码侧按模块治理：
+Shop Gate 当前采用模块化单体，而不是微服务化。运行态继续保持 `Next.js + Python commerce-data`，代码侧按模块治理：
 
-- `config/module-boundaries.json` 定义 shared-kernel、ui-kit、platform-navigation-ui、product-shell、platform-core、agent-runtime、data-agent-core、finance-domain、quant-core、eval-core、ops-core 和 market-data-backend。
+- `config/module-boundaries.json` 定义 shared-kernel、ui-kit、platform-navigation-ui、product-shell、platform-core、agent-runtime、data-agent-core、finance-domain、quant-core、eval-core、ops-core 和 commerce-data-backend。
 - `npm run check:module-boundaries` 检查反向依赖、未声明跨模块依赖、依赖环、通用 UI 污染和大文件预算。
 - 领域模块不能反向依赖 `src/app/**` 页面层。
 - `ui-kit` 只能承载无领域知识组件，不直接依赖量化、运维或运行时服务。
@@ -153,7 +153,7 @@ QuantPilot 当前采用模块化单体，而不是微服务化。运行态继续
 
 ## 数据层
 
-后端位于 `services/market-data`，当前默认以东方财富为主数据源，并提供候选免费信源探针。核心响应统一携带：
+后端位于 `services/commerce-data`，当前默认以东方财富为主数据源，并提供候选免费信源探针。核心响应统一携带：
 
 - `source`
 - `asset_type`
@@ -162,7 +162,7 @@ QuantPilot 当前采用模块化单体，而不是微服务化。运行态继续
 - `fetch`
 - `data_quality`
 
-主要接口见 [量化数据后端 README](../services/market-data/README.md)。
+主要接口见 [量化数据后端 README](../services/commerce-data/README.md)。
 
 后端代码按 Controller / Use Case / Repository / Core Helper 分层推进：
 
@@ -178,14 +178,14 @@ QuantPilot 当前采用模块化单体，而不是微服务化。运行态继续
 - TimescaleDB 承载 `quant.stock_bars`、`quant.stock_factors`、`quant.strategy_signals` 和 `quant.portfolio_snapshots` 等时序表。
 - Redis 承载短期缓存，优先用于板块资金、行情摘要和后续任务进度。
 - Loki/Grafana/Alloy 承载集中日志采集和运维排查；Loki 未启动时运行治理中心会降级读取本地文件日志。
-- 行情字段来源、补数优先级和 provider 边界见 [行情数据源采集知识库](market-data-source-knowledge.md)。
+- 行情字段来源、补数优先级和 provider 边界见 [行情数据源采集知识库](commerce-data-source-knowledge.md)。
 - 根目录 `sqls/` 保存组件默认需要的基础 SQL，Docker 首次创建容器时会执行；已有数据库可通过 `npm run db:init` 补齐 SQL 对象并同步 Prisma 应用表。
 
 更多细节见 [基础设施配置](infrastructure.md)。后端能力分层、设计模式和持续优化路线见 [后端能力架构与持续优化边界](backend-capability-architecture.md)。
 
 ## 设计取舍
 
-QuantPilot 当前最重要的取舍是“本地事实库优先”。外部接口可以不稳定，也可能字段不完整，但只要数据已经进入本地 TimescaleDB，策略、生成页面和评测都应该优先复用同一份事实。
+Shop Gate 当前最重要的取舍是“本地事实库优先”。外部接口可以不稳定，也可能字段不完整，但只要数据已经进入本地 TimescaleDB，策略、生成页面和评测都应该优先复用同一份事实。
 
 | 取舍 | 原因 |
 | --- | --- |
@@ -200,7 +200,7 @@ QuantPilot 当前最重要的取舍是“本地事实库优先”。外部接口
 
 ## 后端语言边界
 
-`services/market-data` 继续以 Python 为主线。短期不要为了“可能的性能问题”拆出 Go 或 Rust 服务，除非已经通过 profiling 证明瓶颈是 Python 运行时本身。
+`services/commerce-data` 继续以 Python 为主线。短期不要为了“可能的性能问题”拆出 Go 或 Rust 服务，除非已经通过 profiling 证明瓶颈是 Python 运行时本身。
 
 优先优化顺序：
 
@@ -280,5 +280,5 @@ GitHub Actions 当前包含：
 Dependabot 每周检查：
 
 - 根目录 npm 依赖。
-- `services/market-data` uv 依赖。
+- `services/commerce-data` uv 依赖。
 - GitHub Actions。

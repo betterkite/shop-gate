@@ -156,7 +156,7 @@ export default function PersonalMemoryClient() {
           body: JSON.stringify({
             eventId: `memory-correction:${crypto.randomUUID()}`,
             value,
-            evidenceText: `用户在 QuantPilot 账号记忆中心明确修正：${value}`,
+            evidenceText: `用户在 Shop Gate 账号记忆中心明确修正：${value}`,
             reason,
             expectedRevisionId: preference.revisionId,
           }),
@@ -208,7 +208,7 @@ export default function PersonalMemoryClient() {
   return (
     <AccountPageShell
       title="用户记忆"
-      subtitle="决定外部记忆是否可以影响未来的 QuantPilot 任务，并查看当前保存的偏好。"
+      subtitle="决定外部记忆是否可以影响未来的 Shop Gate 任务，并查看当前保存的偏好。"
       contentClassName="max-w-5xl space-y-6"
       actions={(
         <Button variant="outline" size="sm" disabled={loading} onClick={() => void load()}>
@@ -234,7 +234,7 @@ export default function PersonalMemoryClient() {
                 <div>
                   <h2 className="font-semibold">个性化使用开关</h2>
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    启用后，QuantPilot 才会在新任务开始前召回你的分析、输出和研究偏好。关闭状态下不会向 Memory 发起任务召回。
+                    启用后，Shop Gate 才会在新任务开始前召回你的分析、输出和研究偏好。关闭状态下不会向 Memory 发起任务召回。
                   </p>
                 </div>
               </div>
@@ -282,7 +282,7 @@ export default function PersonalMemoryClient() {
           </section>
 
           <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div className="flex items-center gap-3"><Database className="h-5 w-5 text-primary" /><div><h2 className="font-semibold">当前偏好</h2><p className="text-sm text-muted-foreground">仅展示属于当前登录账号、且标记为 QuantPilot 的偏好。</p></div></div>
+            <div className="flex items-center gap-3"><Database className="h-5 w-5 text-primary" /><div><h2 className="font-semibold">当前偏好</h2><p className="text-sm text-muted-foreground">仅展示属于当前登录账号、且标记为 Shop Gate 的偏好。</p></div></div>
             <div className="mt-5 grid gap-3">
               {state.preferences?.map((preference) => (
                 <article key={preference.recordId} className="rounded-xl border p-4">
@@ -376,7 +376,7 @@ export default function PersonalMemoryClient() {
                   ) : null}
                 </article>
               ))}
-              {state.preferences?.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-center text-sm leading-6 text-muted-foreground">还没有 QuantPilot 用户偏好。进入任一项目对话，在输入框下方点击“记住偏好”并明确确认后，偏好才会写入。</p> : null}
+              {state.preferences?.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-center text-sm leading-6 text-muted-foreground">还没有 Shop Gate 用户偏好。进入任一项目对话，在输入框下方点击“记住偏好”并明确确认后，偏好才会写入。</p> : null}
               {state.preferences === null ? <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">服务当前不可用，暂时无法读取偏好。</p> : null}
             </div>
           </section>

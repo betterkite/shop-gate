@@ -102,9 +102,9 @@ describe('compilePiAgentSkills', () => {
     expect(result.selectedSkillIds).not.toContain('image-extraction');
     expect(result.systemContext).toContain('# PI Agent Skill Manifest');
     expect(result.taskContext).toContain('# PI Agent Skill Capsules');
-    expect(result.taskContext).toContain('quant_api_get');
+    expect(result.taskContext).toContain('commerce_api_get');
     expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('.pi/skills/');
-    expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('mcp__QuantPilotImage__');
+    expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('mcp__ShopGateImage__');
     expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('workspaceResponseContract');
     expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('正在理解问题');
     expect(result.truncated).toBe(false);
@@ -183,8 +183,8 @@ describe('compilePiAgentSkills', () => {
       capability: getFinanceSkillCapabilityDescriptor('stock_diagnosis'),
       requiredSkillIds: ['image-extraction'],
       phase: 'data-preparation',
-      availableToolNames: ['quant_api_get'],
-    })).rejects.toThrow('quant_extract_uploaded_image');
+      availableToolNames: ['commerce_api_get'],
+    })).rejects.toThrow('commerce_extract_uploaded_image');
   });
 
   it('accepts both prepared dashboard surfaces and rejects an incomplete mutation route', async () => {
@@ -267,8 +267,8 @@ describe('compilePiAgentSkills', () => {
       'utf8',
     );
     expect(installedSkill).toContain('图片提取能力');
-    expect(installedSkill).toContain('quant_extract_uploaded_image');
-    expect(installedSkill).not.toContain('mcp__QuantPilotImage__');
+    expect(installedSkill).toContain('commerce_extract_uploaded_image');
+    expect(installedSkill).not.toContain('mcp__ShopGateImage__');
     await expect(fs.access(
       path.join(workspace, '.pi', 'skills', 'image-extraction', 'references', 'portfolio-image-contract.md'),
     )).resolves.toBeUndefined();

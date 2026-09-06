@@ -40,7 +40,7 @@ import { ApiIdempotencyConflictError } from '@/lib/server/api-idempotency';
 import { POST } from './route';
 
 function request(body: unknown, idempotencyKey?: string): NextRequest {
-  return new NextRequest('http://localhost/api/quant/query/rewrite', {
+  return new NextRequest('http://localhost/api/commerce/query/rewrite', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -70,7 +70,7 @@ beforeEach(() => {
   mocks.recordQuotaUsage.mockResolvedValue({ eventId: 'tokens-1' });
 });
 
-describe('POST /api/quant/query/rewrite', () => {
+describe('POST /api/commerce/query/rewrite', () => {
   it('returns a versioned executable rewrite contract', async () => {
     mocks.rewriteQuantQuery.mockResolvedValueOnce({
       schemaVersion: 4,

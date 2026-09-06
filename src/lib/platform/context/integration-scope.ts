@@ -26,7 +26,7 @@ export interface ProjectIntegrationScope {
   memory: {
     tenantId: string;
     context: {
-      product: 'quantpilot';
+      product: 'shopgate';
       project_id: string;
     };
   };
@@ -84,11 +84,11 @@ export function createProjectIntegrationScope(input: {
   const environment = input.environment ?? process.env;
   const trustedProjectId = projectId(input.projectId);
   const consumerId = scopeId(
-    environment.QUANTPILOT_INTEGRATION_CONSUMER_ID,
-    'quantpilot',
-    'QUANTPILOT_INTEGRATION_CONSUMER_ID',
+    environment.SHOPGATE_INTEGRATION_CONSUMER_ID,
+    'shopgate',
+    'SHOPGATE_INTEGRATION_CONSUMER_ID',
   );
-  const tenantId = scopeId(input.memory.tenantId, 'quantpilot-local', 'Memory tenant ID');
+  const tenantId = scopeId(input.memory.tenantId, 'shopgate-local', 'Memory tenant ID');
   const projectKnowledgeSpace = input.knowledge.projectSpacesEnabled
     ? projectSpaceId(input.knowledge.projectSpaceBaseUrl, trustedProjectId)
     : null;
@@ -103,24 +103,24 @@ export function createProjectIntegrationScope(input: {
     projectId: trustedProjectId,
     modelPort: {
       organizationId: scopeId(
-        environment.QUANTPILOT_MODELPORT_ORGANIZATION_ID,
+        environment.SHOPGATE_MODELPORT_ORGANIZATION_ID,
         'org_local',
-        'QUANTPILOT_MODELPORT_ORGANIZATION_ID',
+        'SHOPGATE_MODELPORT_ORGANIZATION_ID',
       ),
       projectId: scopeId(
-        environment.QUANTPILOT_MODELPORT_PROJECT_ID,
-        'prj_quantpilot',
-        'QUANTPILOT_MODELPORT_PROJECT_ID',
+        environment.SHOPGATE_MODELPORT_PROJECT_ID,
+        'prj_shopgate',
+        'SHOPGATE_MODELPORT_PROJECT_ID',
       ),
       environmentId: scopeId(
-        environment.QUANTPILOT_MODELPORT_ENVIRONMENT_ID,
+        environment.SHOPGATE_MODELPORT_ENVIRONMENT_ID,
         environment.NODE_ENV === 'production' ? 'env_production' : 'env_development',
-        'QUANTPILOT_MODELPORT_ENVIRONMENT_ID',
+        'SHOPGATE_MODELPORT_ENVIRONMENT_ID',
       ),
     },
     memory: {
       tenantId,
-      context: { product: 'quantpilot' as const, project_id: trustedProjectId },
+      context: { product: 'shopgate' as const, project_id: trustedProjectId },
     },
     knowledge: { sharedSpaceIds, projectSpaceId: projectKnowledgeSpace, requestedSpaceIds },
   };

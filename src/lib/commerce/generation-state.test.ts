@@ -21,7 +21,7 @@ afterEach(async () => {
 
 describe('generation state terminal transitions', () => {
   it('does not turn a cancelled request back into completed', async () => {
-    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-generation-state-'));
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-generation-state-'));
     temporaryProjects.push(projectPath);
     const identifiers = {
       projectPath,

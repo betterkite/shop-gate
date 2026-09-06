@@ -2,13 +2,13 @@
 
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { loadQuantE2eSuite } = require('./quant-e2e-suite');
+const { loadCommerceE2eSuite } = require('./commerce-e2e-suite');
 
 const root = process.cwd();
 const runRuntimeControls = process.argv.includes('--run-runtime-controls');
 
 function main() {
-  const suite = loadQuantE2eSuite({ root, requireReleaseCoverage: true });
+  const suite = loadCommerceE2eSuite({ root, requireReleaseCoverage: true });
   console.log(
     `[e2e-suite] ok: ${suite.id} live-model=${suite.caseIds.length} ` +
     `product-controls=${suite.productControlCaseIds.length} runtime-tests=${suite.runtimeTestFiles.length}`,

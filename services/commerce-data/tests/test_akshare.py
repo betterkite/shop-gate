@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from quantpilot_market_data.providers.akshare import (
+from shopgate_commerce_data.providers.akshare import (
     akshare_symbol,
     parse_akshare_hist_records,
 )

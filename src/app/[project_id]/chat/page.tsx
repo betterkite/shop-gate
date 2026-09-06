@@ -29,7 +29,7 @@ import {
   type ActiveCliId,
   type ActiveModelOption,
 } from '@/lib/utils/cliOptions';
-import type { QuantGenerationTerminalSnapshot } from '@/lib/quant/generation-terminal';
+import type { QuantGenerationTerminalSnapshot } from '@/lib/commerce/generation-terminal';
 import {
   CHAT_PANE_DEFAULT_WIDTH,
   CHAT_PANE_MAX_WIDTH,
@@ -925,7 +925,7 @@ const persistProjectPreferences = useCallback(
 
   const readQuantValidationStatus = useCallback(async (): Promise<QuantValidationState> => {
     try {
-      const response = await fetch(`${API_BASE}/api/projects/${projectId}/quant/validation`, {
+      const response = await fetch(`${API_BASE}/api/projects/${projectId}/commerce/validation`, {
         method: 'GET',
         cache: 'no-store',
       });
@@ -970,7 +970,7 @@ const persistProjectPreferences = useCallback(
         setQuantValidationState('running');
         setQuantValidationMessage('生成产物已更新，正在重新执行自动验证。');
         setQuantRepairPlan(null);
-        const rerunResponse = await fetch(`${API_BASE}/api/projects/${projectId}/quant/validation`, {
+        const rerunResponse = await fetch(`${API_BASE}/api/projects/${projectId}/commerce/validation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
@@ -3108,7 +3108,7 @@ const persistProjectPreferences = useCallback(
                   void runAct(message, images, mode);
                 }}
                 disabled={false}
-                placeholder={mode === 'act' ? "向 QuantPilot 描述你的量化需求..." : "和 QuantPilot 讨论项目细节..."}
+                placeholder={mode === 'act' ? "向 Shop Gate 描述你的量化需求..." : "和 Shop Gate 讨论项目细节..."}
                 mode={mode}
                 onModeChange={setMode}
                 projectId={projectId}
@@ -3621,7 +3621,7 @@ const persistProjectPreferences = useCallback(
                               onClick={!isRunning && !isStartingPreview ? () => start({ requireValidation: true }) : undefined}
                               className={`w-40 h-40 mx-auto mb-6 relative ${!isRunning && !isStartingPreview ? 'cursor-pointer group' : ''}`}
                             >
-                              {/* QuantPilot 启动动画图标 */}
+                              {/* Shop Gate 启动动画图标 */}
                               <MotionDiv
                                 className="w-full h-full"
                                 animate={isStartingPreview ? { rotate: 360 } : {}}

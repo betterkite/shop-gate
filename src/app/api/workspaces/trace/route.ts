@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAction } from '@/lib/auth/action';
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
-import { getGenerationObservabilityDashboard } from '@/lib/quant/generation-observability';
+import { getGenerationObservabilityDashboard } from '@/lib/commerce/generation-observability';
 
 export async function GET(request: Request) {
   try {

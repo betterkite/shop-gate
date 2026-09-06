@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.models import AnnouncementResponse, DividendEventsResponse
-from quantpilot_market_data.providers.base import AnnouncementProvider, DividendEventProvider
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.services.events import get_announcements, get_dividend_events
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.models import AnnouncementResponse, DividendEventsResponse
+from shopgate_commerce_data.providers.base import AnnouncementProvider, DividendEventProvider
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.services.events import get_announcements, get_dividend_events
 
 
 def create_events_router(

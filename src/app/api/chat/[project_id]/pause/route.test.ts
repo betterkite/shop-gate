@@ -42,11 +42,11 @@ vi.mock('@/lib/services/project', () => ({
   getProjectById: mocks.getProjectById,
 }));
 
-vi.mock('@/lib/quant/generation-queue', () => ({
+vi.mock('@/lib/commerce/generation-queue', () => ({
   markQuantGenerationQueueCancelled: mocks.markQueueCancelled,
 }));
 
-vi.mock('@/lib/quant/generation-state', () => ({
+vi.mock('@/lib/commerce/generation-state', () => ({
   cancelQuantGenerationRun: mocks.cancelGenerationRun,
 }));
 

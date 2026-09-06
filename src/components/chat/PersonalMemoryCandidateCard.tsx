@@ -45,7 +45,7 @@ export function parsePersonalMemoryCandidate(value: unknown): PersonalMemoryCand
 }
 
 function storageKey(projectId: string, requestId: string): string {
-  return `quantpilot:memory-candidate:v1:${projectId}:${requestId}`;
+  return `shopgate:memory-candidate:v1:${projectId}:${requestId}`;
 }
 
 export function personalMemoryCandidateEventId(requestId: string): string {

@@ -263,7 +263,7 @@ class FactorDefinition(BaseModel):
     formula: str | None = None
     dependencies: list[str] = Field(default_factory=list)
     status: str = "active"
-    provider: str = "quantpilot"
+    provider: str = "shopgate"
     metadata: dict[str, Any] = Field(default_factory=dict)
     updated_at: datetime | None = None
 
@@ -892,7 +892,7 @@ class AShareScreenerResponse(BaseModel):
     candidates: list[AShareScreenerCandidate] = Field(default_factory=list)
     data_basis: str = "timescaledb.canonical_stock_bars"
     analytics: AnalyticsExecutionMetadata = Field(default_factory=AnalyticsExecutionMetadata)
-    source: str = "quantpilot-market-api"
+    source: str = "shopgate-commerce-api"
     notes: list[str] = Field(default_factory=list)
     cache_status: CacheStatus = "bypass"
     cache_ttl_seconds: int | None = None

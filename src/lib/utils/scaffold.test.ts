@@ -15,7 +15,7 @@ import {
 const temporaryProjects: string[] = [];
 
 async function createProject() {
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-scaffold-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-scaffold-'));
   temporaryProjects.push(projectPath);
   await fs.mkdir(path.join(projectPath, '.data-agent'), { recursive: true });
   await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });

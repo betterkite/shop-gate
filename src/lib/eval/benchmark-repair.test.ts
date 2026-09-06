@@ -6,8 +6,8 @@ import {
   readQuantGenerationState,
   startQuantGenerationRun,
   updateQuantGenerationStep,
-} from '@/lib/quant/generation-state';
-import type { QuantValidationReport } from '@/lib/quant/validation';
+} from '@/lib/commerce/generation-state';
+import type { QuantValidationReport } from '@/lib/commerce/validation';
 import { failBenchmarkGenerationRun, runBenchmarkRepairLoop } from './benchmark-repair';
 
 const temporaryProjects: string[] = [];
@@ -42,7 +42,7 @@ function report(passed: boolean): QuantValidationReport {
 }
 
 async function setupRun(maxRepairAttempts = 2) {
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-benchmark-repair-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-benchmark-repair-'));
   temporaryProjects.push(projectPath);
   const identifiers = {
     projectPath,

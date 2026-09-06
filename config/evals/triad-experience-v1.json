@@ -114,8 +114,8 @@
     {
       "id": "K01",
       "category": "knowledge",
-      "question": "QuantPilot 的 Query Rewrite 为什么不能再用关键词匹配？大位科技名称如何处理？",
-      "expected": { "title": "QuantPilot 查询改写与标的识别规则", "behavior": "context_pack" }
+      "question": "Shop Gate 的 Query Rewrite 为什么不能再用关键词匹配？大位科技名称如何处理？",
+      "expected": { "title": "Shop Gate 查询改写与标的识别规则", "behavior": "context_pack" }
     },
     {
       "id": "K02",
@@ -127,13 +127,13 @@
       "id": "K03",
       "category": "knowledge",
       "question": "个人记忆可以覆盖行情事实或跨项目使用吗？",
-      "expected": { "title": "QuantPilot 个人记忆使用边界", "behavior": "context_pack" }
+      "expected": { "title": "Shop Gate 个人记忆使用边界", "behavior": "context_pack" }
     },
     {
       "id": "K04",
       "category": "knowledge",
-      "question": "AKEP 的 Citation、Exposure、Usage 和业务 Feedback 在 QuantPilot 中怎样串联？",
-      "expected": { "title": "QuantPilot 受治理知识使用边界", "behavior": "context_pack" }
+      "question": "AKEP 的 Citation、Exposure、Usage 和业务 Feedback 在 Shop Gate 中怎样串联？",
+      "expected": { "title": "Shop Gate 受治理知识使用边界", "behavior": "context_pack" }
     },
     {
       "id": "K05",

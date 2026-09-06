@@ -6,7 +6,7 @@ import { authErrorResponse } from '@/lib/auth/http';
 import { consumeQuota, quotaErrorResponse } from '@/lib/quota';
 
 const MARKET_API_BASE_URL = (
-  process.env.QUANTPILOT_MARKET_API_URL ?? 'http://127.0.0.1:8000'
+  process.env.SHOPGATE_MARKET_API_URL ?? 'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
 
 export async function GET(request: NextRequest) {

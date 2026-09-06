@@ -16,10 +16,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatCompactDate as formatDate } from '@/components/quant/console-primitives';
-import { getEvalEvaluatorOption } from '@/components/quant/eval-evaluator-view';
-import { EvalPagination, formatDuration } from '@/components/quant/eval-console-primitives';
-import type { EvalSet } from '@/components/quant/eval-console-primitives';
+import { formatCompactDate as formatDate } from '@/components/eval-console/console-primitives';
+import { getEvalEvaluatorOption } from '@/components/eval-console/eval-evaluator-view';
+import { EvalPagination, formatDuration } from '@/components/eval-console/eval-console-primitives';
+import type { EvalSet } from '@/components/eval-console/eval-console-primitives';
 import type { QuantEvalQueueItem, QuantEvalRun } from '@/lib/eval';
 import { cn } from '@/lib/utils';
 

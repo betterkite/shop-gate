@@ -4,8 +4,8 @@ import path from 'path';
 import { serializeMessage } from '@/lib/serializers/chat';
 import { createMessage } from '@/lib/services/message';
 import { streamManager } from '@/lib/services/stream';
-import { ensureBaselineEvidenceFiles } from '@/lib/quant/evidence';
-import { prefetchQuantDataForRunPlan } from '@/lib/quant/data-prefetch';
+import { ensureBaselineEvidenceFiles } from '@/lib/commerce/evidence';
+import { prefetchQuantDataForRunPlan } from '@/lib/commerce/data-prefetch';
 import {
   appendQuantWorkspaceEvent,
   ensureQuantWorkspace,
@@ -13,8 +13,8 @@ import {
 } from '@/lib/domains/finance/workspace';
 import type { QuantRunPlan } from '@/lib/domains/finance/workspace';
 import type { QuantQueryRewriteResult } from '@/lib/domains/finance/query-rewrite';
-import { validateQuantArtifactContracts } from '@/lib/quant/artifact-contracts';
-import { validateQuantVisualPresentation } from '@/lib/quant/visual-validation';
+import { validateQuantArtifactContracts } from '@/lib/commerce/artifact-contracts';
+import { validateQuantVisualPresentation } from '@/lib/commerce/visual-validation';
 import {
   generatedBuildScriptContents,
   restoreQuantDashboardTemplate,
@@ -180,8 +180,8 @@ const DASHBOARD_TEMPLATE_PROTECTED_ARTIFACT_PATHS = [
   'evidence/sources.json',
   'evidence/data_quality.json',
 ] as const;
-const BUILD_TIMEOUT_MS = Number.parseInt(process.env.QUANTPILOT_VALIDATION_BUILD_TIMEOUT_MS ?? '', 10) || 180_000;
-const PREVIEW_HTTP_TIMEOUT_MS = Number.parseInt(process.env.QUANTPILOT_VALIDATION_HTTP_TIMEOUT_MS ?? '', 10) || 45_000;
+const BUILD_TIMEOUT_MS = Number.parseInt(process.env.SHOPGATE_VALIDATION_BUILD_TIMEOUT_MS ?? '', 10) || 180_000;
+const PREVIEW_HTTP_TIMEOUT_MS = Number.parseInt(process.env.SHOPGATE_VALIDATION_HTTP_TIMEOUT_MS ?? '', 10) || 45_000;
 const FETCH_TIMEOUT_MS = 5_000;
 const OUTPUT_TAIL_LIMIT = 12_000;
 const SENSITIVE_EVIDENCE_PATTERN =
@@ -363,7 +363,7 @@ async function validationArtifactSignature(projectPath: string): Promise<string>
 }
 
 async function waitForValidationArtifactsToSettle(projectPath: string) {
-  const timeoutMs = Number.parseInt(process.env.QUANTPILOT_VALIDATION_SETTLE_TIMEOUT_MS ?? '', 10) || 4_000;
+  const timeoutMs = Number.parseInt(process.env.SHOPGATE_VALIDATION_SETTLE_TIMEOUT_MS ?? '', 10) || 4_000;
   const intervalMs = 500;
   const startedAt = Date.now();
   let lastSignature = '';
@@ -423,7 +423,7 @@ async function runCommand(
 
     const timeout = setTimeout(() => {
       timedOut = true;
-      append(`\n[QuantPilot validation] 命令超过 ${timeoutMs}ms，正在终止。\n`);
+      append(`\n[Shop Gate validation] 命令超过 ${timeoutMs}ms，正在终止。\n`);
       child.kill('SIGTERM');
       killTimer = setTimeout(() => child.kill('SIGKILL'), 5_000);
     }, timeoutMs);
@@ -677,8 +677,8 @@ async function normalizeNextConfig(projectPath: string) {
 const path = require('path');
 
 const projectRoot = __dirname;
-const workspaceRoot = process.env.QUANTPILOT_WORKSPACE_ROOT
-  ? path.resolve(process.env.QUANTPILOT_WORKSPACE_ROOT)
+const workspaceRoot = process.env.SHOPGATE_WORKSPACE_ROOT
+  ? path.resolve(process.env.SHOPGATE_WORKSPACE_ROOT)
   : path.resolve(projectRoot, '../../..');
 
 const nextConfig = {
@@ -731,8 +731,8 @@ module.exports = nextConfig;
     nextContent = nextContent.replace(
       /const projectRoot = __dirname;\n/,
       `const projectRoot = __dirname;
-const workspaceRoot = process.env.QUANTPILOT_WORKSPACE_ROOT
-  ? path.resolve(process.env.QUANTPILOT_WORKSPACE_ROOT)
+const workspaceRoot = process.env.SHOPGATE_WORKSPACE_ROOT
+  ? path.resolve(process.env.SHOPGATE_WORKSPACE_ROOT)
   : path.resolve(projectRoot, '../../..');
 `
     );
@@ -1306,7 +1306,7 @@ async function checkArtifactPolicy(
   if (violations.length > 0) {
     return {
       status: 'failed',
-      summary: '生成产物未满足 QuantPilot 硬约束。',
+      summary: '生成产物未满足 Shop Gate 硬约束。',
       details: violations.slice(0, 20).join('\n'),
       metadata: {
         checkedFiles: files.length,
@@ -1865,7 +1865,7 @@ async function checkDashboardBinding(
   if (!hasStandardBinding) {
     return {
       status: 'failed',
-      summary: '页面未使用 QuantPilot 标准看板数据绑定结构。',
+      summary: '页面未使用 Shop Gate 标准看板数据绑定结构。',
       details: '请使用平台标准模板读取 dashboard-data.json，并通过统一解析层渲染最新价、K 线样本、指标、财务和公告。',
     };
   }
@@ -2362,7 +2362,7 @@ function actionsForFailedCheck(check: QuantValidationCheck): string[] {
           `${check.summary}\n${check.details ?? ''}`
         );
         return [
-        '让 app/page.tsx 使用 QuantPilot 标准数据绑定结构读取 data_file/final/dashboard-data.json。',
+        '让 app/page.tsx 使用 Shop Gate 标准数据绑定结构读取 data_file/final/dashboard-data.json。',
         '保留 DATA_FILE、readDashboardData()、getBars() 或 data-source-file={DATA_FILE} 等标准入口。',
         ...(tradingPlanFailure
           ? [
@@ -2787,7 +2787,7 @@ export function buildQuantValidationRepairInstruction(
     .map((check) => `- ${check.id}：${completionConditionForFailedCheck(check)}`)
     .join('\n');
 
-  return `QuantPilot failure-scoped repair packet
+  return `Shop Gate failure-scoped repair packet
 
 目标：只修复本轮失败项，保留已有真实数据、有效分析和无关页面内容。${original}
 
@@ -2810,7 +2810,7 @@ ${completionConditions || '- 报告未提供失败 ID；仅提交已能由失败
 执行契约：
 1. 使用本轮提供的 typed tools 定向读取和修改；只在需要新建失败产物时使用 write_file，否则优先 edit_file。
 2. 必须实际修改失败项关联文件，但不得顺带重写未失败模块；不得写入 mock、占位数据、凭据或密钥。
-3. 不要执行 shell、安装依赖、启动开发服务器、构建、预览或循环复验。构建、预览与自动验证由 QuantPilot 平台统一执行。
+3. 不要执行 shell、安装依赖、启动开发服务器、构建、预览或循环复验。构建、预览与自动验证由 Shop Gate 平台统一执行。
 4. 完成上述失败项对应修改后，调用 submit_result，artifacts 只列出本轮实际修改的工作区相对路径；提交即结束本次物理运行，等待平台独立验证。`;
 }
 
@@ -2830,7 +2830,7 @@ async function publishValidationSummary(
       cliSource: params.cliSource ?? 'validator',
       requestId: params.requestId ?? undefined,
       metadata: {
-        toolName: 'QuantPilot 自动验证',
+        toolName: 'Shop Gate 自动验证',
         isMissionIntermediate: true,
         validationStatus: report.status,
         reportPath: report.reportPath,

@@ -21,7 +21,7 @@ import {
   ConsoleDetailRow as DetailRow,
   consoleRawStatusClass as rawStatusClass,
   formatCompactDate as formatDate,
-} from '@/components/quant/console-primitives';
+} from '@/components/eval-console/console-primitives';
 import {
   Sheet,
   SheetContent,
@@ -29,13 +29,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import type { WorkspaceHealthStatus } from '@/lib/quant/workspace-health';
+import type { WorkspaceHealthStatus } from '@/lib/commerce/workspace-health';
 import type {
   GenerationStageId,
   GenerationTimelineEvent,
   GenerationTraceProject,
   GenerationTraceStatus,
-} from '@/lib/quant/generation-observability';
+} from '@/lib/commerce/generation-observability';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 

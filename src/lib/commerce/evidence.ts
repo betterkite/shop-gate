@@ -218,7 +218,7 @@ function buildDatasets(data: JsonRecord, runPlan: JsonRecord | null): DatasetEvi
           as_of: tradeDate,
         },
         rowCount: screener.candidates.length,
-        source: pickString(screener.source, data.source, 'quantpilot-market-api') ?? 'quantpilot-market-api',
+        source: pickString(screener.source, data.source, 'shopgate-commerce-api') ?? 'shopgate-commerce-api',
         endpoint: `GET /api/v1/research/screeners/a-share/short-term-candidates?mode=${mode}`,
         critical: false,
         generatedAt: fetchedAt,
@@ -547,13 +547,13 @@ export async function ensureBaselineEvidenceFiles(
   );
   const limitations = [
     '东方财富等公开接口可能存在延迟，实时性以 fetched_at 与 quote_time/as_of 为准。',
-    '本 evidence 为 QuantPilot 平台根据最终数据文件自动生成的基础证据，模型可在后续分析中继续补充更细的数据口径说明。',
+    '本 evidence 为 Shop Gate 平台根据最终数据文件自动生成的基础证据，模型可在后续分析中继续补充更细的数据口径说明。',
   ];
 
   const sourcesEvidence = {
     schemaVersion: 1,
     runId,
-    generated_by: 'quantpilot-platform',
+    generated_by: 'shopgate-platform',
     created_at: now,
     symbol,
     name,
@@ -574,7 +574,7 @@ export async function ensureBaselineEvidenceFiles(
   const dataQualityEvidence = {
     schemaVersion: 1,
     runId,
-    generated_by: 'quantpilot-platform',
+    generated_by: 'shopgate-platform',
     created_at: now,
     status,
     symbol,

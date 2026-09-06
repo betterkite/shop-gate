@@ -5,7 +5,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const rootDir = path.join(__dirname, '..', '..');
-const baseUrl = (process.env.QUANTPILOT_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'eval-platform');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const views = [
@@ -27,7 +27,7 @@ async function inspectProfile(browser, profile) {
     colorScheme: profile.theme,
   });
   await context.addInitScript((theme) => {
-    localStorage.setItem('quantpilot-color-mode', theme);
+    localStorage.setItem('shopgate-color-mode', theme);
   }, profile.theme);
 
   const page = await context.newPage();

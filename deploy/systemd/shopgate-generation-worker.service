@@ -1,15 +1,15 @@
 [Unit]
-Description=QuantPilot durable Data Agent generation worker
-After=network-online.target quantpilot-market-data.service
+Description=Shop Gate durable Data Agent generation worker
+After=network-online.target shopgate-commerce-data.service
 Wants=network-online.target
-Requires=quantpilot-market-data.service
+Requires=shopgate-commerce-data.service
 
 [Service]
 Type=simple
-User=quantpilot
-Group=quantpilot
-WorkingDirectory=/opt/quantpilot/current
-EnvironmentFile=/etc/quantpilot/quantpilot.env
+User=shopgate
+Group=shopgate
+WorkingDirectory=/opt/shopgate/current
+EnvironmentFile=/etc/shopgate/shopgate.env
 Environment=NODE_ENV=production
 Environment=PI_AGENT_DISPATCH_MODE=worker
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
@@ -23,5 +23,5 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/quantpilot /opt/quantpilot/current/tmp /opt/quantpilot/current/public/uploads
+ReadWritePaths=/var/lib/commercepilot /opt/shopgate/current/tmp /opt/shopgate/current/public/uploads
 LimitNOFILE=65536

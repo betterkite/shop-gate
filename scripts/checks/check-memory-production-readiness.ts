@@ -4,9 +4,9 @@ import { EvolvableMemoryHttpAdapter } from '../../src/lib/platform/memory/evolva
 import { getMemoryIntegrationConfig } from '../../src/lib/platform/memory/config';
 
 function requireProbeSubject(): string {
-  const value = process.env.QUANTPILOT_MEMORY_PRODUCTION_PROBE_SUBJECT_ID?.trim();
+  const value = process.env.SHOPGATE_MEMORY_PRODUCTION_PROBE_SUBJECT_ID?.trim();
   if (!value || value.length > 128) {
-    throw new Error('QUANTPILOT_MEMORY_PRODUCTION_PROBE_SUBJECT_ID must name an authorized non-human probe subject.');
+    throw new Error('SHOPGATE_MEMORY_PRODUCTION_PROBE_SUBJECT_ID must name an authorized non-human probe subject.');
   }
   return value;
 }
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   }
   const subjectId = requireProbeSubject();
   const adapter = new EvolvableMemoryHttpAdapter(config);
-  const requestId = `quantpilot-memory-production-${Date.now()}`;
+  const requestId = `shopgate-memory-production-${Date.now()}`;
   const info = await adapter.discover(requestId);
   if (!info.productionReady) {
     throw new Error(`Memory production blockers: ${info.productionBlockers.join(', ') || 'unknown'}`);

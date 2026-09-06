@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { formatCompactDate as formatTime } from '@/components/quant/console-primitives';
+import { formatCompactDate as formatTime } from '@/components/eval-console/console-primitives';
 import type {
   SkillDiffData,
   SkillsPayload,
@@ -21,7 +21,7 @@ import type {
   SourceFile,
   SourceKind,
   SourceState,
-} from '@/lib/quant/skills-management-types';
+} from '@/lib/commerce/skills-management-types';
 
 export type { SkillDiffData, SkillsPayload, SourceDirectory, SourceFile, SourceState };
 export type SourceTreeNode = {

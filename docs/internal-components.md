@@ -1,6 +1,6 @@
 # 内部组件学习指南
 
-这篇文档解释 QuantPilot 内部组件如何协作。它介于“架构总览”和“代码细节”之间：不只画框图，也说明每个组件在什么场景下被调用、依赖什么、失败后如何降级。
+这篇文档解释 Shop Gate 内部组件如何协作。它介于“架构总览”和“代码细节”之间：不只画框图，也说明每个组件在什么场景下被调用、依赖什么、失败后如何降级。
 
 读它时可以想象一次真实请求：用户问一个股票问题，页面要创建项目，Agent 要规划，后端要取数，数据库要保存，skill 要生成页面，验证器要检查，运行治理中心要告诉我们哪里出错。下面这些组件就是这条路上的不同岗位。
 
@@ -11,10 +11,10 @@
 | Next.js 主应用 | `src/app/` | 页面、API route、控制台入口 |
 | 前端组件层 | `src/components/` | 聊天、任务、设置、UI 原语和业务组件 |
 | 主业务服务层 | `src/lib/services/` | 项目、消息、设置、预览、CLI runtime 和外部服务连接 |
-| 量化领域层 | `src/lib/quant/` | 策略、评测、能力中心、工作空间健康、生成验证和 Skills 数据 |
+| 量化领域层 | `src/lib/commerce/` | 策略、评测、能力中心、工作空间健康、生成验证和 Skills 数据 |
 | 运维领域层 | `src/lib/ops/` | 基础环境健康、日志、Docker/数据库/Loki 状态 |
 | 数据库入口 | `src/lib/db/`、`prisma/` | Prisma 管理的主业务表 |
-| 市场数据服务 | `services/market-data/` | 行情、K 线、财务、公告、补数、基础组件和回测 API |
+| 市场数据服务 | `services/commerce-data/` | 行情、K 线、财务、公告、补数、基础组件和回测 API |
 | SQL 初始化 | `sqls/` | `quant` schema、TimescaleDB hypertable、股票池和基础组件表 |
 | Skills 权威源 | 仓库根目录 `.pi/skills/` | 当前 Agent 编译源；受 registry/lock、版本与 SHA-256 完整性校验，source 优先、tgz fallback。项目初始化另配置 workspace `.pi/skills/` 参考镜像，但执行阶段不从镜像发现能力 |
 | 生成工作空间 | `data/projects/` | 每个 AI 生成项目的源码、数据、证据和验证报告 |
@@ -28,7 +28,7 @@ flowchart LR
   U[用户问题] --> H[首页工作台]
   H --> P[Project Service]
   P --> A[Agent Runtime]
-  A --> S[QuantPilot Skills]
+  A --> S[Shop Gate Skills]
   S --> RP[finance-run-plan.json]
   RP --> MD[市场数据服务]
   MD --> DB[(PostgreSQL / TimescaleDB)]
@@ -60,7 +60,7 @@ Next.js 主应用包含页面和 API route。页面只负责组织 UI 和交互�
 
 ## 数据组件
 
-QuantPilot 的数据层分三类：
+Shop Gate 的数据层分三类：
 
 | 数据 | 存储 | 原因 |
 | --- | --- | --- |
@@ -74,7 +74,7 @@ Redis 是短期缓存，不是事实库。缓存丢了不应该影响长期研�
 
 ## 市场数据服务组件
 
-`services/market-data` 是独立 FastAPI 服务。它的主要模块如下：
+`services/commerce-data` 是独立 FastAPI 服务。它的主要模块如下：
 
 | 文件或目录 | 作用 |
 | --- | --- |
@@ -116,9 +116,9 @@ Skills 是 Agent 的项目内能力手册。它们不是简单提示词，而是
 
 | 组件 | 位置 | 关注点 |
 | --- | --- | --- |
-| 自动验证 | `src/lib/quant/validation.ts` | build、HTTP、数据文件、证据和 stale report |
-| 产物契约 | `src/lib/quant/artifact-contracts.ts` | 禁止远程资源、mock 数据和敏感信息 |
-| 视觉验证 | `src/lib/quant/visual-validation.ts` | 错误页、空白页、横向溢出和图表可读性 |
+| 自动验证 | `src/lib/commerce/validation.ts` | build、HTTP、数据文件、证据和 stale report |
+| 产物契约 | `src/lib/commerce/artifact-contracts.ts` | 禁止远程资源、mock 数据和敏感信息 |
+| 视觉验证 | `src/lib/commerce/visual-validation.ts` | 错误页、空白页、横向溢出和图表可读性 |
 | 评测平台 | `src/lib/eval/index.ts`、`src/lib/eval/cases.ts`、`src/lib/eval/runtime.ts` | 用例/评测集、队列、报告和修复单 |
 
 如果一个生成页面失败，先看验证报告，再看页面截图，最后才决定改 skill、改数据或改平台代码。
@@ -130,11 +130,11 @@ Skills 是 Agent 的项目内能力手册。它们不是简单提示词，而是
 降级配置位于 `src/lib/config/degradation.ts`，对应 `.env` 中的：
 
 ```env
-QUANTPILOT_DEGRADATION_MODE=auto
-QUANTPILOT_DATABASE_ENABLED=1
-QUANTPILOT_MARKET_API_ENABLED=1
-QUANTPILOT_OBSERVABILITY_ENABLED=1
-QUANTPILOT_REDIS_CACHE_ENABLED=1
+SHOPGATE_DEGRADATION_MODE=auto
+SHOPGATE_DATABASE_ENABLED=1
+SHOPGATE_MARKET_API_ENABLED=1
+SHOPGATE_OBSERVABILITY_ENABLED=1
+SHOPGATE_REDIS_CACHE_ENABLED=1
 ```
 
 三种模式：
@@ -151,8 +151,8 @@ QUANTPILOT_REDIS_CACHE_ENABLED=1
 
 | 需求 | 优先改哪里 | 同步文档 |
 | --- | --- | --- |
-| 股票池增加字段 | 对应 market-data repository/model、`src/lib/quant/strategy-mappers.ts`、策略平台客户端 | `docs/learning/03`、市场数据 README |
-| 新增数据源 | provider、注册表、数据质量、候选探针 | `docs/market-data-source-knowledge.md` |
+| 股票池增加字段 | 对应 commerce-data repository/model、`src/lib/commerce/strategy-mappers.ts`、策略平台客户端 | `docs/learning/03`、市场数据 README |
+| 新增数据源 | provider、注册表、数据质量、候选探针 | `docs/commerce-data-source-knowledge.md` |
 | 页面生成反复不好看 | `.pi/skills/dashboard-visualization` 或 UI skill | `docs/learning/04`、`docs/skills-governance.md` |
 | 新增基础设施组件 | `docker-compose.yml`、`.env.example`、doctor、运行治理中心 | `docs/infrastructure.md`、`docs/troubleshooting.md` |
 | 新增评测能力 | `src/lib/eval/index.ts`、评测平台页面 | `docs/evals-guide.md` |
@@ -162,8 +162,8 @@ QUANTPILOT_REDIS_CACHE_ENABLED=1
 
 建议做三个小实验来串起来：
 
-1. 在策略平台点开一只股票，观察前端请求、`src/lib/quant/strategy-mappers.ts` 映射和后端 `/api/v1/research/bars/{symbol}`。
+1. 在策略平台点开一只股票，观察前端请求、`src/lib/commerce/strategy-mappers.ts` 映射和后端 `/api/v1/research/bars/{symbol}`。
 2. 在 `/skills` 打开 `dashboard-visualization`，对照一个生成工作空间的 `app/page.tsx`，理解 skill 如何约束页面质量。
 3. 停掉 Loki 后运行 `npm run doctor`，再打开运行治理中心，观察降级模式如何从集中日志切到本地日志。
 
-做完这三步，基本就能理解 QuantPilot 的组件协作方式。
+做完这三步，基本就能理解 Shop Gate 的组件协作方式。

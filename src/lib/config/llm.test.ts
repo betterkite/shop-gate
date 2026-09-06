@@ -29,10 +29,10 @@ describe('project LLM config', () => {
   });
 
   it('applies bounded operational overrides without changing provider identity', () => {
-    process.env.QUANTPILOT_LLM_AGENT_ENABLED = '0';
-    process.env.QUANTPILOT_LLM_QUERY_REWRITE_ENABLED = 'false';
-    process.env.QUANTPILOT_QUERY_REWRITE_LLM_TIMEOUT_MS = '6500';
-    process.env.QUANTPILOT_QUERY_REWRITE_LLM_MAX_RETRIES = '1';
+    process.env.SHOPGATE_LLM_AGENT_ENABLED = '0';
+    process.env.SHOPGATE_LLM_QUERY_REWRITE_ENABLED = 'false';
+    process.env.SHOPGATE_QUERY_REWRITE_LLM_TIMEOUT_MS = '6500';
+    process.env.SHOPGATE_QUERY_REWRITE_LLM_MAX_RETRIES = '1';
 
     expect(getProjectLlmConfig()).toMatchObject({
       provider: 'openai',

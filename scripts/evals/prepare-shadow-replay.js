@@ -21,8 +21,8 @@ const output = argument('--output');
 if (!input || !output) throw new Error('用法：npm run eval:prepare-shadow -- --input <json/jsonl> --output <外部 cases.json>');
 const inputPath = path.resolve(input);
 const outputPath = path.resolve(output);
-const hashKey = String(process.env.QUANTPILOT_REPLAY_HASH_KEY || '');
-if (hashKey.length < 16) throw new Error('必须设置至少 16 字符的 QUANTPILOT_REPLAY_HASH_KEY');
+const hashKey = String(process.env.SHOPGATE_REPLAY_HASH_KEY || '');
+if (hashKey.length < 16) throw new Error('必须设置至少 16 字符的 SHOPGATE_REPLAY_HASH_KEY');
 const content = fs.readFileSync(inputPath, 'utf8');
 let records;
 if (inputPath.endsWith('.jsonl')) {

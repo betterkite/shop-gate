@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 from psycopg.rows import dict_row
 
-from quantpilot_market_data.database_core import connect, coverage_status
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.database_core import connect, coverage_status
+from shopgate_commerce_data.models import (
     MarketDataCoverageItem,
     MarketDataCoverageSummary,
 )

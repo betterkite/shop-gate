@@ -5,11 +5,11 @@ import { resolveLoginEmail } from './login-identity';
 describe('login identity', () => {
   const developmentAdmin = {
     login: 'admin',
-    email: 'admin@quantpilot.local',
+    email: 'admin@shopgate.local',
   };
 
   it('maps the local admin alias to the credential email', () => {
-    expect(resolveLoginEmail(' Admin ', developmentAdmin)).toBe('admin@quantpilot.local');
+    expect(resolveLoginEmail(' Admin ', developmentAdmin)).toBe('admin@shopgate.local');
   });
 
   it('normalizes regular email identities without rewriting them', () => {

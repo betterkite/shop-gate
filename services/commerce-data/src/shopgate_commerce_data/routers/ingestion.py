@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from quantpilot_market_data.database_core import DatabaseError
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.database_core import DatabaseError
+from shopgate_commerce_data.models import (
     IngestionJobControlRequest,
     IngestionJobControlResponse,
     IngestionJobsResponse,
 )
-from quantpilot_market_data.security import require_market_admin
-from quantpilot_market_data.services.ingestion_jobs import (
+from shopgate_commerce_data.security import require_market_admin
+from shopgate_commerce_data.services.ingestion_jobs import (
     control_market_data_ingestion_job,
     get_market_data_ingestion_jobs,
 )

@@ -5,8 +5,8 @@ import type {
 } from '@/lib/data-agent';
 import { DATA_AGENT_TASK_RELATIVE_PATH } from '@/lib/data-agent';
 import {
-  createQuantPilotDataAgentRegistry,
-  QUANTPILOT_AGENT_PROFILE,
+  createShopGateDataAgentRegistry,
+  SHOPGATE_AGENT_PROFILE,
 } from './agent-profile';
 import { FINANCE_RUN_PLAN_RELATIVE_PATH } from './workspace-artifacts';
 import type { QuantQueryRewriteResult } from './query-rewrite';
@@ -59,8 +59,8 @@ export function projectFinanceRewriteToDataAgentTask(
 }
 
 export function projectFinancePlanToDataAgentPlan(plan: QuantRunPlan): DataAgentExecutionPlan {
-  const composition = createQuantPilotDataAgentRegistry().resolveCapability(
-    QUANTPILOT_AGENT_PROFILE.id,
+  const composition = createShopGateDataAgentRegistry().resolveCapability(
+    SHOPGATE_AGENT_PROFILE.id,
     plan.requestedCapabilityId ?? plan.capabilityId,
   ).composition;
   return {
@@ -94,13 +94,13 @@ export function projectFinanceProfileSelection(
   updatedAt: string,
   selectionSource: DataAgentProfileSelection['selectionSource'] = 'inferred',
 ): DataAgentProfileSelection {
-  const composition = createQuantPilotDataAgentRegistry().resolveCapability(
-    QUANTPILOT_AGENT_PROFILE.id,
+  const composition = createShopGateDataAgentRegistry().resolveCapability(
+    SHOPGATE_AGENT_PROFILE.id,
     capabilityId,
   ).composition;
   return {
     schemaVersion: 1,
-    profile: { ...QUANTPILOT_AGENT_PROFILE },
+    profile: { ...SHOPGATE_AGENT_PROFILE },
     selectedCapabilityId: capabilityId,
     composition,
     selectionSource,

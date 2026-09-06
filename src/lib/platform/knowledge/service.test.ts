@@ -27,7 +27,7 @@ const config: KnowledgeIntegrationConfig = {
 
 const scope = createProjectIntegrationScope({
   projectId: 'project-1',
-  memory: { tenantId: 'tenant-quantpilot' },
+  memory: { tenantId: 'tenant-shopgate' },
   knowledge: config,
 });
 
@@ -127,7 +127,7 @@ describe('governed knowledge service', () => {
         occurredAt: '2026-07-19T00:00:00.000Z',
         citations: [expect.objectContaining({ influence: 'seen' })],
       }),
-      expect.stringContaining('quantpilot-knowledge-usage-request-1-'),
+      expect.stringContaining('shopgate-knowledge-usage-request-1-'),
       'request-1',
     );
 
@@ -152,7 +152,7 @@ describe('governed knowledge service', () => {
         privacy: { rawTaskStored: false, aggregation: 'pseudonymized' },
         observedAt: '2026-07-19T00:00:02.000Z',
       }),
-      expect.stringContaining('quantpilot-knowledge-feedback-request-1-'),
+      expect.stringContaining('shopgate-knowledge-feedback-request-1-'),
       'request-1',
     );
   });

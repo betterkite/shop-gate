@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.indicators import build_technical_indicators
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.indicators import build_technical_indicators
+from shopgate_commerce_data.models import (
     Adjustment,
     KlinePeriod,
     TechnicalIndicatorsResponse,
 )
-from quantpilot_market_data.providers.base import HistoricalKlineProvider
-from quantpilot_market_data.services.caching import cache_response, read_cached_response
-from quantpilot_market_data.services.kline_gateway import (
+from shopgate_commerce_data.providers.base import HistoricalKlineProvider
+from shopgate_commerce_data.services.caching import cache_response, read_cached_response
+from shopgate_commerce_data.services.kline_gateway import (
     get_kline_local_first,
     get_local_kline_if_ready,
 )

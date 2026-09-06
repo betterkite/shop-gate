@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.models import FinancialReportItem
-from quantpilot_market_data.services.fundamentals import (
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.models import FinancialReportItem
+from shopgate_commerce_data.services.fundamentals import (
     get_financial_reports,
     get_fundamental_indicators,
 )

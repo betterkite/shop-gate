@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAction } from '@/lib/auth/action';
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
-import { getCapabilityCenterData } from '@/lib/quant/capability-center';
+import { getCapabilityCenterData } from '@/lib/commerce/capability-center';
 
 export async function GET(request: NextRequest) {
   try {

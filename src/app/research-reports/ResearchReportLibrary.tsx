@@ -25,7 +25,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import type { ResearchReportSnapshot } from "@/lib/quant/research-reports";
+import type { ResearchReportSnapshot } from "@/lib/commerce/research-reports";
 import {
   ResearchSectionHeader,
   ResearchStatusBadge,

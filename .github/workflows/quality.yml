@@ -89,13 +89,13 @@ jobs:
           npm run build:standalone
           npm run check:standalone-runtime
 
-  backend-market-data:
+  backend-commerce-data:
     name: Backend Market Data
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: services/market-data
+        working-directory: services/commerce-data
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -113,8 +113,8 @@ jobs:
 
       - name: Production dependency audit
         run: |
-          uv export --frozen --all-extras --no-dev --no-emit-project --no-hashes --format requirements-txt --output-file /tmp/quantpilot-market-requirements.txt
-          uvx pip-audit -r /tmp/quantpilot-market-requirements.txt
+          uv export --frozen --all-extras --no-dev --no-emit-project --no-hashes --format requirements-txt --output-file /tmp/shopgate-market-requirements.txt
+          uvx pip-audit -r /tmp/shopgate-market-requirements.txt
 
       - name: Lint
         run: uv run ruff check .
@@ -127,35 +127,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
       PROJECTS_DIR: ./tmp/auth-projects
-      QUANTPILOT_AUTH_MODE: local
-      QUANTPILOT_AUTH_SECRET: ci-auth-secret-with-at-least-thirty-two-random-characters
+      SHOPGATE_AUTH_MODE: local
+      SHOPGATE_AUTH_SECRET: ci-auth-secret-with-at-least-thirty-two-random-characters
       BETTER_AUTH_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
-      QUANTPILOT_AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3000
-      QUANTPILOT_AUTH_SECURE_COOKIES: 0
-      QUANTPILOT_AUTH_ALLOW_SIGNUP: 0
-      QUANTPILOT_AUTH_ADMIN_EMAIL: auth-smoke-admin@quantpilot.local
-      QUANTPILOT_AUTH_ADMIN_PASSWORD: AuthSmokeAdministrator!2026
-      QUANTPILOT_AUTH_ADMIN_NAME: QuantPilot CI Administrator
-      QUANTPILOT_DEGRADATION_MODE: auto
-      QUANTPILOT_MARKET_API_ENABLED: 0
-      QUANTPILOT_REDIS_CACHE_ENABLED: 1
-      QUANTPILOT_REDIS_REQUIRED: 0
-      QUANTPILOT_OBSERVABILITY_ENABLED: 0
+      SHOPGATE_AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3000
+      SHOPGATE_AUTH_SECURE_COOKIES: 0
+      SHOPGATE_AUTH_ALLOW_SIGNUP: 0
+      SHOPGATE_AUTH_ADMIN_EMAIL: auth-smoke-admin@shopgate.local
+      SHOPGATE_AUTH_ADMIN_PASSWORD: AuthSmokeAdministrator!2026
+      SHOPGATE_AUTH_ADMIN_NAME: Shop Gate CI Administrator
+      SHOPGATE_DEGRADATION_MODE: auto
+      SHOPGATE_MARKET_API_ENABLED: 0
+      SHOPGATE_REDIS_CACHE_ENABLED: 1
+      SHOPGATE_REDIS_REQUIRED: 0
+      SHOPGATE_OBSERVABILITY_ENABLED: 0
     services:
       timescaledb:
         image: timescale/timescaledb:2.27.1-pg18
         env:
-          POSTGRES_DB: quantpilot
-          POSTGRES_USER: quantpilot
-          POSTGRES_PASSWORD: quantpilot_dev_password
+          POSTGRES_DB: shopgate
+          POSTGRES_USER: shopgate
+          POSTGRES_PASSWORD: shopgate_dev_password
         ports:
           - 35433:5432
         options: >-
-          --health-cmd "pg_isready -h 127.0.0.1 -U quantpilot -d quantpilot"
+          --health-cmd "pg_isready -h 127.0.0.1 -U shopgate -d shopgate"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 30
@@ -217,28 +217,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      DATABASE_URL: postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:35433/quantpilot?schema=public
+      DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
-      QUANTPILOT_MARKET_API_URL: http://127.0.0.1:8000
+      SHOPGATE_MARKET_API_URL: http://127.0.0.1:8000
       PROJECTS_DIR: ./tmp/contract-projects
-      QUANTPILOT_EVAL_MODE: contract
-      QUANTPILOT_EVAL_TRIGGER: ci
+      SHOPGATE_EVAL_MODE: contract
+      SHOPGATE_EVAL_TRIGGER: ci
       # GitHub-hosted runners reject user-namespace uid_map writes. Contract
       # mode executes only repository-owned deterministic templates after the
       # artifact policy gate; live/model-generated work remains fail-closed.
-      QUANTPILOT_GENERATED_SANDBOX: 0
-      QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE: 1
+      SHOPGATE_GENERATED_SANDBOX: 0
+      SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE: 1
     services:
       timescaledb:
         image: timescale/timescaledb:2.27.1-pg18
         env:
-          POSTGRES_DB: quantpilot
-          POSTGRES_USER: quantpilot
-          POSTGRES_PASSWORD: quantpilot_dev_password
+          POSTGRES_DB: shopgate
+          POSTGRES_USER: shopgate
+          POSTGRES_PASSWORD: shopgate_dev_password
         ports:
           - 35433:5432
         options: >-
-          --health-cmd "pg_isready -h 127.0.0.1 -U quantpilot -d quantpilot"
+          --health-cmd "pg_isready -h 127.0.0.1 -U shopgate -d shopgate"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 30
@@ -302,8 +302,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           path: |
-            tmp/quantpilot-benchmark-reports/
-            tmp/quantpilot-benchmark-screenshots/
-            tmp/quantpilot-eval-mutations/
+            tmp/shopgate-benchmark-reports/
+            tmp/shopgate-benchmark-screenshots/
+            tmp/shopgate-eval-mutations/
             tmp/contract-market.log
             tmp/contract-benchmark.log

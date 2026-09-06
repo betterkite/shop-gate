@@ -1,6 +1,6 @@
 # 用户、权限与会话管理
 
-QuantPilot 支持项目级可配置登录。它默认保持 `disabled`，兼容原来的本地单用户开发方式；部署到共享环境时应切换为 `local`，由 PostgreSQL 保存用户、凭据、会话和登录限流状态。
+Shop Gate 支持项目级可配置登录。它默认保持 `disabled`，兼容原来的本地单用户开发方式；部署到共享环境时应切换为 `local`，由 PostgreSQL 保存用户、凭据、会话和登录限流状态。
 
 ## 能力边界
 
@@ -8,7 +8,7 @@ QuantPilot 支持项目级可配置登录。它默认保持 `disabled`，兼容�
 
 - Next.js 页面和 `/api/*` 接口；匿名页面请求跳转到 `/login`，匿名 API 请求返回结构化 `401`。
 - `/api/ws/*` WebSocket 握手；握手时再次查询数据库会话，不能只依赖页面已登录。
-- 非安全方法的 API 来源校验；浏览器请求必须同源，无 `Origin` 的可信自动化调用需携带 `X-QuantPilot-Request: same-origin`。
+- 非安全方法的 API 来源校验；浏览器请求必须同源，无 `Origin` 的可信自动化调用需携带 `X-Shop Gate-Request: same-origin`。
 - 账号或邮箱密码登录；本机开发提供 `admin / admin`，显式配置的正式密码最小 12 字符，公开注册默认关闭。
 - 数据库会话和数据库登录限流；登录默认每分钟最多 5 次尝试，会话默认 12 小时。
 - 平台角色 `admin/member`、账号 capability 与项目角色 `owner/editor/viewer` 分离；后端按默认拒绝原则校验页面、API 与 WebSocket，不能只依赖前端隐藏按钮。
@@ -16,7 +16,7 @@ QuantPilot 支持项目级可配置登录。它默认保持 `disabled`，兼容�
 - 管理员创建或重置的普通临时凭据必须首次改密；本机固定默认管理员 `admin / admin` 不触发首次改密。改密会保留当前会话并撤销其他会话。
 - 登录、退出、改密、用户管理、项目授权和拒绝访问会写入安全审计表，审计记录不保存密码或会话 token。
 
-`/api/auth/*` 由认证组件自行完成 Origin/CSRF 校验。只有不包含基础设施细节的 `/api/health` 保持公开，供负载均衡器检查进程存活；包含数据库和 Docker 状态的 `/api/infrastructure/health` 仍要求登录。FastAPI 市场数据服务是内部服务边界，不应直接暴露到公网；它的写接口继续由 `QUANTPILOT_MARKET_ADMIN_TOKEN` 保护。
+`/api/auth/*` 由认证组件自行完成 Origin/CSRF 校验。只有不包含基础设施细节的 `/api/health` 保持公开，供负载均衡器检查进程存活；包含数据库和 Docker 状态的 `/api/infrastructure/health` 仍要求登录。FastAPI 市场数据服务是内部服务边界，不应直接暴露到公网；它的写接口继续由 `SHOPGATE_MARKET_ADMIN_TOKEN` 保护。
 
 ## 启用本地账号登录
 
@@ -30,11 +30,11 @@ npx prisma migrate status
 本机开发在 `.env.local` 设置基础认证配置：
 
 ```bash
-QUANTPILOT_AUTH_MODE=local
-QUANTPILOT_AUTH_SECRET=<至少-32-字符-的随机密钥>
+SHOPGATE_AUTH_MODE=local
+SHOPGATE_AUTH_SECRET=<至少-32-字符-的随机密钥>
 BETTER_AUTH_URL=http://localhost:3000
-QUANTPILOT_AUTH_SECURE_COOKIES=0
-QUANTPILOT_AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+SHOPGATE_AUTH_SECURE_COOKIES=0
+SHOPGATE_AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
 也可以让开发环境脚本生成独立随机会话密钥并写入上述本机配置：
@@ -55,12 +55,12 @@ npm run ensure:env -- --enable-auth
 生产、strict 模式或非本机地址不会接受这组默认凭据，必须显式设置：
 
 ```bash
-QUANTPILOT_AUTH_ADMIN_EMAIL=admin@example.com
-QUANTPILOT_AUTH_ADMIN_PASSWORD=<至少-12-字符-的强密码>
-QUANTPILOT_AUTH_ADMIN_NAME=QuantPilot 管理员
+SHOPGATE_AUTH_ADMIN_EMAIL=admin@example.com
+SHOPGATE_AUTH_ADMIN_PASSWORD=<至少-12-字符-的强密码>
+SHOPGATE_AUTH_ADMIN_NAME=Shop Gate 管理员
 ```
 
-生产环境的 `BETTER_AUTH_URL` 与可信来源应使用实际 HTTPS 地址，同时设置 `QUANTPILOT_AUTH_SECURE_COOKIES=1`。随机密钥可用 `openssl rand -base64 32` 生成，不要把密钥或管理员密码提交到 Git。
+生产环境的 `BETTER_AUTH_URL` 与可信来源应使用实际 HTTPS 地址，同时设置 `SHOPGATE_AUTH_SECURE_COOKIES=1`。随机密钥可用 `openssl rand -base64 32` 生成，不要把密钥或管理员密码提交到 Git。
 
 创建或维护管理员：
 
@@ -68,7 +68,7 @@ QUANTPILOT_AUTH_ADMIN_NAME=QuantPilot 管理员
 npm run auth:bootstrap
 ```
 
-命令可重复执行。本机使用开发默认值时，每次都会确保默认管理员密码为 `admin`、取消首次改密要求、撤销旧会话并补齐管理员角色和历史项目归属。认领历史项目后，同一事务会把管理员的 `projects.owned` 实际用量校准到权威项目数；管理员仍保持无限额度，但真实占用可审计。显式配置管理员邮箱和强密码时，命令会更新密码并撤销旧会话。完成后重启 Web 服务，访问 `/login` 登录。共享环境必须使用显式强密码。为了减少正式密码在磁盘上的停留时间，可在初始化完成后从 `.env.local` 删除 `QUANTPILOT_AUTH_ADMIN_PASSWORD`；日常运行不读取它。
+命令可重复执行。本机使用开发默认值时，每次都会确保默认管理员密码为 `admin`、取消首次改密要求、撤销旧会话并补齐管理员角色和历史项目归属。认领历史项目后，同一事务会把管理员的 `projects.owned` 实际用量校准到权威项目数；管理员仍保持无限额度，但真实占用可审计。显式配置管理员邮箱和强密码时，命令会更新密码并撤销旧会话。完成后重启 Web 服务，访问 `/login` 登录。共享环境必须使用显式强密码。为了减少正式密码在磁盘上的停留时间，可在初始化完成后从 `.env.local` 删除 `SHOPGATE_AUTH_ADMIN_PASSWORD`；日常运行不读取它。
 
 ## 页面、角色与日常操作
 
@@ -156,27 +156,27 @@ npm run auth:cleanup -- --dry-run
 npm run auth:cleanup
 ```
 
-清理覆盖过期会话、过期验证记录、过期限流计数、超过保留期的安全审计，以及已到期但尚未 settlement/release 的 quota reservation。过期 reservation 会标记为 `expired` 并从 bucket 的 `reserved` 中归还，不会伪造实际用量；`--dry-run` 会同时报告待清理 reservation 数。默认审计保留 180 天，过期记录保留 1 小时宽限；可用 `QUANTPILOT_AUTH_AUDIT_RETENTION_DAYS` 和 `QUANTPILOT_AUTH_EXPIRED_RECORD_GRACE_SECONDS` 调整。`usage_events` 不属于该认证保留期清理范围。完整生命周期链路可在认证前后端已启动时运行 `npm run auth:verify`；脚本会创建临时用户和项目并在完成后恢复本机管理员状态。
+清理覆盖过期会话、过期验证记录、过期限流计数、超过保留期的安全审计，以及已到期但尚未 settlement/release 的 quota reservation。过期 reservation 会标记为 `expired` 并从 bucket 的 `reserved` 中归还，不会伪造实际用量；`--dry-run` 会同时报告待清理 reservation 数。默认审计保留 180 天，过期记录保留 1 小时宽限；可用 `SHOPGATE_AUTH_AUDIT_RETENTION_DAYS` 和 `SHOPGATE_AUTH_EXPIRED_RECORD_GRACE_SECONDS` 调整。`usage_events` 不属于该认证保留期清理范围。完整生命周期链路可在认证前后端已启动时运行 `npm run auth:verify`；脚本会创建临时用户和项目并在完成后恢复本机管理员状态。
 
 ## 配置项
 
 | 配置 | 默认值 | 说明 |
 | --- | --- | --- |
-| `QUANTPILOT_AUTH_MODE` | `disabled` | `disabled` 或 `local`；切换后必须重启 Web 进程。 |
-| `QUANTPILOT_AUTH_SECRET` | 空 | 启用时必填，至少 32 字符；也兼容 `BETTER_AUTH_SECRET`。 |
+| `SHOPGATE_AUTH_MODE` | `disabled` | `disabled` 或 `local`；切换后必须重启 Web 进程。 |
+| `SHOPGATE_AUTH_SECRET` | 空 | 启用时必填，至少 32 字符；也兼容 `BETTER_AUTH_SECRET`。 |
 | `BETTER_AUTH_URL` | 自动推断 | 生产环境建议显式设置认证服务根地址。 |
-| `QUANTPILOT_AUTH_SECURE_COOKIES` | 生产为 `1` | HTTPS 环境必须启用 Secure Cookie。 |
-| `QUANTPILOT_AUTH_TRUSTED_ORIGINS` | 空 | 逗号分隔的可信 HTTPS 来源；localhost 可使用 HTTP。 |
-| `QUANTPILOT_AUTH_ALLOW_SIGNUP` | `0` | 是否开放自助注册；共享投研环境建议保持关闭。 |
-| `QUANTPILOT_AUTH_SESSION_EXPIRES_SECONDS` | `43200` | 数据库会话绝对有效期。 |
-| `QUANTPILOT_AUTH_SESSION_UPDATE_AGE_SECONDS` | `300` | 会话刷新间隔。 |
-| `QUANTPILOT_AUTH_SESSION_FRESH_AGE_SECONDS` | `1800` | 敏感操作可使用的“新鲜会话”窗口。 |
-| `QUANTPILOT_AUTH_REMEMBER_ME` | `0` | `0` 使用浏览器会话 Cookie；`1` 允许 Cookie 跨浏览器重启保留。 |
-| `QUANTPILOT_AUTH_AUDIT_RETENTION_DAYS` | `180` | 安全审计保留天数，范围 30-3650。 |
-| `QUANTPILOT_AUTH_EXPIRED_RECORD_GRACE_SECONDS` | `3600` | 过期会话、验证和限流记录删除前的宽限秒数。 |
+| `SHOPGATE_AUTH_SECURE_COOKIES` | 生产为 `1` | HTTPS 环境必须启用 Secure Cookie。 |
+| `SHOPGATE_AUTH_TRUSTED_ORIGINS` | 空 | 逗号分隔的可信 HTTPS 来源；localhost 可使用 HTTP。 |
+| `SHOPGATE_AUTH_ALLOW_SIGNUP` | `0` | 是否开放自助注册；共享投研环境建议保持关闭。 |
+| `SHOPGATE_AUTH_SESSION_EXPIRES_SECONDS` | `43200` | 数据库会话绝对有效期。 |
+| `SHOPGATE_AUTH_SESSION_UPDATE_AGE_SECONDS` | `300` | 会话刷新间隔。 |
+| `SHOPGATE_AUTH_SESSION_FRESH_AGE_SECONDS` | `1800` | 敏感操作可使用的“新鲜会话”窗口。 |
+| `SHOPGATE_AUTH_REMEMBER_ME` | `0` | `0` 使用浏览器会话 Cookie；`1` 允许 Cookie 跨浏览器重启保留。 |
+| `SHOPGATE_AUTH_AUDIT_RETENTION_DAYS` | `180` | 安全审计保留天数，范围 30-3650。 |
+| `SHOPGATE_AUTH_EXPIRED_RECORD_GRACE_SECONDS` | `3600` | 过期会话、验证和限流记录删除前的宽限秒数。 |
 
 结构化默认值和约束集中在 `config/auth.json`，环境变量只覆盖部署相关值。认证数据使用独立的 `auth_*` 表，不复用 Agent Runtime 的 `sessions` 表。正式部署还应把清理命令接入定时任务，并对连续登录失败、账号停用和管理员操作建立告警。
 
 ## 关闭与排障
 
-紧急回退时将 `QUANTPILOT_AUTH_MODE=disabled` 并重启 Web 服务；认证表和账号不会被删除，再次启用后仍可使用。登录失败时按顺序检查：认证迁移状态、模式和 32 字符密钥、`BETTER_AUTH_URL`、浏览器是否使用正确协议、管理员是否已初始化。生产环境不要通过关闭 Secure Cookie、开放公开注册或绕过同源校验来修复配置问题。
+紧急回退时将 `SHOPGATE_AUTH_MODE=disabled` 并重启 Web 服务；认证表和账号不会被删除，再次启用后仍可使用。登录失败时按顺序检查：认证迁移状态、模式和 32 字符密钥、`BETTER_AUTH_URL`、浏览器是否使用正确协议、管理员是否已初始化。生产环境不要通过关闭 Secure Cookie、开放公开注册或绕过同源校验来修复配置问题。

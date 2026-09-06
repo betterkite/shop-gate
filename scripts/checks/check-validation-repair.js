@@ -11,7 +11,7 @@ const {
   buildQuantValidationRepairInstruction,
   buildQuantValidationRepairPlan,
   quantValidationRepairWritableGlobs,
-} = jiti('../../src/lib/quant/validation.ts');
+} = jiti('../../src/lib/commerce/validation.ts');
 
 function assertCondition(condition, message, failures) {
   if (!condition) {
@@ -98,7 +98,7 @@ assertCondition(instruction.includes('真实数据形态检查'), '修复提示�
 assertCondition(instruction.includes('失败 ID：artifact_policy、chart_presence、final_data_file'), '修复提示词应固定本轮失败 ID。', failures);
 assertCondition(instruction.includes('定向读取'), '修复提示词应要求按失败指针定向读取。', failures);
 assertCondition(instruction.includes('整个 `.data-agent/**`'), '修复提示词应保持平台目录只读。', failures);
-assertCondition(instruction.includes('构建、预览与自动验证由 QuantPilot 平台统一执行'), '修复提示词应把 build/preview/validation 交给平台。', failures);
+assertCondition(instruction.includes('构建、预览与自动验证由 Shop Gate 平台统一执行'), '修复提示词应把 build/preview/validation 交给平台。', failures);
 assertCondition(instruction.includes('submit_result'), '修复提示词应要求提交候选结果。', failures);
 assertCondition(!instruction.includes('npm run build'), '修复提示词不得要求 PI Agent 运行 build。', failures);
 assertCondition(

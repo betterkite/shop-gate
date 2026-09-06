@@ -23,32 +23,32 @@
         "start": "npm run dev",
         "health": "npm run doctor"
       },
-      "dependencies": ["timescaledb", "redis", "market-data", "memory", "knowledge", "modelport", "loki"],
+      "dependencies": ["timescaledb", "redis", "commerce-data", "memory", "knowledge", "modelport", "loki"],
       "capabilities": ["workspace", "generation-console", "evaluation", "operations"]
     },
     {
-      "id": "market-data",
+      "id": "commerce-data",
       "name": "Python 市场数据后端",
       "summary": "FastAPI 市场数据、股票池、回测、ClickHouse 同步和 provider 编排。",
       "runtime": "python",
       "kind": "api",
-      "domain": "market-data",
+      "domain": "commerce-data",
       "owner": "backend-platform",
       "lifecycle": "core",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_MARKET_API_ENABLED",
-      "requiredEnv": "QUANTPILOT_MARKET_API_REQUIRED",
+      "enabledEnv": "SHOPGATE_MARKET_API_ENABLED",
+      "requiredEnv": "SHOPGATE_MARKET_API_REQUIRED",
       "endpoint": {
         "protocol": "http",
-        "env": ["QUANTPILOT_MARKET_API_URL", "QUANTPILOT_MARKET_API_BASE_URL"],
+        "env": ["SHOPGATE_MARKET_API_URL", "SHOPGATE_MARKET_API_BASE_URL"],
         "default": "http://127.0.0.1:8000",
         "healthPath": "/ready",
         "healthMethod": "GET"
       },
       "commands": {
-        "start": "cd services/market-data && uv run quantpilot-market-api",
-        "test": "cd services/market-data && uv run pytest"
+        "start": "cd services/commerce-data && uv run shopgate-commerce-api",
+        "test": "cd services/commerce-data && uv run pytest"
       },
       "dependencies": ["timescaledb", "redis", "clickhouse"],
       "capabilities": ["quotes", "research-universe", "backtests", "analytics"]
@@ -64,11 +64,11 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_MEMORY_ENABLED",
-      "requiredEnv": "QUANTPILOT_MEMORY_REQUIRED",
+      "enabledEnv": "SHOPGATE_MEMORY_ENABLED",
+      "requiredEnv": "SHOPGATE_MEMORY_REQUIRED",
       "endpoint": {
         "protocol": "http",
-        "env": ["QUANTPILOT_MEMORY_API_URL"],
+        "env": ["SHOPGATE_MEMORY_API_URL"],
         "default": "http://127.0.0.1:38089",
         "healthPath": "/readyz",
         "healthMethod": "GET"
@@ -96,11 +96,11 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_KNOWLEDGE_ENABLED",
-      "requiredEnv": "QUANTPILOT_KNOWLEDGE_REQUIRED",
+      "enabledEnv": "SHOPGATE_KNOWLEDGE_ENABLED",
+      "requiredEnv": "SHOPGATE_KNOWLEDGE_REQUIRED",
       "endpoint": {
         "protocol": "http",
-        "env": ["QUANTPILOT_KNOWLEDGE_API_URL"],
+        "env": ["SHOPGATE_KNOWLEDGE_API_URL"],
         "default": "http://localhost:33005",
         "healthPath": "/health/ready",
         "healthMethod": "GET"
@@ -128,11 +128,11 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_MODELPORT_ENABLED",
-      "requiredEnv": "QUANTPILOT_MODELPORT_REQUIRED",
+      "enabledEnv": "SHOPGATE_MODELPORT_ENABLED",
+      "requiredEnv": "SHOPGATE_MODELPORT_REQUIRED",
       "endpoint": {
         "protocol": "http",
-        "env": ["QUANTPILOT_MODELPORT_URL"],
+        "env": ["SHOPGATE_MODELPORT_URL"],
         "default": "http://127.0.0.1:38082",
         "healthPath": "/livez",
         "healthMethod": "GET"
@@ -159,13 +159,13 @@
       "lifecycle": "core",
       "enabledByDefault": true,
       "requiredByDefault": true,
-      "enabledEnv": "QUANTPILOT_DATABASE_ENABLED",
-      "requiredEnv": "QUANTPILOT_DATABASE_REQUIRED",
+      "enabledEnv": "SHOPGATE_DATABASE_ENABLED",
+      "requiredEnv": "SHOPGATE_DATABASE_REQUIRED",
       "dockerService": "timescaledb",
       "endpoint": {
         "protocol": "postgresql",
         "env": ["DATABASE_URL"],
-        "default": "postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:5432/quantpilot?schema=public"
+        "default": "postgresql://shopgate:shopgate_dev_password@127.0.0.1:5432/shopgate?schema=public"
       },
       "commands": {
         "start": "npm run db:up",
@@ -186,8 +186,8 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_REDIS_CACHE_ENABLED",
-      "requiredEnv": "QUANTPILOT_REDIS_REQUIRED",
+      "enabledEnv": "SHOPGATE_REDIS_CACHE_ENABLED",
+      "requiredEnv": "SHOPGATE_REDIS_REQUIRED",
       "dockerService": "redis",
       "endpoint": {
         "protocol": "redis",
@@ -212,8 +212,8 @@
       "lifecycle": "supporting",
       "enabledByDefault": false,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_CLICKHOUSE_ENABLED",
-      "requiredEnv": "QUANTPILOT_CLICKHOUSE_REQUIRED",
+      "enabledEnv": "SHOPGATE_CLICKHOUSE_ENABLED",
+      "requiredEnv": "SHOPGATE_CLICKHOUSE_REQUIRED",
       "dockerService": "clickhouse",
       "endpoint": {
         "protocol": "http",
@@ -240,8 +240,8 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_OBSERVABILITY_ENABLED",
-      "requiredEnv": "QUANTPILOT_OBSERVABILITY_REQUIRED",
+      "enabledEnv": "SHOPGATE_OBSERVABILITY_ENABLED",
+      "requiredEnv": "SHOPGATE_OBSERVABILITY_REQUIRED",
       "dockerService": "loki",
       "endpoint": {
         "protocol": "http",
@@ -268,8 +268,8 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_OBSERVABILITY_ENABLED",
-      "requiredEnv": "QUANTPILOT_OBSERVABILITY_REQUIRED",
+      "enabledEnv": "SHOPGATE_OBSERVABILITY_ENABLED",
+      "requiredEnv": "SHOPGATE_OBSERVABILITY_REQUIRED",
       "dockerService": "grafana",
       "endpoint": {
         "protocol": "http",
@@ -296,8 +296,8 @@
       "lifecycle": "supporting",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "QUANTPILOT_OBSERVABILITY_ENABLED",
-      "requiredEnv": "QUANTPILOT_OBSERVABILITY_REQUIRED",
+      "enabledEnv": "SHOPGATE_OBSERVABILITY_ENABLED",
+      "requiredEnv": "SHOPGATE_OBSERVABILITY_REQUIRED",
       "dockerService": "alloy",
       "endpoint": {
         "protocol": "http",

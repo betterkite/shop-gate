@@ -1,11 +1,11 @@
 [Unit]
-Description=Run QuantPilot auth retention cleanup daily
+Description=Run Shop Gate auth retention cleanup daily
 
 [Timer]
 OnCalendar=*-*-* 03:20:00 Asia/Shanghai
 Persistent=true
 RandomizedDelaySec=10m
-Unit=quantpilot-auth-cleanup.service
+Unit=shopgate-auth-cleanup.service
 
 [Install]
 WantedBy=timers.target

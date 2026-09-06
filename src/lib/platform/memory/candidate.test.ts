@@ -13,7 +13,7 @@ describe('personal memory candidate detector', () => {
     ['每次回答都先说结论，再分点解释', 'output.answer_style'],
   ])('detects %s as %s without persisting anything', (instruction, key) => {
     expect(detectPersonalMemoryCandidate(instruction)).toMatchObject({
-      contract: 'quantpilot-personal-memory-candidate/v1',
+      contract: 'shopgate-personal-memory-candidate/v1',
       key,
       value: instruction,
       scope: 'project',

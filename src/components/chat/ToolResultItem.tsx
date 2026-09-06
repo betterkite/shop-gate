@@ -56,7 +56,7 @@ const typedToolDisplayNames: Record<string, string> = {
   edit_file: '修改文件',
   write_file: '写入文件',
   submit_result: '提交结果',
-  quant_api_get: '行情接口',
+  commerce_api_get: '行情接口',
   extract_image_evidence: '图片识别',
 };
 
@@ -295,7 +295,7 @@ const buildToolSummary = ({
   if (/^quant-[a-z0-9-]+$/i.test(effectiveToolName)) {
     if (lowerTool.includes('run-planner')) return '建立分析计划，明确标的、数据需求、看板模块和验证规则。';
     if (lowerTool.includes('symbol-resolver')) return '解析股票名称或代码，确保后续接口使用正确标的。';
-    if (lowerTool.includes('market-data')) return '获取实时行情，补充最新价、涨跌幅、成交额和行情时间。';
+    if (lowerTool.includes('commerce-data')) return '获取实时行情，补充最新价、涨跌幅、成交额和行情时间。';
     if (lowerTool.includes('a-share-history')) return '获取历史 K 线和成交量数据，为趋势与均线分析做准备。';
     if (lowerTool.includes('technical-indicators')) return '计算技术指标，形成均线、回撤、波动率和量价信号。';
     if (lowerTool.includes('fundamental')) return '获取财务和基本面数据，补充经营质量分析。';

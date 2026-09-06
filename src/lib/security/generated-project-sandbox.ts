@@ -39,7 +39,7 @@ export function buildGeneratedProjectEnv(
   const env: Record<string, string | undefined> = {
     CI: overrides.CI ?? '1',
     NEXT_TELEMETRY_DISABLED: '1',
-    QUANTPILOT_WORKSPACE_ROOT: path.resolve(projectPath),
+    SHOPGATE_WORKSPACE_ROOT: path.resolve(projectPath),
   };
   for (const key of SAFE_ENV_KEYS) {
     const value = overrides[key] ?? process.env[key];
@@ -57,10 +57,10 @@ export function buildGeneratedProjectEnv(
     'NEXT_PUBLIC_APP_URL',
     'NODE_ENV',
     'NEXT_PRIVATE_BUILD_WORKER',
-    'QUANTPILOT_SANDBOX_PREVIEW_SOCKET',
-    'QUANTPILOT_SANDBOX_PREVIEW_PORT',
-    'QUANTPILOT_SANDBOX_MARKET_SOCKET',
-    'QUANTPILOT_SANDBOX_MARKET_PORT',
+    'SHOPGATE_SANDBOX_PREVIEW_SOCKET',
+    'SHOPGATE_SANDBOX_PREVIEW_PORT',
+    'SHOPGATE_SANDBOX_MARKET_SOCKET',
+    'SHOPGATE_SANDBOX_MARKET_PORT',
   ] as const) {
     const value = overrides[key];
     if (value) env[key] = value;
@@ -103,16 +103,16 @@ export async function wrapGeneratedProjectCommand(
   args: readonly string[],
 ): Promise<GeneratedProjectCommand> {
   if (process.platform !== 'linux') {
-    if (process.env.QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE === '1') {
+    if (process.env.SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE === '1') {
       return { command, args: [...args] };
     }
     throw new Error(
       'Generated project execution requires the Linux namespace sandbox. ' +
-      'Set QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE=1 only in an isolated development machine.',
+      'Set SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE=1 only in an isolated development machine.',
     );
   }
-  if (process.env.QUANTPILOT_GENERATED_SANDBOX === '0') {
-    if (process.env.QUANTPILOT_ALLOW_UNSANDBOXED_GENERATED_CODE !== '1') {
+  if (process.env.SHOPGATE_GENERATED_SANDBOX === '0') {
+    if (process.env.SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE !== '1') {
       throw new Error('Refusing to disable the generated project sandbox without an explicit unsafe override.');
     }
     return { command, args: [...args] };

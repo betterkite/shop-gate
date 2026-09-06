@@ -1,6 +1,6 @@
 # 01. 本地启动与健康检查
 
-目标：把 QuantPilot 在本地完整跑起来，并确认首页、策略平台、Skills、评测、量化业务知识中心和运行治理中心都能打开。
+目标：把 Shop Gate 在本地完整跑起来，并确认首页、策略平台、Skills、评测、量化业务知识中心和运行治理中心都能打开。
 
 ![首页工作台](assets/home.png)
 
@@ -14,7 +14,7 @@
 
 ## 基础概念
 
-本地运行 QuantPilot 时，其实是在启动四类东西：
+本地运行 Shop Gate 时，其实是在启动四类东西：
 
 | 组件 | 可以理解成 | 负责什么 |
 | --- | --- | --- |
@@ -26,7 +26,7 @@
 
 TimescaleDB 不是另一种连接协议，它是预装 TimescaleDB 扩展的 PostgreSQL 镜像。应用仍然通过 `postgresql://...` 连接数据库，只是某些大规模时序表会使用 hypertable 获得更好的写入和查询能力。
 
-QuantPilot 支持降级模式：没有启动市场数据后端或 Loki 时，页面不应该直接崩掉，而是展示内置注册表、本地文件日志或有限兜底数据。本地开发默认使用 `auto`，缺少可选组件只会给 warning。
+Shop Gate 支持降级模式：没有启动市场数据后端或 Loki 时，页面不应该直接崩掉，而是展示内置注册表、本地文件日志或有限兜底数据。本地开发默认使用 `auto`，缺少可选组件只会给 warning。
 
 ## 1. 安装前端依赖
 
@@ -35,7 +35,7 @@ npm install
 npm run ensure:env
 ```
 
-`ensure:env` 会创建或维护忽略的 `.env` 与 `.env.local`。不要把完整 `.env.example` 复制到 `.env.local`；只在后者添加当前模式所需的 `MODELPORT_API_KEY`，或者官方直连的 `DEEPSEEK_API_KEY`。不启用 Memory 时再添加 `QUANTPILOT_MEMORY_ENABLED=0`。完整组合与文件优先级见[配置、模型接入与可选组件指南](../configuration.md)。真实密钥只放本地或 Secret Manager，不提交到 Git。
+`ensure:env` 会创建或维护忽略的 `.env` 与 `.env.local`。不要把完整 `.env.example` 复制到 `.env.local`；只在后者添加当前模式所需的 `MODELPORT_API_KEY`，或者官方直连的 `DEEPSEEK_API_KEY`。不启用 Memory 时再添加 `SHOPGATE_MEMORY_ENABLED=0`。完整组合与文件优先级见[配置、模型接入与可选组件指南](../configuration.md)。真实密钥只放本地或 Secret Manager，不提交到 Git。
 
 ## 2. 启动基础设施
 
@@ -67,9 +67,9 @@ npm run doctor
 ## 3. 启动市场数据后端
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv sync --extra baostock --extra akshare
-uv run quantpilot-market-api
+uv run shopgate-commerce-api
 ```
 
 健康检查：
@@ -94,12 +94,12 @@ npm run dev
 | 环境同步 | 确保 `.env`、`.env.local`、`data/` 和 `data/projects/` 存在 |
 | 端口选择 | 优先使用 `3000`，占用时在 `3000-3099` 内寻找可用端口 |
 | URL 写入 | 同步 `PORT`、`WEB_PORT` 和 `NEXT_PUBLIC_APP_URL` |
-| 样式准备 | 生成 `public/generated/quantpilot-tailwind.css` |
-| 组件恢复探测 | 数据库、market-data、Redis、Loki 恢复后，把本次进程切回 `auto` |
+| 样式准备 | 生成 `public/generated/shopgate-tailwind.css` |
+| 组件恢复探测 | 数据库、commerce-data、Redis、Loki 恢复后，把本次进程切回 `auto` |
 | 数据库检查 | 必要时运行 Prisma schema 同步 |
 | Next 启动保护 | 清理过期 `.next/dev/lock` 和开发缓存，再启动 `npx next dev` |
 
-当前前端已经移除 `next-rspack`，也不再通过 `QUANTPILOT_BUNDLER` 在 Rspack/Turbopack/webpack 之间切换。日常只需要运行 `npm run dev`；Next.js 16 会使用自己的默认开发链路。
+当前前端已经移除 `next-rspack`，也不再通过 `SHOPGATE_BUNDLER` 在 Rspack/Turbopack/webpack 之间切换。日常只需要运行 `npm run dev`；Next.js 16 会使用自己的默认开发链路。
 
 默认访问：
 
@@ -147,7 +147,7 @@ npm run check:validation-repair
 后端：
 
 ```bash
-cd services/market-data
+cd services/commerce-data
 uv run ruff check .
 uv run pytest
 ```
@@ -158,6 +158,6 @@ uv run pytest
 
 - `docker compose up` 成功不代表数据库 schema 已经齐全，仍需要 `npm run db:init`。
 - `localhost:3000` 是主前端，生成工作空间预览端口从 `4100` 开始，宿主机 Loki 默认为 `33100`。
-- 前端启动模式已经收敛为 Next.js 默认链路，不要再设置 `QUANTPILOT_BUNDLER` 或排查 `next-rspack`。
+- 前端启动模式已经收敛为 Next.js 默认链路，不要再设置 `SHOPGATE_BUNDLER` 或排查 `next-rspack`。
 - Redis 缓存可以删除重建，不能把它当作唯一数据来源。
-- 离线演示可以用 `QUANTPILOT_DEGRADATION_MODE=offline`，但正式检查应回到 `auto` 或 `strict`。
+- 离线演示可以用 `SHOPGATE_DEGRADATION_MODE=offline`，但正式检查应回到 `auto` 或 `strict`。

@@ -2,9 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { loadQuantE2eSuite } = require('./quant-e2e-suite');
+const { loadCommerceE2eSuite } = require('./commerce-e2e-suite');
 
-const CASES_PATH = path.resolve('benchmarks/quantpilot/cases.json');
+const CASES_PATH = path.resolve('benchmarks/shopgate/cases.json');
 const CASE_COVERAGE_LEVELS = new Set(['routing', 'contract']);
 const ORACLE_TARGETS = new Set(['finalData', 'sources', 'quality', 'page']);
 const ORACLE_OPERATORS = new Set([
@@ -194,7 +194,7 @@ function main() {
   }
 
   try {
-    const e2eSuite = loadQuantE2eSuite({
+    const e2eSuite = loadCommerceE2eSuite({
       root: process.cwd(),
       cases,
       requireReleaseCoverage: true,

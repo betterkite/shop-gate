@@ -9,7 +9,7 @@ const outputDir = path.join(rootDir, 'tmp', 'visual-checks');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
 const projectId = process.env.PROJECT_ID || process.argv[2] || '';
-const baseUrl = (process.env.QUANTPILOT_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const cli = 'pi';
 const model = 'local_qwen:qwen3.5-9b-q5km';
 

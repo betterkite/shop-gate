@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from quantpilot_market_data.api import create_app
-from quantpilot_market_data.backtest import build_ma_crossover_backtest
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.fundamentals import build_fundamental_indicators
-from quantpilot_market_data.indicators import build_technical_indicators
-from quantpilot_market_data.providers.eastmoney import (
+from shopgate_commerce_data.api import create_app
+from shopgate_commerce_data.backtest import build_ma_crossover_backtest
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.fundamentals import build_fundamental_indicators
+from shopgate_commerce_data.indicators import build_technical_indicators
+from shopgate_commerce_data.providers.eastmoney import (
     EastMoneyClient,
     infer_asset_type,
     normalize_secid,
@@ -678,8 +678,8 @@ def test_realtime_quote_endpoint_uses_cache(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setenv("QUANTPILOT_MARKET_CACHE_DIR", str(tmp_path))
-    monkeypatch.setenv("QUANTPILOT_QUOTE_CACHE_TTL_SECONDS", "60")
+    monkeypatch.setenv("SHOPGATE_MARKET_CACHE_DIR", str(tmp_path))
+    monkeypatch.setenv("SHOPGATE_QUOTE_CACHE_TTL_SECONDS", "60")
 
     call_count = 0
 
@@ -716,7 +716,7 @@ def test_realtime_quote_endpoint_uses_cache(
         )
 
     monkeypatch.setattr(
-        "quantpilot_market_data.providers.eastmoney.EastMoneyClient.get_realtime_quote",
+        "shopgate_commerce_data.providers.eastmoney.EastMoneyClient.get_realtime_quote",
         fake_get_realtime_quote,
     )
 

@@ -31,7 +31,7 @@ describe('authorization policy', () => {
     expect(projectIdFromPath('/api/projects/project-1/files')).toBe('project-1');
     expect(projectIdFromPath('/api/chat/project%202/messages')).toBe('project 2');
     expect(projectIdFromPath('/project-3/chat')).toBe('project-3');
-    expect(projectIdFromPath('/api/quant/capabilities')).toBeNull();
+    expect(projectIdFromPath('/api/commerce/capabilities')).toBeNull();
   });
 
   it('maps safe, mutating and ownership operations to project roles', () => {

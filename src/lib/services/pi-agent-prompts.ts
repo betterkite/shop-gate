@@ -252,7 +252,7 @@ export async function assessPlatformPreparedQuantArtifacts(
   };
 }
 
-export async function buildQuantPilotTaskPrompt(
+export async function buildShopGateTaskPrompt(
   instruction: string,
   projectPath: string,
   options: {
@@ -278,7 +278,7 @@ export async function buildQuantPilotTaskPrompt(
       requestedVariantId: runPlan?.visualization?.variantId,
       dataSignals: runPlan?.visualization?.dataSignals,
     });
-    return `# QuantPilot Task Packet
+    return `# Shop Gate Task Packet
 
 数据阶段：validation-repair
 权威定位：${capability.id}；标的 ${runPlan?.symbols?.join(', ') || '无显式标的'}；模板 ${runPlan?.visualization?.templateId ?? visualization.templateId} / ${runPlan?.visualization?.variantId ?? visualization.variantId}
@@ -305,11 +305,11 @@ ${instruction.trim()}`;
 - final/evidence 与 run plan 已准备并冻结；权威数据只通过 artifact=final_dashboard 读取，绝不推断 public/data/*.json；只使用 initial dashboard contract 与当前暴露的 typed tools，不重复取数或重写数据。
 - 标准场景优先调用 apply_dashboard_spec；明确的模板外定制使用精确 JSON Pointer、批量源码锚点和携带 SHA-256 的 semantic_edit。`
     : `数据准备模式：
-- 遵循只读 run plan，通过 quant_api_get 获取缺失的真实数据。
+- 遵循只读 run plan，通过 commerce_api_get 获取缺失的真实数据。
 - 先完成 final 数据与 evidence，再按 dashboard contract 定向编辑页面。
 - API 参数使用 query 对象；缺失数据必须保留真实缺口。`;
 
-  return `# QuantPilot Task Packet
+  return `# Shop Gate Task Packet
 
 用户需求：${instruction.trim()}
 数据阶段：${prepared && options.hasAttachments ? 'attachment-enrichment' : prepared ? 'platform-prepared' : 'data-preparation'}
@@ -325,7 +325,7 @@ ${modeConstraints}
 - A 股使用红涨绿跌；宽表只在自身容器滚动，移动端不得产生页面级横向溢出。`;
 }
 
-export interface QuantPilotSystemPromptOptions {
+export interface ShopGateSystemPromptOptions {
   phase?: PiAgentSkillPhase;
   preparedIntent?: 'standard' | 'custom' | null;
   skillManifest?: string;
@@ -344,12 +344,12 @@ function phaseContract(phase: PiAgentSkillPhase): string {
   }
 }
 
-export function buildQuantPilotSystemPrompt(
-  options: QuantPilotSystemPromptOptions = {},
+export function buildShopGateSystemPrompt(
+  options: ShopGateSystemPromptOptions = {},
 ): string {
   const phase = options.phase ?? 'workspace-generation';
   return `# PI Agent Kernel
-You are QuantPilot's first-party workspace agent.
+You are Shop Gate's first-party workspace agent.
 
 ## Immutable execution contract
 - Use only typed tools in this workspace. No shell/subprocess, credentials, parent-platform changes, or \`.data-agent/**\` mutation.
@@ -369,7 +369,7 @@ ${phase === 'workspace-generation' && options.preparedIntent ? `Prepared route: 
 ${options.skillManifest?.trim() || '# PI Agent Skill Manifest\nNo task skill capsule was loaded.'}`;
 }
 
-export function buildQuantPilotUserPrompt(params: {
+export function buildShopGateUserPrompt(params: {
   taskPacket: string;
   skillContext: string;
   initialDashboardContract: string | null;

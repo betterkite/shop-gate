@@ -12,7 +12,7 @@ export function shouldRealtimeAssistantUpdateStopWaiting(params: {
     params.metadata?.isMissionIntermediate === true ||
     params.metadata?.isWorkspaceProgress === true ||
     params.metadata?.isTransientToolMessage === true ||
-    params.metadata?.isQuantPilotPipelineStep === true
+    params.metadata?.isShopGatePipelineStep === true
   ) return false;
   return params.hasContent || params.isFinal === true;
 }

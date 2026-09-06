@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process');
 
 const root = process.cwd();
 const skillsDir = path.join(root, '.pi', 'skills');
-const pycacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'quantpilot-skill-pyc-'));
+const pycacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shopgate-skill-pyc-'));
 
 function fail(message, result) {
   console.error(`[skill-scripts] ${message}`);

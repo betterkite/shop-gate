@@ -110,7 +110,7 @@ function parseArgs(argv) {
   const result = {
     json: false,
     maxLagSessions: 0,
-    minSymbols: Number(process.env.QUANTPILOT_MARKET_FRESHNESS_MIN_SYMBOLS ?? 1),
+    minSymbols: Number(process.env.SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS ?? 1),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];

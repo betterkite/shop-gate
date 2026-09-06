@@ -20,7 +20,7 @@ async function githubFetch(token: string, endpoint: string, init?: RequestInit) 
     headers: {
       Accept: 'application/vnd.github+json',
       Authorization: `Bearer ${token}`,
-      'User-Agent': 'QuantPilot-Next',
+      'User-Agent': 'Shop Gate-Next',
       ...init?.headers,
     },
   });
@@ -241,7 +241,7 @@ export async function pushProjectToGitHub(projectId: string) {
     const userEmail = user.email || `${user.login}@users.noreply.github.com`;
     ensureGitConfig(repoPath, userName, userEmail);
 
-    const committed = commitAll(repoPath, 'Update from QuantPilot');
+    const committed = commitAll(repoPath, 'Update from Shop Gate');
     if (!committed) {
       console.log('[GitHubService] No changes to commit before push');
       return;

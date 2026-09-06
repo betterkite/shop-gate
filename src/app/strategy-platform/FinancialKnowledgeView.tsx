@@ -38,13 +38,13 @@ const FINANCIAL_WIKI_PAGE_TYPE_LABELS: Record<FinancialWikiPageType, string> = {
 };
 
 const FINANCIAL_WIKI_PURPOSE = {
-  title: "QuantPilot 金融知识库",
+  title: "Shop Gate 金融知识库",
   statement:
     "把策略平台反复用到的行情、因子、资金流、交易规则和风控知识整理成可追溯 Wiki，供策略目录、因子目录、Agent 生成和人工复核共同引用。",
   scope: [
     "A 股股票、ETF、指数的行情与策略研究口径",
     "选股、买卖价格、参数扫描、回测和数据质量检查",
-    "本地 market-data 服务可验证的数据字段与外部源限制",
+    "本地 commerce-data 服务可验证的数据字段与外部源限制",
   ],
   questions: [
     "这个概念依赖哪些字段，字段当前是否可用？",
@@ -85,7 +85,7 @@ const FINANCIAL_WIKI_OPERATIONS = [
 
 const FINANCIAL_WIKI_PAGES: FinancialWikiPage[] = [
   {
-    id: "market-data-contract",
+    id: "commerce-data-contract",
     title: "行情数据契约",
     type: "source",
     domain: "数据源",
@@ -93,7 +93,7 @@ const FINANCIAL_WIKI_PAGES: FinancialWikiPage[] = [
       "定义行情响应必须包含 asset_type、source、as_of、fetched_at、currency、timezone、fetch 和 data_quality，避免页面只读价格而丢失来源上下文。",
     decisionUse:
       "任何策略、图表或 Agent 输出在展示行情时，都要同步展示来源、时间和质量状态；缺失字段不能静默置零。",
-    sources: ["services/market-data/README.md", "/api/v1/quotes/realtime", "/api/v1/quotes/history"],
+    sources: ["services/commerce-data/README.md", "/api/v1/quotes/realtime", "/api/v1/quotes/history"],
     links: ["[[回测样本完整性]]", "[[复权与交易日口径]]", "[[成交额与流动性]]"],
     qualityGate: "响应中 source、as_of、fetched_at、data_quality.status 至少四项完整。",
     caveats: ["浏览器页面优先走同源 /api/market 代理", "外部源失败时要标注 degraded", "缓存命中不代表数据已过期"],
@@ -254,7 +254,7 @@ const FINANCIAL_WIKI_COLLECTIONS: FinancialWikiCollection[] = [
     id: "foundation",
     name: "基础口径",
     description: "先确认数据契约、复权、交易日和行情质量，再谈指标。",
-    pages: ["market-data-contract", "adjustment-calendar", "backtest-integrity"],
+    pages: ["commerce-data-contract", "adjustment-calendar", "backtest-integrity"],
   },
   {
     id: "signals",
@@ -272,7 +272,7 @@ const FINANCIAL_WIKI_COLLECTIONS: FinancialWikiCollection[] = [
 
 const FINANCIAL_WIKI_LOG = [
   { date: "2026-06-03", event: "重构金融知识模块为 Wiki 结构，补齐 purpose、schema、index、pages 与 lint 清单。" },
-  { date: "2026-05-30", event: "接入因子目录与基础组件视图，知识页面开始引用本地 market-data 字段口径。" },
+  { date: "2026-05-30", event: "接入因子目录与基础组件视图，知识页面开始引用本地 commerce-data 字段口径。" },
   { date: "2026-05-28", event: "策略平台新增股票池、策略目录、参数扫描和回测归档入口。" },
 ] as const;
 
@@ -281,7 +281,7 @@ const FINANCIAL_WIKI_ENTRY_POINTS = [
     id: "strategy-context",
     title: "策略生成上下文",
     description: "把数据契约、复权口径和样本完整性作为生成前置条件。",
-    pageIds: ["market-data-contract", "adjustment-calendar", "backtest-integrity"],
+    pageIds: ["commerce-data-contract", "adjustment-calendar", "backtest-integrity"],
   },
   {
     id: "trade-price",

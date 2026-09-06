@@ -18,7 +18,7 @@
 | `public/generated/` | 稳定 CSS 等前端生成资源 | 运行 `npm run styles:build` 会重新生成 |
 | `public/uploads/` | 本地上传和图片附件 | 不提交，必要时迁移到对象存储 |
 | `.ruff_cache/`、`.pytest_cache/`、`__pycache__/` | Python 工具缓存 | 可随时删除 |
-| `.venv/`、`services/market-data/.venv/` | Python 虚拟环境 | 不提交，以 `services/market-data/pyproject.toml` 和 `uv.lock` 为准 |
+| `.venv/`、`services/commerce-data/.venv/` | Python 虚拟环境 | 不提交，以 `services/commerce-data/pyproject.toml` 和 `uv.lock` 为准 |
 | `*.tsbuildinfo`、`.eslintcache` | TypeScript / ESLint 缓存 | 可随时删除 |
 | `.env`、`.env.local` | 本地密钥、端口和数据库连接 | 不提交，只提交 `.env.example` |
 
@@ -68,14 +68,14 @@ rm -rf .next/dev/lock .next/dev/cache/webpack
 | `docker-compose.yml`、`sqls/*.sql` | PostgreSQL / TimescaleDB 本地基础设施定义 |
 | `prisma/schema.prisma` | 主业务数据库 schema |
 | `package-lock.json` | 前端依赖锁定 |
-| `services/market-data/pyproject.toml`、`services/market-data/uv.lock` | Python 后端依赖和服务入口 |
+| `services/commerce-data/pyproject.toml`、`services/commerce-data/uv.lock` | Python 后端依赖和服务入口 |
 | `.pi/skills/`、`.pi/skills.registry.json`、`.pi/skills.lock.json`、`.pi/skills.changelog.json` | 仓库 Skill 权威源，受版本与 SHA-256 完整性校验；不作为 workspace 运行时发现目录 |
 | `.pi/skill-packages/` | 规范发布包，用于校验、回滚、source 缺失时的执行 fallback，以及创建 workspace 参考镜像 |
-| `benchmarks/quantpilot/cases.json` | 固定评测用例集 |
+| `benchmarks/shopgate/cases.json` | 固定评测用例集 |
 | `docs/` | 架构、契约、治理和排障文档 |
 
 ## 后续建议
 
-- `tmp/quantpilot-benchmark-reports/` 里的长期评测历史建议迁入数据库索引，并把大 JSON / 截图转对象存储。
+- `tmp/shopgate-benchmark-reports/` 里的长期评测历史建议迁入数据库索引，并把大 JSON / 截图转对象存储。
 - `data/projects/` 可以继续作为本地 workspace 根目录，但列表、健康快照和生成状态应以 PostgreSQL 为主。
 - 生成工作空间内部的 `node_modules/`、`.next/`、`dist/`、`build/` 也不应被平台采集到可提交产物里。

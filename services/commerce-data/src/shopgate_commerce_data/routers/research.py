@@ -4,8 +4,8 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from quantpilot_market_data.database_core import DatabaseError
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.database_core import DatabaseError
+from shopgate_commerce_data.models import (
     Adjustment,
     AShareScreenerResponse,
     AShareUniverseBatchImportRequest,
@@ -24,10 +24,10 @@ from quantpilot_market_data.models import (
     ScreenerMode,
     SectorCapitalFlowResponse,
 )
-from quantpilot_market_data.providers.base import ResearchUniverseProvider
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.security import require_market_admin
-from quantpilot_market_data.services.research import (
+from shopgate_commerce_data.providers.base import ResearchUniverseProvider
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.security import require_market_admin
+from shopgate_commerce_data.services.research import (
     add_research_universe_member,
     clean_research_universe_members,
     get_a_share_short_term_candidates,

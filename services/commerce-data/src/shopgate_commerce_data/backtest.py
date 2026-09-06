@@ -5,7 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from math import sqrt
 from typing import Any
 
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.models import (
     BacktestEquityPoint,
     BacktestResponse,
     BacktestSummary,

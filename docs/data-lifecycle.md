@@ -1,6 +1,6 @@
 # 数据生命周期与安全清理
 
-本文是 QuantPilot 本地数据保留、测试隔离、备份和清理的权威入口。删除前先判断数据所有权；
+本文是 Shop Gate 本地数据保留、测试隔离、备份和清理的权威入口。删除前先判断数据所有权；
 “时间较早”不等于“无价值”。生产环境禁止照搬本地清理 SQL。
 
 ## 数据分类
@@ -38,7 +38,7 @@ npm run check:task-e2e -- --campaign=review01 --only=C01,C02 --cleanup
 3. 停止目标 Project 的生成和预览，再通过 Project API 删除。
 4. 对认证过期数据运行 `npm run auth:cleanup -- --dry-run`，复核后再去掉 `--dry-run`。
 5. Memory 用 `(tenant_id, subject_id)` Scope erasure；AKEP 用 revoke/erase 生命周期；ModelPort 的
-   append-only 预算事件不得从 QuantPilot 侧删除。
+   append-only 预算事件不得从 Shop Gate 侧删除。
 6. 复查项目数、任务抽屉、孤立 Workspace、数据库 readiness 和四平台健康检查。
 
 `npm run clean:local` 会删除 `tmp`，所以需要长期保留的数据库备份不能放在 `tmp` 中。

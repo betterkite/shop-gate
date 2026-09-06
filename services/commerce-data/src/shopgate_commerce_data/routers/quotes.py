@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from quantpilot_market_data.cache import MarketDataCache, RedisJsonCache
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache, RedisJsonCache
+from shopgate_commerce_data.models import (
     Adjustment,
     BatchQuoteRequest,
     BatchQuoteResponse,
@@ -12,11 +12,11 @@ from quantpilot_market_data.models import (
     RealtimeQuote,
     SymbolResolveResponse,
 )
-from quantpilot_market_data.providers.base import (
+from shopgate_commerce_data.providers.base import (
     QuoteReadProvider,
 )
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.services.quotes import (
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.services.quotes import (
     get_history_quote,
     get_realtime_quote,
     get_realtime_quotes,

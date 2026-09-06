@@ -88,7 +88,7 @@ describe('validation repair ownership', () => {
     expect(instruction).toContain('data_file/final/** 和 evidence/**');
     expect(instruction).not.toContain('唯一可写范围：app/**');
     expect(instruction).toContain('你不得修改它');
-    expect(instruction).toContain('构建、预览与自动验证由 QuantPilot 平台统一执行');
+    expect(instruction).toContain('构建、预览与自动验证由 Shop Gate 平台统一执行');
     expect(instruction).toContain('submit_result');
     expect(writableGlobs).toEqual(['data_file/final/**', 'evidence/**']);
   });
@@ -115,7 +115,7 @@ describe('validation repair ownership', () => {
   });
 
   it('rebuilds an invalid run plan with the parent request before Agent repair', async () => {
-    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-platform-repair-'));
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-platform-repair-'));
     temporaryProjects.push(projectPath);
     const originalInstruction = '比较贵州茅台 600519 与宁德时代 300750 的表现并生成看板';
     const queryRewrite = await rewriteQuantQuery(originalInstruction, {

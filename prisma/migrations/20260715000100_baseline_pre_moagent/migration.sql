@@ -1,4 +1,4 @@
--- QuantPilot Prisma baseline at Git revision c641c00 (before durable MoAgent tables).
+-- Shop Gate Prisma baseline at Git revision c641c00 (before durable MoAgent tables).
 -- Fresh databases apply this migration normally. An existing database that is
 -- already at this exact application schema must mark this migration as applied;
 -- see ../README.md. Never run this SQL manually against an existing database.
@@ -257,7 +257,7 @@ CREATE TABLE "research_reports" (
     "content_markdown" TEXT NOT NULL,
     "structured" JSONB NOT NULL,
     "evidence" JSONB NOT NULL,
-    "source" TEXT NOT NULL DEFAULT 'local-market-data',
+    "source" TEXT NOT NULL DEFAULT 'local-commerce-data',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 

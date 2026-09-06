@@ -10,10 +10,10 @@ const SETTINGS_FILE = path.join(ROOT, 'data', 'global-settings.json');
 const STRATEGY_SCANS_DIR = path.resolve(ROOT, process.env.STRATEGY_SCANS_DIR || path.join('data', 'strategy-scans'));
 const RUNS_DIR = path.join(STRATEGY_SCANS_DIR, 'runs');
 const JOBS_DIR = path.join(STRATEGY_SCANS_DIR, 'jobs');
-const EVAL_REPORTS_DIR = path.join(ROOT, 'tmp', 'quantpilot-benchmark-reports');
-const EVAL_QUEUE_PATH = path.join(ROOT, 'tmp', 'quantpilot-eval-queue', 'queue.json');
-const EVAL_SCHEDULE_PATH = path.join(ROOT, 'tmp', 'quantpilot-eval-queue', 'schedule.json');
-const EVAL_REPAIRS_PATH = path.join(ROOT, 'tmp', 'quantpilot-eval-repairs', 'repairs.json');
+const EVAL_REPORTS_DIR = path.join(ROOT, 'tmp', 'shopgate-benchmark-reports');
+const EVAL_QUEUE_PATH = path.join(ROOT, 'tmp', 'shopgate-eval-queue', 'queue.json');
+const EVAL_SCHEDULE_PATH = path.join(ROOT, 'tmp', 'shopgate-eval-queue', 'schedule.json');
+const EVAL_REPAIRS_PATH = path.join(ROOT, 'tmp', 'shopgate-eval-repairs', 'repairs.json');
 
 async function readJson(filePath) {
   try {

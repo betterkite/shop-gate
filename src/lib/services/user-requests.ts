@@ -17,17 +17,17 @@ export type UserRequestStatus =
   | 'failed';
 
 const ACTIVE_REQUEST_STALE_MS =
-  Number.parseInt(process.env.QUANTPILOT_ACTIVE_REQUEST_STALE_MS ?? '', 10) || 30 * 60 * 1000;
+  Number.parseInt(process.env.SHOPGATE_ACTIVE_REQUEST_STALE_MS ?? '', 10) || 30 * 60 * 1000;
 const ACTIVE_REQUEST_ORPHAN_MS =
-  Number.parseInt(process.env.QUANTPILOT_ACTIVE_REQUEST_ORPHAN_MS ?? '', 10) || 8 * 60 * 1000;
+  Number.parseInt(process.env.SHOPGATE_ACTIVE_REQUEST_ORPHAN_MS ?? '', 10) || 8 * 60 * 1000;
 
 const ACTIVE_STATUSES: UserRequestStatus[] = ['pending', 'processing', 'active', 'running'];
 const globalForActiveRequests = globalThis as unknown as {
-  __quantpilot_active_request_runtime__?: Set<string>;
+  __shopgate_active_request_runtime__?: Set<string>;
 };
 const activeRuntimeRequests =
-  globalForActiveRequests.__quantpilot_active_request_runtime__ ??
-  (globalForActiveRequests.__quantpilot_active_request_runtime__ = new Set<string>());
+  globalForActiveRequests.__shopgate_active_request_runtime__ ??
+  (globalForActiveRequests.__shopgate_active_request_runtime__ = new Set<string>());
 
 function activeRequestWhere(projectId: string): Prisma.UserRequestWhereInput {
   return {

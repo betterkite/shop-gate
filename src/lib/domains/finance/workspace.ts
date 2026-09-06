@@ -32,8 +32,8 @@ import {
   writeWorkspaceJsonAtomic,
 } from '@/lib/data-agent';
 import {
-  createQuantPilotDataAgentRegistry,
-  QUANTPILOT_AGENT_PROFILE_ID,
+  createShopGateDataAgentRegistry,
+  SHOPGATE_AGENT_PROFILE_ID,
 } from '@/lib/domains/finance/agent-profile';
 import {
   FINANCE_QUERY_REWRITE_RELATIVE_PATH,
@@ -596,8 +596,8 @@ export async function writeInitialRunPlan(params: {
         ? 'needs_clarification'
         : 'planned',
     capabilityId: capability.id,
-    composition: createQuantPilotDataAgentRegistry().resolveCapability(
-      QUANTPILOT_AGENT_PROFILE_ID,
+    composition: createShopGateDataAgentRegistry().resolveCapability(
+      SHOPGATE_AGENT_PROFILE_ID,
       capability.id,
     ).composition,
     llm,

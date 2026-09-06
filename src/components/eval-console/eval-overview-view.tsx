@@ -22,7 +22,7 @@ import {
   scoreClass,
   type EvalSet,
   type EvalView,
-} from '@/components/quant/eval-console-primitives';
+} from '@/components/eval-console/eval-console-primitives';
 import type { QuantEvalDashboardData, QuantEvalRun } from '@/lib/eval';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,

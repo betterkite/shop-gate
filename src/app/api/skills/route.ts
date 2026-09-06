@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAction } from '@/lib/auth/action';
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
-import { getSkillsDashboardData } from '@/lib/quant/skills-dashboard';
+import { getSkillsDashboardData } from '@/lib/commerce/skills-dashboard';
 import { assertPrivilegedMutation, PrivilegedRequestError } from '@/lib/server/privileged-request';
 
 export async function GET(request: Request) {
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       action: 'platform.settings.manage',
     });
     assertPrivilegedMutation(request);
-    const skillsAdmin = await import('@/lib/quant/skills-admin');
+    const skillsAdmin = await import('@/lib/commerce/skills-admin');
     if (contentType.includes('multipart/form-data')) {
       const form = await request.formData();
       const action = String(form.get('action') ?? '');

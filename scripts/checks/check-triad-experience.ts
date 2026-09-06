@@ -35,7 +35,7 @@ import {
 import type { PersonalizationCapsule } from '../../src/lib/platform/memory/types';
 import { rewriteQuantQuery } from '../../src/lib/domains/finance/query-rewrite';
 import { rewriteQuantQuerySemanticsWithConfiguredProvider } from '../../src/lib/domains/finance/query-rewrite-llm';
-import { buildQuantPilotUserPrompt } from '../../src/lib/services/pi-agent-prompts';
+import { buildShopGateUserPrompt } from '../../src/lib/services/pi-agent-prompts';
 
 type JsonRecord = Record<string, unknown>;
 type CaseCategory = 'query_rewrite' | 'memory' | 'knowledge' | 'triad';
@@ -78,8 +78,8 @@ interface CollectedTurn {
 }
 
 const argv = process.argv.slice(2);
-const KNOWLEDGE_ACCEPTANCE_SPACE = 'https://knowledge.local/spaces/quantpilot-acceptance';
-const SYNTHETIC_SUBJECT = 'quantpilot-triad-experience-v1';
+const KNOWLEDGE_ACCEPTANCE_SPACE = 'https://knowledge.local/spaces/shopgate-acceptance';
+const SYNTHETIC_SUBJECT = 'shopgate-triad-experience-v1';
 
 function option(name: string): string | null {
   const prefix = `--${name}=`;
@@ -131,9 +131,9 @@ function scaleOption(): number {
 }
 
 function modelTimeoutMs(): number {
-  const value = Number.parseInt(process.env.QUANTPILOT_TRIAD_MODEL_TIMEOUT_MS ?? '30000', 10);
+  const value = Number.parseInt(process.env.SHOPGATE_TRIAD_MODEL_TIMEOUT_MS ?? '30000', 10);
   assert(Number.isSafeInteger(value) && value >= 1_000 && value <= 120_000,
-    'QUANTPILOT_TRIAD_MODEL_TIMEOUT_MS must be between 1000 and 120000.');
+    'SHOPGATE_TRIAD_MODEL_TIMEOUT_MS must be between 1000 and 120000.');
   return value;
 }
 
@@ -198,7 +198,7 @@ function providerFor(model: string): OpenAICompatibleProvider {
     providerName: 'openai',
     apiKey,
     baseUrl: config.baseUrl,
-    headers: { 'X-Client-App': 'QuantPilot-Triad-Experience/1' },
+    headers: { 'X-Client-App': 'Shop Gate-Triad-Experience/1' },
     maxRetries: 1,
     initialRetryDelayMs: 100,
     maxRetryDelayMs: 500,
@@ -520,7 +520,7 @@ async function runKnowledgeCases(
           taskCategory: 'triad-experience',
           eventId: `triad-feedback-${item.id}-${runId}`,
           outcome: 'helped' as const,
-          acceptedReceiptId: `urn:quantpilot:acceptance:${runId}`,
+          acceptedReceiptId: `urn:shopgate:acceptance:${runId}`,
           acceptedReceiptSha256: stableHash(`accepted:${runId}`),
           observedAt,
         };
@@ -556,7 +556,7 @@ async function triadModelTurn(input: {
   knowledge: GovernedKnowledgeCapsule | null;
 }): Promise<{ turn: CollectedTurn; parsed: JsonRecord }> {
   const provider = providerFor(input.model);
-  const userPrompt = buildQuantPilotUserPrompt({
+  const userPrompt = buildShopGateUserPrompt({
     taskPacket: `# Task Packet\n${input.item.question}`,
     skillContext: '# Skill Context\n本题只做三方上下文联合验收，不修改工作空间。',
     personalizationContext: input.memory?.content ?? null,
@@ -568,7 +568,7 @@ async function triadModelTurn(input: {
     {
       role: 'system',
       content: [
-        '你是 QuantPilot 三方联合体验验收器。',
+        '你是 Shop Gate 三方联合体验验收器。',
         '回答任务，并且只调用 triad_experience_result 一次。',
         '只有个人偏好实际改变回答结构或呈现时 memoryApplied 才为 true，并列出使用的偏好 key。',
         '如果 answer 采用了 Personalization Context 中的回答顺序、视觉风格或证据风格，就属于实际使用：memoryApplied 必须为 true，memoryKeys 必须列出对应 key。',
@@ -731,7 +731,7 @@ async function probeDefaultKnowledge(runId: string): Promise<JsonRecord> {
   });
   const preparation = await prepareGovernedKnowledge({
     requestId: `triad-default-knowledge-${runId}`,
-    task: 'QuantPilot ModelPort Memory Knowledge PI Agent 工作空间 看板 Query Rewrite',
+    task: 'Shop Gate ModelPort Memory Knowledge PI Agent 工作空间 看板 Query Rewrite',
     scope,
   });
   return {
@@ -759,8 +759,8 @@ async function main(): Promise<void> {
   });
   const projectId = option('project') ?? projects[0]?.id;
   const otherProjectId = option('other-project') ?? projects.find((project) => project.id !== projectId)?.id;
-  assert(projectId, 'No QuantPilot project exists for the synthetic Memory acceptance scope.');
-  assert(otherProjectId, 'A second QuantPilot project is required to verify project isolation.');
+  assert(projectId, 'No Shop Gate project exists for the synthetic Memory acceptance scope.');
+  assert(otherProjectId, 'A second Shop Gate project is required to verify project isolation.');
 
   await Promise.all([
     verifyModelCatalog(LOCAL_QWEN_MODEL_ID),

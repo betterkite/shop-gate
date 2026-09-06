@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "quantpilot-task-e2e-v1",
+  "id": "shopgate-task-e2e-v1",
   "description": "真实经过 Project API、/act、PI Agent Mission、Workspace、验证和预览链路的任务级回归集。",
   "cases": [
     { "id": "C01", "capabilityId": "stock_diagnosis", "model": "local_qwen:qwen3.5-9b-q5km", "question": "分析贵州茅台近60个交易日的趋势、量能、估值与主要风险，生成紧凑的个股诊断看板。" },

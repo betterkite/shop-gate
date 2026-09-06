@@ -37,7 +37,7 @@ console.log('日常 DeepSeek：deepseek:deepseek-v4-flash（ModelPort）');
 console.log('可选直连：deepseek-v4-flash（官方 API）');
 
 if (!piAgentRuntimeExists()) {
-  console.error('❌ PI Agent 上游执行内核或 QuantPilot 适配层不完整。');
+  console.error('❌ PI Agent 上游执行内核或 Shop Gate 适配层不完整。');
   process.exit(1);
 }
 console.log('✅ PI Agent 核心、Provider、Tools 与产品接入层已就绪');

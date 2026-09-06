@@ -10,11 +10,11 @@ The release workflow requires these non-secret variables:
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `QUANTPILOT_RELEASE_HOST` | Approved SSH host or configured SSH alias | Required |
-| `QUANTPILOT_PUBLIC_URL` | HTTPS URL used for public smoke tests | Required |
-| `QUANTPILOT_RELEASE_ROOT` | Root containing immutable releases and `current` | `/opt/quantpilot` |
-| `QUANTPILOT_RELEASE_ENV_FILE` | Root-only production environment file | `/etc/quantpilot/quantpilot.env` |
-| `QUANTPILOT_BACKUP_ROOT` | Production backup root | `/var/backups/quantpilot` |
+| `SHOPGATE_RELEASE_HOST` | Approved SSH host or configured SSH alias | Required |
+| `SHOPGATE_PUBLIC_URL` | HTTPS URL used for public smoke tests | Required |
+| `SHOPGATE_RELEASE_ROOT` | Root containing immutable releases and `current` | `/opt/shopgate` |
+| `SHOPGATE_RELEASE_ENV_FILE` | Root-only production environment file | `/etc/shopgate/shopgate.env` |
+| `SHOPGATE_BACKUP_ROOT` | Production backup root | `/var/backups/shopgate` |
 
 Load them through the operator shell, CI environment, or secret-management
 wrapper. Although the coordinates are not application secrets, keep
@@ -39,7 +39,7 @@ state stays outside every release directory:
 - `PROJECTS_DIR`;
 - uploads;
 - backups;
-- external Memory, Knowledge, model gateway, and market-data storage.
+- external Memory, Knowledge, model gateway, and commerce-data storage.
 
 Do not use `rsync --delete` against a directory that contains persistent state.
 Do not place a database dump or developer workspace inside the application
@@ -50,7 +50,7 @@ artifact.
 Before connecting, run:
 
 ```bash
-node .agents/skills/quantpilot-production-release/scripts/check-target.mjs
+node .agents/skills/shopgate-production-release/scripts/check-target.mjs
 ```
 
 Then obtain the deployed revision from the remote `current/REVISION` file and
@@ -70,7 +70,7 @@ root-only environment file. Never bake that file into the artifact.
 Switch `current` atomically only after the out-of-traffic candidate is ready.
 Restart only the affected systemd units from `deploy/systemd/`. Verify the
 public URL, authenticated critical path, Worker registry, queues, database,
-Redis, market-data, and the running `REVISION`.
+Redis, commerce-data, and the running `REVISION`.
 
 Record:
 

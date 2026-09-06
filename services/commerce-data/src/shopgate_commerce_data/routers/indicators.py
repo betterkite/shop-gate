@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.models import (
     Adjustment,
     KlinePeriod,
     TechnicalIndicatorsResponse,
 )
-from quantpilot_market_data.providers.base import HistoricalKlineProvider
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.services.indicators import get_technical_indicators
+from shopgate_commerce_data.providers.base import HistoricalKlineProvider
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.services.indicators import get_technical_indicators
 
 
 def create_indicators_router(

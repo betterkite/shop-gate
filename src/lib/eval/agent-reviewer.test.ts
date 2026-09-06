@@ -21,7 +21,7 @@ describe('agent semantic reviewer', () => {
       schemaVersion: 1,
       verdict: 'warning',
       score: 82,
-      reviewer: { promptVersion: 'quantpilot-agent-review-prompt-v1' },
+      reviewer: { promptVersion: 'shopgate-agent-review-prompt-v1' },
     });
     expect(review.dimensions).toHaveLength(5);
   });

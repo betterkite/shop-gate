@@ -108,7 +108,7 @@ http://localhost:3000/ops-platform
 建议按这个顺序筛选：
 
 1. 先筛时间范围，缩到问题发生前后 10 到 30 分钟。
-2. 再选择来源，例如 Next、market-data、eval 或 Loki。
+2. 再选择来源，例如 Next、commerce-data、eval 或 Loki。
 3. 再按错误、警告、信息级别筛选，并搜索 `failed`、`validation`、`timeout` 等关键词。
 4. 如果是一条 JSON 日志，先看 `source`、`level`、`message`，再看业务字段。
 
@@ -127,10 +127,10 @@ http://localhost:3000/ops-platform
 关键配置在 `.env`：
 
 ```env
-QUANTPILOT_DEGRADATION_MODE=auto
-QUANTPILOT_MARKET_API_REQUIRED=0
-QUANTPILOT_OBSERVABILITY_REQUIRED=0
-QUANTPILOT_REDIS_REQUIRED=0
+SHOPGATE_DEGRADATION_MODE=auto
+SHOPGATE_MARKET_API_REQUIRED=0
+SHOPGATE_OBSERVABILITY_REQUIRED=0
+SHOPGATE_REDIS_REQUIRED=0
 ```
 
 如果用户反馈“页面打不开”，不要先把所有组件都重启一遍。先用运行治理中心或 `npm run doctor` 判断是哪一层缺失，再动对应组件。
@@ -143,7 +143,7 @@ QUANTPILOT_REDIS_REQUIRED=0
 | 生成项目预览打不开 | 工作空间健康、预览端口 | 项目 `npm run build` 和预览进程 |
 | 聊天页报 Agent 错误 | 生成链路观测、日志搜索 requestId | CLI 配置、模型返回、最大轮数 |
 | 任务一直停在生成看板 | Data Agent 执行池的 Worker、队列和最久等待 | Worker 日志、dispatch lease、用户运行配额 |
-| 策略平台加载慢 | 策略健康、market-data 日志 | 股票池分页、Redis、SQL 查询 |
+| 策略平台加载慢 | 策略健康、commerce-data 日志 | 股票池分页、Redis、SQL 查询 |
 | 补数任务不知道是否在跑 | 策略健康、补数 job 心跳 | `quant.market_data_ingestion_jobs` |
 | Loki 没日志 | 可观测性检查、Alloy 状态 | 本地日志兜底是否可读 |
 | 工作空间健康分低 | 产物列表和 next actions | validation、artifact contracts、visual validation |
@@ -166,7 +166,7 @@ npm run obs:logs
 只想在没有外部组件时做本地排查：
 
 ```bash
-QUANTPILOT_DEGRADATION_MODE=offline npm run doctor
+SHOPGATE_DEGRADATION_MODE=offline npm run doctor
 ```
 
 ## 运行治理中心未来还可以增强什么

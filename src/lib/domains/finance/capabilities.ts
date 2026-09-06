@@ -44,7 +44,7 @@ export interface QuantCapability {
   tags: string[];
   status: QuantCapabilityStatus;
   groupId: QuantCapabilityGroupId;
-  agentType: 'quant_analysis' | 'quant_backtest' | 'quant_dashboard';
+  agentType: 'commerce_analysis' | 'commerce_backtest' | 'commerce_dashboard';
   subAgentKey: QuantCapabilityId;
   executionCapabilityId: QuantCapabilityId;
   requiredSkills: string[];
@@ -119,7 +119,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['实时行情', 'K 线', '财务', '公告'],
     status: 'ready',
     groupId: 'core_analysis',
-    agentType: 'quant_analysis',
+    agentType: 'commerce_analysis',
     subAgentKey: 'stock_diagnosis',
     executionCapabilityId: 'stock_diagnosis',
     requiredSkills: [
@@ -166,7 +166,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['K 线', '均线', '成交量', '风险'],
     status: 'ready',
     groupId: 'core_analysis',
-    agentType: 'quant_analysis',
+    agentType: 'commerce_analysis',
     subAgentKey: 'technical_analysis',
     executionCapabilityId: 'technical_analysis',
     requiredSkills: [
@@ -210,7 +210,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['财务', '盈利', '现金流', '成长'],
     status: 'ready',
     groupId: 'core_analysis',
-    agentType: 'quant_analysis',
+    agentType: 'commerce_analysis',
     subAgentKey: 'fundamental_analysis',
     executionCapabilityId: 'fundamental_analysis',
     requiredSkills: [
@@ -255,7 +255,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['横向比较', '标准化评分', '多标的'],
     status: 'ready',
     groupId: 'market_research',
-    agentType: 'quant_analysis',
+    agentType: 'commerce_analysis',
     subAgentKey: 'asset_comparison',
     executionCapabilityId: 'asset_comparison',
     requiredSkills: [
@@ -301,7 +301,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['指数', 'ETF', '行业轮动', '相对强弱'],
     status: 'planned',
     groupId: 'market_research',
-    agentType: 'quant_analysis',
+    agentType: 'commerce_analysis',
     subAgentKey: 'sector_rotation',
     executionCapabilityId: 'technical_analysis',
     requiredSkills: [
@@ -342,7 +342,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['因子', '信号', '交易规则', '假设'],
     status: 'planned',
     groupId: 'strategy_risk',
-    agentType: 'quant_backtest',
+    agentType: 'commerce_backtest',
     subAgentKey: 'strategy_research',
     executionCapabilityId: 'technical_analysis',
     requiredSkills: [
@@ -385,7 +385,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['净值', '回撤', '胜率', '交易明细'],
     status: 'ready',
     groupId: 'strategy_risk',
-    agentType: 'quant_backtest',
+    agentType: 'commerce_backtest',
     subAgentKey: 'backtest_review',
     executionCapabilityId: 'backtest_review',
     requiredSkills: [
@@ -428,7 +428,7 @@ export const QUANT_CAPABILITIES: QuantCapability[] = [
     tags: ['组合', '相关性', 'VaR', '集中度'],
     status: 'ready',
     groupId: 'strategy_risk',
-    agentType: 'quant_dashboard',
+    agentType: 'commerce_dashboard',
     subAgentKey: 'portfolio_risk',
     executionCapabilityId: 'portfolio_risk',
     requiredSkills: [

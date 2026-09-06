@@ -106,7 +106,7 @@ describe('DeepSeekProvider', () => {
       apiKey: 'secret-key',
       baseUrl: 'https://api.deepseek.com/v1/',
       fetchImpl,
-      headers: { 'X-Client': 'quantpilot', authorization: 'must-not-win' },
+      headers: { 'X-Client': 'shopgate', authorization: 'must-not-win' },
     });
 
     const events = await collect(
@@ -173,7 +173,7 @@ describe('DeepSeekProvider', () => {
     expect(url).toBe('https://api.deepseek.com/v1/chat/completions');
     const headers = new Headers(init.headers);
     expect(headers.get('authorization')).toBe('Bearer secret-key');
-    expect(headers.get('x-client')).toBe('quantpilot');
+    expect(headers.get('x-client')).toBe('shopgate');
     const body = JSON.parse(String(init.body));
     expect(body).toMatchObject({
       model: 'deepseek-v4-flash',

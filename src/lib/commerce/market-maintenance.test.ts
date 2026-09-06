@@ -9,7 +9,7 @@ const {
   runMaintenance,
   shanghaiDate,
   shiftDate,
-} = require('../../../scripts/ops/refresh-market-data.js');
+} = require('../../../scripts/ops/refresh-commerce-data.js');
 
 describe('market maintenance scheduler', () => {
   it('uses Shanghai calendar dates', () => {

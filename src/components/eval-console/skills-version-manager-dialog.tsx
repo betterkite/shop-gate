@@ -15,7 +15,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { formatBytes, type SkillDiffData, type SkillsPayload } from '@/components/quant/skills-source-tree';
+import { formatBytes, type SkillDiffData, type SkillsPayload } from '@/components/eval-console/skills-source-tree';
 
 export function SkillsVersionManagerDialog({
   open,
@@ -83,7 +83,7 @@ export function SkillsVersionManagerDialog({
             <div className="min-w-0">
               <h2 className="text-xl font-bold tracking-normal text-slate-950 sm:text-2xl">版本管理</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                QuantPilot Skills 管理 · Skill: {selectedSkill.id}
+                Shop Gate Skills 管理 · Skill: {selectedSkill.id}
               </p>
             </div>
           </div>
@@ -136,7 +136,7 @@ export function SkillsVersionManagerDialog({
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-muted-foreground">QuantPilot</td>
+                          <td className="px-4 py-4 text-muted-foreground">Shop Gate</td>
                           <td className="px-4 py-4 text-muted-foreground">{release.date}</td>
                           <td className="px-4 py-4">
                             <div className="flex justify-end gap-2 whitespace-nowrap">

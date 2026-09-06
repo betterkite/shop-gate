@@ -19,7 +19,7 @@ import {
 import {
   startPersistentValidatedPreview,
   type ValidatedGenerationPreview,
-} from '@/lib/quant/generation-preview';
+} from '@/lib/commerce/generation-preview';
 import {
   persistAcceptedGovernedKnowledgeUse,
   recordGovernedKnowledgeUsage,
@@ -32,10 +32,10 @@ import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
   updateQuantGenerationStep,
-} from '@/lib/quant/generation-state';
-import { finishQuantGenerationQueueItem } from '@/lib/quant/generation-queue';
-import type { WorkspaceProgressPublisher } from '@/lib/quant/workspace-progress';
-import { shouldEscalateStalledRepair } from '@/lib/quant/repair-convergence';
+} from '@/lib/commerce/generation-state';
+import { finishQuantGenerationQueueItem } from '@/lib/commerce/generation-queue';
+import type { WorkspaceProgressPublisher } from '@/lib/commerce/workspace-progress';
+import { shouldEscalateStalledRepair } from '@/lib/commerce/repair-convergence';
 import {
   isUserRequestCancelled,
   markUserRequestAsCompleted,
@@ -50,7 +50,7 @@ import { streamManager } from '@/lib/services/stream';
 import { serializeMessage } from '@/lib/serializers/chat';
 
 async function loadQuantValidation() {
-  return import('@/lib/quant/validation');
+  return import('@/lib/commerce/validation');
 }
 
 async function ensureQuantDashboardTemplateForAct(projectPath: string) {

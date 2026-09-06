@@ -187,7 +187,7 @@ describe('governed knowledge growth loop', () => {
         outcome: 'helped',
         feedbackReceipts: [
           {
-            feedbackId: 'urn:quantpilot:knowledge-feedback:one',
+            feedbackId: 'urn:shopgate:knowledge-feedback:one',
             usageId: knowledgeUseRecord().usageReceipts[0].usageId,
             evidenceId: 'urn:uuid:00000000-0000-4000-8000-000000000003',
             policyEpoch: 'epoch-1',
@@ -196,7 +196,7 @@ describe('governed knowledge growth loop', () => {
             correlationClass: 'same_organization',
             eligibleForAggregation: true,
             evaluatorVersion: {
-              uri: 'urn:quantpilot:evaluator:human-business-outcome:v1',
+              uri: 'urn:shopgate:evaluator:human-business-outcome:v1',
               digest: `sha256:${'f'.repeat(64)}`,
             },
           },

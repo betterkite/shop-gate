@@ -4,7 +4,7 @@
 
 ## 基础启动
 
-日常开发推荐直接启动完整栈；该命令会复用已健康的 market-data，否则自动启动并在退出时一并回收：
+日常开发推荐直接启动完整栈；该命令会复用已健康的 commerce-data，否则自动启动并在退出时一并回收：
 
 ```bash
 npm run dev
@@ -16,9 +16,9 @@ npm run dev
 npm run db:up
 npm run db:init
 npm run obs:up
-cd services/market-data
+cd services/commerce-data
 uv sync --extra baostock --extra akshare
-uv run quantpilot-market-api
+uv run shopgate-commerce-api
 ```
 
 另开一个终端回到项目根目录，仅启动前端：
@@ -38,7 +38,7 @@ curl http://127.0.0.1:8000/api/v1/foundation/status
 如果只想看页面结构，可以用降级模式；涉及真实行情、补数、策略平台时不要长期保持 offline：
 
 ```bash
-QUANTPILOT_DEGRADATION_MODE=offline npm run dev
+SHOPGATE_DEGRADATION_MODE=offline npm run dev
 ```
 
 ## ModelPort、Memory 与 AKEP 日常检查
@@ -49,12 +49,12 @@ QUANTPILOT_DEGRADATION_MODE=offline npm run dev
 npm run check:integrations
 ```
 
-成功表示 QuantPilot 默认 Qwen profile、ModelPort Qwen 与 DeepSeek 的模型发现/鉴权/工具流和续写、Qwen LLM Query Rewrite、Memory 契约和 readiness 均正常。DeepSeek 上游使用 ModelPort 的 Anthropic provider。该命令会产生真实模型 Token，但不写 Memory；输出不会包含凭据或记忆正文。AKEP 的检索、Citation、Usage 和 Feedback 由下方 `check:triad-experience` 验收，不把 Model/Memory 的只读探针误写成四方全链路。
+成功表示 Shop Gate 默认 Qwen profile、ModelPort Qwen 与 DeepSeek 的模型发现/鉴权/工具流和续写、Qwen LLM Query Rewrite、Memory 契约和 readiness 均正常。DeepSeek 上游使用 ModelPort 的 Anthropic provider。该命令会产生真实模型 Token，但不写 Memory；输出不会包含凭据或记忆正文。AKEP 的检索、Citation、Usage 和 Feedback 由下方 `check:triad-experience` 验收，不把 Model/Memory 的只读探针误写成四方全链路。
 
 发布验收、契约升级或故障恢复后，执行 `npm run check:triad-experience`；跨平台 scope、模型或身份边界变更后再执行 `npm run check:triad-experience:large`。后者会使用四个固定合成 subject 执行真实 Memory 写入和反馈闭环，不要放进每分钟健康检查。
 
 生产 Memory 发布必须额外执行 `npm run check:memory-production`。它要求 Memory 返回
-`production_ready=true`、`jwt/access_token` 身份边界、QuantPilot 使用短期 token broker，并以配置的
+`production_ready=true`、`jwt/access_token` 身份边界、Shop Gate 使用短期 token broker，并以配置的
 非人类 probe subject 实际读取偏好列表，从而同时验证 JWT、JWKS、tenant/subject grant、
 ProcessingGrant、PostgreSQL 治理和耐久审计；只访问 `/health` 不算通过。
 
@@ -88,22 +88,22 @@ npm run check:task-e2e -- --campaign=20260719a --only=C18,C26,C27 --retry-failed
 1. ModelPort `/livez`、`/readyz` 和带鉴权的 `/v1/models`。
 2. ModelPort 管理台中 `deepseek` provider 的“查询余额”；它只读调用 DeepSeek 官方余额接口，充值和账单仍由 DeepSeek 控制台处理。
 3. Memory 根 discovery 和 `/readyz`；同时检查 `production_ready`，不要只看 HTTP 200。
-4. AKEP `/health`、ContextPack 与 QuantPilot 配置的 Space；空 Space 即使 HTTP 200 也不会改善回答。
+4. AKEP `/health`、ContextPack 与 Shop Gate 配置的 Space；空 Space 即使 HTTP 200 也不会改善回答。
 5. `npm run check:integrations`，区分模型发现、工具协议、Query Rewrite 和 Memory 契约错误。
 6. `npm run check:triad-experience`，检查语义和组合体验，不以单次聊天主观判断兼容性。
-7. `curl http://127.0.0.1:3000/api/ready` 与 `npm run doctor`，确认 QuantPilot 自身数据库和本地归因表。
+7. `curl http://127.0.0.1:3000/api/ready` 与 `npm run doctor`，确认 Shop Gate 自身数据库和本地归因表。
 
 如果数据预取已成功但没有生成看板，先检查项目 `.data-agent/finance-run-plan.json`：`queryRewrite.outputIntent` 应为 `dashboard`、`visualization.required` 应为 `true`，再核对 `templateId/variantId` 是否有受信 renderer。`queryRewrite.execution.llm.guardedFields` 出现 `outputIntent` 表示模型尝试无证据降级，平台已恢复默认看板；项目重新初始化不应出现“承接上一轮澄清”等前缀。
 
-四个仓库必须独立升级和回滚。QuantPilot 不能导入 ModelPort、Memory 或 AKEP 内部源码，外部服务不能共享 QuantPilot 数据库；跨仓兼容只以 `OpenAI-compatible HTTP`、`evolvable-memory-http/v1` 和 `AKEP v0.1 HTTP` 契约为准。
+四个仓库必须独立升级和回滚。Shop Gate 不能导入 ModelPort、Memory 或 AKEP 内部源码，外部服务不能共享 Shop Gate 数据库；跨仓兼容只以 `OpenAI-compatible HTTP`、`evolvable-memory-http/v1` 和 `AKEP v0.1 HTTP` 契约为准。
 
 ## 本地后台重启
 
-开发机上需要重新启动前后端时，只处理主前端和 market-data，不要顺手重建数据库卷。推荐流程：
+开发机上需要重新启动前后端时，只处理主前端和 commerce-data，不要顺手重建数据库卷。推荐流程：
 
 ```bash
 web_pgid="$(ps -eo pgid=,cmd= | awk '/npm run dev --port 3000/ {print $1; exit}')"
-api_pgid="$(ps -eo pgid=,cmd= | awk '/uv run quantpilot-market-api/ {print $1; exit}')"
+api_pgid="$(ps -eo pgid=,cmd= | awk '/uv run shopgate-commerce-api/ {print $1; exit}')"
 [ -n "$web_pgid" ] && kill -TERM -- "-$web_pgid"
 [ -n "$api_pgid" ] && kill -TERM -- "-$api_pgid"
 sleep 2
@@ -113,7 +113,7 @@ sleep 2
 
 ```bash
 mkdir -p tmp/runtime
-setsid bash -c 'cd services/market-data && exec env QUANTPILOT_MARKET_HOST=127.0.0.1 QUANTPILOT_MARKET_PORT=8000 uv run quantpilot-market-api' > tmp/runtime/market-api.log 2>&1 < /dev/null &
+setsid bash -c 'cd services/commerce-data && exec env SHOPGATE_MARKET_HOST=127.0.0.1 SHOPGATE_MARKET_PORT=8000 uv run shopgate-commerce-api' > tmp/runtime/market-api.log 2>&1 < /dev/null &
 setsid bash -c 'exec npm run dev -- --port 3000' > tmp/runtime/web.log 2>&1 < /dev/null &
 ```
 
@@ -181,7 +181,7 @@ npm run check:market-freshness
 该命令默认要求跟进最近一个已完成交易日（上海时间 18:00 后视为当日日线已就绪）。确需容忍上游延迟时，可直接运行脚本并显式设置允许落后的工作日数量：
 
 ```bash
-node scripts/checks/check-market-data-freshness.js --max-lag-sessions 1
+node scripts/checks/check-commerce-data-freshness.js --max-lag-sessions 1
 ```
 
 日常维护不再依赖人工打开策略平台。先用 dry-run 检查日期窗口和股票池，再执行交易日历刷新、Baostock `daily/qfq` autofill 和覆盖门禁。autofill 会先做本地覆盖预检，分批处理缺口，并提供任务心跳与停止语义；维护脚本重启时会观察同股票池的既有活动任务，不重复创建：
@@ -191,7 +191,7 @@ npm run market:maintain:dry-run
 npm run market:maintain
 ```
 
-生产环境由 `deploy/systemd/quantpilot-market-maintenance.timer` 在工作日收盘后触发；服务失败必须通过 systemd/journal 监控进入值班告警。`QUANTPILOT_MARKET_FRESHNESS_MIN_SYMBOLS` 同时约束维护后的覆盖率，不能只用最新日期判断成功。
+生产环境由 `deploy/systemd/shopgate-market-maintenance.timer` 在工作日收盘后触发；服务失败必须通过 systemd/journal 监控进入值班告警。`SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS` 同时约束维护后的覆盖率，不能只用最新日期判断成功。
 
 快速 `doctor` 会把过期数据报告为 warning；上面的独立门禁会返回非零退出码，适合部署或定时任务。
 
@@ -217,7 +217,7 @@ FROM quant.stock_bars
 WHERE timeframe = 'daily' AND adjustment = 'qfq';
 ```
 
-如果 `amount` 或 `turnover` 仍大量为空，先看 `GET /api/v1/ingestion/jobs` 的失败原因，再看 market-data 日志。
+如果 `amount` 或 `turnover` 仍大量为空，先看 `GET /api/v1/ingestion/jobs` 的失败原因，再看 commerce-data 日志。
 
 ## 当日行情入库
 
@@ -271,8 +271,8 @@ curl -X POST 'http://127.0.0.1:8000/api/v1/research/universes/a-share-sample-res
 排查顺序：
 
 1. `curl http://127.0.0.1:8000/api/v1/research/sector-capital-flow`
-2. `npm run redis:cli` 后执行 `KEYS quantpilot:*sector*`
-3. 检查 market-data 日志是否全量扫描 5000+ 标的。
+2. `npm run redis:cli` 后执行 `KEYS shopgate:*sector*`
+3. 检查 commerce-data 日志是否全量扫描 5000+ 标的。
 4. 缩小日期窗口或增加摘要缓存。
 
 指标口径要谨慎：当前成交额和涨跌代理不能直接叫真实主力净流入；真实 DDE/大单资金需要单独数据源。

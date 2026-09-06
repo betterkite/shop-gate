@@ -188,7 +188,7 @@
       "summary": "量化能力、策略、数据预取、工作空间证据、验证和技能治理。",
       "owner": "quant-platform",
       "paths": [
-        "src/lib/quant/**",
+        "src/lib/commerce/**",
         "src/lib/services/project.ts",
         "src/lib/services/env.ts",
         "src/lib/services/file-browser.ts",
@@ -199,7 +199,7 @@
         "src/lib/services/pi-agent-mission-control.ts",
         "src/lib/services/pi-agent-prompts*.ts",
         "src/lib/services/cli/**",
-        "src/app/api/quant/**",
+        "src/app/api/commerce/**",
         "src/app/api/chat/**",
         "src/app/api/projects/**",
         "src/app/[project_id]/**",
@@ -207,9 +207,9 @@
         "src/app/strategy-platform/**",
         "src/app/research-reports/**",
         "src/app/business-knowledge/**",
-        "src/components/quant/skills-*.tsx",
-        "src/components/quant/workspace-*.tsx",
-        "src/components/quant/console-primitives.tsx",
+        "src/components/eval-console/skills-*.tsx",
+        "src/components/eval-console/workspace-*.tsx",
+        "src/components/eval-console/console-primitives.tsx",
         "src/components/chat/**"
       ],
       "dependsOn": [
@@ -225,10 +225,10 @@
         "@/lib/domains/finance",
         "@/lib/services/project",
         "@/lib/services/cli/pi-agent",
-        "@/lib/quant/research-reports",
-        "@/lib/quant/strategies",
+        "@/lib/commerce/research-reports",
+        "@/lib/commerce/strategies",
         "@/lib/domains/finance",
-        "@/lib/quant/validation"
+        "@/lib/commerce/validation"
       ],
       "migrationNotes": [
         "strategies.ts 已拆出 strategy-types / strategy-catalog / strategy-scan-repository / strategy-readiness / strategy-mappers；StrategyPlatformClient 已拆出 helpers、FinancialKnowledgeView、UniverseView、StockKlineDetail、SectorCapitalFlowView、FactorCatalogView、FoundationView，后续继续拆 dialogs、hooks、market API client 和 dashboard service。"
@@ -243,10 +243,10 @@
         "src/lib/eval/**",
         "src/app/eval-platform/**",
         "src/app/api/evals/**",
-        "src/components/quant/eval-*.tsx",
+        "src/components/eval-console/eval-*.tsx",
         "scripts/evals/**",
         "scripts/checks/check-eval-*.js",
-        "scripts/checks/check-quant-benchmark-coverage.js",
+        "scripts/checks/check-commerce-benchmark-coverage.js",
         "docs/evals-guide.md"
       ],
       "dependsOn": [
@@ -259,7 +259,7 @@
       ],
       "publicSurface": [
         "@/lib/eval",
-        "@/components/quant/eval-console-primitives"
+        "@/components/eval-console/eval-console-primitives"
       ],
       "migrationNotes": [
         "eval-core 已迁出 quant 目录；cases/sets、paths、runtime-utils 和 runtime-mappers 已拆分。runtime.ts 后续继续拆 runs / queue / repairs / scheduling。"
@@ -276,7 +276,7 @@
         "src/app/api/ops/**",
         "src/app/api/infrastructure/health/**",
         "src/app/api/observability/**",
-        "src/components/quant/ops-*.tsx",
+        "src/components/eval-console/ops-*.tsx",
         "deploy/observability/**"
       ],
       "dependsOn": [
@@ -292,18 +292,18 @@
       ]
     },
     {
-      "id": "market-data-backend",
+      "id": "commerce-data-backend",
       "name": "Python 市场数据后端",
       "summary": "FastAPI、行情 provider、TimescaleDB 事实库、Redis 缓存、ClickHouse 分析层和回测。",
       "owner": "backend-platform",
       "paths": [
-        "services/market-data/**"
+        "services/commerce-data/**"
       ],
       "dependsOn": [],
       "publicSurface": [
-        "services/market-data/src/quantpilot_market_data/routers",
-        "services/market-data/src/quantpilot_market_data/services",
-        "services/market-data/src/quantpilot_market_data/repositories"
+        "services/commerce-data/src/shopgate_commerce_data/routers",
+        "services/commerce-data/src/shopgate_commerce_data/services",
+        "services/commerce-data/src/shopgate_commerce_data/repositories"
       ],
       "migrationNotes": [
         "旧 database.py 兼容门面已删除；连接与转换工具只进入 database_core.py，业务 SQL 只进入对应 repository。"
@@ -324,7 +324,7 @@
       },
       {
         "from": "src/components/ui/**",
-        "to": "src/lib/quant/**",
+        "to": "src/lib/commerce/**",
         "reason": "通用 UI 不能携带量化领域知识。"
       },
       {
@@ -339,7 +339,7 @@
       },
       {
         "from": "src/lib/agent/**",
-        "to": "src/lib/quant/**",
+        "to": "src/lib/commerce/**",
         "reason": "PI Agent Framework 不能依赖金融应用核心。"
       },
       {
@@ -354,7 +354,7 @@
       },
       {
         "from": "src/lib/data-agent/**",
-        "to": "src/lib/quant/**",
+        "to": "src/lib/commerce/**",
         "reason": "通用 Data Agent 不能依赖金融应用实现。"
       },
       {
@@ -364,11 +364,11 @@
       },
       {
         "from": "src/lib/domains/finance/**",
-        "to": "src/lib/quant/**",
-        "reason": "Finance Domain Pack 不能反向依赖 QuantPilot 产品编排层。"
+        "to": "src/lib/commerce/**",
+        "reason": "Finance Domain Pack 不能反向依赖 Shop Gate 产品编排层。"
       },
       {
-        "from": "services/market-data/**",
+        "from": "services/commerce-data/**",
         "to": "src/**",
         "reason": "Python 后端不能依赖 Next.js 前端源码。"
       }
@@ -391,7 +391,7 @@
         "reason": "模型选择只通过项目当前合同持久化，不恢复平行偏好 API。"
       },
       {
-        "path": "services/market-data/src/quantpilot_market_data/database.py",
+        "path": "services/commerce-data/src/shopgate_commerce_data/database.py",
         "reason": "数据库连接与业务 SQL 已拆入 database_core 和 repositories。"
       }
     ],
@@ -428,7 +428,7 @@
       },
       {
         "path": "src/lib/agent/skills/compiler.ts",
-        "pattern": "QuantPilotImage|mcp__MiniMax__understand_image",
+        "pattern": "ShopGateImage|mcp__MiniMax__understand_image",
         "reason": "PI Agent Skill 编译器不保留具体产品或 Provider 的旧工具别名兼容。"
       }
     ],
@@ -476,25 +476,25 @@
         "nextAction": "保持上游 PI loop 单一入口，并按 adapter、tool governance、event projection 和 terminalization 拆分宿主逻辑。"
       },
       {
-        "path": "src/lib/quant/validation.ts",
+        "path": "src/lib/commerce/validation.ts",
         "maxLines": 3140,
         "targetLines": 1600,
         "nextAction": "按 artifact、data contract、visual、repair 和 acceptance pipeline 拆分，保留单一 validation facade。"
       },
       {
-        "path": "src/lib/quant/data-prefetch.ts",
+        "path": "src/lib/commerce/data-prefetch.ts",
         "maxLines": 2040,
         "targetLines": 1200,
         "nextAction": "将通用数据计划、金融 endpoint adapter、证据落盘和错误归一化拆开。"
       },
       {
-        "path": "services/market-data/src/quantpilot_market_data/models.py",
+        "path": "services/commerce-data/src/shopgate_commerce_data/models.py",
         "maxLines": 1625,
         "targetLines": 900,
         "nextAction": "按 quotes、research、ingestion、financials、analytics 分拆 Pydantic contracts，并由 models package 统一导出。"
       },
       {
-        "path": "services/market-data/src/quantpilot_market_data/api.py",
+        "path": "services/commerce-data/src/shopgate_commerce_data/api.py",
         "maxLines": 1540,
         "targetLines": 700,
         "nextAction": "收敛为 app factory 和 router 注册；业务 endpoint 必须进入 routers/，use case 必须进入 services/。"
@@ -506,7 +506,7 @@
         "nextAction": "已拆 helpers、Knowledge、Universe、Kline、Sector、Factor、Foundation 视图；继续拆 dialogs、hooks 和 tables。"
       },
       {
-        "path": "src/lib/quant/strategies.ts",
+        "path": "src/lib/commerce/strategies.ts",
         "maxLines": 1170,
         "targetLines": 900,
         "nextAction": "已拆 catalog/types/scan repository/readiness/response mappers；继续拆 market API client 和 dashboard service。"

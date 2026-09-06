@@ -1,1 +1,1 @@
-"""Use case modules for the market-data service."""
+"""Use case modules for the commerce-data service."""

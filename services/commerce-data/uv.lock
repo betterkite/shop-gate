@@ -800,7 +800,7 @@ wheels = [
 ]
 
 [[package]]
-name = "quantpilot-market-data"
+name = "shopgate-commerce-data"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

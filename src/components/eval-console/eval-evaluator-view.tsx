@@ -19,7 +19,7 @@ import {
   Panel,
   flowStepClass,
   type EvalSet,
-} from '@/components/quant/eval-console-primitives';
+} from '@/components/eval-console/eval-console-primitives';
 import type { QuantEvalFlowSimulation } from '@/lib/eval';
 import type { EvalEvaluatorId, QuantEvalExecutionMode } from '@/lib/eval';
 import { cn } from '@/lib/utils';

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from quantpilot_market_data.cache import MarketDataCache
-from quantpilot_market_data.models import (
+from shopgate_commerce_data.cache import MarketDataCache
+from shopgate_commerce_data.models import (
     FinancialReportsResponse,
     FundamentalIndicatorsResponse,
 )
-from quantpilot_market_data.providers.base import FinancialReportProvider
-from quantpilot_market_data.providers.eastmoney import EastMoneyError
-from quantpilot_market_data.services.fundamentals import (
+from shopgate_commerce_data.providers.base import FinancialReportProvider
+from shopgate_commerce_data.providers.eastmoney import EastMoneyError
+from shopgate_commerce_data.services.fundamentals import (
     get_financial_reports,
     get_fundamental_indicators,
 )

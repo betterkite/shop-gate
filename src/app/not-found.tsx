@@ -17,7 +17,7 @@ export default function NotFound() {
         <Button asChild className="mt-7">
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />
-            返回 QuantPilot
+            返回 Shop Gate
           </Link>
         </Button>
       </section>

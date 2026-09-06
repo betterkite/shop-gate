@@ -1,7 +1,7 @@
 [project]
-name = "quantpilot-market-data"
+name = "shopgate-commerce-data"
 version = "0.1.0"
-description = "QuantPilot 市场数据后端模块，提供东方财富实时行情能力"
+description = "Shop Gate 市场数据后端模块，提供东方财富实时行情能力"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -28,7 +28,7 @@ tushare = [
 ]
 
 [project.scripts]
-quantpilot-market-api = "quantpilot_market_data.cli:main"
+shopgate-commerce-api = "shopgate_commerce_data.cli:main"
 
 [dependency-groups]
 dev = [

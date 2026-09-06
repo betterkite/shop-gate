@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 import type {
   ResearchAutomationDashboard,
   ResearchReportSnapshot,
-} from "@/lib/quant/research-reports";
+} from "@/lib/commerce/research-reports";
 import {
   ResearchMetricCard,
   ResearchSectionHeader,
@@ -144,7 +144,7 @@ function OverviewView({ data, onViewChange, onSend, isSending }: {
       <section className="space-y-4"><ResearchSectionHeader eyebrow="RESEARCH PIPELINE" title="研究生产链路" description="从研究范围到证据采样、报告合成与推送交付，每个阶段都保留状态事实。" /><ResearchPipeline data={data} /></section>
 
       {latest ? <section className="space-y-4"><ResearchSectionHeader eyebrow="LATEST BRIEF" title="最新研究摘要" description="优先展示最新评分、建议、候选、覆盖率和证据状态。" action={<Button variant="ghost" size="sm" onClick={() => onViewChange("reports")}>查看全部报告 <ArrowRight className="h-3.5 w-3.5" /></Button>} /><LatestResearchCard report={latest} onOpenReports={() => onViewChange("reports")} onSend={() => onSend(latest.id)} isSending={isSending} /></section> : (
-        <section className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]"><div className="rounded-2xl border border-dashed border-primary/25 bg-card px-6 py-10 text-center sm:py-12"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></span><h3 className="mt-4 text-xl font-black text-foreground">首份日报会沉淀哪些内容？</h3><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">候选标的、股票池覆盖、综合评分、风险等级、研究建议、证据状态与人工复核清单。</p><Button variant="outline" className="mt-4" onClick={() => onViewChange("automation")}>检查生成条件<ArrowRight className="h-4 w-4" /></Button></div><div className="rounded-2xl border border-border/60 bg-card p-5"><h3 className="text-base font-bold text-foreground">当前研究边界</h3><div className="mt-4 space-y-3">{["使用本地 market-data 与股票池事实，不拼装未知外部 API。", "ClickHouse 不可用时保留 TimescaleDB 稳定回退路径。", "新闻与舆情源尚未启用，不会伪造事件结论。", "日报只作为研究与复核材料，不输出确定性买卖指令。"].map((item) => <div key={item} className="flex items-start gap-2 text-sm leading-6 text-muted-foreground"><ShieldAlert className="mt-1 h-4 w-4 shrink-0 text-amber-500" />{item}</div>)}</div></div></section>
+        <section className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]"><div className="rounded-2xl border border-dashed border-primary/25 bg-card px-6 py-10 text-center sm:py-12"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Sparkles className="h-5 w-5" /></span><h3 className="mt-4 text-xl font-black text-foreground">首份日报会沉淀哪些内容？</h3><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">候选标的、股票池覆盖、综合评分、风险等级、研究建议、证据状态与人工复核清单。</p><Button variant="outline" className="mt-4" onClick={() => onViewChange("automation")}>检查生成条件<ArrowRight className="h-4 w-4" /></Button></div><div className="rounded-2xl border border-border/60 bg-card p-5"><h3 className="text-base font-bold text-foreground">当前研究边界</h3><div className="mt-4 space-y-3">{["使用本地 commerce-data 与股票池事实，不拼装未知外部 API。", "ClickHouse 不可用时保留 TimescaleDB 稳定回退路径。", "新闻与舆情源尚未启用，不会伪造事件结论。", "日报只作为研究与复核材料，不输出确定性买卖指令。"].map((item) => <div key={item} className="flex items-start gap-2 text-sm leading-6 text-muted-foreground"><ShieldAlert className="mt-1 h-4 w-4 shrink-0 text-amber-500" />{item}</div>)}</div></div></section>
       )}
 
       <section className="grid gap-5 xl:grid-cols-2">

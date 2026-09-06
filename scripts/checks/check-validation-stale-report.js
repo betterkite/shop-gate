@@ -9,7 +9,7 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-vali
   interopDefault: true,
 });
 
-const { readQuantValidationReport } = jiti('../../src/lib/quant/validation.ts');
+const { readQuantValidationReport } = jiti('../../src/lib/commerce/validation.ts');
 
 async function writeFile(filePath, content) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -21,7 +21,7 @@ async function writeJson(filePath, value) {
 }
 
 async function main() {
-  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-stale-validation-'));
+  const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-stale-validation-'));
   try {
     await writeJson(path.join(projectPath, '.data-agent/validation.json'), {
       schemaVersion: 1,

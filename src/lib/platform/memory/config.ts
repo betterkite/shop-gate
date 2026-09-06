@@ -54,7 +54,7 @@ function httpBaseUrl(value: string): string {
     || parsed.search
     || parsed.hash
   ) {
-    throw new Error('QUANTPILOT_MEMORY_API_URL must be an HTTP(S) base URL without credentials.');
+    throw new Error('SHOPGATE_MEMORY_API_URL must be an HTTP(S) base URL without credentials.');
   }
   return parsed.toString().replace(/\/$/, '');
 }
@@ -62,7 +62,7 @@ function httpBaseUrl(value: string): string {
 function scopeId(value: string | undefined, fallback: string): string {
   const normalized = value?.trim() || fallback;
   if (normalized.length > 128) {
-    throw new Error('QUANTPILOT_MEMORY_TENANT_ID must be at most 128 characters.');
+    throw new Error('SHOPGATE_MEMORY_TENANT_ID must be at most 128 characters.');
   }
   return normalized;
 }
@@ -71,10 +71,10 @@ function tokenBroker(
   environment: Environment,
   enabled: boolean,
 ): MemoryIntegrationConfig['tokenBroker'] {
-  const url = environment.QUANTPILOT_MEMORY_TOKEN_BROKER_URL?.trim();
-  const clientId = environment.QUANTPILOT_MEMORY_TOKEN_BROKER_CLIENT_ID?.trim();
-  const clientSecret = environment.QUANTPILOT_MEMORY_TOKEN_BROKER_CLIENT_SECRET?.trim();
-  const audience = environment.QUANTPILOT_MEMORY_TOKEN_AUDIENCE?.trim()
+  const url = environment.SHOPGATE_MEMORY_TOKEN_BROKER_URL?.trim();
+  const clientId = environment.SHOPGATE_MEMORY_TOKEN_BROKER_CLIENT_ID?.trim();
+  const clientSecret = environment.SHOPGATE_MEMORY_TOKEN_BROKER_CLIENT_SECRET?.trim();
+  const audience = environment.SHOPGATE_MEMORY_TOKEN_AUDIENCE?.trim()
     || 'evolvable-memory-api';
   const configured = Boolean(url || clientId || clientSecret);
   if (!configured) {
@@ -107,15 +107,15 @@ function tokenBroker(
 export function getMemoryIntegrationConfig(
   environment: Environment = process.env,
 ): MemoryIntegrationConfig {
-  const offline = environment.QUANTPILOT_DEGRADATION_MODE?.trim().toLowerCase() === 'offline';
+  const offline = environment.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() === 'offline';
   const defaultEnabled = environment.NODE_ENV !== 'test';
-  const enabled = !offline && flag(environment.QUANTPILOT_MEMORY_ENABLED, defaultEnabled);
-  const required = enabled && flag(environment.QUANTPILOT_MEMORY_REQUIRED, false);
+  const enabled = !offline && flag(environment.SHOPGATE_MEMORY_ENABLED, defaultEnabled);
+  const required = enabled && flag(environment.SHOPGATE_MEMORY_REQUIRED, false);
   const requireProductionReady = enabled && flag(
-    environment.QUANTPILOT_MEMORY_REQUIRE_PRODUCTION_READY,
+    environment.SHOPGATE_MEMORY_REQUIRE_PRODUCTION_READY,
     environment.NODE_ENV === 'production',
   );
-  const bearerToken = environment.QUANTPILOT_MEMORY_BEARER_TOKEN?.trim() || null;
+  const bearerToken = environment.SHOPGATE_MEMORY_BEARER_TOKEN?.trim() || null;
   if (environment.NODE_ENV === 'production' && bearerToken) {
     throw new Error('Static personal memory bearer tokens are forbidden in production.');
   }
@@ -125,14 +125,14 @@ export function getMemoryIntegrationConfig(
     required,
     requireProductionReady,
     apiUrl: httpBaseUrl(
-      environment.QUANTPILOT_MEMORY_API_URL?.trim() || 'http://127.0.0.1:38089',
+      environment.SHOPGATE_MEMORY_API_URL?.trim() || 'http://127.0.0.1:38089',
     ),
-    tenantId: scopeId(environment.QUANTPILOT_MEMORY_TENANT_ID, 'quantpilot-local'),
+    tenantId: scopeId(environment.SHOPGATE_MEMORY_TENANT_ID, 'shopgate-local'),
     purpose: 'personalization',
-    timeoutMs: boundedInteger(environment.QUANTPILOT_MEMORY_TIMEOUT_MS, 5_000, 100, 30_000),
-    recallLimit: boundedInteger(environment.QUANTPILOT_MEMORY_RECALL_LIMIT, 6, 1, 100),
+    timeoutMs: boundedInteger(environment.SHOPGATE_MEMORY_TIMEOUT_MS, 5_000, 100, 30_000),
+    recallLimit: boundedInteger(environment.SHOPGATE_MEMORY_RECALL_LIMIT, 6, 1, 100),
     maxProjectionCharacters: boundedInteger(
-      environment.QUANTPILOT_MEMORY_MAX_CONTEXT_CHARACTERS,
+      environment.SHOPGATE_MEMORY_MAX_CONTEXT_CHARACTERS,
       2_000,
       64,
       100_000,

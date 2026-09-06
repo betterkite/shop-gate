@@ -101,7 +101,7 @@ function buildQuantApiUrl(apiPath: string, query: Record<string, QueryValue>): U
   if (!apiPath.startsWith(QUANT_API_PREFIX) || apiPath.startsWith('//')) {
     throw new PiAgentToolError(
       'QUANT_API_PATH_DENIED',
-      'quant_api_get only accepts paths beginning with /api/v1/.',
+      'commerce_api_get only accepts paths beginning with /api/v1/.',
     );
   }
   if (apiPath.includes('\\') || apiPath.includes('?') || apiPath.includes('#') || /[\r\n\0]/.test(apiPath)) {
@@ -279,7 +279,7 @@ function serializeBoundedPreview(
 
   const minimal = JSON.stringify({
     $piAgent: {
-      kind: 'quant_api_result_window',
+      kind: 'commerce_api_result_window',
       version: QUANT_WINDOW_VERSION,
       truncated: true,
     },
@@ -288,7 +288,7 @@ function serializeBoundedPreview(
 }
 
 /**
- * Keep large market-data responses valid JSON. Time-series arrays retain an
+ * Keep large commerce-data responses valid JSON. Time-series arrays retain an
  * early sample and a larger recent tail, while top-level metadata, summaries,
  * data-quality fields, and every object field remain available to the model.
  */
@@ -306,7 +306,7 @@ function compactQuantOutput(
   }
 
   const baseMetadata = {
-    kind: 'quant_api_result_window',
+    kind: 'commerce_api_result_window',
     version: QUANT_WINDOW_VERSION,
     truncated: true,
     sourcePath: options.path,
@@ -377,7 +377,7 @@ export function createQuantApiGetTool(options: PiAgentQuantApiToolOptions = {}):
   const fetchImpl = options.fetchImpl ?? fetch;
   let requestCount = 0;
   return {
-    name: 'quant_api_get',
+    name: 'commerce_api_get',
     description: 'GET market and quant data from the fixed local http://127.0.0.1:8000/api/v1/ service. No other host or method is available.',
     effect: 'read',
     idempotency: 'intrinsic',

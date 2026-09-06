@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from quantpilot_market_data.readiness import get_market_readiness
+from shopgate_commerce_data.readiness import get_market_readiness
 
 
 async def passing_probe() -> None:
@@ -23,9 +23,9 @@ def test_required_dependency_failure_blocks_readiness_without_leaking_error() ->
             database_probe=failing_probe,
             redis_probe=passing_probe,  # type: ignore[arg-type]
             environment={
-                "QUANTPILOT_DEGRADATION_MODE": "strict",
-                "QUANTPILOT_DATABASE_REQUIRED": "1",
-                "QUANTPILOT_REDIS_REQUIRED": "1",
+                "SHOPGATE_DEGRADATION_MODE": "strict",
+                "SHOPGATE_DATABASE_REQUIRED": "1",
+                "SHOPGATE_REDIS_REQUIRED": "1",
             },
         )
     )
@@ -41,8 +41,8 @@ def test_optional_failure_and_disabled_component_do_not_block() -> None:
             database_probe=passing_probe,
             redis_probe=false_probe,
             environment={
-                "QUANTPILOT_DATABASE_REQUIRED": "1",
-                "QUANTPILOT_REDIS_REQUIRED": "0",
+                "SHOPGATE_DATABASE_REQUIRED": "1",
+                "SHOPGATE_REDIS_REQUIRED": "0",
             },
         )
     )
@@ -54,8 +54,8 @@ def test_optional_failure_and_disabled_component_do_not_block() -> None:
             database_probe=passing_probe,
             redis_probe=false_probe,
             environment={
-                "QUANTPILOT_DATABASE_REQUIRED": "1",
-                "QUANTPILOT_REDIS_CACHE_ENABLED": "0",
+                "SHOPGATE_DATABASE_REQUIRED": "1",
+                "SHOPGATE_REDIS_CACHE_ENABLED": "0",
             },
         )
     )

@@ -18,14 +18,14 @@ const envLocalFile = path.join(rootDir, '.env.local');
 const rootDataDir = path.join(rootDir, 'data');
 const projectsDir = path.join(rootDataDir, 'projects');
 const defaultDatabaseUrl =
-  '"postgresql://quantpilot:quantpilot_dev_password@127.0.0.1:5432/quantpilot?schema=public"';
+  '"postgresql://shopgate:shopgate_dev_password@127.0.0.1:5432/shopgate?schema=public"';
 
 const MAX_PORT = 65_535;
 // Preview servers (per-project) dynamic pool
 const FALLBACK_PORT_START = 4_100;
 const FALLBACK_PORT_END = 4_999;
 const DEFAULT_RANGE_SPAN = FALLBACK_PORT_END - FALLBACK_PORT_START;
-// QuantPilot 主应用默认端口，扫描范围避开生成项目预览端口池
+// Shop Gate 主应用默认端口，扫描范围避开生成项目预览端口池
 const DEFAULT_WEB_PORT = 3_000;
 const DEFAULT_WEB_SCAN_SPAN = 99; // scan up to 3099 at most
 const DEFAULT_WEB_MAX = DEFAULT_WEB_PORT + DEFAULT_WEB_SCAN_SPAN;
@@ -227,13 +227,13 @@ async function ensureEnvironment(options = {}) {
     envDefaults.TIMESCALEDB_IMAGE = '"timescale/timescaledb:2.27.1-pg18"';
   }
   if (!hasEnvKey(envContents, 'POSTGRES_DB')) {
-    envDefaults.POSTGRES_DB = '"quantpilot"';
+    envDefaults.POSTGRES_DB = '"shopgate"';
   }
   if (!hasEnvKey(envContents, 'POSTGRES_USER')) {
-    envDefaults.POSTGRES_USER = '"quantpilot"';
+    envDefaults.POSTGRES_USER = '"shopgate"';
   }
   if (!hasEnvKey(envContents, 'POSTGRES_PASSWORD')) {
-    envDefaults.POSTGRES_PASSWORD = '"quantpilot_dev_password"';
+    envDefaults.POSTGRES_PASSWORD = '"shopgate_dev_password"';
   }
   if (!hasEnvKey(envContents, 'POSTGRES_PORT')) {
     envDefaults.POSTGRES_PORT = '5432';
@@ -248,22 +248,22 @@ async function ensureEnvironment(options = {}) {
     envDefaults.REDIS_PORT = '6379';
   }
   if (!hasEnvKey(envContents, 'REDIS_NAMESPACE')) {
-    envDefaults.REDIS_NAMESPACE = '"quantpilot"';
+    envDefaults.REDIS_NAMESPACE = '"shopgate"';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_REDIS_CACHE_ENABLED')) {
-    envDefaults.QUANTPILOT_REDIS_CACHE_ENABLED = '1';
+  if (!hasEnvKey(envContents, 'SHOPGATE_REDIS_CACHE_ENABLED')) {
+    envDefaults.SHOPGATE_REDIS_CACHE_ENABLED = '1';
   }
   if (!hasEnvKey(envContents, 'CLICKHOUSE_IMAGE')) {
     envDefaults.CLICKHOUSE_IMAGE = '"clickhouse/clickhouse-server:25.8"';
   }
   if (!hasEnvKey(envContents, 'CLICKHOUSE_DB')) {
-    envDefaults.CLICKHOUSE_DB = '"quantpilot"';
+    envDefaults.CLICKHOUSE_DB = '"shopgate"';
   }
   if (!hasEnvKey(envContents, 'CLICKHOUSE_USER')) {
-    envDefaults.CLICKHOUSE_USER = '"quantpilot"';
+    envDefaults.CLICKHOUSE_USER = '"shopgate"';
   }
   if (!hasEnvKey(envContents, 'CLICKHOUSE_PASSWORD')) {
-    envDefaults.CLICKHOUSE_PASSWORD = '"quantpilot_dev_password"';
+    envDefaults.CLICKHOUSE_PASSWORD = '"shopgate_dev_password"';
   }
   if (!hasEnvKey(envContents, 'CLICKHOUSE_HTTP_PORT')) {
     const clickHouseHttpPort = await findAvailablePort(8_123, 8_199, 8_123);
@@ -284,38 +284,38 @@ async function ensureEnvironment(options = {}) {
   if (!isValidEncryptionKey(encryptionKey)) {
     envDefaults.ENCRYPTION_KEY = `"${crypto.randomBytes(32).toString('hex')}"`;
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_ENABLE_INTERNAL_TOKEN_API')) {
-    envDefaults.QUANTPILOT_ENABLE_INTERNAL_TOKEN_API = '0';
+  if (!hasEnvKey(envContents, 'SHOPGATE_ENABLE_INTERNAL_TOKEN_API')) {
+    envDefaults.SHOPGATE_ENABLE_INTERNAL_TOKEN_API = '0';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_INTERNAL_API_TOKEN')) {
-    envDefaults.QUANTPILOT_INTERNAL_API_TOKEN = '""';
+  if (!hasEnvKey(envContents, 'SHOPGATE_INTERNAL_API_TOKEN')) {
+    envDefaults.SHOPGATE_INTERNAL_API_TOKEN = '""';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_MAX_IMAGE_UPLOAD_BYTES')) {
-    envDefaults.QUANTPILOT_MAX_IMAGE_UPLOAD_BYTES = String(10 * 1024 * 1024);
+  if (!hasEnvKey(envContents, 'SHOPGATE_MAX_IMAGE_UPLOAD_BYTES')) {
+    envDefaults.SHOPGATE_MAX_IMAGE_UPLOAD_BYTES = String(10 * 1024 * 1024);
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_DEGRADATION_MODE')) {
-    envDefaults.QUANTPILOT_DEGRADATION_MODE = '"auto"';
+  if (!hasEnvKey(envContents, 'SHOPGATE_DEGRADATION_MODE')) {
+    envDefaults.SHOPGATE_DEGRADATION_MODE = '"auto"';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_DATABASE_ENABLED')) {
-    envDefaults.QUANTPILOT_DATABASE_ENABLED = '1';
+  if (!hasEnvKey(envContents, 'SHOPGATE_DATABASE_ENABLED')) {
+    envDefaults.SHOPGATE_DATABASE_ENABLED = '1';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_DATABASE_REQUIRED')) {
-    envDefaults.QUANTPILOT_DATABASE_REQUIRED = '1';
+  if (!hasEnvKey(envContents, 'SHOPGATE_DATABASE_REQUIRED')) {
+    envDefaults.SHOPGATE_DATABASE_REQUIRED = '1';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_MARKET_API_ENABLED')) {
-    envDefaults.QUANTPILOT_MARKET_API_ENABLED = '1';
+  if (!hasEnvKey(envContents, 'SHOPGATE_MARKET_API_ENABLED')) {
+    envDefaults.SHOPGATE_MARKET_API_ENABLED = '1';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_MARKET_API_REQUIRED')) {
-    envDefaults.QUANTPILOT_MARKET_API_REQUIRED = '0';
+  if (!hasEnvKey(envContents, 'SHOPGATE_MARKET_API_REQUIRED')) {
+    envDefaults.SHOPGATE_MARKET_API_REQUIRED = '0';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_OBSERVABILITY_ENABLED')) {
-    envDefaults.QUANTPILOT_OBSERVABILITY_ENABLED = '1';
+  if (!hasEnvKey(envContents, 'SHOPGATE_OBSERVABILITY_ENABLED')) {
+    envDefaults.SHOPGATE_OBSERVABILITY_ENABLED = '1';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_OBSERVABILITY_REQUIRED')) {
-    envDefaults.QUANTPILOT_OBSERVABILITY_REQUIRED = '0';
+  if (!hasEnvKey(envContents, 'SHOPGATE_OBSERVABILITY_REQUIRED')) {
+    envDefaults.SHOPGATE_OBSERVABILITY_REQUIRED = '0';
   }
-  if (!hasEnvKey(envContents, 'QUANTPILOT_REDIS_REQUIRED')) {
-    envDefaults.QUANTPILOT_REDIS_REQUIRED = '0';
+  if (!hasEnvKey(envContents, 'SHOPGATE_REDIS_REQUIRED')) {
+    envDefaults.SHOPGATE_REDIS_REQUIRED = '0';
   }
   const portStartCandidates = [
     parsePortValue(process.env.PREVIEW_PORT_START),
@@ -391,7 +391,7 @@ async function ensureEnvironment(options = {}) {
   let updatedEnv =
     envContents ||
     [
-      '# QuantPilot local infrastructure defaults.',
+      '# Shop Gate local infrastructure defaults.',
       '# Generated and maintained by scripts/dev/setup-env.js; this file is ignored by Git.',
       '# Keep non-secret shared defaults here. Put credentials and machine-specific overrides',
       '# in .env.local. Runtime precedence: process environment > .env.local > .env.',
@@ -410,7 +410,7 @@ async function ensureEnvironment(options = {}) {
   let envLocalContents = envLocalContentsRaw;
   if (!envLocalContents.trim()) {
     envLocalContents = [
-      '# QuantPilot local secrets and machine-specific overrides.',
+      '# Shop Gate local secrets and machine-specific overrides.',
       '# This file is ignored by Git. Never copy upstream Provider keys into a committed file.',
       '# Runtime precedence: process environment > .env.local > .env.',
       '# See docs/configuration.md for ModelPort, direct DeepSeek, and Memory-off examples.',
@@ -419,12 +419,12 @@ async function ensureEnvironment(options = {}) {
   }
 
   const configuredAuthMode =
-    readEnvRawValue(envLocalContents, 'QUANTPILOT_AUTH_MODE') ||
-    readEnvRawValue(envContents, 'QUANTPILOT_AUTH_MODE');
+    readEnvRawValue(envLocalContents, 'SHOPGATE_AUTH_MODE') ||
+    readEnvRawValue(envContents, 'SHOPGATE_AUTH_MODE');
   const enableLocalAuth = enableAuthOverride || configuredAuthMode === 'local';
   const existingAuthSecret =
-    readEnvRawValue(envLocalContents, 'QUANTPILOT_AUTH_SECRET') ||
-    readEnvRawValue(envContents, 'QUANTPILOT_AUTH_SECRET') ||
+    readEnvRawValue(envLocalContents, 'SHOPGATE_AUTH_SECRET') ||
+    readEnvRawValue(envContents, 'SHOPGATE_AUTH_SECRET') ||
     readEnvRawValue(envLocalContents, 'BETTER_AUTH_SECRET') ||
     readEnvRawValue(envContents, 'BETTER_AUTH_SECRET');
   const authSecret = existingAuthSecret || crypto.randomBytes(48).toString('base64url');
@@ -437,12 +437,12 @@ async function ensureEnvironment(options = {}) {
     PREVIEW_PORT_END: String(portRangeEnd),
     ...(enableLocalAuth
       ? {
-          QUANTPILOT_AUTH_MODE: 'local',
-          QUANTPILOT_AUTH_SECRET: authSecret,
+          SHOPGATE_AUTH_MODE: 'local',
+          SHOPGATE_AUTH_SECRET: authSecret,
           BETTER_AUTH_URL: url,
-          QUANTPILOT_AUTH_SECURE_COOKIES: '0',
-          QUANTPILOT_AUTH_TRUSTED_ORIGINS: `${url},http://127.0.0.1:${port}`,
-          QUANTPILOT_AUTH_ALLOW_SIGNUP: '0',
+          SHOPGATE_AUTH_SECURE_COOKIES: '0',
+          SHOPGATE_AUTH_TRUSTED_ORIGINS: `${url},http://127.0.0.1:${port}`,
+          SHOPGATE_AUTH_ALLOW_SIGNUP: '0',
         }
       : {}),
   };

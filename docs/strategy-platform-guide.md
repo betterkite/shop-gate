@@ -40,7 +40,7 @@ http://localhost:3000/strategy-platform
 ```mermaid
 flowchart LR
   P[策略平台页面] --> A[Next.js API / 页面数据加载]
-  A --> M[market-data FastAPI]
+  A --> M[commerce-data FastAPI]
   M --> Q[(quant schema)]
   Q --> B[stock_bars / stock_factors]
   Q --> U[security_universes / members]

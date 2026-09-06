@@ -337,7 +337,7 @@ export function mapScreenerResponse(value: unknown): StrategyScreenerResponse {
     candidates,
     dataBasis,
     analytics: mapAnalyticsExecutionMetadata(record.analytics, dataBasis),
-    source: asString(record.source, 'quantpilot-market-api'),
+    source: asString(record.source, 'shopgate-commerce-api'),
     notes: asStringArray(record.notes),
     cacheStatus: asString(record.cache_status, 'bypass'),
     cacheTtlSeconds: asNumber(record.cache_ttl_seconds),
@@ -665,7 +665,7 @@ export function mapFactorDefinition(value: unknown): StrategyFactorDefinition {
     formula: typeof record.formula === 'string' ? record.formula : null,
     dependencies: asStringArray(record.dependencies),
     status: asString(record.status, 'active'),
-    provider: asString(record.provider, 'quantpilot'),
+    provider: asString(record.provider, 'shopgate'),
     metadata: asRecord(record.metadata),
     updatedAt: typeof record.updated_at === 'string' ? record.updated_at : null,
   };

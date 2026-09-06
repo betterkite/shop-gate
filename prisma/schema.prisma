@@ -1,4 +1,4 @@
-// QuantPilot - Prisma Schema (PostgreSQL)
+// Shop Gate - Prisma Schema (PostgreSQL)
 // 本地开发默认使用 Docker 中的 TimescaleDB/PostgreSQL
 
 generator client {
@@ -35,7 +35,7 @@ model Project {
   // Agent Runtime Preferences. PiAgent rebuilds bounded context from messages.
   preferredCli               String? @map("preferred_cli") // 产品运行时标识，规范值为 pi
   selectedModel              String? @map("selected_model") // 默认 local_qwen:qwen3.5-9b-q5km，可显式选择受控模型
-  agentProfileId             String  @default("quantpilot.finance-research") @map("agent_profile_id")
+  agentProfileId             String  @default("shopgate.finance-research") @map("agent_profile_id")
   agentProfileVersion        String  @default("1.0.0") @map("agent_profile_version")
   dataAgentCompositionSha256 String  @default("sha256:89436aed794ee3f03ae211a3d07ea6bc0c7fd94cd46663dba9f31917fcb8d575") @map("data_agent_composition_sha256")
 
@@ -312,7 +312,7 @@ model PersonalMemoryFeedbackReceipt {
   @@map("personal_memory_feedback_receipts")
 }
 
-/// Durable QuantPilot-side attribution for governed knowledge that was
+/// Durable Shop Gate-side attribution for governed knowledge that was
 /// actually bound to an accepted Mission. AKEP identifiers remain opaque and
 /// no AKEP persistence entity or foreign key crosses this deployment boundary.
 model GovernedKnowledgeUse {
@@ -352,7 +352,7 @@ model GovernedKnowledgeUse {
   @@map("governed_knowledge_uses")
 }
 
-/// QuantPilot-owned user control for whether external memory may influence
+/// Shop Gate-owned user control for whether external memory may influence
 /// future Agent runs. This is a product usage fence, not a legal processing
 /// grant and not a copy of provider-side lifecycle state.
 model PersonalMemoryControl {
@@ -960,7 +960,7 @@ model ResearchReport {
   contentMarkdown String   @map("content_markdown")
   structured      Json
   evidence        Json
-  source          String   @default("local-market-data")
+  source          String   @default("local-commerce-data")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

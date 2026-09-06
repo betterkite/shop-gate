@@ -58,17 +58,17 @@ const envExample = read('.env.example');
 if (!/^MODELPORT_API_KEY=/m.test(envExample)) {
   fail('.env.example 必须声明 MODELPORT_API_KEY');
 } else if (/^(?:DEEPSEEK_API_KEY|LOCAL_OPENAI_API_KEY)=/m.test(envExample)) {
-  fail('.env.example 不得鼓励在 QuantPilot 本地保存上游 DeepSeek 或旧本地 Provider Key');
+  fail('.env.example 不得鼓励在 Shop Gate 本地保存上游 DeepSeek 或旧本地 Provider Key');
 } else {
-  pass('QuantPilot 只声明 ModelPort 客户端凭据；上游 DeepSeek Key 留在 ModelPort');
+  pass('Shop Gate 只声明 ModelPort 客户端凭据；上游 DeepSeek Key 留在 ModelPort');
 }
 
 for (const key of [
-  'QUANTPILOT_LLM_AGENT_ENABLED',
-  'QUANTPILOT_LLM_QUERY_REWRITE_ENABLED',
-  'QUANTPILOT_QUERY_REWRITE_LLM_TIMEOUT_MS',
-  'QUANTPILOT_QUERY_REWRITE_LLM_MAX_RETRIES',
-  'QUANTPILOT_QUERY_REWRITE_LLM_INVALID_OUTPUT_RETRIES',
+  'SHOPGATE_LLM_AGENT_ENABLED',
+  'SHOPGATE_LLM_QUERY_REWRITE_ENABLED',
+  'SHOPGATE_QUERY_REWRITE_LLM_TIMEOUT_MS',
+  'SHOPGATE_QUERY_REWRITE_LLM_MAX_RETRIES',
+  'SHOPGATE_QUERY_REWRITE_LLM_INVALID_OUTPUT_RETRIES',
 ]) {
   if (!new RegExp(`^${key}=`, 'm').test(envExample)) {
     fail(`.env.example 必须声明 LLM 配置：${key}`);
@@ -233,8 +233,8 @@ if (
 }
 
 const route = read('src/app/api/chat/[project_id]/act/route.ts');
-const generationRuntime = read('src/lib/quant/generation-runtime.ts');
-const financeGenerationExecutor = read('src/lib/quant/finance-generation-executor.ts');
+const generationRuntime = read('src/lib/commerce/generation-runtime.ts');
+const financeGenerationExecutor = read('src/lib/commerce/finance-generation-executor.ts');
 if (
   !route.includes('createApplicationGenerationRuntime().execute') ||
   !generationRuntime.includes('FINANCE_GENERATION_HANDLER') ||
@@ -247,14 +247,14 @@ if (
 ) {
   fail('聊天执行链路仍依赖供应商 session id');
 } else {
-  pass('QuantPilot inline 与 Worker 主执行链路均通过 Domain handler 使用 PI Agent');
+  pass('Shop Gate inline 与 Worker 主执行链路均通过 Domain handler 使用 PI Agent');
 }
 
-const queryRewriteRoute = read('src/app/api/quant/query/rewrite/route.ts');
+const queryRewriteRoute = read('src/app/api/commerce/query/rewrite/route.ts');
 const queryRewriteAdapter = read('src/lib/domains/finance/query-rewrite-llm.ts');
 const queryRewriteRuntime = read('src/lib/domains/finance/query-rewrite.ts');
 const queryRewriteWorkspace = read('src/lib/domains/finance/workspace.ts');
-const queryRewritePrefetch = read('src/lib/quant/data-prefetch.ts');
+const queryRewritePrefetch = read('src/lib/commerce/data-prefetch.ts');
 const chatInput = read('src/components/chat/ChatInput.tsx');
 const homePage = read('src/app/page.tsx');
 if (

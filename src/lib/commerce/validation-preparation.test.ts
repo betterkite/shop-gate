@@ -8,15 +8,15 @@ const temporaryProjects: string[] = [];
 let previousSettleTimeout: string | undefined;
 
 beforeEach(() => {
-  previousSettleTimeout = process.env.QUANTPILOT_VALIDATION_SETTLE_TIMEOUT_MS;
-  process.env.QUANTPILOT_VALIDATION_SETTLE_TIMEOUT_MS = '1';
+  previousSettleTimeout = process.env.SHOPGATE_VALIDATION_SETTLE_TIMEOUT_MS;
+  process.env.SHOPGATE_VALIDATION_SETTLE_TIMEOUT_MS = '1';
 });
 
 afterEach(async () => {
   if (previousSettleTimeout === undefined) {
-    delete process.env.QUANTPILOT_VALIDATION_SETTLE_TIMEOUT_MS;
+    delete process.env.SHOPGATE_VALIDATION_SETTLE_TIMEOUT_MS;
   } else {
-    process.env.QUANTPILOT_VALIDATION_SETTLE_TIMEOUT_MS = previousSettleTimeout;
+    process.env.SHOPGATE_VALIDATION_SETTLE_TIMEOUT_MS = previousSettleTimeout;
   }
   await Promise.all(
     temporaryProjects.splice(0).map((projectPath) =>
@@ -36,7 +36,7 @@ async function fileState(projectPath: string, relativePath: string) {
 
 describe('quant validation preparation', () => {
   it('normalizes generated build inputs once and remains content-idempotent', async () => {
-    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'quantpilot-validation-prep-'));
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-validation-prep-'));
     temporaryProjects.push(projectPath);
 
     await Promise.all([

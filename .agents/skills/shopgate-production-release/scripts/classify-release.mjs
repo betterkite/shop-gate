@@ -8,7 +8,7 @@ function usage() {
     [--include-working-tree]
     [--request-data-operation <operation-name>]
 
-Classify a QuantPilot release without changing files, data, or external systems.`);
+Classify a Shop Gate release without changing files, data, or external systems.`);
 }
 
 function fail(message) {
@@ -166,7 +166,7 @@ const serviceImpact = {
   generationWorker: paths.some((path) =>
     /^(?:scripts\/workers\/|src\/lib\/|prisma\/|package(?:-lock)?\.json)/.test(path),
   ),
-  marketData: paths.some((path) => path.startsWith('services/market-data/')),
+  marketData: paths.some((path) => path.startsWith('services/commerce-data/')),
   systemd: paths.some((path) => path.startsWith('deploy/systemd/')),
 };
 

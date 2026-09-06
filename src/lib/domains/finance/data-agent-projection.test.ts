@@ -16,7 +16,7 @@ describe('finance Data Agent projection', () => {
       targetCandidates: ['大位科技'],
       resolvedSymbols: [{
         query: '大位科技', symbol: '600589', name: '大位科技', market: 'SH',
-        assetType: 'stock', secid: '1.600589', source: 'market-data', confidence: 1,
+        assetType: 'stock', secid: '1.600589', source: 'commerce-data', confidence: 1,
       }],
       unresolvedTargets: [], ambiguousTargets: [], timeRange: null,
       analysisFocus: { id: 'comprehensive', label: '综合分析' },

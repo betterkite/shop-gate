@@ -16,22 +16,22 @@ import {
   settleQuotaReservation,
 } from "@/lib/quota";
 import {
-  readQuantRunPlan,
+  readRetailRunPlan,
   writeInitialRunPlan,
-  type QuantRunPlan,
-} from "@/lib/domains/finance/workspace";
-import { prefetchQuantDataForRunPlan } from "@/lib/commerce/data-prefetch";
-import { getQuantCapability } from "@/lib/domains/finance/capabilities";
+  type RetailRunPlan,
+} from "@/lib/domains/retail/workspace";
+import { prefetchRetailDataForRunPlan } from "@/lib/commerce/retail-data-prefetch";
+import { getRetailCapability } from "@/lib/domains/retail/capabilities";
 import type { WorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
-import { buildQuantClarificationMessage } from "@/lib/domains/finance/intent";
+import { buildRetailClarificationMessage } from "@/lib/domains/retail/intent";
 import {
-  startQuantGenerationRun,
-  updateQuantGenerationStep,
+  startRetailGenerationRun,
+  updateRetailGenerationStep,
 } from "@/lib/commerce/generation-state";
-import { runQuantGenerationStage } from "@/lib/commerce/generation-queue";
+import { runRetailGenerationStage } from "@/lib/commerce/generation-queue";
 import {
-  createQuantPiAgentMission,
-  markQuantPiAgentMissionNode,
+  createRetailPiAgentMission,
+  markRetailPiAgentMissionNode,
   type PiAgentMissionContext,
 } from "@/lib/services/pi-agent-mission-control";
 import {
@@ -45,15 +45,15 @@ import {
 } from "@/lib/platform/knowledge";
 import { getProjectIntegrationScope } from "@/lib/platform/context/integration-scope";
 import {
-  QuantPreparationError,
+  RetailPreparationError,
   canUsePrefetchedSelectionDashboard,
-  ensureQuantDashboardTemplateForAct,
+  ensureRetailDashboardTemplateForAct,
   missingAgentInputArtifacts,
-  publishQuantPipelineToolMessage,
-  publishQuantPipelineToolStart,
+  publishRetailPipelineToolMessage,
+  publishRetailPipelineToolStart,
 } from "@/lib/commerce/chat-act-support";
 
-export interface FinanceActPreparationInput {
+export interface RetailActPreparationInput {
   projectId: string;
   projectPath: string;
   requestId: string;
@@ -67,14 +67,14 @@ export interface FinanceActPreparationInput {
   capabilityId?: string | null;
   capabilitySelectionSource?: string | null;
   processedImageCount: number;
-  previousRunPlan: QuantRunPlan | null;
+  previousRunPlan: RetailRunPlan | null;
   quotaActorUserId: string | null;
   userMessageId: string;
   relatedAgentRequestIds: ReadonlySet<string>;
   publishWorkspaceProgress: WorkspaceProgressPublisher;
 }
 
-export interface FinanceActPreparationResult {
+export interface RetailActPreparationResult {
   response: NextResponse | null;
   missionContext: PiAgentMissionContext | null;
   usePrefetchedSelectionDashboard: boolean;
@@ -82,9 +82,9 @@ export interface FinanceActPreparationResult {
   governedKnowledgeTaskCategory: string;
 }
 
-export async function prepareFinanceActGeneration(
-  input: FinanceActPreparationInput,
-): Promise<FinanceActPreparationResult> {
+export async function prepareRetailActGeneration(
+  input: RetailActPreparationInput,
+): Promise<RetailActPreparationResult> {
   const {
     projectId: project_id,
     projectPath,
@@ -109,16 +109,16 @@ export async function prepareFinanceActGeneration(
   let missionContext: PiAgentMissionContext | null = null;
   const projectIntegrationScope = getProjectIntegrationScope(project_id);
   let governedKnowledgePreparation: GovernedKnowledgePreparation | null = null;
-  let governedKnowledgeTaskCategory = "quant-research";
+  let governedKnowledgeTaskCategory = "retail-operations";
 
-  const clarificationResponse = await runQuantGenerationStage({
+  const clarificationResponse = await runRetailGenerationStage({
     projectPath,
     projectId: project_id,
     requestId,
     stage: "planning_data_prefetch",
     lockWorkspace: true,
     task: async () => {
-      const generationState = await startQuantGenerationRun({
+      const generationState = await startRetailGenerationRun({
         projectPath,
         projectId: project_id,
         requestId,
@@ -150,7 +150,7 @@ export async function prepareFinanceActGeneration(
       let dashboardVisualizationToolCallId: string | undefined;
       let queryRewriteQuotaReservationId: string | null = null;
       try {
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId,
@@ -163,26 +163,26 @@ export async function prepareFinanceActGeneration(
           effectiveDisplayInstruction.trim().length > 0
             ? effectiveDisplayInstruction.trim()
             : effectiveInstruction;
-        queryRewriteToolCallId = await publishQuantPipelineToolStart({
+        queryRewriteToolCallId = await publishRetailPipelineToolStart({
           projectId: project_id,
           requestId,
           conversationId,
           cliSource: cliPreference,
           toolName: "query-rewrite",
-          target: ".data-agent/finance-query-rewrite.json",
-          summary: "正在把用户问题整理为可执行的标的、周期和分析合同。",
+          target: ".data-agent/retail-query-rewrite.json",
+          summary: "正在把用户问题整理为可执行的类目/商品、周期和分析合同。",
           input: {
             question: planningInstruction,
             requestedCapabilityId: capabilityId,
           },
         });
-        runPlannerToolCallId = await publishQuantPipelineToolStart({
+        runPlannerToolCallId = await publishRetailPipelineToolStart({
           projectId: project_id,
           requestId,
           conversationId,
           cliSource: cliPreference,
           toolName: "run-planner",
-          target: ".data-agent/finance-run-plan.json",
+          target: ".data-agent/retail-run-plan.json",
           summary: "正在核对分析对象、时间范围、数据需求和验收规则。",
           input: {
             question: planningInstruction,
@@ -260,34 +260,34 @@ export async function prepareFinanceActGeneration(
           });
         }
 
-        await publishQuantPipelineToolMessage({
+        await publishRetailPipelineToolMessage({
           projectId: project_id,
           requestId,
           conversationId,
           cliSource: cliPreference,
           toolName: "query-rewrite",
           toolCallId: queryRewriteToolCallId,
-          target: ".data-agent/finance-query-rewrite.json",
+          target: ".data-agent/retail-query-rewrite.json",
           summary:
             runPlan.queryRewrite?.status === "refused"
-              ? "问题改写完成，安全策略已阻止确定性收益承诺。"
+              ? "问题改写完成，安全策略已阻止确定性销量承诺。"
               : runPlan.queryRewrite?.status === "ready"
-                ? `问题改写完成，已解析 ${runPlan.queryRewrite.resolvedSymbols.length} 个标的${runPlan.queryRewrite.execution.llm.applied ? "，并完成 LLM 语义增强" : ""}。`
-                : "问题改写完成，存在需要确认的标的或输入。",
+                ? `问题改写完成，已解析 ${runPlan.queryRewrite.resolvedEntities.length} 个类目/商品实体${runPlan.queryRewrite.execution.llm.applied ? "，并完成 LLM 语义增强" : ""}。`
+                : "问题改写完成，存在需要确认的类目/商品或输入。",
           input: { question: planningInstruction },
           output: runPlan.queryRewrite ?? {},
         });
         queryRewriteToolCallId = undefined;
 
         await publishWorkspaceProgress({ stage: 1, runPlan });
-        await publishQuantPipelineToolMessage({
+        await publishRetailPipelineToolMessage({
           projectId: project_id,
           requestId,
           conversationId,
           cliSource: cliPreference,
           toolName: "run-planner",
           toolCallId: runPlannerToolCallId,
-          target: ".data-agent/finance-run-plan.json",
+          target: ".data-agent/retail-run-plan.json",
           summary:
             runPlan.status === "refused"
               ? "请求触发确定性安全策略，停止进入取数和生成链路。"
@@ -301,7 +301,7 @@ export async function prepareFinanceActGeneration(
           output: {
             status: runPlan.status,
             templateId: runPlan.visualization?.templateId,
-            symbols: runPlan.symbols,
+            entities: runPlan.entities,
             dataRequirements: runPlan.dataRequirements,
             analysisSteps: runPlan.analysisSteps,
           },
@@ -309,7 +309,7 @@ export async function prepareFinanceActGeneration(
         runPlannerToolCallId = undefined;
 
         if (runPlan.status === "refused" && runPlan.refusal) {
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath,
             projectId: project_id,
             requestId,
@@ -331,7 +331,7 @@ export async function prepareFinanceActGeneration(
             metadata: {
               type: "intent_refusal",
               refusal: runPlan.refusal,
-              runPlanPath: ".data-agent/finance-run-plan.json",
+              runPlanPath: ".data-agent/retail-run-plan.json",
               isMissionFinal: true,
               progressStatus: "refused",
             },
@@ -367,7 +367,7 @@ export async function prepareFinanceActGeneration(
           runPlan.status === "needs_clarification" &&
           runPlan.clarification?.required
         ) {
-          await updateQuantGenerationStep({
+          await updateRetailGenerationStep({
             projectPath,
             projectId: project_id,
             requestId,
@@ -380,7 +380,7 @@ export async function prepareFinanceActGeneration(
               questions: runPlan.clarification.questions,
             },
           });
-          const clarificationContent = buildQuantClarificationMessage(
+          const clarificationContent = buildRetailClarificationMessage(
             runPlan.clarification,
           );
           const turnMetrics = await collectPiAgentTurnMetrics({
@@ -404,7 +404,7 @@ export async function prepareFinanceActGeneration(
             metadata: {
               type: "intent_clarification",
               clarification: runPlan.clarification,
-              runPlanPath: ".data-agent/finance-run-plan.json",
+              runPlanPath: ".data-agent/retail-run-plan.json",
               isMissionFinal: true,
               progressStatus: "clarification",
               ...(turnMetrics ? { turnMetrics } : {}),
@@ -481,17 +481,17 @@ export async function prepareFinanceActGeneration(
           },
         });
 
-        missionContext = await createQuantPiAgentMission({
+        missionContext = await createRetailPiAgentMission({
           projectId: project_id,
           projectPath,
           requestId,
           objective:
             runPlan.queryRewrite?.rewrittenQuery ?? planningInstruction,
-          runPlan,
+          runPlan: { ...runPlan, symbols: runPlan.entities },
           maxRepairAttempts: generationState.maxRepairAttempts,
         });
 
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId,
@@ -500,14 +500,14 @@ export async function prepareFinanceActGeneration(
           summary: `已生成 ${runPlan.capabilityId} 执行计划。`,
           metadata: {
             capabilityId: runPlan.capabilityId,
-            symbols: runPlan.symbols,
+            entities: runPlan.entities,
             expectedArtifacts: runPlan.expectedArtifacts,
             missionId: missionContext.id,
             generationId: missionContext.generationId,
             missionSpecSha256: missionContext.specHash,
           },
         });
-        missionContext = await markQuantPiAgentMissionNode({
+        missionContext = await markRetailPiAgentMissionNode({
           mission: missionContext,
           nodeKey: "planning",
           status: "passed",
@@ -518,7 +518,7 @@ export async function prepareFinanceActGeneration(
           skillIds: Array.from(
             new Set([
               "quant-data-registry",
-              ...getQuantCapability(
+              ...getRetailCapability(
                 runPlan.requestedCapabilityId ?? runPlan.capabilityId,
               ).requiredSkills.filter(
                 (skillId) =>
@@ -529,33 +529,33 @@ export async function prepareFinanceActGeneration(
             ]),
           ),
         });
-        dataRegistryToolCallId = await publishQuantPipelineToolStart({
+        dataRegistryToolCallId = await publishRetailPipelineToolStart({
           projectId: project_id,
           requestId,
           conversationId,
           cliSource: cliPreference,
-          toolName: "quant-data-registry",
-          target: "本地数据覆盖与标的解析",
+          toolName: "commerce-data-registry",
+          target: "本地数据窗口与实体解析",
           summary: "正在核验本地数据覆盖、标的解析和可用信源。",
           input: {
             question: runPlan.question,
             templateId: runPlan.visualization?.templateId,
           },
         });
-        marketDataToolCallId = await publishQuantPipelineToolStart({
+        marketDataToolCallId = await publishRetailPipelineToolStart({
           projectId: project_id,
           requestId,
           conversationId,
           cliSource: cliPreference,
-          toolName: "quant-market-data",
+          toolName: "commerce-market-data",
           target: "data_file/final/dashboard-data.json",
-          summary: "正在获取真实行情、历史数据和任务所需指标。",
+          summary: "正在获取真实行为流、类目/商品数据与经营口径。",
           input: {
-            symbols: runPlan.symbols,
+            entities: runPlan.entities,
             timeRange: runPlan.timeRange,
           },
         });
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId,
@@ -563,12 +563,12 @@ export async function prepareFinanceActGeneration(
           status: "running",
           summary: "开始预取真实数据。",
         });
-        missionContext = await markQuantPiAgentMissionNode({
+        missionContext = await markRetailPiAgentMissionNode({
           mission: missionContext,
           nodeKey: "data_prefetch",
           status: "running",
         });
-        const prefetch = await prefetchQuantDataForRunPlan({
+        const prefetch = await prefetchRetailDataForRunPlan({
           projectPath,
           plan: runPlan,
         });
@@ -583,8 +583,7 @@ export async function prepareFinanceActGeneration(
             sourceType: "quant_data_prefetch",
             sourceId: requestId,
             metadata: {
-              symbolCount:
-                prefetch.symbols?.length ?? (prefetch.symbol ? 1 : 0),
+              datasetCount: prefetch.datasetKeys?.length ?? 0,
               rawFileCount: prefetch.rawFiles?.length ?? 0,
             },
           }).catch((error) => {
@@ -602,17 +601,17 @@ export async function prepareFinanceActGeneration(
             (isInitialPrompt && prefetch.skipped))
         ) {
           const resolverUnavailable = runPlan.queryRewrite?.issues.find(
-            (issue) => issue.code === "SYMBOL_RESOLVER_UNAVAILABLE",
+            (issue) => issue.code === "ENTITY_RESOLVER_UNAVAILABLE",
           );
           if (resolverUnavailable) {
-            throw new QuantPreparationError(
-              "SYMBOL_RESOLVER_UNAVAILABLE",
-              `证券标的解析服务暂不可用，平台已停止后续取数：${resolverUnavailable.message}`,
+            throw new RetailPreparationError(
+              "ENTITY_RESOLVER_UNAVAILABLE",
+              `类目/商品实体解析服务暂不可用，平台已停止后续取数：${resolverUnavailable.message}`,
               true,
             );
           }
-          throw new QuantPreparationError(
-            "QUANT_ARTIFACT_PREPARATION_FAILED",
+          throw new RetailPreparationError(
+            "RETAIL_DATA_PREPARATION_FAILED",
             `平台数据准备未完成，拒绝启动只具备 UI 创作权限的 PI Agent。${
               missingPreparedArtifacts.length
                 ? ` 缺少：${missingPreparedArtifacts.join("、")}。`
@@ -624,62 +623,58 @@ export async function prepareFinanceActGeneration(
         usePrefetchedSelectionDashboard = canUsePrefetchedSelectionDashboard({
           instruction: effectiveInstruction,
           runPlan,
-          prefetchSkipped: prefetch.skipped,
+          prefetchSkipped: prefetch.skipped ?? false,
         });
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId,
           stepId: "data_prefetch",
           status: prefetch.skipped ? "skipped" : "success",
-          summary: prefetch.summary,
+          summary: prefetch.summary ?? '',
           metadata: {
-            skipped: prefetch.skipped,
-            symbol: prefetch.skipped ? undefined : prefetch.symbol,
-            symbols: prefetch.skipped ? undefined : prefetch.symbols,
-            finalDataPath: prefetch.skipped
-              ? undefined
-              : prefetch.finalDataPath,
+            skipped: prefetch.skipped ?? false,
+            entities: prefetch.skipped ? undefined : prefetch.datasetKeys,
+            finalDataPath: prefetch.skipped ? undefined : prefetch.finalDataPath,
             rawFiles: prefetch.skipped ? undefined : prefetch.rawFiles,
-            deterministicDashboard:
-              usePrefetchedSelectionDashboard || undefined,
+            deterministicDashboard: usePrefetchedSelectionDashboard || false,
           },
         });
-        missionContext = await markQuantPiAgentMissionNode({
+        missionContext = await markRetailPiAgentMissionNode({
           mission: missionContext,
           nodeKey: "data_prefetch",
           status: prefetch.skipped ? "skipped" : "passed",
         });
-        missionContext = await markQuantPiAgentMissionNode({
+        missionContext = await markRetailPiAgentMissionNode({
           mission: missionContext,
           nodeKey: "workspace_generation",
           status: "running",
         });
         if (prefetch.skipped) {
-          await publishQuantPipelineToolMessage({
+          await publishRetailPipelineToolMessage({
             projectId: project_id,
             requestId,
             conversationId,
             cliSource: cliPreference,
-            toolName: "quant-data-registry",
+            toolName: "commerce-data-registry",
             toolCallId: dataRegistryToolCallId,
             target: "本地数据预取",
-            summary: prefetch.summary,
+            summary: prefetch.summary ?? '', 
             output: {
               skipped: true,
               reason: prefetch.summary,
             },
           });
           dataRegistryToolCallId = undefined;
-          await publishQuantPipelineToolMessage({
+          await publishRetailPipelineToolMessage({
             projectId: project_id,
             requestId,
             conversationId,
             cliSource: cliPreference,
-            toolName: "quant-market-data",
+            toolName: "commerce-market-data",
             toolCallId: marketDataToolCallId,
             target: "data_file/final/dashboard-data.json",
-            summary: `本阶段未重复获取行情数据：${prefetch.summary}`,
+            summary: `本阶段未重复取数：${prefetch.summary}`,
             resultStatus: "skipped",
             output: {
               skipped: true,
@@ -693,60 +688,47 @@ export async function prepareFinanceActGeneration(
             skillIds: ["dashboard-visualization"],
           });
         } else {
-          const symbols = prefetch.symbols?.length
-            ? prefetch.symbols
-            : prefetch.symbol
-              ? [prefetch.symbol]
-              : [];
-          const screenerRawFiles =
-            prefetch.rawFiles?.filter((file) =>
-              file.includes("a-share-screener"),
-            ) ?? [];
-          const usedScreener = screenerRawFiles.length > 0;
-          await publishQuantPipelineToolMessage({
+          const entities = runPlan.entities;
+          const usedDatasetKeys = prefetch.datasetKeys ?? [];
+          await publishRetailPipelineToolMessage({
             projectId: project_id,
             requestId,
             conversationId,
             cliSource: cliPreference,
-            toolName: "quant-data-registry",
+            toolName: "commerce-data-registry",
             toolCallId: dataRegistryToolCallId,
-            target: usedScreener
-              ? "/api/v1/research/screeners/a-share/short-term-candidates"
-              : "/api/v1/symbols/resolve",
-            summary: usedScreener
-              ? symbols.length
-                ? `调用本地选股接口，得到候选标的：${symbols.join("、")}。`
-                : "调用本地选股接口并完成候选筛选。"
-              : symbols.length
-                ? `解析用户问题中的标的并确认代码：${symbols.join("、")}。`
-                : "完成标的解析与本地数据能力检查。",
+            target: "/api/v1/commerce/meta",
+            summary: entities.length
+              ? `解析并确认类目/商品实体：${entities.join("、")}。`
+              : "按全库口径完成实体解析与数据能力检查。",
             input: {
               question: runPlan.question,
               templateId: runPlan.visualization?.templateId,
             },
             output: {
-              symbols,
-              rawFiles: usedScreener ? screenerRawFiles : prefetch.rawFiles,
+              entities,
+              datasetKeys: usedDatasetKeys,
+              rawFiles: prefetch.rawFiles,
             },
           });
           dataRegistryToolCallId = undefined;
-          await publishQuantPipelineToolMessage({
+          await publishRetailPipelineToolMessage({
             projectId: project_id,
             requestId,
             conversationId,
             cliSource: cliPreference,
-            toolName: "quant-market-data",
+            toolName: "commerce-market-data",
             toolCallId: marketDataToolCallId,
             target: "data_file/final/dashboard-data.json",
-            summary: prefetch.summary,
+            summary: prefetch.summary ?? '',
             input: {
               endpoints: [
-                "/api/v1/quotes/realtime",
-                "/api/v1/quotes/history/{symbol}",
-                "/api/v1/indicators/technical/{symbol}",
-                "/api/v1/fundamentals/financials/{symbol}",
+                "/api/v1/commerce/funnel",
+                "/api/v1/commerce/categories/top",
+                "/api/v1/commerce/inventory-risk",
+                "/api/v1/commerce/summary",
               ],
-              symbols,
+              entities,
             },
             output: {
               finalDataPath: prefetch.finalDataPath,
@@ -761,24 +743,24 @@ export async function prepareFinanceActGeneration(
           });
           if (usePrefetchedSelectionDashboard) {
             dashboardVisualizationToolCallId =
-              await publishQuantPipelineToolStart({
+              await publishRetailPipelineToolStart({
                 projectId: project_id,
                 requestId,
                 conversationId,
                 cliSource: cliPreference,
                 toolName: "dashboard-visualization",
                 target: "app/page.tsx",
-                summary: "正在基于本地选股数据生成标准选股工作区。",
+                summary: "正在基于本地零售数据生成标准看板工作区。",
                 input: {
-                  templateId: "stock-selection",
+                  templateId: "retail-base",
                   variantId: runPlan.visualization?.variantId,
-                  symbols,
+                  entities,
                 },
               });
           }
-          await ensureQuantDashboardTemplateForAct(projectPath);
+          await ensureRetailDashboardTemplateForAct(projectPath);
           if (usePrefetchedSelectionDashboard) {
-            await publishQuantPipelineToolMessage({
+            await publishRetailPipelineToolMessage({
               projectId: project_id,
               requestId,
               conversationId,
@@ -787,11 +769,11 @@ export async function prepareFinanceActGeneration(
               toolCallId: dashboardVisualizationToolCallId,
               target: "app/page.tsx",
               summary:
-                "平台已基于本地选股数据生成标准选股看板，后续直接进入自动验证。",
+                "平台已基于本地零售数据生成标准看板，后续直接进入自动验证。",
               input: {
-                templateId: "stock-selection",
+                templateId: "retail-base",
                 variantId: runPlan.visualization?.variantId,
-                symbols,
+                entities,
               },
               output: {
                 finalDataPath: prefetch.finalDataPath,
@@ -805,11 +787,11 @@ export async function prepareFinanceActGeneration(
           streamManager.publish(project_id, {
             type: "status",
             data: {
-              status: "quant_data_prefetched",
+              status: "retail_data_prefetched",
               message: prefetch.summary,
               requestId,
               metadata: {
-                symbol: prefetch.symbol,
+                entities: runPlan.entities,
                 finalDataPath: prefetch.finalDataPath,
                 rawFiles: prefetch.rawFiles,
               },
@@ -835,32 +817,32 @@ export async function prepareFinanceActGeneration(
         const preparationMessage =
           error instanceof Error ? error.message : String(error);
         const typedPreparationError =
-          error instanceof QuantPreparationError ? error : null;
+          error instanceof RetailPreparationError ? error : null;
         const pendingToolFailures = [
           queryRewriteToolCallId
             ? {
                 toolName: "query-rewrite",
                 toolCallId: queryRewriteToolCallId,
-                target: ".data-agent/finance-query-rewrite.json",
+                target: ".data-agent/retail-query-rewrite.json",
               }
             : null,
           runPlannerToolCallId
             ? {
                 toolName: "run-planner",
                 toolCallId: runPlannerToolCallId,
-                target: ".data-agent/finance-run-plan.json",
+                target: ".data-agent/retail-run-plan.json",
               }
             : null,
           dataRegistryToolCallId
             ? {
-                toolName: "quant-data-registry",
+                toolName: "commerce-data-registry",
                 toolCallId: dataRegistryToolCallId,
-                target: "本地数据覆盖与标的解析",
+                target: "本地数据窗口与实体解析",
               }
             : null,
           marketDataToolCallId
             ? {
-                toolName: "quant-market-data",
+                toolName: "commerce-market-data",
                 toolCallId: marketDataToolCallId,
                 target: "data_file/final/dashboard-data.json",
               }
@@ -875,7 +857,7 @@ export async function prepareFinanceActGeneration(
         ].filter((value): value is NonNullable<typeof value> => value !== null);
         await Promise.all(
           pendingToolFailures.map((pending) =>
-            publishQuantPipelineToolMessage({
+            publishRetailPipelineToolMessage({
               projectId: project_id,
               requestId,
               conversationId,
@@ -905,7 +887,7 @@ export async function prepareFinanceActGeneration(
             message: preparationMessage,
           });
         }
-        await updateQuantGenerationStep({
+        await updateRetailGenerationStep({
           projectPath,
           projectId: project_id,
           requestId,
@@ -927,7 +909,7 @@ export async function prepareFinanceActGeneration(
         streamManager.publish(project_id, {
           type: "status",
           data: {
-            status: "quant_data_preparation_failed",
+            status: "retail_data_preparation_failed",
             message: preparationMessage,
             requestId,
             metadata: {
@@ -935,7 +917,7 @@ export async function prepareFinanceActGeneration(
               errorCode: missionProjectBusy
                 ? "MISSION_PROJECT_BUSY"
                 : (typedPreparationError?.code ??
-                  "QUANT_DATA_PREPARATION_FAILED"),
+                  "RETAIL_DATA_PREPARATION_FAILED"),
               retryable: typedPreparationError?.retryable ?? false,
               agentExecutionSkipped: true,
             },
@@ -947,7 +929,7 @@ export async function prepareFinanceActGeneration(
             error: missionProjectBusy
               ? "MISSION_PROJECT_BUSY"
               : (typedPreparationError?.code ??
-                "QUANT_DATA_PREPARATION_FAILED"),
+                "RETAIL_DATA_PREPARATION_FAILED"),
             message: preparationMessage,
             retryable: typedPreparationError?.retryable ?? false,
             requestId,

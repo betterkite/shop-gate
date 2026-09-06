@@ -43,7 +43,19 @@ export async function createQuantPiAgentMission(input: {
   projectPath: string;
   requestId: string;
   objective: string;
-  runPlan: QuantRunPlan;
+  runPlan: {
+    runId: string;
+    capabilityId: string;
+    requestedCapabilityId?: string;
+    composition: QuantRunPlan["composition"];
+    question: string;
+    entities?: string[];
+    symbols?: string[];
+    expectedArtifacts: readonly string[];
+    validationRules: readonly string[];
+    createdAt: string;
+    updatedAt: string;
+  };
   maxRepairAttempts: number;
 }): Promise<PiAgentMissionContext> {
   const spec = compilePiAgentMissionSpec({
@@ -61,7 +73,7 @@ export async function createQuantPiAgentMission(input: {
       deliveryPackVersion: input.runPlan.composition.deliveryPack.version,
       compositionSha256: input.runPlan.composition.sha256,
     },
-    entities: input.runPlan.symbols.map((symbol) => ({
+    entities: (input.runPlan.entities ?? input.runPlan.symbols ?? []).map((symbol) => ({
       entityType: 'finance.security',
       canonicalId: symbol,
     })),
@@ -242,3 +254,6 @@ export async function verifyAndRecordQuantPiAgentMission(input: {
     await verificationSession.dispose();
   }
 }
+
+// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
+export { createQuantPiAgentMission as createRetailPiAgentMission, markQuantPiAgentMissionNode as markRetailPiAgentMissionNode };

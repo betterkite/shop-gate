@@ -32,9 +32,9 @@ import {
   type ProcessedDataAgentImageAttachment,
 } from "@/lib/data-agent";
 import {
-  buildFinanceAttachmentInstruction,
-  writeFinanceAttachmentContext,
-} from "@/lib/domains/finance";
+  buildRetailAttachmentInstruction,
+  writeRetailAttachmentContext,
+} from "@/lib/domains/retail";
 import { serializeMessage } from "@/lib/serializers/chat";
 import {
   assertUserRequestProjectBinding,
@@ -53,10 +53,10 @@ import {
   consumeQuota,
   quotaErrorResponse,
 } from "@/lib/quota";
-import { readQuantRunPlan } from "@/lib/domains/finance/workspace";
+import { readRetailRunPlan } from "@/lib/domains/retail/workspace";
 import { createWorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
 import { shouldEscalateStalledRepair } from "@/lib/commerce/repair-convergence";
-import { buildClarificationContinuation } from "@/lib/domains/finance/intent";
+import { buildClarificationContinuation } from "@/lib/domains/retail/intent";
 import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
@@ -96,9 +96,9 @@ import {
   recordGovernedKnowledgeUsage,
 } from "@/lib/platform/knowledge";
 import { recordContextAcceptance } from "@/lib/platform/context/use-manifest";
-import { createFinanceGenerationEnvelope } from "@/lib/commerce/finance-generation-executor";
+import { createRetailGenerationEnvelope } from "@/lib/commerce/retail-generation-executor";
 import { createApplicationGenerationRuntime } from "@/lib/commerce/generation-runtime";
-import { prepareFinanceActGeneration } from "@/lib/commerce/finance-act-preparation";
+import { prepareRetailActGeneration } from "@/lib/commerce/retail-act-preparation";
 import {
   loadQuantValidation,
   resolveProjectRoot,
@@ -320,13 +320,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       throw error;
     }
 
-    const attachmentContextPath = await writeFinanceAttachmentContext({
+    const attachmentContextPath = await writeRetailAttachmentContext({
       projectRoot,
       projectId: project_id,
       requestId,
       images: processedImages,
     });
-    const imageAttachmentInstruction = buildFinanceAttachmentInstruction({
+    const imageAttachmentInstruction = buildRetailAttachmentInstruction({
       attachmentContextPath,
       images: processedImages,
     });
@@ -388,7 +388,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
     const isInitialPrompt = body.isInitialPrompt;
 
-    const previousRunPlan = await readQuantRunPlan(projectPath);
+    const previousRunPlan = await readRetailRunPlan(projectPath);
     const clarificationContinuation = buildClarificationContinuation({
       previousPlan: previousRunPlan,
       instruction: finalInstruction,
@@ -552,7 +552,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       project.preferredCli ?? PRODUCT_CLI_ID,
       project.selectedModel ?? undefined,
     );
-    const preparation = await prepareFinanceActGeneration({
+    const preparation = await prepareRetailActGeneration({
       projectId: project_id,
       projectPath,
       requestId,
@@ -609,7 +609,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       }
     }
 
-    const plannedRunPlan = await readQuantRunPlan(projectPath);
+    const plannedRunPlan = await readRetailRunPlan(projectPath);
     if (!plannedRunPlan?.capabilityId) {
       throw new Error("A planned Data Agent capability is required before dispatch.");
     }
@@ -618,7 +618,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       projectPath,
       composition: plannedRunPlan.composition,
     });
-    const executionEnvelope = createFinanceGenerationEnvelope({
+    const executionEnvelope = createRetailGenerationEnvelope({
       effectiveInstruction,
       userVisibleInstructionForRepair,
       selectedModel,

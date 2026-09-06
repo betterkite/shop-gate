@@ -441,3 +441,6 @@ export async function readQuantGenerationQueue(
 ) {
   return projectDurableQueue(projectPath, projectId);
 }
+
+// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
+export { runQuantGenerationStage as runRetailGenerationStage };

@@ -217,3 +217,23 @@ export async function publishQuantPipelineToolMessage(params: {
 
   return message;
 }
+
+// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
+export {
+  ensureQuantDashboardTemplateForAct as ensureRetailDashboardTemplateForAct,
+  publishQuantPipelineToolMessage as publishRetailPipelineToolMessage,
+  publishQuantPipelineToolStart as publishRetailPipelineToolStart,
+};
+
+export class RetailPreparationError extends Error {
+  constructor(
+    readonly code:
+      | "ENTITY_RESOLVER_UNAVAILABLE"
+      | "RETAIL_DATA_PREPARATION_FAILED",
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "RetailPreparationError";
+  }
+}

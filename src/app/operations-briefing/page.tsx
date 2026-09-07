@@ -6,6 +6,7 @@ import {
   displayMoney,
   displayPercent,
 } from '@/lib/commerce/commerce-platform';
+import { GenerateDailyBriefButton } from './GenerateDailyBriefButton';
 
 export const metadata: Metadata = {
   title: '经营情报 · Shop Gate',
@@ -74,6 +75,13 @@ export default async function OperationsBriefingPage({ searchParams }: Props) {
         <p className="text-sm text-red-500">commerce-data API 已按降级配置停用，无法读取数据。</p>
       ) : view === 'daily' ? (
         <section className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <GenerateDailyBriefButton />
+            <span className="text-sm text-slate-500">
+              最近生成日报：
+              {data.latestReport ? new Intl.DateTimeFormat('zh-CN').format(new Date(data.latestReport.date)) : '尚未生成'}
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
               <div className="text-xs text-slate-500">日期</div>

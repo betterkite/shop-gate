@@ -27,6 +27,7 @@
 | 想做评测和运维 | [教学 05：评测、运维与质量门](learning/05-evaluation-and-operations.md) |
 | 想查页面和后端接口 | [API 总览](api-reference.md) |
 | 想查数据库字段口径 | [数据字典](data-dictionary.md) |
+| 想接入真实天池数据或未来自有数据 | [零售数据接入：真实 UserBehavior 与自有数据连接器](commerce-data-ingestion.md) |
 | 想执行补数、验证或排障流程 | [运行手册](operations-runbook.md) |
 | 想备份、清理 E2E/过期数据或判断哪些数据必须保留 | [数据生命周期与安全清理](data-lifecycle.md) |
 | 想做生产发布、备份恢复或回滚 | [生产发布 Runbook](release-runbook.md) |
@@ -44,7 +45,7 @@
 | 只想把项目跑起来 | [配置指南](configuration.md)、[本地启动与健康检查](learning/01-quick-start.md) | [故障排查](troubleshooting.md) |
 | 第一次接手项目 | [项目学习地图](learning/00-project-study-map.md) | [项目结构](project-structure.md)、[内部组件](internal-components.md) |
 | 改前端页面 | [项目结构](project-structure.md) | [模块边界](module-boundaries.md)、对应页面专题 |
-| 改市场数据后端 | [后端能力架构](backend-capability-architecture.md) | [API](api-reference.md)、[数据字典](data-dictionary.md)、[行情数据源](commerce-data-source-knowledge.md) |
+| 改市场数据后端 | [后端能力架构](backend-capability-architecture.md) | [API](api-reference.md)、[数据字典](data-dictionary.md)、[零售数据接入与连接器](commerce-data-ingestion.md) |
 | 处理生成页面质量 | [AI 工作空间生成链路](learning/02-ai-workspace-generation.md) | [Skills 与可视化看板](learning/04-skills-and-visual-dashboard.md)、[工作空间契约](generated-workspace-contract.md) |
 | 做策略平台或股票数据 | [市场数据与策略平台](learning/03-commerce-data-and-strategy-platform.md) | [策略平台指南](strategy-platform-guide.md)、[数据字典](data-dictionary.md) |
 | 配模型或 Query Rewrite | [配置指南](configuration.md) | [模型 Provider](model-providers.md)、[PI Agent 迁移边界](pi-agent-migration.md) |

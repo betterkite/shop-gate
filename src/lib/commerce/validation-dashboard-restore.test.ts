@@ -46,15 +46,14 @@ async function createGeneratedProject() {
   const protectedContents = {
     runPlan: `${JSON.stringify({
       schemaVersion: 1,
-      visualization: { templateId: 'single-stock-diagnosis' },
+      visualization: { templateId: 'retail-base' },
     }, null, 2)}\n`,
     finalData: `${JSON.stringify({
-      symbol: '600111',
-      name: '北方稀土',
-      source: 'commerce-data-service',
-      as_of: '2026-07-14T00:00:00.000Z',
-      quote: { price: 42.75 },
-      visualization: { template_id: 'single-stock-diagnosis' },
+      runId: 'run-dashboard-restore',
+      window: { start: '2017-11-25', end: '2017-12-03' },
+      plannedEntities: { categoryIds: [], itemIds: [] },
+      generatedAt: '2026-07-14T00:00:00.000Z',
+      visualization: { template_id: 'retail-base' },
       preservationMarker: 'keep-final-byte-for-byte',
     }, null, 2)}\n`,
     sources: `${JSON.stringify({
@@ -77,7 +76,7 @@ async function createGeneratedProject() {
     fs.mkdir(path.join(projectPath, 'evidence'), { recursive: true }),
   ]);
   await Promise.all([
-    fs.writeFile(path.join(projectPath, '.data-agent', 'finance-run-plan.json'), protectedContents.runPlan, 'utf8'),
+    fs.writeFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), protectedContents.runPlan, 'utf8'),
     fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), protectedContents.finalData, 'utf8'),
     fs.writeFile(path.join(projectPath, 'evidence', 'sources.json'), protectedContents.sources, 'utf8'),
     fs.writeFile(path.join(projectPath, 'evidence', 'data_quality.json'), protectedContents.dataQuality, 'utf8'),
@@ -125,10 +124,10 @@ describe('dashboard template restore fallback', () => {
 
     const restoredPage = await fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8');
     expect(restoredPage).not.toContain('BROKEN_AGENT_PAGE');
-    expect(restoredPage).toContain('data-source-file={DATA_FILE}');
-    expect(restoredPage).toContain('function getBars(');
-    expect(restoredPage).toContain('K 线与量价结构');
-    await expect(fs.readFile(path.join(projectPath, '.data-agent', 'finance-run-plan.json'), 'utf8'))
+    expect(restoredPage).toContain("data-visual-language=\"retail-workbench\"");
+    expect(restoredPage).toContain('data-visual-language="retail-workbench"');
+    expect(restoredPage).toContain('零售经营看板');
+    await expect(fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'))
       .resolves.toBe(protectedContents.runPlan);
     await expect(fs.readFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), 'utf8'))
       .resolves.toBe(protectedContents.finalData);

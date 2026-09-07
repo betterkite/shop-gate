@@ -357,7 +357,7 @@ function resolvePreviewRuntimeDirectory(projectPath: string, port: number): stri
     .update(`${path.resolve(projectPath)}\0${port}\0${process.pid}`)
     .digest('hex')
     .slice(0, 20);
-  return path.join('/tmp', 'qp-preview', runtimeId);
+  return path.join('/tmp', 'shopgate-preview', runtimeId);
 }
 
 function resolveMarketDataTcpTarget(): { host: string; port: number } {

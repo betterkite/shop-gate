@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   readAcceptanceSnapshot: vi.fn(),
   markRepairing: vi.fn(),
   assertRequestBinding: vi.fn(),
+  createMission: vi.fn(),
+  markNode: vi.fn(),
   captureCandidate: vi.fn(),
   sealCandidate: vi.fn(),
   claimVerification: vi.fn(),
@@ -28,11 +30,15 @@ vi.mock("@/lib/services/project", () => ({
 
 vi.mock("@/lib/commerce/generation-state", () => ({
   readQuantGenerationState: mocks.readGenerationState,
+  readRetailGenerationState: mocks.readGenerationState,
   updateQuantGenerationStep: mocks.updateGenerationStep,
+  updateRetailGenerationStep: mocks.updateGenerationStep,
 }));
 
 vi.mock("@/lib/commerce/generation-queue", () => ({
   runQuantGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
+    input.task(),
+  runRetailGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
     input.task(),
 }));
 
@@ -44,22 +50,39 @@ vi.mock("@/lib/services/preview", () => ({
   previewManager: { stop: mocks.stopPreview },
 }));
 
+vi.mock("@/lib/services/message", () => ({
+  createMessage: vi.fn().mockResolvedValue({ id: 'message-1' }),
+  serializeMessage: vi.fn((message) => message),
+}));
+
 vi.mock("@/lib/services/stream", () => ({
   streamManager: { publish: mocks.publish },
 }));
 
-vi.mock("@/lib/commerce/validation", () => ({
+vi.mock("@/lib/commerce/retail-validation", () => ({
   prepareQuantProjectForValidation: mocks.prepareValidation,
+  prepareRetailProjectForValidation: mocks.prepareValidation,
   validateQuantProject: mocks.validateProject,
+  validateRetailProject: mocks.validateProject,
   readQuantValidationReport: mocks.readReport,
+  readRetailValidationReport: mocks.readReport,
   readQuantValidationRepairPlan: mocks.readRepairPlan,
+  readRetailValidationRepairPlan: mocks.readRepairPlan,
+  checkRetailArtifactPolicy: vi.fn().mockResolvedValue({ id: 'artifact_policy', name: 'artifact_policy', status: 'passed', durationMs: 0 }),
 }));
 
 vi.mock("@/lib/services/pi-agent-mission-control", () => ({
   capturePlatformMissionCandidate: mocks.captureCandidate,
   sealQuantPiAgentMissionCandidate: mocks.sealCandidate,
+  sealRetailPiAgentMissionCandidate: mocks.sealCandidate,
   claimQuantPiAgentMissionVerification: mocks.claimVerification,
+  claimRetailPiAgentMissionVerification: mocks.claimVerification,
   verifyAndRecordQuantPiAgentMission: mocks.verifyEvidence,
+  verifyAndRecordRetailPiAgentMission: mocks.verifyEvidence,
+  createQuantPiAgentMission: mocks.createMission,
+  createRetailPiAgentMission: mocks.createMission,
+  markQuantPiAgentMissionNode: mocks.markNode,
+  markRetailPiAgentMissionNode: mocks.markNode,
 }));
 
 vi.mock("@/lib/services/pi-agent-mission-store", () => {

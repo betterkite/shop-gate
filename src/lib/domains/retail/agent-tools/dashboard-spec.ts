@@ -167,7 +167,8 @@ function hasPlannedEntities(finalData: JsonRecord): boolean {
 }
 
 function funnelStagesReady(finalData: JsonRecord): boolean {
-  const stages = recordArray(nestedRecord(datasetRecord(finalData, 'funnel') ?? {}, 'stages'));
+  const funnel = datasetRecord(finalData, 'funnel');
+  const stages = Array.isArray(funnel?.stages) ? funnel.stages.filter(isRecord) : [];
   const order = ['pv', 'fav', 'cart', 'buy'];
   if (stages.length !== order.length) return false;
   return stages.every((stage, index) => {
@@ -301,7 +302,9 @@ function resolveRetailDashboardCapability(params: {
   const identity = assessRetailDatasetIdentity(
     {
       runId: contractString(params.finalData.runId),
-      window: params.finalData.window,
+      // planning 阶段 plan.window 尚未精化：用最终数据窗口做基线，
+      // 避免“未精化”被误判为身份不一致（PRD §7）。
+      window: nestedRecord(params.finalData, 'window'),
       plannedEntities: params.finalData.plannedEntities,
     },
     params.finalData,

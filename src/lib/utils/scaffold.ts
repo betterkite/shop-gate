@@ -13,6 +13,10 @@ import {
   baseDashboardCssTemplate,
   generatedDevScriptContents,
 } from './scaffold-base-templates';
+import {
+  retailBaseDashboardPageTemplate,
+  retailBaseDashboardCssTemplate,
+} from './retail-scaffold-templates';
 import { ensureGeneratedTsConfig } from './scaffold-config';
 
 function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean {
@@ -557,15 +561,14 @@ export async function restoreQuantDashboardTemplate(projectPath: string) {
   await scaffoldBasicNextApp(projectPath, path.basename(projectPath));
   await fs.writeFile(
     path.join(projectPath, 'app', 'page.tsx'),
-    baseDashboardPageTemplate(),
+    retailBaseDashboardPageTemplate(),
     'utf8'
   );
   await fs.writeFile(
     path.join(projectPath, 'app', 'globals.css'),
-    baseDashboardCssTemplate(),
+    retailBaseDashboardCssTemplate(),
     'utf8'
   );
-  await ensureComparisonDashboardTemplate(projectPath);
 }
 
 export async function scaffoldBasicNextApp(
@@ -680,12 +683,12 @@ export const dynamic = 'force-dynamic';
 
   await writeFileIfMissing(
     path.join(projectPath, 'app/page.tsx'),
-    baseDashboardPageTemplate()
+    retailBaseDashboardPageTemplate()
   );
 
   await writeFileIfMissing(
     path.join(projectPath, 'app/globals.css'),
-    baseDashboardCssTemplate()
+    retailBaseDashboardCssTemplate()
   );
 
   await writeFileIfMissing(
@@ -697,6 +700,4 @@ export const dynamic = 'force-dynamic';
     path.join(projectPath, 'scripts/run-dev.js'),
     generatedDevScriptContents()
   );
-
-  await ensureComparisonDashboardTemplate(projectPath);
 }

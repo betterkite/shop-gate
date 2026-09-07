@@ -62,19 +62,19 @@ describe('workspace response protocol', () => {
 
     expect(content).toContain('【进度 1/5】正在理解问题');
     expect(content).toContain('| 维度 | 初步识别 | 状态 |');
-    expect(content).toContain('| 业务场景 | 个股诊断 | 明确 |');
-    expect(content).toContain('| 分析对象 | 600589 | 明确 |');
-    expect(content).toContain('| 时间范围 | 最近 1 年 | 平台默认 |');
-    expect(content).toContain('用户原问句：八亿时投这个股票最近怎么样');
+    expect(content).toContain('| 业务场景 | 流量与转化漏斗 | 明确 |');
+    expect(content).toContain('| 分析对象 | cat:10051 | 明确 |');
+    expect(content).toContain('| 时间范围 | 数据窗口内最近 9 天 | 平台默认 |');
+    expect(content).toContain('用户原问句：这个类目最近转化怎么样');
   });
 
   it('marks an inferred time range as a platform default', () => {
     const content = buildWorkspaceProgressMessage({
       stage: 1,
-      runPlan: plan({ question: '分析贵州茅台', timeRange: '最近 1 年' }),
+      runPlan: plan({ question: '分析贵州茅台', timeRange: '数据窗口内最近 9 天' }),
     });
 
-    expect(content).toContain('| 时间范围 | 最近 1 年 | 平台默认 |');
+    expect(content).toContain('| 时间范围 | 数据窗口内最近 9 天 | 平台默认 |');
   });
 
   it('marks an explicitly requested time window as clear', () => {

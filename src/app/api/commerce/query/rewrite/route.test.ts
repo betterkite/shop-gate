@@ -205,9 +205,9 @@ describe('POST /api/commerce/query/rewrite', () => {
     });
   });
 
-  it('returns a policy refusal for guaranteed-return requests', async () => {
+  it('returns a policy refusal for guaranteed-sales requests', async () => {
     const response = await POST(request({
-      query: '明天买哪只股票一定能涨停？',
+      query: '推荐保证卖爆的商品，直接告诉我补哪些',
       purpose: 'execution',
     }));
     const payload = await response.json();
@@ -220,7 +220,7 @@ describe('POST /api/commerce/query/rewrite', () => {
         status: 'refused',
         safety: {
           decision: 'refuse',
-          code: 'GUARANTEED_RETURN_REQUEST',
+          code: 'GUARANTEED_SALES_REQUEST',
         },
       },
       meta: {
@@ -278,7 +278,7 @@ describe('POST /api/commerce/query/rewrite', () => {
     mocks.settleQuotaReservation.mockRejectedValueOnce(new Error('database temporarily unavailable'));
 
     const response = await POST(request({
-      query: '明天买哪只股票一定能涨停？',
+      query: '推荐保证卖爆的商品，直接告诉我补哪些',
       purpose: 'execution',
     }, 'rewrite-repair'));
 

@@ -151,11 +151,11 @@ describe('validation repair ownership', () => {
       queryRewrite,
     });
     const plan = JSON.parse(
-      await fs.readFile(path.join(projectPath, '.data-agent', 'finance-run-plan.json'), 'utf8'),
+      await fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'),
     ) as Record<string, unknown>;
 
     expect(result.runPlanRebuilt).toBe(true);
     expect(plan.runId).toBe('parent-request');
-    expect(plan.capabilityId).toBe('asset_comparison');
+    expect(plan.capabilityId).toBe('catalog_structure');
   });
 });

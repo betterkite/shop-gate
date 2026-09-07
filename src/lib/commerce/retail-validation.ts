@@ -1370,29 +1370,17 @@ export function inferExpectedTemplateFromTask(runPlan: Record<string, unknown> |
 
   const capabilityId = pickString(runPlan.capabilityId);
   if (!capabilityId) return null;
-  if (capabilityId === 'stock_diagnosis') {
+  if (capabilityId === 'traffic_funnel') {
     return 'funnel-analysis';
   }
-  if (capabilityId === 'strategy_research') {
-    return 'strategy-research';
-  }
-  if (capabilityId === 'portfolio_risk') {
+  if (capabilityId === 'price_inventory') {
     return 'price-inventory';
   }
-  if (capabilityId === 'asset_comparison') {
+  if (capabilityId === 'catalog_structure') {
     return 'catalog-structure';
   }
-  if (capabilityId === 'sector_rotation') {
-    return 'sector-rotation';
-  }
-  if (capabilityId === 'backtest_review') {
-    return 'backtest-review';
-  }
-  if (capabilityId === 'technical_analysis') {
+  if (capabilityId === 'daily_brief') {
     return 'daily-brief';
-  }
-  if (capabilityId === 'fundamental_analysis') {
-    return 'fundamental-research';
   }
   return null;
 }

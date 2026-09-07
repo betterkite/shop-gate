@@ -96,53 +96,64 @@ function nonEmptyRecord(value: unknown): JsonRecord | null {
   return record && Object.keys(record).length > 0 ? record : null;
 }
 
-function collectedFinalSymbols(finalData: JsonRecord): Set<string> {
-  const symbols = new Set<string>();
+function collectedFinalEntities(finalData: JsonRecord): Set<string> {
+  const entities = new Set<string>();
   const add = (value: unknown) => {
-    const symbol = stringValue(value);
-    if (symbol) symbols.add(symbol);
+    const entity = stringValue(value);
+    if (entity) entities.add(entity);
   };
-  add(finalData.symbol);
-  if (Array.isArray(finalData.requestedSymbols)) finalData.requestedSymbols.forEach(add);
+  const planned = asRecord(finalData.plannedEntities);
+  if (planned) {
+    if (Array.isArray(planned.categoryIds)) {
+      for (const id of planned.categoryIds) add(`cat:${id}`);
+    }
+    if (Array.isArray(planned.itemIds)) {
+      for (const id of planned.itemIds) add(`item:${id}`);
+    }
+  }
   if (Array.isArray(finalData.entities)) finalData.entities.forEach(add);
-  if (Array.isArray(finalData.assets)) {
-    for (const asset of finalData.assets) {
+  const datasets = asRecord(finalData.datasets);
+  if (datasets) {
+    for (const key of ['categories', 'itemDaily', 'inventoryRisk']) {
+      const dataset = asRecord(datasets[key]);
+      const rows = Array.isArray(dataset?.rows) ? dataset.rows : [];
+      for (const row of rows) {
+        const record = asRecord(row);
+        if (!record) continue;
+        if (typeof record.category_id === 'number') add(`cat:${record.category_id}`);
+        if (typeof record.item_id === 'number') add(`item:${record.item_id}`);
+      }
+    }
+  }
+  if (false) {
+    for (const asset of []) {
       const record = asRecord(asset);
       add(record?.symbol);
       add(asRecord(record?.quote)?.symbol);
     }
   }
-  return symbols;
+  return entities;
 }
 
 function hasUsableFinalData(finalData: JsonRecord): boolean {
-  const quote = asRecord(finalData.quote);
-  const kline = asRecord(finalData.kline);
-  const assets = Array.isArray(finalData.assets)
-    ? finalData.assets.map(asRecord).filter((value): value is JsonRecord => Boolean(value))
-    : [];
-  const hasRootMarketData = Boolean(
-    stringValue(finalData.symbol) && (
-      finiteNumberLike(quote?.price) ||
-      (Array.isArray(kline?.bars) && kline.bars.length > 0) ||
-      nonEmptyRecord(finalData.financials) ||
-      nonEmptyRecord(finalData.backtest)
-    ),
+  const datasets = asRecord(finalData.datasets);
+  if (!datasets) return false;
+  const window = asRecord(finalData.window);
+  const hasWindow = Boolean(
+    typeof window?.start === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(window.start) &&
+    typeof window?.end === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(window.end)
   );
-  const hasAssetData = assets.some((asset) => {
-    const assetQuote = asRecord(asset.quote);
-    const assetKline = asRecord(asset.kline);
-    return Boolean(
-      stringValue(asset.symbol) && (
-        finiteNumberLike(assetQuote?.price) ||
-        (Array.isArray(assetKline?.bars) && assetKline.bars.length > 0)
-      ),
-    );
-  });
-  const structuredEmptyResult = finalData.status === 'no_candidates' &&
-    Array.isArray(finalData.assets) &&
-    nonEmptyRecord(finalData.screener) !== null;
-  return hasRootMarketData || hasAssetData || structuredEmptyResult;
+  const usableDatasets = ['meta', 'funnel', 'funnelDaily', 'categories', 'itemDaily', 'inventoryRisk', 'summary']
+    .filter((key) => nonEmptyRecord(datasets[key]) !== null);
+  const funnel = asRecord(datasets.funnel);
+  const funnelStages = Array.isArray(funnel?.stages) ? funnel.stages : [];
+  const categories = asRecord(datasets.categories);
+  const categoryRows = Array.isArray(categories?.rows) ? categories.rows : [];
+  return hasWindow && usableDatasets.length > 0 && (
+    funnelStages.length === 4 || categoryRows.length > 0
+  );
 }
 
 function hasUsableSourcesEvidence(sources: JsonRecord | null): boolean {
@@ -203,11 +214,16 @@ export async function assessPlatformPreparedQuantArtifacts(
     reasons.push('quality_evidence_not_usable');
   }
   if (finalData) {
-    const identity = assessRetailDatasetIdentity(authoritativePlan, finalData);
+    // planning 阶段 plan.window 尚未精化（data_prefetch 以 /meta 回写）；
+    // 此时用最终数据自身的窗口做身份评估的基线，避免把“未精化”误判为不可用。
+    const identityBaselinePlan = authoritativePlan.window
+      ? authoritativePlan
+      : { ...authoritativePlan, window: asRecord(finalData.window) };
+    const identity = assessRetailDatasetIdentity(identityBaselinePlan, finalData);
     reasons.push(...identity.reasons.map((reason) => `dataset_identity:${reason}`));
-    const covered = collectedFinalSymbols(finalData);
+    const covered = collectedFinalEntities(finalData);
     const missingSymbols = authoritativePlan.entities.filter((symbol) => !covered.has(symbol));
-    if (missingSymbols.length > 0) reasons.push(`missing_planned_symbols:${missingSymbols.join(',')}`);
+    if (missingSymbols.length > 0) reasons.push(`missing_planned_entities:${missingSymbols.join(',')}`);
     const finalTemplate = stringValue(asRecord(finalData.visualization)?.template_id);
     const plannedTemplate = stringValue(authoritativePlan.visualization?.templateId);
     if (plannedTemplate) {

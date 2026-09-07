@@ -101,9 +101,10 @@ describe('restoreQuantDashboardTemplate', () => {
       fs.writeFile(
         path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'),
         JSON.stringify({
-          symbol: '600519',
-          name: '贵州茅台',
-          visualization: { template_id: 'technical-timing' },
+          runId: 'restore-test',
+          window: { start: '2017-11-25', end: '2017-12-03' },
+          plannedEntities: { categoryIds: [], itemIds: [] },
+          visualization: { template_id: 'retail-base' },
         })
       ),
       fs.writeFile(
@@ -119,18 +120,15 @@ describe('restoreQuantDashboardTemplate', () => {
       fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8'),
       fs.readFile(path.join(projectPath, 'app', 'globals.css'), 'utf8'),
     ]);
-    expect(page).toContain('data-source-file={DATA_FILE}');
-    expect(page).toContain('function getBars(');
-    expect(page).toContain('K 线与量价结构');
-    expect(page).toContain('className="ma-line ma60"');
-    expect(page).toContain('风险结论');
     expect(page).toContain('data-visual-language="retail-workbench"');
+    expect(page).toContain('零售经营看板');
+    expect(page).toContain('数据集覆盖');
+    expect(page).toContain('synthetic-badge');
     expect(page).not.toContain('TradingPlanPanel');
     expect(page).not.toContain('买入区间');
     expect(css).toContain('.dashboard-shell');
-    expect(css).toContain('FINANCIAL WORKBENCH CANVAS');
-    expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .chart-panel');
-    expect(css).toContain('border-radius: 0');
+    expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .synthetic-badge');
+    expect(css).toContain('border-radius: 999px');
   });
 
   it('scaffolds a continuous financial workbench instead of a card-grid default', async () => {
@@ -146,26 +144,11 @@ describe('restoreQuantDashboardTemplate', () => {
       fs.readFile(path.join(projectPath, 'scripts', 'run-dev.js'), 'utf8'),
     ]);
     expect(page).toContain('data-visual-language="retail-workbench"');
-    expect(page).not.toContain('数据信源渠道');
-    expect(page).not.toContain('技术证据');
-    expect(page).not.toContain('行情源：');
-    expect(page).not.toContain('evidence/sources.json');
-    expect(page).not.toContain('场景模板');
-    expect(page).not.toContain('必备组件');
-    expect(page).toContain('量能、数据信源与数据质量');
-    expect(page).toContain('className="metric-strip metrics-7"');
-    expect(page).toContain('className="metric-strip metrics-4"');
-    expect(css).toContain('FINANCIAL WORKBENCH CANVAS');
-    expect(css).toContain('border-inline: 1px solid var(--line)');
-    expect(css).toContain('border-bottom: 1px solid var(--line)');
-    expect(css).toContain('.metric-strip.metrics-7');
-    expect(css).toContain('grid-template-columns: repeat(7, minmax(0, 1fr))');
-    expect(css).toContain('grid-template-columns: repeat(12, minmax(0, 1fr))');
-    expect(css).toContain('.metric-strip.metrics-7 .metric-cell:nth-last-child(-n + 3)');
-    expect(css).toContain('font-variant-numeric: tabular-nums lining-nums');
-    expect(css).toContain('white-space: nowrap');
-    expect(css).not.toContain('grid-template-columns: repeat(6, minmax(0, 1fr))');
-    expect(css).not.toContain('linear-gradient(180deg, #eef4ff');
+    expect(page).toContain('零售经营看板');
+    expect(page).toContain('synthetic-badge');
+    expect(page).toContain('数据集覆盖');
+    expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .synthetic-badge');
+    expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .dense-table');
     expect(nextConfig).toContain('outputFileTracingRoot: projectRoot');
     expect(nextConfig).toContain('root: projectRoot');
     expect(nextConfig).not.toContain('outputFileTracingRoot: workspaceRoot');

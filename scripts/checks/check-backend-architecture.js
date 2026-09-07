@@ -91,17 +91,9 @@ assertIncludes('docs/architecture.md', ['后端语言边界', 'ClickHouse', 'Pyt
 assertIncludes('docs/README.md', ['后端能力架构']);
 assertIncludes('docs/project-structure.md', ['routers/', 'services/', 'repositories/', 'analytics/']);
 assertIncludes('services/commerce-data/src/shopgate_commerce_data/api.py', [
-  'include_router(analytics_router)',
-  'include_router(foundation_router)',
-  'include_router(provider_candidates_router)',
-  'create_backtest_router',
-  'create_events_router',
-  'create_fundamentals_router',
-  'create_indicators_router',
-  'include_router(ingestion_router)',
-  'create_quotes_router',
-  'create_registry_router',
-  'create_research_router',
+  'include_router(create_commerce_router())',
+  'create_commerce_router',
+  'Shop Gate Commerce Data API',
 ]);
 
 const layerDocs = {

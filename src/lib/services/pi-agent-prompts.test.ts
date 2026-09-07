@@ -30,6 +30,11 @@ async function technicalRewrite(instruction: string) {
       }
     : null;
   return rewriteRetailQuery(instruction, {
+    resolver: async () => ({
+      matches: [
+        { kind: 'category', id: 10051, name: '数码类目51', confidence: 1.0 },
+      ],
+    }),
     semanticRewriter: async () => ({
       ok: true,
       provider: 'openai',
@@ -45,14 +50,7 @@ async function technicalRewrite(instruction: string) {
         confidence: 0.95,
       },
     }),
-    resolver: async () => ({
-      results: [{
-        symbol: '600519',
-        name: '贵州茅台',
-        asset_type: 'stock',
-        market: 'SH',
-      }],
-    }),
+
   });
 }
 
@@ -81,9 +79,20 @@ describe('PI Agent Shop Gate prompts', () => {
     await Promise.all([
       fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), JSON.stringify({
         runId: 'platform-prefetched-dashboard',
-        symbol: '600519',
-        quote: { symbol: '600519', price: 1500 },
-        visualization: { template_id: 'technical-timing' },
+        window: { start: '2017-11-25', end: '2017-12-03' },
+        plannedEntities: { categoryIds: [10051], itemIds: [] },
+        datasets: {
+          meta: { window: { start: '2017-11-25', end: '2017-12-03' } },
+          funnel: { window: { start: '2017-11-25', end: '2017-12-03' }, stages: [
+            { stage: 'pv', events: 10 }, { stage: 'fav', events: 5 },
+            { stage: 'cart', events: 3 }, { stage: 'buy', events: 1 },
+          ] },
+          funnelDaily: { window: { start: '2017-11-25', end: '2017-12-03' }, rows: [
+            { stat_date: '2017-11-25', pv: 10, fav: 5, cart: 3, buy: 1 },
+            { stat_date: '2017-11-26', pv: 12, fav: 6, cart: 4, buy: 2 },
+          ] },
+        },
+        visualization: { template_id: 'funnel-analysis' },
       })),
       fs.writeFile(path.join(projectPath, 'evidence', 'sources.json'), JSON.stringify({
         runId: 'platform-prefetched-dashboard',
@@ -158,9 +167,16 @@ describe('PI Agent Shop Gate prompts', () => {
     await fs.mkdir(path.join(projectPath, 'evidence'), { recursive: true });
     await Promise.all([
       fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), JSON.stringify({
-        symbol: '600519',
-        quote: { price: '1500.00' },
-        visualization: { template_id: 'technical-timing' },
+        runId: 'hollow-evidence',
+        window: { start: '2017-11-25', end: '2017-12-03' },
+        plannedEntities: { categoryIds: [10051], itemIds: [] },
+        datasets: {
+          funnel: { window: { start: '2017-11-25', end: '2017-12-03' }, stages: [
+            { stage: 'pv', events: 10 }, { stage: 'fav', events: 5 },
+            { stage: 'cart', events: 3 }, { stage: 'buy', events: 1 },
+          ] },
+        },
+        visualization: { template_id: 'funnel-analysis' },
       })),
       fs.writeFile(path.join(projectPath, 'evidence', 'sources.json'), JSON.stringify({
         runId: 'hollow-evidence',
@@ -202,7 +218,7 @@ describe('PI Agent Shop Gate prompts', () => {
 
     expect(prompt).toContain('数据阶段：validation-repair');
     expect(prompt).toContain('失败 ID：visual_presentation');
-    expect(prompt).toContain('模板 technical-timing');
+    expect(prompt).toContain('模板 funnel-analysis');
     expect(prompt).not.toContain('任务特有业务约束');
     expect(prompt).not.toContain('commerce_api_get');
     expect(prompt.length).toBeLessThan(800);

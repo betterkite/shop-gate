@@ -2,43 +2,43 @@ import { describe, expect, it } from 'vitest';
 
 import { inferExpectedTemplateFromTask } from './retail-validation';
 
-describe('validation template intent', () => {
-  it('keeps strategy research on its capability template even when the query mentions candidates', () => {
+describe('validation template intent (retail)', () => {
+  it('keeps daily brief on its capability template even when the query mentions numbers', () => {
     expect(inferExpectedTemplateFromTask({
-      capabilityId: 'strategy_research',
-      question: '研究 A 股低波动与红利因子的候选筛选思路。',
+      capabilityId: 'daily_brief',
+      question: '生成 12 月 3 日的经营日报，重点看环比和异动类目。',
       entities: [],
-    })).toBe('strategy-research');
+    })).toBe('daily-brief');
   });
 
-  it('maps stock diagnosis through the capability contract', () => {
+  it('maps traffic funnel through the capability contract', () => {
     expect(inferExpectedTemplateFromTask({
       capabilityId: 'traffic_funnel',
-      question: '分析贵州茅台。',
-      entities: ['600519'],
-    })).toBe('single-stock-diagnosis');
+      question: '加购未购买的行为漏斗哪个环节流失最大？',
+      entities: ['cat:10051'],
+    })).toBe('funnel-analysis');
   });
 
-  it('keeps a multi-symbol portfolio on holding analysis', () => {
+  it('keeps price-inventory on its capability template', () => {
     expect(inferExpectedTemplateFromTask({
-      capabilityId: 'portfolio_risk',
-      question: '分析三只股票构成的等权组合风险。',
-      entities: ['600519', '300750', '600036'],
-    })).toBe('holding-analysis');
+      capabilityId: 'price_inventory',
+      question: '库销比最差的 10 个商品是哪些？',
+      entities: ['item:1000329'],
+    })).toBe('price-inventory');
   });
 
-  it('uses stock selection for an explicit comparison capability', () => {
+  it('uses catalog structure for an explicit comparison capability', () => {
     expect(inferExpectedTemplateFromTask({
-      capabilityId: 'asset_comparison',
-      question: '对比贵州茅台和五粮液。',
-      entities: ['600519', '000858'],
-    })).toBe('stock-selection');
+      capabilityId: 'catalog_structure',
+      question: '对比家居类目和数码类目的转化。',
+      entities: ['cat:10002', 'cat:10001'],
+    })).toBe('catalog-structure');
   });
 
   it('fails closed instead of inferring a template from keywords', () => {
     expect(inferExpectedTemplateFromTask({
-      question: '比较贵州茅台和五粮液。',
-      entities: ['600519', '000858'],
+      question: '对比家居类目和数码类目的转化。',
+      entities: ['cat:10002', 'cat:10001'],
     })).toBeNull();
   });
 });

@@ -7,9 +7,9 @@ const mocks = vi.hoisted(() => ({
   execFile: vi.fn(),
   findAvailablePort: vi.fn(),
   getProjectById: vi.fn(),
-  checkQuantArtifactPolicy: vi.fn(),
+  checkRetailArtifactPolicy: vi.fn(),
   scaffoldBasicNextApp: vi.fn(),
-  ensureQuantDashboardTemplate: vi.fn(),
+  ensureRetailDashboardTemplate: vi.fn(),
   spawn: vi.fn(),
   updateProject: vi.fn(),
   updateProjectStatus: vi.fn(),
@@ -42,7 +42,7 @@ vi.mock('@/lib/utils/ports', () => ({
 }));
 
 vi.mock('@/lib/commerce/retail-validation', () => ({
-  checkQuantArtifactPolicy: mocks.checkQuantArtifactPolicy,
+  checkRetailArtifactPolicy: mocks.checkRetailArtifactPolicy,
 }));
 
 vi.mock('@/lib/security/generated-project-sandbox', () => ({
@@ -64,7 +64,7 @@ vi.mock('./project', () => ({
 }));
 
 vi.mock('@/lib/utils/scaffold', () => ({
-  ensureQuantDashboardTemplate: mocks.ensureQuantDashboardTemplate,
+  ensureRetailDashboardTemplate: mocks.ensureRetailDashboardTemplate,
   scaffoldBasicNextApp: mocks.scaffoldBasicNextApp,
 }));
 
@@ -132,7 +132,7 @@ describe('PreviewManager start concurrency', () => {
       previewPort: null,
       repoPath: '/tmp/shopgate-preview-test',
     });
-    mocks.checkQuantArtifactPolicy.mockResolvedValue({
+    mocks.checkRetailArtifactPolicy.mockResolvedValue({
       id: 'artifact-policy',
       status: 'passed',
       summary: 'Artifact policy passed.',
@@ -141,7 +141,7 @@ describe('PreviewManager start concurrency', () => {
     mocks.updateProjectStatus.mockResolvedValue(undefined);
     mocks.findAvailablePort.mockResolvedValue(previewTestPort);
     mocks.scaffoldBasicNextApp.mockResolvedValue(undefined);
-    mocks.ensureQuantDashboardTemplate.mockResolvedValue(undefined);
+    mocks.ensureRetailDashboardTemplate.mockResolvedValue(undefined);
     mocks.execFile.mockImplementation((...args: unknown[]) => {
       const callback = args.at(-1) as (error: Error) => void;
       callback(new Error('no listeners'));
@@ -151,7 +151,7 @@ describe('PreviewManager start concurrency', () => {
     fsMocks.access.mockResolvedValue(undefined);
     fsMocks.chmod.mockResolvedValue(undefined);
     fsMocks.mkdir.mockImplementation(async (targetPath: unknown, options?: unknown) => {
-      if (String(targetPath).startsWith('/tmp/qp-preview/')) {
+      if (String(targetPath).startsWith('/tmp/shopgate-preview/')) {
         mkdirSync(String(targetPath), options as Parameters<typeof mkdirSync>[1]);
       }
     });
@@ -165,7 +165,7 @@ describe('PreviewManager start concurrency', () => {
     fsMocks.readlink.mockRejectedValue(missingFile());
     fsMocks.rename.mockResolvedValue(undefined);
     fsMocks.rm.mockImplementation(async (targetPath: unknown, options?: unknown) => {
-      if (String(targetPath).startsWith('/tmp/qp-preview/')) {
+      if (String(targetPath).startsWith('/tmp/shopgate-preview/')) {
         rmSync(String(targetPath), options as Parameters<typeof rmSync>[1]);
       }
     });
@@ -207,10 +207,10 @@ describe('PreviewManager start concurrency', () => {
     });
     const previewEnv = mocks.spawn.mock.calls[0]?.[2]?.env as NodeJS.ProcessEnv;
     expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toMatch(
-      /^\/tmp\/qp-preview\/[a-f0-9]{20}\/p\.sock$/,
+      /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/p\.sock$/,
     );
     expect(previewEnv.SHOPGATE_SANDBOX_MARKET_SOCKET).toMatch(
-      /^\/tmp\/qp-preview\/[a-f0-9]{20}\/m\.sock$/,
+      /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/m\.sock$/,
     );
     expect(mocks.getProjectById).toHaveBeenCalledTimes(1);
     expect(mocks.spawn).toHaveBeenCalledTimes(1);

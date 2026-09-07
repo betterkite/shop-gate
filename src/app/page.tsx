@@ -705,7 +705,7 @@ export default function HomePage() {
               <FolderKanban className="h-3.5 w-3.5" />项目
               {projects.length > 0 ? <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">{projects.length}</span> : null}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/research-reports")} className="h-11 gap-2 rounded-none px-3 text-xs font-semibold text-muted-foreground">
+            <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/operations-briefing")} className="h-11 gap-2 rounded-none px-3 text-xs font-semibold text-muted-foreground">
               <FileChartColumn className="h-3.5 w-3.5" />成果
             </Button>
             <PlatformSwitcher />
@@ -912,7 +912,7 @@ export default function HomePage() {
             >
               <div className="flex items-end justify-between gap-3">
                 <div><h2 className="text-lg font-bold tracking-tight">最近成果</h2><p className="mt-0.5 text-xs text-muted-foreground">直接查看已经完成的数据、证据与可视化结论。</p></div>
-                <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/research-reports")} className="min-h-11 gap-1 rounded-none border-b border-border px-1 text-xs">成果中心<ChevronRight className="h-3.5 w-3.5" /></Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => router.push("/operations-briefing")} className="min-h-11 gap-1 rounded-none border-b border-border px-1 text-xs">成果中心<ChevronRight className="h-3.5 w-3.5" /></Button>
               </div>
               <div className="mt-2 divide-y divide-border border-y border-border/70">{recentResults.map(renderProjectRow)}</div>
             </motion.section>
@@ -953,7 +953,7 @@ export default function HomePage() {
       <nav className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-4 border-t border-border/80 bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden" aria-label="移动端首页导航">
         <button type="button" aria-current="page" className="flex min-h-11 flex-col items-center justify-center gap-0.5 border-t-2 border-primary text-[10px] font-semibold text-primary"><Home className="h-4 w-4" />首页</button>
         <button type="button" onClick={() => setTaskDrawerOpen(true)} className="flex min-h-11 flex-col items-center justify-center gap-0.5 border-t-2 border-transparent text-[10px] font-semibold text-muted-foreground"><FolderKanban className="h-4 w-4" />项目</button>
-        <button type="button" onClick={() => router.push("/research-reports")} className="flex min-h-11 flex-col items-center justify-center gap-0.5 border-t-2 border-transparent text-[10px] font-semibold text-muted-foreground"><FileChartColumn className="h-4 w-4" />成果</button>
+        <button type="button" onClick={() => router.push("/operations-briefing")} className="flex min-h-11 flex-col items-center justify-center gap-0.5 border-t-2 border-transparent text-[10px] font-semibold text-muted-foreground"><FileChartColumn className="h-4 w-4" />成果</button>
         <button type="button" onClick={() => router.push("/account/usage")} className="flex min-h-11 flex-col items-center justify-center gap-0.5 border-t-2 border-transparent text-[10px] font-semibold text-muted-foreground"><UserRound className="h-4 w-4" />我的</button>
       </nav>
 

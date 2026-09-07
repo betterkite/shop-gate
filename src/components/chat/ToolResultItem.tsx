@@ -56,7 +56,7 @@ const typedToolDisplayNames: Record<string, string> = {
   edit_file: '修改文件',
   write_file: '写入文件',
   submit_result: '提交结果',
-  commerce_api_get: '行情接口',
+  commerce_api_get: '销售数据接口',
   extract_image_evidence: '图片识别',
 };
 
@@ -140,15 +140,15 @@ const extractSkillNameFromJson = (value: unknown): string => {
 const describeCurlCommand = (command: string) => {
   const lower = command.toLowerCase();
   if (!lower.includes('curl')) return '';
-  if (lower.includes('/api/v1/symbols/resolve')) return '解析股票名称或代码，确认后续取数标的。';
-  if (lower.includes('/api/v1/quotes/realtime')) return '获取实时行情数据，确认最新价、涨跌幅和成交信息。';
-  if (lower.includes('/api/v1/quotes/history')) return '获取历史 K 线和成交量数据，用于趋势、均线和量价分析。';
+  if (lower.includes('/api/v1/symbols/resolve')) return '解析商品名称或代码，确认后续取数标的。';
+  if (lower.includes('/api/v1/quotes/realtime')) return '获取实时销售数据数据，确认最新价、涨跌幅和成交信息。';
+  if (lower.includes('/api/v1/quotes/history')) return '获取历史 趋势和成交量数据，用于趋势、均线和量价分析。';
   if (lower.includes('/api/v1/indicators')) return '计算技术指标，补充均线、收益、回撤、波动率等分析字段。';
   if (lower.includes('/api/v1/fundamentals/financials')) return '获取财务报表数据，补充营收、利润、现金流和成长性。';
   if (lower.includes('/api/v1/fundamentals/indicators')) return '获取基本面指标，补充 ROE、毛利率、净利率和估值质量。';
-  if (lower.includes('/api/v1/announcements')) return '获取公告和事件数据，补充行情变化的事件背景。';
-  if (lower.includes('/api/market')) return '检查生成页面的同源行情代理是否可用。';
-  return '调用本地行情后端获取真实数据。';
+  if (lower.includes('/api/v1/announcements')) return '获取公告和事件数据，补充销售数据变化的事件背景。';
+  if (lower.includes('/api/market')) return '检查生成页面的同源销售数据代理是否可用。';
+  return '调用本地销售数据后端获取真实数据。';
 };
 
 const describeFileTarget = (target: string, action: ToolAction) => {
@@ -164,7 +164,7 @@ const describeFileTarget = (target: string, action: ToolAction) => {
   if (normalized.endsWith('app/globals.css')) return action === 'Read' ? '读取页面样式，确认图表和布局基础。' : '更新看板样式，保证布局、图表和响应式体验。';
   if (normalized.endsWith('next.config.js')) return '检查 Next.js 配置，确保预览和构建链路可用。';
   if (normalized.endsWith('package.json')) return '检查项目依赖和脚本，确保 build/dev 可执行。';
-  if (normalized.includes('/api/market')) return '检查生成项目的行情代理接口。';
+  if (normalized.includes('/api/market')) return '检查生成项目的销售数据代理接口。';
   return '';
 };
 
@@ -218,12 +218,12 @@ const summarizeJsonOutput = (value: unknown): string => {
   if ('price' in record || 'last_price' in record) {
     const price = pickRecordString(record, ['price', 'last_price', 'latest_price']);
     const change = pickRecordString(record, ['pct_chg', 'change_pct', 'change_percent', 'percent']);
-    return `行情接口返回${label ? ` ${label}` : ''} 数据${price ? `，最新价 ${price}` : ''}${change ? `，涨跌幅 ${change}` : ''}。`;
+    return `销售数据接口返回${label ? ` ${label}` : ''} 数据${price ? `，最新价 ${price}` : ''}${change ? `，涨跌幅 ${change}` : ''}。`;
   }
 
   const historyCount = countArrayValue(record.history ?? record.klines ?? record.items ?? record.data);
   if (historyCount > 0 && ('period' in record || 'adjustment' in record || 'klines' in record || 'history' in record)) {
-    return `历史行情接口返回${label ? ` ${label}` : ''} ${historyCount} 条 K 线/成交量记录。`;
+    return `历史销售数据接口返回${label ? ` ${label}` : ''} ${historyCount} 条 趋势/成交量记录。`;
   }
 
   const reportCount = countArrayValue(record.reports);
@@ -294,12 +294,12 @@ const buildToolSummary = ({
 
   if (/^quant-[a-z0-9-]+$/i.test(effectiveToolName)) {
     if (lowerTool.includes('run-planner')) return '建立分析计划，明确标的、数据需求、看板模块和验证规则。';
-    if (lowerTool.includes('symbol-resolver')) return '解析股票名称或代码，确保后续接口使用正确标的。';
-    if (lowerTool.includes('commerce-data')) return '获取实时行情，补充最新价、涨跌幅、成交额和行情时间。';
-    if (lowerTool.includes('a-share-history')) return '获取历史 K 线和成交量数据，为趋势与均线分析做准备。';
+    if (lowerTool.includes('symbol-resolver')) return '解析商品名称或代码，确保后续接口使用正确标的。';
+    if (lowerTool.includes('commerce-data')) return '获取实时销售数据，补充最新价、涨跌幅、成交额和销售数据时间。';
+    if (lowerTool.includes('a-share-history')) return '获取历史 趋势和成交量数据，为趋势与均线分析做准备。';
     if (lowerTool.includes('technical-indicators')) return '计算技术指标，形成均线、回撤、波动率和量价信号。';
     if (lowerTool.includes('fundamental')) return '获取财务和基本面数据，补充经营质量分析。';
-    if (lowerTool.includes('announcement')) return '获取公告和事件信息，补充行情背景。';
+    if (lowerTool.includes('announcement')) return '获取公告和事件信息，补充销售数据背景。';
     if (lowerTool.includes('data-quality')) return '检查数据覆盖率、缺失字段、来源和可用性。';
     if (lowerTool.includes('visualization')) return '基于最终数据生成可视化看板页面。';
     if (lowerTool.includes('comparison')) return '组织多标的对比数据，生成横向研究视角。';

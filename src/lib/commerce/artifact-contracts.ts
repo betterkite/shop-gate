@@ -185,7 +185,16 @@ const runPlanSchema = z.object({
   capabilityId: nonEmptyString,
   composition: compositionLockSchema,
   question: nonEmptyString,
-  symbols: z.array(z.string()),
+  symbols: z.array(z.string()).optional(),
+  entities: z.array(z.string()).optional(),
+  plannedEntities: z.object({
+    categoryIds: z.array(z.number()),
+    itemIds: z.array(z.number()),
+  }).optional(),
+  window: z.object({
+    start: z.string(),
+    end: z.string(),
+  }).nullable().optional(),
   timeRange: optionalTimeRange,
   dataRequirements: z.array(z.string()),
   analysisSteps: z.array(z.string()),
@@ -294,7 +303,7 @@ const sourcesSchema = z.object({
   sources: z.array(z.object({
     source: statusString,
     endpoint: statusString,
-    artifact_path: statusString,
+    artifact_path: statusString.optional(),
   }).passthrough()).min(1),
 }).passthrough();
 
@@ -430,7 +439,7 @@ function inspectSources(value: unknown) {
     const errors: string[] = [];
     if (!hasPresentValue(record, ['source'])) errors.push(`sources[${index}].source 缺失。`);
     if (!hasPresentValue(record, ['endpoint'])) errors.push(`sources[${index}].endpoint 缺失。`);
-    if (!hasPresentValue(record, ['artifact_path'])) errors.push(`sources[${index}].artifact_path 缺失。`);
+    if (!hasPresentValue(record, ['artifact_path', 'dataset'])) errors.push(`sources[${index}].artifact_path 缺失。`);
     if (!hasPresentValue(record, ['fetched_at', 'as_of', 'quote_time'])) errors.push(`sources[${index}] 缺少 fetched_at/as_of/quote_time。`);
     return errors;
   });

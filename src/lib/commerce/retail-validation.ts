@@ -1198,6 +1198,11 @@ function findRemotePolicyViolations(projectPath: string, filePath: string, conte
       continue;
     }
 
+    // SVG/HTML 命名空间标识符不是网络请求目标。
+    if (/^https?:\/\/www\.w3\.org\//i.test(remoteUrl)) {
+      continue;
+    }
+
     if (relativePath === 'package.json') {
       continue;
     }

@@ -124,7 +124,9 @@ async function fetchFunnelDatasets(params: {
       params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
       params.sources.push({
         dataset: key,
+        source: '/api/v1/commerce/funnel',
         endpoint: '/api/v1/commerce/funnel',
+        artifact_path: `data_file/raw/${key}.json`,
         status: 'success',
         fetched_at: new Date().toISOString(),
       });
@@ -138,6 +140,7 @@ async function fetchFunnelDatasets(params: {
   } catch (error) {
     params.warnings.push(`漏斗预取失败：${error instanceof Error ? error.message : String(error)}`);
     params.sources.push({
+      source: '/api/v1/commerce/funnel',
       dataset: 'funnel',
       endpoint: '/api/v1/commerce/funnel',
       status: 'failed',
@@ -175,6 +178,7 @@ async function fetchCategoriesDataset(params: {
     await writeJson(filePath, dataset);
     params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
     params.sources.push({
+      source: '/api/v1/commerce/categories/top',
       dataset: 'categories',
       endpoint: '/api/v1/commerce/categories/top',
       status: 'success',
@@ -184,6 +188,7 @@ async function fetchCategoriesDataset(params: {
   } catch (error) {
     params.warnings.push(`类目预取失败：${error instanceof Error ? error.message : String(error)}`);
     params.sources.push({
+      source: '/api/v1/commerce/categories/top',
       dataset: 'categories',
       endpoint: '/api/v1/commerce/categories/top',
       status: 'failed',
@@ -221,6 +226,7 @@ async function fetchInventoryDataset(params: {
     await writeJson(filePath, dataset);
     params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
     params.sources.push({
+      source: '/api/v1/commerce/inventory-risk',
       dataset: 'inventoryRisk',
       endpoint: '/api/v1/commerce/inventory-risk',
       status: 'success',
@@ -230,6 +236,7 @@ async function fetchInventoryDataset(params: {
   } catch (error) {
     params.warnings.push(`库存预取失败：${error instanceof Error ? error.message : String(error)}`);
     params.sources.push({
+      source: '/api/v1/commerce/inventory-risk',
       dataset: 'inventoryRisk',
       endpoint: '/api/v1/commerce/inventory-risk',
       status: 'failed',
@@ -258,6 +265,7 @@ async function fetchSummaryDataset(params: {
     await writeJson(filePath, dataset);
     params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
     params.sources.push({
+      source: '/api/v1/commerce/summary',
       dataset: 'summary',
       endpoint: '/api/v1/commerce/summary',
       status: 'success',
@@ -267,6 +275,7 @@ async function fetchSummaryDataset(params: {
   } catch (error) {
     params.warnings.push(`日报预取失败：${error instanceof Error ? error.message : String(error)}`);
     params.sources.push({
+      source: '/api/v1/commerce/summary',
       dataset: 'summary',
       endpoint: '/api/v1/commerce/summary',
       status: 'failed',
@@ -315,7 +324,9 @@ export async function prefetchRetailDataForRunPlan(params: {
     rawFiles.push(path.relative(params.projectPath, metaPath).replaceAll(path.sep, '/'));
     sources.push({
       dataset: 'meta',
+      source: '/api/v1/commerce/meta',
       endpoint: '/api/v1/commerce/meta',
+      artifact_path: 'data_file/raw/meta.json',
       status: 'success',
       fetched_at: new Date().toISOString(),
     });
@@ -323,6 +334,7 @@ export async function prefetchRetailDataForRunPlan(params: {
     const message = `meta 预取失败：${error instanceof Error ? error.message : String(error)}`;
     warnings.push(message);
     sources.push({
+      source: '/api/v1/commerce/meta',
       dataset: 'meta',
       endpoint: '/api/v1/commerce/meta',
       status: 'failed',
@@ -411,6 +423,7 @@ export async function prefetchRetailDataForRunPlan(params: {
         );
         if (Array.isArray(rows)) itemDailyRows.push(...(rows as JsonRecord[]));
         sources.push({
+          source: '/api/v1/commerce/itemDaily',
           dataset: 'itemDaily',
           endpoint: `/api/v1/commerce/items/${itemId}/daily`,
           status: 'success',

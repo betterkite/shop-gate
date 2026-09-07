@@ -886,12 +886,12 @@ async function checkFinalDataFile(
       const parsed = JSON.parse(raw) as unknown;
       const runPlan = await readRunPlan(projectPath);
       const plannedSymbols = extractPlannedSymbols(runPlan);
-      const fetchedSymbols = extractFetchedSymbols(parsed);
+      const fetchedEntities = extractFetchedEntities(parsed);
       const comparisonSymbols = extractComparisonSymbols(parsed);
-      const missingSymbols = plannedSymbols.filter((symbol) => !fetchedSymbols.includes(symbol));
+      const missingSymbols = plannedSymbols.filter((symbol) => !fetchedEntities.includes(symbol));
       const serialized = JSON.stringify(parsed);
       const hasDataShape =
-        /quote|quotes|price|symbol|symbols|assets|comparison|secid|history|kline|financial|reports|announcement|source|fetched_at|quote_time|close|open|volume|amount|backtest|equity_curve|trades|strategy|drawdown|win_rate|营收|净利润|毛利率|roe|回测|净值|回撤|胜率/i.test(
+        /quote|quotes|price|symbol|symbols|assets|comparison|secid|history|kline|financial|reports|announcement|source|fetched_at|quote_time|close|open|volume|amount|backtest|equity_curve|trades|strategy|drawdown|win_rate|营收|净利润|毛利率|roe|回测|净值|回撤|胜率|window|datasets|funnel|categories|itemDaily|inventoryRisk|summary|stat_date|stages|conversion|gmv|客单价|转化|加购|收藏|曝光|购买|类目|商品|库销比|动销/i.test(
           serialized
         );
       const hasPlaceholderSmell = /mock|demo|example|placeholder|lorem|示例|样例|模拟|假数据/i.test(serialized);
@@ -1052,7 +1052,7 @@ async function checkFinalDataFile(
           file: normalizeRelativePath(projectPath, filePath),
           bytes: Buffer.byteLength(raw),
           plannedSymbols,
-          fetchedSymbols,
+          fetchedEntities,
           comparisonSymbols,
           barCount: payloadInspection.barCount,
           hasQuote: payloadInspection.hasQuote,
@@ -1460,7 +1460,7 @@ function extractPlannedSymbols(runPlan: Record<string, unknown> | null): string[
   );
 }
 
-function extractFetchedSymbols(data: unknown): string[] {
+function extractFetchedEntities(data: unknown): string[] {
   const record = asRecord(data);
   if (!record) {
     return [];
@@ -1581,13 +1581,28 @@ function hasUsableQuote(data: unknown): boolean {
 function inspectDashboardDataPayload(data: unknown) {
   const bars = extractBarsFromDashboardData(data);
   const hasQuote = hasUsableQuote(data);
-  const fetchedSymbols = extractFetchedSymbols(data);
+  const fetchedEntities = extractFetchedEntities(data);
+
+  const datasets = asRecord(asRecord(data)?.datasets);
+  const funnelDataset = datasets ? asRecord(datasets.funnel) : null;
+  const categoriesDataset = datasets ? asRecord(datasets.categories) : null;
+  const inventoryDataset = datasets ? asRecord(datasets.inventoryRisk) : null;
+  const summaryDataset = datasets ? asRecord(datasets.summary) : null;
+  const funnelStages = Array.isArray(funnelDataset?.stages) ? funnelDataset.stages.length : 0;
+  const categoryRows = Array.isArray(categoriesDataset?.rows) ? categoriesDataset.rows.length : 0;
+  const inventoryItems = Array.isArray(inventoryDataset?.items) ? inventoryDataset.items.length : 0;
+  const summaryTotals = summaryDataset ? asRecord(summaryDataset.totals) : null;
+  const hasRetailDatasets = funnelStages > 0 || categoryRows > 0 || inventoryItems > 0 ||
+    (summaryTotals !== null && 'gmv' in summaryTotals);
 
   return {
     hasQuote,
     barCount: bars.length,
-    fetchedSymbols,
-    hasUsableMarketData: hasQuote || bars.length > 0,
+    fetchedEntities,
+    funnelStages,
+    categoryRows,
+    inventoryItems,
+    hasUsableMarketData: hasQuote || bars.length > 0 || hasRetailDatasets,
   };
 }
 
@@ -1636,7 +1651,7 @@ async function ensurePrefetchedFinalData(projectPath: string) {
 
   const inspection = inspectDashboardDataPayload(parsed);
   const plannedSymbols = extractPlannedSymbols(runPlan);
-  const missingSymbols = plannedSymbols.filter((symbol) => !inspection.fetchedSymbols.includes(symbol));
+  const missingSymbols = plannedSymbols.filter((symbol) => !inspection.fetchedEntities.includes(symbol));
   if (raw && (inspection.hasUsableMarketData || isStructuredEmptyScreenerResult(parsed)) && missingSymbols.length === 0) {
     return;
   }
@@ -1792,7 +1807,7 @@ async function checkDashboardBinding(
   const hasBindingSignal = bindingSignals.some((signal) => page.includes(signal));
   const hardcodedDataSignals = [
     /const\s+DASHBOARD_DATA\s*[:=]\s*\{/,
-    /const\s+(?:STATIC_|MOCK_|SAMPLE_)?(?:QUOTE|QUOTES|HISTORY|KLINE|KLINES|FINANCIALS|REPORTS|ANNOUNCEMENTS|DASHBOARD_DATA)\s*[:=]\s*(?:\[|\{)/,
+    /const\s+(?:STATIC_|MOCK_|SAMPLE_)?(?:QUOTE|QUOTES|HISTORY|KLINE|KLINES|FINANCIALS|REPORTS|ANNOUNCEMENTS|DASHBOARD_DATA|DATASETS|FUNNEL|CATEGORIES)\s*[:=]\s*(?:\[|\{)/,
     /(?:bars|reports|announcements)\s*:\s*\[\s*\{[\s\S]{0,80}(?:open|close|report_date|notice_date|title)\s*:/,
   ];
   const hasStaticSmell =
@@ -1808,11 +1823,9 @@ async function checkDashboardBinding(
     finalData = null;
   }
   const finalDataRecord = asRecord(finalData);
-  const assetRows = Array.isArray(finalDataRecord?.assets) ? finalDataRecord.assets : [];
-  const fetchedSymbols = extractFetchedSymbols(finalData);
+  const fetchedEntities = extractFetchedEntities(finalData);
   const payloadInspection = inspectDashboardDataPayload(finalData);
-  const isEmptyScreenerResult = isStructuredEmptyScreenerResult(finalData);
-  const isMultiSymbolTask = plannedSymbols.length > 1 || assetRows.length > 1;
+  const isMultiSymbolTask = plannedSymbols.length > 1;
   const runPlanVisualization = asRecord(runPlan?.visualization);
   const plannedTemplateId = pickString(runPlanVisualization?.templateId);
   const expectedTemplateId = inferExpectedTemplateFromTask(runPlan);
@@ -1842,11 +1855,11 @@ async function checkDashboardBinding(
     };
   }
 
-  if (!payloadInspection.hasUsableMarketData && !isEmptyScreenerResult) {
+  if (!payloadInspection.hasUsableMarketData) {
     return {
       status: 'failed',
-      summary: '页面数据入口存在，但最终数据无法映射出实时行情或 K 线样本。',
-      details: '请先生成可用 data_file/final/dashboard-data.json；其中至少应包含 quote.price 或 kline.bars/history.bars 等字段。',
+      summary: '页面数据入口存在，但最终数据无法映射出可用的零售数据集。',
+      details: '请先生成可用 data_file/final/dashboard-data.json；其中至少应包含 datasets.funnel（四阶段）或 datasets.categories（类目行）或 datasets.summary 等字段。',
       metadata: payloadInspection,
     };
   }
@@ -1929,24 +1942,23 @@ async function checkDashboardBinding(
 
   if (isMultiSymbolTask) {
     const dataDrivenCoverage =
-      /requestedSymbols|assets|comparison/.test(page) &&
-      plannedSymbols.every((symbol) => fetchedSymbols.includes(symbol));
-    const missingPageSymbols = dataDrivenCoverage
+      /plannedEntities|datasets|categories|comparison/.test(page) &&
+      plannedSymbols.every((entity) => page.includes(entity));
+    const missingPageEntities = dataDrivenCoverage
       ? []
-      : plannedSymbols.filter((symbol) => !page.includes(symbol));
-    const hasComparisonBinding = /assets|comparison|requestedSymbols|assetCount|对比|相对强弱|多标的|收益对比|回撤对比|波动/.test(page);
-    if (missingPageSymbols.length > 0 || !hasComparisonBinding) {
+      : plannedSymbols.filter((entity) => !page.includes(entity));
+    const hasComparisonBinding = /categories|comparison|plannedEntities|集中度|对比|转化率|客单价/.test(page);
+    if (missingPageEntities.length > 0 || !hasComparisonBinding) {
       return {
         status: 'failed',
-        summary: '页面未完整绑定多标的对比数据。',
+        summary: '页面未完整绑定类目/商品对比数据。',
         details: [
-          missingPageSymbols.length > 0 ? `页面未显式覆盖标的：${missingPageSymbols.join('、')}。` : null,
-          !hasComparisonBinding ? '页面未检测到 assets[]、comparison 或多标的对比展示逻辑。' : null,
+          missingPageEntities.length > 0 ? `页面未显式覆盖实体：${missingPageEntities.join('、')}。` : null,
+          !hasComparisonBinding ? '页面未检测到 categories、comparison 或对比展示逻辑。' : null,
         ].filter(Boolean).join('\n'),
         metadata: {
           plannedSymbols,
-          fetchedSymbols,
-          assetCount: assetRows.length,
+          fetchedEntities,
         },
       };
     }
@@ -2076,7 +2088,7 @@ async function checkChartPresence(
   ]);
   const visualSource = [page, ...styleFiles.filter(Boolean)].join('\n');
   const hasGraphicElement = /<svg|<canvas|<polyline|<rect|<path|Chart|chart|candlestick|ohlc|K线|K 线|折线|柱状|趋势图/i.test(page);
-  const hasFinanceOrMarketLanguage = /成交量|成交额|均线|MA5|MA10|MA20|K线|K 线|营收|净利润|ROE|毛利率|回撤|波动率|quote|history|financial/i.test(page);
+  const hasRetailOrMarketLanguage = /漏斗|转化率|加购|收藏|购买|GMV|客单价|类目|商品|库销比|动销|曝光|环比|异动|日报|funnel|categories|inventory|summary/i.test(page);
   const hasSemanticColoring = /red|green|up|down|gain|loss|risk-(?:high|mid|low)|dot\s+(?:red|green|amber)|candle-up|candle-down|volume-up|volume-down|bar-up|bar-down|quality-(?:ok|warning|error)|signal-(?:up|down)|#d9363e|#15945b|#dc2626|#16a34a/i.test(visualSource);
   const hasChartReadingAid = /<title>|<desc>|aria-label|chart-label|axis|grid|legend|tooltip|刻度|图例|坐标|日期/i.test(page);
   const hasMiniOnlySmell = /className="(?:sparkline|mini-kline)"|className='(?:sparkline|mini-kline)'|sparkline-empty|MiniKlineChart/i.test(page) &&
@@ -2088,11 +2100,11 @@ async function checkChartPresence(
   const isMultiSymbolTask = plannedSymbols.length > 1 || hasMultiFinalData;
   const plannedTemplateId = pickString(asRecord(runPlan?.visualization)?.templateId);
 
-  if (!hasGraphicElement || !hasFinanceOrMarketLanguage) {
+  if (!hasGraphicElement || !hasRetailOrMarketLanguage) {
     return {
       status: 'failed',
-      summary: '未检测到有效金融图表实现。',
-      details: '页面至少应包含 SVG/canvas/图表组件，并展示 K 线、成交量、均线、财务趋势或风险指标。',
+      summary: '未检测到有效图表实现。',
+      details: '页面至少应包含 SVG/canvas/图表组件，并展示漏斗、转化趋势、类目结构、价格库存或经营日报内容。',
     };
   }
 

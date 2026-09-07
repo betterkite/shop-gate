@@ -208,6 +208,7 @@ export function retailFunnelPageTemplate(): string {
         {funnelDaily.length > 0 ? svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) : <p>分日数据缺失。</p>}
       </section>
       <footer className="data-quality-footer">
+        <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
@@ -259,6 +260,7 @@ export function retailCatalogPageTemplate(): string {
         <p className="footnote">类目名为合成映射（synthetic_name）；GMV = 购买事件 × 合成价格。</p>
       </section>
       <footer className="data-quality-footer">
+        <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
@@ -317,6 +319,7 @@ export function retailPriceInventoryPageTemplate(): string {
         <p className="footnote">价格/库存为合成主数据；库销比越大越滞销，零销量商品用地板值计算，仅作分析参考，不构成采购或下架指令。</p>
       </section>
       <footer className="data-quality-footer">
+        <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
@@ -382,6 +385,7 @@ export function retailDailyBriefPageTemplate(): string {
         <p className="footnote">日报只描述窗口内当日观察，不做长期趋势推断；金额为合成口径。</p>
       </section>
       <footer className="data-quality-footer">
+        <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
@@ -422,6 +426,7 @@ export function retailBaseDashboardPageTemplate(): string {
         </table>
       </section>
       <footer className="data-quality-footer">
+        <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
@@ -436,6 +441,16 @@ export function retailBaseDashboardCssTemplate(): string {
   return `${baseDashboardWorkbenchCss()}
 
 /* Shop Gate 零售板块（合成口径徽标、密集表格、图表区） */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
 .dashboard-shell[data-visual-language="retail-workbench"] .synthetic-badge {
   display: inline-flex;
   align-items: center;

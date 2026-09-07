@@ -23,7 +23,7 @@ type AuthUserMenuVariant = 'floating' | 'header';
 
 const SHARED_PAGE_HEADER_PREFIXES = [
   '/strategy-platform',
-  '/research-reports',
+  '/operations-briefing',
   '/business-knowledge',
   '/ops-platform',
 ] as const;

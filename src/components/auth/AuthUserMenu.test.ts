@@ -6,7 +6,7 @@ describe('account navigation placement', () => {
   it('uses the integrated account entry on shared-shell and workspace routes', () => {
     expect(routeUsesIntegratedAccountNavigation('/')).toBe(true);
     expect(routeUsesIntegratedAccountNavigation('/account/usage')).toBe(true);
-    expect(routeUsesIntegratedAccountNavigation('/research-reports')).toBe(true);
+    expect(routeUsesIntegratedAccountNavigation('/operations-briefing')).toBe(true);
     expect(routeUsesIntegratedAccountNavigation('/eval-platform/runs/run-1')).toBe(true);
     expect(routeUsesIntegratedAccountNavigation('/project-1/chat')).toBe(true);
   });

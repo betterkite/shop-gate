@@ -153,6 +153,8 @@ function pageWrapper(body: string, defaultExportName: string): string {
 
 ${HELPERS}
 
+${MISSING_DATA_PANEL}
+
 export default async function ${defaultExportName}() {
   const data = await readDashboardData();
   if (!data) return <MissingDataPanel />;

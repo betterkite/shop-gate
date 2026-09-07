@@ -26,8 +26,8 @@ export async function loadRetailValidation() {
 }
 
 export async function ensureQuantDashboardTemplateForAct(projectPath: string) {
-  const { ensureQuantDashboardTemplate } = await import("@/lib/utils/scaffold");
-  return ensureQuantDashboardTemplate(projectPath);
+  const { ensureRetailDashboardTemplate } = await import("@/lib/utils/scaffold");
+  return ensureRetailDashboardTemplate(projectPath);
 }
 
 const REQUIRED_AGENT_INPUT_ARTIFACTS = [

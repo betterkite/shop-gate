@@ -164,8 +164,9 @@ export default async function ${defaultExportName}() {
 export function retailFunnelPageTemplate(): string {
   return pageWrapper(
     `const funnel = asRecord(datasets.funnel);
-  const funnelStages = asArray(funnel?.stages).map(asRecord).filter(Boolean);
+  const funnelStages = asArray(funnel?.stages).map(asRecord).filter((record): record is JsonRecord => record !== null);
   const funnelDaily = asArray(asRecord(datasets.funnelDaily)?.rows);
+  const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
   const planned = asRecord(data.plannedEntities);
   const categoryCount = asArray(planned?.categoryIds).length;
@@ -189,7 +190,7 @@ export function retailFunnelPageTemplate(): string {
       </section>
       <section className="chart-zone">
         <h2>事件漏斗（pv → fav → cart → buy）</h2>
-        {funnelBars.length > 0 ? svgBars(funnelBars, '事件漏斗') : <p>漏斗数据缺失。</p>}
+        {funnelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(funnelBars, '事件漏斗') }} /> : <p>漏斗数据缺失。</p>}
         <table className="dense-table">
           <thead><tr><th>阶段</th><th>事件数</th><th>相对上一阶段</th></tr></thead>
           <tbody>
@@ -205,7 +206,7 @@ export function retailFunnelPageTemplate(): string {
       </section>
       <section className="chart-zone">
         <h2>分日趋势</h2>
-        {funnelDaily.length > 0 ? svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) : <p>分日数据缺失。</p>}
+        {funnelDaily.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
@@ -224,7 +225,8 @@ export function retailFunnelPageTemplate(): string {
 export function retailCatalogPageTemplate(): string {
   return pageWrapper(
     `const categories = asArray(asRecord(asRecord(datasets.categories)?.window ? datasets.categories : datasets.categories)?.rows);
-  const ranked = categories.map(asRecord).filter(Boolean);
+  const ranked = categories.map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
   const totalGmv = ranked.reduce((sum, row) => sum + (numeric(row.gmv) ?? 0), 0);
   const top5Gmv = ranked.slice(0, 5).reduce((sum, row) => sum + (numeric(row.gmv) ?? 0), 0);
@@ -243,7 +245,7 @@ export function retailCatalogPageTemplate(): string {
       </section>
       <section className="chart-zone">
         <h2>类目 GMV 排名</h2>
-        {gmvBars.length > 0 ? svgBars(gmvBars, '类目GMV') : <p>类目数据缺失。</p>}
+        {gmvBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(gmvBars, '类目GMV') }} /> : <p>类目数据缺失。</p>}
         <table className="dense-table">
           <thead><tr><th>类目</th><th>曝光</th><th>购买</th><th>GMV</th><th>转化率</th><th>客单价</th></tr></thead>
           <tbody>
@@ -278,7 +280,8 @@ export function retailCatalogPageTemplate(): string {
 export function retailPriceInventoryPageTemplate(): string {
   return pageWrapper(
     `const risk = asRecord(datasets.inventoryRisk);
-  const items = asArray(risk?.items).map(asRecord).filter(Boolean);
+  const items = asArray(risk?.items).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
   const bands = [
     { label: '0-50', min: 0, max: 50 },
@@ -303,7 +306,7 @@ export function retailPriceInventoryPageTemplate(): string {
       </section>
       <section className="chart-zone">
         <h2>价格带分布（合成价格）</h2>
-        {svgBars(bandCounts, '价格带')}
+        <div dangerouslySetInnerHTML={{ __html: svgBars(bandCounts, '价格带') }} />
         <h2>库销比排行（库存 / 日均销量）</h2>
         <table className="dense-table">
           <thead><tr><th>商品</th><th>价格</th><th>库存</th><th>窗口销量</th><th>曝光</th><th>库销比</th></tr></thead>
@@ -342,11 +345,12 @@ export function retailDailyBriefPageTemplate(): string {
   const totals = asRecord(summary?.totals);
   const dayOverDay = asRecord(summary?.day_over_day);
   const categories = asArray(asRecord(asRecord(datasets.categories)?.window ? datasets.categories : datasets.categories)?.rows)
-    .map(asRecord).filter(Boolean);
+    .map(asRecord).filter((record): record is JsonRecord => record !== null);
   const movers = [...categories]
     .filter((row) => row.gmv !== undefined)
     .sort((left, right) => (numeric(right.gmv) ?? 0) - (numeric(left.gmv) ?? 0))
     .slice(0, 8);
+  const meta = asRecord(datasets.meta);
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">

@@ -1,4 +1,5 @@
 import { getRuntimeDegradationConfig } from '@/lib/config/degradation';
+import { getLatestRetailDailyBrief } from './retail-daily-report';
 
 const BASE_URL =
   process.env.SHOPGATE_MARKET_API_URL ||
@@ -14,6 +15,7 @@ export interface OperationsBriefingData {
   daily: Record<string, unknown> | null;
   categories: Record<string, unknown>[];
   watch: Record<string, unknown>[];
+  latestReport: { reportId: string; date: string } | null;
   apiEnabled: boolean;
   updatedAt: string;
 }
@@ -75,6 +77,8 @@ export async function getOperationsBriefingData(params: {
     ? (watchResult.items as Record<string, unknown>[])
     : [];
 
+  const latestReport = await getLatestRetailDailyBrief();
+
   return {
     view,
     window,
@@ -82,6 +86,7 @@ export async function getOperationsBriefingData(params: {
     daily,
     categories,
     watch,
+    latestReport,
     apiEnabled: getRuntimeDegradationConfig().components.marketApi.enabled,
     updatedAt: new Date().toISOString(),
   };

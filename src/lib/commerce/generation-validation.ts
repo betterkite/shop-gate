@@ -769,6 +769,7 @@ export function runValidationAfterExecution(params: {
           requestId: params.requestId,
           originalInstruction: params.instruction,
           report: latestReport,
+          selectedModel: params.selectedModel,
         });
       if (platformRepair.runPlanRebuilt) {
         await quantValidation.prepareRetailProjectForValidation({

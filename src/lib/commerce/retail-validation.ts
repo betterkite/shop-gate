@@ -11,7 +11,10 @@ import {
   ensureRetailWorkspace,
   writeInitialRunPlan,
 } from '@/lib/domains/retail/workspace';
-import type { RetailRunPlan } from '@/lib/domains/retail/workspace';
+import {
+  readRetailRunPlan,
+  type RetailRunPlan,
+} from '@/lib/domains/retail/workspace';
 import type { RetailQueryRewriteResult } from '@/lib/domains/retail/query-rewrite';
 import { validateQuantArtifactContracts } from '@/lib/commerce/artifact-contracts';
 import { validateQuantVisualPresentation } from '@/lib/commerce/visual-validation';
@@ -2583,6 +2586,8 @@ export async function repairRetailPlatformOwnedArtifacts(params: {
   originalInstruction: string;
   report: RetailValidationReport;
   queryRewrite?: RetailQueryRewriteResult;
+  requestedCapabilityId?: string;
+  selectedModel?: string;
 }): Promise<{ runPlanRebuilt: boolean }> {
   const platformFailureText = params.report.checks
     .filter((check) => check.status === 'failed')
@@ -2597,11 +2602,19 @@ export async function repairRetailPlatformOwnedArtifacts(params: {
     return { runPlanRebuilt: false };
   }
 
+  // 重建时保留原计划的能力与模型选择：丢失会导致能力回落到默认、
+  // LLM 走 local_qwen 直连失败（deepseek 等直连模型需要显式请求）。
+  const existingPlan = await readRetailRunPlan(params.projectPath);
   await writeInitialRunPlan({
     projectPath: params.projectPath,
     instruction: params.originalInstruction,
     requestId: params.requestId,
+    capabilityId: params.requestedCapabilityId ??
+      existingPlan?.requestedCapabilityId ??
+      existingPlan?.capabilityId ??
+      null,
     capabilitySource: 'inferred',
+    llmModel: params.selectedModel ?? existingPlan?.llm.model ?? null,
     queryRewrite: params.queryRewrite,
   });
 

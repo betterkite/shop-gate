@@ -69,6 +69,7 @@ Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`（替
 - 字段：`user_id`、`item_id`、`category_id`、`behavior_type`（pv/fav/cart/buy）、`timestamp`（Unix 秒）。
 - 原始规模：约 1 亿条事件、2017-11-25 ~ 2017-12-03（9 天窗口，含双十二预热）。
 - **抽样策略（待确认项 A）**：随机抽取 **10,000 用户**的全量行为（预计 ~100 万事件），时间窗保持完整 9 天。理由：单机导入/查询轻量，用户级漏斗完整；如需更大规模再调参。
+- 导入与自有数据连接器接口见 [零售数据接入：真实 UserBehavior 与自有数据连接器](commerce-data-ingestion.md)。
 
 ### 5.2 合成商品主数据（Q22a）
 

@@ -210,6 +210,12 @@ export function retailFunnelPageTemplate(): string {
     label: text(stage.stage),
     value: numeric(stage.events) ?? 0,
   }));
+  const stageColors: Record<string, string> = { pv: '#2563eb', fav: '#8b5cf6', cart: '#f59e0b', buy: '#16a34a' };
+  const funnelDonut = funnelStages.map((stage) => ({
+    label: text(stage.stage),
+    value: numeric(stage.events) ?? 0,
+    color: stageColors[text(stage.stage)] ?? '#94a3b8',
+  }));
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
@@ -237,8 +243,13 @@ export function retailFunnelPageTemplate(): string {
         </table>
       </section>
       <section className="chart-zone">
+        <h2>漏斗阶段占比</h2>
+        {funnelDonut.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(funnelDonut, '漏斗阶段占比') }} /> : <p>漏斗数据缺失。</p>}
+      </section>
+      <section className="chart-zone">
         <h2>分日趋势</h2>
         {funnelDaily.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
+        <p className="footnote">PV 占绝对多数；购买转化以 buy/pv 衡量。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
@@ -341,6 +352,12 @@ export function retailPriceInventoryPageTemplate(): string {
     label: band.label,
     value: items.filter((item) => (numeric(item.price) ?? 0) >= band.min && (numeric(item.price) ?? 0) < band.max).length,
   }));
+  const movingCount = items.filter((item) => (numeric(item.sell_through_ratio) ?? 0) <= 1).length;
+  const slowCount = items.length - movingCount;
+  const healthDonut = [
+    { label: '动销', value: movingCount, color: '#16a34a' },
+    { label: '滞销', value: slowCount, color: '#f59e0b' },
+  ];
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
@@ -372,6 +389,11 @@ export function retailPriceInventoryPageTemplate(): string {
         </table>
         <p className="footnote">价格/库存为合成主数据；库销比越大越滞销，零销量商品用地板值计算，仅作分析参考，不构成采购或下架指令。</p>
       </section>
+      <section className="chart-zone">
+        <h2>库存健康度（动销 / 滞销商品数）</h2>
+        {healthDonut.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(healthDonut, '动销占比') }} /> : <p>库存数据缺失。</p>}
+        <p className="footnote">动销 = 窗口内库销比 ≤ 1；滞销 = 库销比 &gt; 1。口径为合成主数据。</p>
+      </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
@@ -397,6 +419,7 @@ export function retailDailyBriefPageTemplate(): string {
     .filter((row) => row.gmv !== undefined)
     .sort((left, right) => (numeric(right.gmv) ?? 0) - (numeric(left.gmv) ?? 0))
     .slice(0, 8);
+  const moverBars = movers.map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
   const meta = asRecord(datasets.meta);
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
@@ -426,6 +449,7 @@ export function retailDailyBriefPageTemplate(): string {
           </tbody>
         </table>
         <h2>类目 GMV 榜（当日观察）</h2>
+        {moverBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(moverBars, '类目GMV') }} /> : <p>类目数据缺失。</p>}
         <table className="dense-table">
           <thead><tr><th>类目</th><th>GMV</th><th>购买</th><th>转化率</th></tr></thead>
           <tbody>

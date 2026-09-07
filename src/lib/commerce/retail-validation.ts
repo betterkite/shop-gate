@@ -2236,7 +2236,7 @@ async function checkEntityScope(
     };
   }
 
-  const probeUrl = new URL('/api/market/quotes/realtime/600519', preview.url).toString();
+  const probeUrl = new URL('/api/market/commerce/meta', preview.url).toString();
   const response = await fetchWithTimeout(probeUrl, { method: 'GET' }, 8_000);
   const responseText = await response.text().catch(() => '');
   if (!response.ok) {
@@ -2259,10 +2259,10 @@ async function checkEntityScope(
   }
 
   const serialized = parsed ? JSON.stringify(parsed) : responseText;
-  if (!/600519|贵州茅台|price|symbol|quote|latest|fetched_at|source/i.test(serialized)) {
+  if (!/event_count|user_count|item_count|category_count|first_event_ts|window/i.test(serialized)) {
     return {
       status: 'failed',
-      summary: '/api/market 代理返回了 2xx，但响应不像真实行情数据。',
+      summary: '/api/market 代理返回了 2xx，但响应不像零售数据窗口口径。',
       details: responseText.slice(0, 1_000),
       metadata: {
         route: normalizeRelativePath(projectPath, routePath),
@@ -2273,7 +2273,7 @@ async function checkEntityScope(
 
   return {
     status: 'passed',
-    summary: '/api/market 同源代理可用，实时行情探测通过。',
+    summary: '/api/market 同源代理可用，零售数据窗口探测通过。',
     metadata: {
       route: normalizeRelativePath(projectPath, routePath),
       probeUrl,

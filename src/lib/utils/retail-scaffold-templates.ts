@@ -212,7 +212,7 @@ export function retailFunnelPageTemplate(): string {
         {funnelDaily.length > 0 ? svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) : <p>分日数据缺失。</p>}
       </section>
       <footer className="data-quality-footer">
-        <span>数据质量与来源见 evidence/data_quality.json、evidence/sources.json。</span>
+        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -263,7 +263,7 @@ export function retailCatalogPageTemplate(): string {
         <p className="footnote">类目名为合成映射（synthetic_name）；GMV = 购买事件 × 合成价格。</p>
       </section>
       <footer className="data-quality-footer">
-        <span>数据质量与来源见 evidence/data_quality.json、evidence/sources.json。</span>
+        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -321,7 +321,7 @@ export function retailPriceInventoryPageTemplate(): string {
         <p className="footnote">价格/库存为合成主数据；库销比越大越滞销，零销量商品用地板值计算，仅作分析参考，不构成采购或下架指令。</p>
       </section>
       <footer className="data-quality-footer">
-        <span>数据质量与来源见 evidence/data_quality.json、evidence/sources.json。</span>
+        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -386,7 +386,7 @@ export function retailDailyBriefPageTemplate(): string {
         <p className="footnote">日报只描述窗口内当日观察，不做长期趋势推断；金额为合成口径。</p>
       </section>
       <footer className="data-quality-footer">
-        <span>数据质量与来源见 evidence/data_quality.json、evidence/sources.json。</span>
+        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -426,7 +426,7 @@ export function retailBaseDashboardPageTemplate(): string {
         </table>
       </section>
       <footer className="data-quality-footer">
-        <span>数据质量与来源见 evidence/data_quality.json、evidence/sources.json。</span>
+        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -485,6 +485,21 @@ export function retailBaseDashboardCssTemplate(): string {
   color: #64748b;
   font-size: 12px;
   padding: 12px 0 32px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .chart-zone svg,
+.dashboard-shell[data-visual-language="retail-workbench"] .dense-table {
+  max-width: 100%;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .dense-table {
+  display: block;
+  overflow-x: auto;
 }
 `;
 }

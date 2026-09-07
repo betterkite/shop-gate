@@ -127,6 +127,38 @@ function svgDailyLines(series: Array<{ stat_date: string } & Record<string, numb
     '<text x="24" y="18" font-size="12" fill="#334155">蓝=曝光 橙=加购 绿=购买</text></svg>';
 }
 
+function svgDonut(segments: Array<{ label: string; value: number; color: string }>, unitLabel: string): string {
+  const size = 220;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 78;
+  const stroke = 34;
+  const circumference = 2 * Math.PI * r;
+  const total = Math.max(1, segments.reduce((sum, seg) => sum + (seg.value || 0), 0));
+  let cumulative = 0;
+  const arcs = segments
+    .map((seg) => {
+      const value = seg.value || 0;
+      const frac = value / total;
+      const angle = (cumulative / total) * 360 - 90;
+      cumulative += value;
+      const dash = (frac * circumference).toFixed(2);
+      const gap = (circumference - frac * circumference).toFixed(2);
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + seg.color +
+        '" stroke-width="' + stroke + '" stroke-dasharray="' + dash + ' ' + gap +
+        '" transform="rotate(' + angle.toFixed(1) + ' ' + cx + ' ' + cy + ')" />';
+    })
+    .join('');
+  const leading = segments[0] && total > 0 ? Math.round((segments[0].value / total) * 100) : 0;
+  return '<svg viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="' + unitLabel + '" ' +
+    'style="width:100%;max-width:240px;height:auto" xmlns="http://www.w3.org/2000/svg">' +
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#f1f5f9" stroke-width="' + stroke + '" />' +
+    arcs +
+    '<text x="' + cx + '" y="' + (cy + 5) + '" font-size="18" text-anchor="middle" fill="#0f172a">' + leading + '%</text>' +
+    '<text x="' + cx + '" y="' + (cy + 22) + '" font-size="10" text-anchor="middle" fill="#64748b">' + unitLabel + '</text>' +
+    '</svg>';
+}
+
 function syntheticBadge(): string {
   return '<span class="synthetic-badge" title="价格/库存/品牌/店铺与 GMV 金额来自合成主数据，不代表真实交易数据">合成口径</span>';
 }
@@ -232,6 +264,11 @@ export function retailCatalogPageTemplate(): string {
   const top5Gmv = ranked.slice(0, 5).reduce((sum, row) => sum + (numeric(row.gmv) ?? 0), 0);
   const concentration = totalGmv > 0 ? top5Gmv / totalGmv : null;
   const gmvBars = ranked.slice(0, 8).map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
+  const donutSegments = totalGmv > 0
+    ? [{ label: 'Top-5', value: top5Gmv, color: '#2563eb' }, { label: '其他', value: totalGmv - top5Gmv, color: '#cbd5e1' }]
+    : [];
+  const dailySeries = asArray(asRecord(datasets.funnelDaily)?.rows)
+    .map(asRecord).filter((record): record is JsonRecord => record !== null);
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
@@ -262,6 +299,16 @@ export function retailCatalogPageTemplate(): string {
           </tbody>
         </table>
         <p className="footnote">类目名为合成映射（synthetic_name）；GMV = 购买事件 × 合成价格。</p>
+      </section>
+      <section className="chart-zone">
+        <h2>类目集中度（Top-5 GMV 占比）</h2>
+        {donutSegments.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(donutSegments, 'Top-5 占比') }} /> : <p>集中度缺数据。</p>}
+        <p className="footnote">集中度 = Top-5 类目 GMV / 全部类目 GMV；金额为合成口径。</p>
+      </section>
+      <section className="chart-zone">
+        <h2>分日曝光 / 加购 / 购买趋势</h2>
+        {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
+        <p className="footnote">事件行为为真实 UserBehavior；GMV 为合成口径。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>

@@ -66,6 +66,26 @@ export function isCommercePlatformSort(value: string | undefined): value is Comm
   return COMMERCE_PLATFORM_SORTS.includes(value as CommercePlatformSort);
 }
 
+const DEFAULT_WINDOW = { start: '2017-11-25', end: '2017-12-03' };
+const WINDOW_TTL_MS = 5 * 60_000;
+let cachedWindow: { start: string; end: string; behaviorSource: string; at: number } | null = null;
+
+/** 窗口与行为来源不会随每次切 tab/排序变化，缓存避免重复打最慢的 /meta。 */
+async function resolveWindow(): Promise<{ start: string; end: string; behaviorSource: string }> {
+  if (cachedWindow && Date.now() - cachedWindow.at < WINDOW_TTL_MS) {
+    return { start: cachedWindow.start, end: cachedWindow.end, behaviorSource: cachedWindow.behaviorSource };
+  }
+  const meta = await fetchJson<Record<string, unknown>>('/api/v1/commerce/meta');
+  const resolved = {
+    start: isoDay(meta?.first_event_ts, DEFAULT_WINDOW.start),
+    end: isoDay(meta?.last_event_ts, DEFAULT_WINDOW.end),
+    behaviorSource:
+      typeof meta?.behavior_source === 'string' ? (meta.behavior_source as string) : 'unknown',
+  };
+  cachedWindow = { ...resolved, at: Date.now() };
+  return resolved;
+}
+
 export async function getCommercePlatformData(params: {
   view?: string;
   page?: string;
@@ -76,38 +96,40 @@ export async function getCommercePlatformData(params: {
   const sort: CommercePlatformSort =
     isCommercePlatformSort(params.sort) ? params.sort : 'gmv';
   const page = clampInteger(Number(params.page) || 1, 1, 1_000_000);
-
-  const meta = await fetchJson<Record<string, unknown>>('/api/v1/commerce/meta');
-  const window = {
-    start: isoDay(meta?.first_event_ts, '2017-11-25'),
-    end: isoDay(meta?.last_event_ts, '2017-12-03'),
-  };
-  const behaviorSource =
-    typeof meta?.behavior_source === 'string' ? (meta.behavior_source as string) : 'unknown';
-
   const pageSize = 20;
-  const itemsResult = await fetchJson<Record<string, unknown>>(
-    `/api/v1/commerce/items?start=${window.start}&end=${window.end}&page=${page}&page_size=${pageSize}&sort=${sort}`,
-  );
-  const items = Array.isArray(itemsResult?.items)
-    ? (itemsResult.items as Record<string, unknown>[])
-    : [];
-  const itemsTotal =
-    typeof itemsResult?.total === 'number' ? (itemsResult.total as number) : 0;
 
-  const categories = (await fetchJson<Record<string, unknown>[]>(
-    `/api/v1/commerce/categories/top?start=${window.start}&end=${window.end}&metric=gmv&limit=100`,
-  )) ?? [];
+  const { start, end, behaviorSource } = await resolveWindow();
+  const window = { start, end };
 
-  const channels = (await fetchJson<Record<string, unknown>[]>(
-    `/api/v1/commerce/channels?start=${window.start}&end=${window.end}`,
-  )) ?? [];
+  // 只拉当前视图需要的数据集，避免切换标签时把全部 4 个接口都重新请求一遍。
+  let items: Record<string, unknown>[] = [];
+  let itemsTotal = 0;
+  let categories: Record<string, unknown>[] = [];
+  let channels: Record<string, unknown>[] = [];
+
+  if (view === 'products') {
+    const itemsResult = await fetchJson<Record<string, unknown>>(
+      `/api/v1/commerce/items?start=${start}&end=${end}&page=${page}&page_size=${pageSize}&sort=${sort}`,
+    );
+    items = Array.isArray(itemsResult?.items)
+      ? (itemsResult.items as Record<string, unknown>[])
+      : [];
+    itemsTotal = typeof itemsResult?.total === 'number' ? (itemsResult.total as number) : 0;
+  } else if (view === 'categories') {
+    categories = (await fetchJson<Record<string, unknown>[]>(
+      `/api/v1/commerce/categories/top?start=${start}&end=${end}&metric=gmv&limit=100`,
+    )) ?? [];
+  } else {
+    channels = (await fetchJson<Record<string, unknown>[]>(
+      `/api/v1/commerce/channels?start=${start}&end=${end}`,
+    )) ?? [];
+  }
 
   return {
     view,
     window,
     behaviorSource,
-    meta,
+    meta: null,
     items,
     itemsTotal,
     page,

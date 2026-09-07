@@ -55,7 +55,11 @@ async function fetchCommerceJson(apiPath: string, query: Record<string, string> 
       throw new Error(`${apiPath} 返回 HTTP ${response.status}`);
     }
     const parsed: unknown = await response.json();
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    if (Array.isArray(parsed)) {
+      // 类目榜/分日趋势端点返回顶层数组：包一层满足后续字典访问。
+      return { rows: parsed } as JsonRecord;
+    }
+    if (!parsed || typeof parsed !== 'object') {
       throw new Error(`${apiPath} 返回的不是 JSON 对象`);
     }
     return parsed as JsonRecord;
@@ -159,7 +163,7 @@ async function fetchCategoriesDataset(params: {
       metric: 'gmv',
       limit: '50',
     });
-    const rows = Array.isArray(payload) ? payload : [];
+    const rows = Array.isArray(payload.rows) ? payload.rows : [];
     const scoped = params.categoryIds.length > 0
       ? rows.filter((row) => params.categoryIds.includes(Number(row.category_id)))
       : rows;
@@ -357,7 +361,7 @@ export async function prefetchRetailDataForRunPlan(params: {
       sources,
     });
     if (funnel) datasets.funnel = { ...funnel, window };
-    if (funnelDaily) datasets.funnelDaily = { window, rows: funnelDaily };
+    if (funnelDaily) datasets.funnelDaily = { window, rows: Array.isArray(funnelDaily.rows) ? funnelDaily.rows : [] };
   }
   if (datasetKeys.has('categories')) {
     const categories = await fetchCategoriesDataset({

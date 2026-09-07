@@ -78,6 +78,7 @@ function datasetKeyFromEndpoint(endpoint: string): string | null {
   if (raw === 'summary') return 'summary';
   if (raw === 'inventory-risk') return 'inventoryRisk';
   if (raw === 'categories') return 'categories';
+  if (raw === 'items') return 'itemDaily';
   return null;
 }
 

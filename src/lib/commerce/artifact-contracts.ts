@@ -383,8 +383,29 @@ function inspectDashboardData(value: unknown): string[] {
     );
   });
 
-  if (!hasMarketPayload && !isStructuredEmptyScreenerResult(record)) {
+  // 零售契约：datasets（meta/funnel/categories/inventoryRisk/summary）+
+  // window + plannedEntities 视为有效业务载荷（PRD §5.4）。
+  const datasets = asRecord(record.datasets);
+  const retailDatasetKeys = ['meta', 'funnel', 'funnelDaily', 'categories', 'itemDaily', 'inventoryRisk', 'summary'];
+  const hasRetailPayload = Boolean(
+    datasets && retailDatasetKeys.some((key) => {
+      const dataset = asRecord(datasets[key]);
+      if (!dataset) return false;
+      return hasArrayValue(dataset, ['rows', 'stages']) ||
+        hasPresentValue(dataset, ['window', 'event_count', 'totals', 'items']);
+    })
+  );
+  const hasWindow = asRecord(record.window) !== null;
+  const hasPlannedEntities = asRecord(record.plannedEntities) !== null;
+
+  if (!hasMarketPayload && !hasRetailPayload && !isStructuredEmptyScreenerResult(record)) {
     errors.push('dashboard-data.json 至少需要包含可用行情样本，或包含可追溯的 no_candidates 空筛选结果。');
+  }
+  if (datasets && !hasWindow) {
+    errors.push('datasets 存在时必须声明 window（start/end）。');
+  }
+  if (datasets && !hasPlannedEntities) {
+    errors.push('datasets 存在时必须声明 plannedEntities（categoryIds/itemIds）。');
   }
 
   const visualization = asRecord(record.visualization);

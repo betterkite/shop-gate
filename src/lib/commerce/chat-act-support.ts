@@ -61,7 +61,7 @@ export function resolveProjectRoot(
   return resolveManagedWorkspacePath(projectId, repoPath);
 }
 
-export function canUsePrefetchedSelectionDashboard(params: {
+export function canUsePrefetchedDashboard(params: {
   instruction: string;
   runPlan: Awaited<ReturnType<typeof writeInitialRunPlan>>;
   prefetchSkipped: boolean;
@@ -69,14 +69,12 @@ export function canUsePrefetchedSelectionDashboard(params: {
   if (params.prefetchSkipped) {
     return false;
   }
-  const normalized = params.instruction.replace(/\s+/g, "");
+  // 零售确定性看板门槛：计划 planned、模板已声明、预取成功即可。
+  // 全库口径（无实体）或显式实体范围都允许——模板渲染只依赖最终数据文件。
   return (
-    params.runPlan.visualization?.templateId === "stock-selection" &&
-    params.runPlan.entities.length === 0 &&
-    /(?:股票|个股|A股|全A|股票池)/.test(normalized) &&
-    /全A|A股股票池|股票池|选股|筛选|候选|短线候选|次日|明日|明天|今日|今天|要买|买股|买入策略|短线|推荐\d*(?:只|个)?(?:股票|个股)|(?:股票|个股).{0,12}推荐|推荐.{0,18}(?:股票|个股)/.test(
-      normalized,
-    )
+    params.runPlan.status === "planned" &&
+    Boolean(params.runPlan.visualization?.templateId) &&
+    params.runPlan.visualization?.required === true
   );
 }
 

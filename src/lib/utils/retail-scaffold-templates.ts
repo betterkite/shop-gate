@@ -72,10 +72,6 @@ async function readDashboardData(): Promise<JsonRecord | null> {
   }
 }
 
-function readSourcesEvidence(): Promise<string | null> {
-  return fs.readFile('evidence/sources.json', 'utf8').catch(() => null);
-}
-
 function svgBars(entries: Array<{ label: string; value: number }>, unitLabel: string): string {
   const width = 720;
   const height = 240;
@@ -480,11 +476,34 @@ export function retailBaseDashboardCssTemplate(): string {
 
 .dashboard-shell[data-visual-language="retail-workbench"] .data-quality-footer {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   color: #64748b;
   font-size: 12px;
   padding: 12px 0 32px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .meta-row {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .meta-row .meta-item {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .hero-panel h1,
+.dashboard-shell[data-visual-language="retail-workbench"] .chart-zone h2 {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"],
+.dashboard-shell[data-visual-language="retail-workbench"] .chart-zone,
+.dashboard-shell[data-visual-language="retail-workbench"] .insight-strip {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dashboard-shell[data-visual-language="retail-workbench"] {

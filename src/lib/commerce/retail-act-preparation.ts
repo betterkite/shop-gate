@@ -46,7 +46,7 @@ import {
 import { getProjectIntegrationScope } from "@/lib/platform/context/integration-scope";
 import {
   RetailPreparationError,
-  canUsePrefetchedSelectionDashboard,
+  canUsePrefetchedDashboard,
   ensureRetailDashboardTemplateForAct,
   missingAgentInputArtifacts,
   publishRetailPipelineToolMessage,
@@ -620,7 +620,7 @@ export async function prepareRetailActGeneration(
             false,
           );
         }
-        usePrefetchedSelectionDashboard = canUsePrefetchedSelectionDashboard({
+        usePrefetchedSelectionDashboard = canUsePrefetchedDashboard({
           instruction: effectiveInstruction,
           runPlan,
           prefetchSkipped: prefetch.skipped ?? false,
@@ -752,7 +752,7 @@ export async function prepareRetailActGeneration(
                 target: "app/page.tsx",
                 summary: "正在基于本地零售数据生成标准看板工作区。",
                 input: {
-                  templateId: "retail-base",
+                  templateId: runPlan.visualization?.templateId,
                   variantId: runPlan.visualization?.variantId,
                   entities,
                 },
@@ -771,7 +771,7 @@ export async function prepareRetailActGeneration(
               summary:
                 "平台已基于本地零售数据生成标准看板，后续直接进入自动验证。",
               input: {
-                templateId: "retail-base",
+                templateId: runPlan.visualization?.templateId,
                 variantId: runPlan.visualization?.variantId,
                 entities,
               },

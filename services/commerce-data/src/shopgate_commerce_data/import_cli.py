@@ -18,7 +18,7 @@ import csv
 import random
 import sys
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -37,12 +37,53 @@ EVENT_COLUMNS = ("user_id", "item_id", "category_id", "behavior_type", "timestam
 VALID_BEHAVIORS = {"pv", "fav", "cart", "buy"}
 
 
+def shift_target_end(anchor_end: str, time_shift: str):
+    """计算平移目标窗口末日。
+
+    ``last-week``：最近一个完整周（上周一 ~ 上周日）；
+    ``none``：保持 anchor_end 原样。
+    """
+
+    anchor = date.fromisoformat(anchor_end)
+    if time_shift != "last-week":
+        return anchor
+    today = date.today()
+    days_since_monday = today.weekday()
+    this_monday = today - timedelta(days=days_since_monday)
+    last_monday = this_monday - timedelta(days=7)
+    return last_monday + timedelta(days=6)
+
+
+def compute_time_shift_days(anchor_end: str, time_shift: str):
+    """返回平移天数（time_shift=none 时为 None）。"""
+
+    if time_shift != "last-week":
+        return None
+    target_end = shift_target_end(anchor_end, time_shift)
+    anchor = date.fromisoformat(anchor_end)
+    return (target_end - anchor).days
+
+
 def _connect() -> psycopg.Connection[dict[str, Any]]:
     return psycopg.connect(
         database_url_from_env(),
         row_factory=dict_row,
         autocommit=False,
     )
+
+
+def _shift_event_timestamps(
+    events: Iterator[dict[str, Any]],
+    shift_days: int | None,
+) -> Iterator[dict[str, Any]]:
+    """按需平移事件时间戳（PRD 演示口径：窗口平移到最近完整周）。"""
+
+    if not shift_days:
+        yield from events
+        return
+    for event in events:
+        event["event_ts"] = event["event_ts"] + timedelta(days=shift_days)
+        yield event
 
 
 def _register_ingestion_job(
@@ -329,6 +370,17 @@ def main() -> None:
     import_parser.add_argument("--users", type=int, default=10_000)
     import_parser.add_argument("--seed", type=int, default=20251203)
     import_parser.add_argument("--batch-size", type=int, default=10_000)
+    import_parser.add_argument(
+        "--time-shift",
+        dest="time_shift",
+        default="last-week",
+        help="last-week: 平移到最近一个完整周；none: 保持原始时间戳",
+    )
+    import_parser.add_argument(
+        "--anchor-end",
+        default="2017-12-03",
+        help="原始数据窗口末日（用于平移计算）",
+    )
 
     synthetic_parser = subparsers.add_parser(
         "generate-synthetic-behavior", help="合成行为流兜底（无 CSV 时，PRD R1）"
@@ -337,6 +389,17 @@ def main() -> None:
     synthetic_parser.add_argument("--days", type=int, default=9)
     synthetic_parser.add_argument("--seed", type=int, default=20251203)
     synthetic_parser.add_argument("--batch-size", type=int, default=10_000)
+    synthetic_parser.add_argument(
+        "--time-shift",
+        dest="time_shift",
+        default="last-week",
+        help="last-week: 平移到最近一个完整周；none: 锚定 anchor_end",
+    )
+    synthetic_parser.add_argument(
+        "--anchor-end",
+        default="2017-12-03",
+        help="合成窗口末日锚点",
+    )
 
     subparsers.add_parser(
         "generate-synthetic-master", help="按事件流生成合成商品主数据（PRD §5.2）"
@@ -366,11 +429,16 @@ def main() -> None:
                 "csv_users": len(ordered_users),
                 "sampled_users": sampled_count,
                 "seed": args.seed,
+                "time_shift": args.time_shift,
+                "shift_days": compute_time_shift_days(args.anchor_end, args.time_shift),
             }
             print(f"[import] 抽样完成：{meta}", flush=True)
             import_events(
                 connection,
-                iter_userbehavior_events(args.csv, sampled),
+                _shift_event_timestamps(
+                    iter_userbehavior_events(args.csv, sampled),
+                    compute_time_shift_days(args.anchor_end, args.time_shift),
+                ),
                 provider="userbehavior_csv",
                 meta=meta,
                 batch_size=args.batch_size,
@@ -381,11 +449,16 @@ def main() -> None:
                 "users": args.users,
                 "days": args.days,
                 "seed": args.seed,
+                "time_shift": args.time_shift,
+                "anchor_end": args.anchor_end,
             }
             import_events(
                 connection,
                 synthetic_behavior_events(
-                    users=args.users, days=args.days, seed=args.seed
+                    users=args.users,
+                    days=args.days,
+                    seed=args.seed,
+                    end_day=shift_target_end(args.anchor_end, args.time_shift),
                 ),
                 provider="synthetic",
                 meta=meta,

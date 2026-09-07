@@ -209,7 +209,9 @@ export function retailFunnelPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
+        <span>行为流：{String(meta.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta.behavior_source ?? "") + "）"}</span>
+        <span>主数据与金额：合成口径</span>
+        <span>窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -261,7 +263,9 @@ export function retailCatalogPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
+        <span>行为流：{String(meta.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta.behavior_source ?? "") + "）"}</span>
+        <span>主数据与金额：合成口径</span>
+        <span>窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -320,7 +324,9 @@ export function retailPriceInventoryPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
+        <span>行为流：{String(meta.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta.behavior_source ?? "") + "）"}</span>
+        <span>主数据与金额：合成口径</span>
+        <span>窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -386,7 +392,9 @@ export function retailDailyBriefPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
+        <span>行为流：{String(meta.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta.behavior_source ?? "") + "）"}</span>
+        <span>主数据与金额：合成口径</span>
+        <span>窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -427,7 +435,9 @@ export function retailBaseDashboardPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>口径与限制：真实行为流（天池抽样）+ 合成主数据；窗口外趋势不支持。</span>
+        <span>行为流：{String(meta.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta.behavior_source ?? "") + "）"}</span>
+        <span>主数据与金额：合成口径</span>
+        <span>窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
     </main>

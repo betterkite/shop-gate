@@ -175,7 +175,8 @@ async def dataset_meta() -> dict[str, Any]:
           COUNT(DISTINCT user_id) AS user_count,
           COUNT(DISTINCT item_id) AS item_count,
           COUNT(DISTINCT category_id) AS category_count,
-          COUNT(DISTINCT source) AS source_count
+          COUNT(DISTINCT source) AS source_count,
+          MIN(source) AS behavior_source
         FROM commerce.user_behavior_events
         """,
     )

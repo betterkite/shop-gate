@@ -435,7 +435,7 @@ export function retailBaseDashboardPageTemplate(): string {
 
 /** 共享 CSS：workbench 视觉语言 + 零售板块样式。 */
 export function retailBaseDashboardCssTemplate(): string {
-  return `${baseDashboardWorkbenchCss}
+  return `${baseDashboardWorkbenchCss()}
 
 /* Shop Gate 零售板块（合成口径徽标、密集表格、图表区） */
 .dashboard-shell[data-visual-language="retail-workbench"] .synthetic-badge {

@@ -322,6 +322,127 @@ async def item_daily_series(
     )
 
 
+async def product_pool(
+    start: date,
+    end: date,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    category_id: int | None = None,
+    sort: str = "gmv",
+) -> dict[str, Any]:
+    """商品池：按页返回商品级窗口指标（真实事件 + 合成主数据）。
+
+    sort 取 gmv / pv / buy / price。返回 total 供分页。
+    """
+    if sort not in {"gmv", "pv", "buy", "price"}:
+        raise ValueError(f"不支持的排列指标：{sort}")
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise ValueError("page 需 ≥1，page_size 需在 1..100")
+    clauses = ["1 = 1"]
+    params: list[Any] = []
+    if category_id is not None:
+        clauses.append("i.category_id = %s")
+        params.append(category_id)
+    filter_sql = " AND ".join(clauses)
+
+    counted = await fetch_all(
+        f"""
+        SELECT COUNT(*) AS total
+        FROM commerce.items i
+        WHERE {filter_sql}
+        """,
+        tuple(params),
+    )
+    total = int(counted[0]["total"]) if counted else 0
+
+    order_col = {
+        "gmv": "COALESCE(m.gmv, 0) DESC",
+        "pv": "COALESCE(m.pv, 0) DESC",
+        "buy": "COALESCE(m.buy, 0) DESC",
+        "price": "i.price DESC",
+    }[sort]
+    rows = await fetch_all(
+        f"""
+        SELECT
+          i.item_id, i.title, i.category_id, c.name AS category_name,
+          c.synthetic_name AS category_synthetic_name, i.price, i.stock,
+          b.name AS brand_name, s.name AS shop_name, s.tier AS shop_tier,
+          COALESCE(m.pv, 0) AS pv, COALESCE(m.buy, 0) AS buy, COALESCE(m.gmv, 0) AS gmv
+        FROM commerce.items i
+        LEFT JOIN commerce.categories c ON c.category_id = i.category_id
+        LEFT JOIN commerce.brands b ON b.brand_id = i.brand_id
+        LEFT JOIN commerce.shops s ON s.shop_id = i.shop_id
+        LEFT JOIN (
+          SELECT item_id, SUM(pv) AS pv, SUM(buy) AS buy, SUM(gmv) AS gmv
+          FROM commerce.daily_item_metrics
+          WHERE stat_date >= %s AND stat_date <= %s
+          GROUP BY item_id
+        ) m ON m.item_id = i.item_id
+        WHERE {filter_sql}
+        ORDER BY {order_col}
+        LIMIT %s OFFSET %s
+        """,
+        tuple(params) + (start, end, page_size, (page - 1) * page_size),
+    )
+    for row in rows:
+        row["price"] = float(row["price"] or 0)
+        row["stock"] = int(row["stock"] or 0)
+        row["pv"] = int(row["pv"] or 0)
+        row["buy"] = int(row["buy"] or 0)
+        row["gmv"] = float(row["gmv"] or 0)
+        row["buy_conversion"] = round(row["buy"] / row["pv"], 6) if row["pv"] else 0.0
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "synthetic_fields": ["price", "stock", "brand_name", "shop_name", "shop_tier", "gmv"],
+        "items": rows,
+    }
+
+
+async def channel_metrics(
+    start: date,
+    end: date,
+) -> list[dict[str, Any]]:
+    """渠道分析：按店铺 tier 聚合（渠道 = 店铺 tier，合成口径）。
+
+    事件为真实 UserBehavior；店铺/金额为合成主数据指标。
+    """
+    rows = await fetch_all(
+        """
+        SELECT
+          s.tier AS channel,
+          COUNT(DISTINCT s.shop_id) AS shop_count,
+          COUNT(DISTINCT i.item_id) AS item_count,
+          COALESCE(SUM(m.pv), 0) AS pv,
+          COALESCE(SUM(m.buy), 0) AS buy,
+          COALESCE(SUM(m.gmv), 0) AS gmv
+        FROM commerce.shops s
+        LEFT JOIN commerce.items i ON i.shop_id = s.shop_id
+        LEFT JOIN (
+          SELECT item_id, SUM(pv) AS pv, SUM(buy) AS buy, SUM(gmv) AS gmv
+          FROM commerce.daily_item_metrics
+          WHERE stat_date >= %s AND stat_date <= %s
+          GROUP BY item_id
+        ) m ON m.item_id = i.item_id
+        GROUP BY s.tier
+        ORDER BY COALESCE(SUM(m.gmv), 0) DESC
+        """,
+        (start, end),
+    )
+    total_gmv = sum(float(row.get("gmv") or 0) for row in rows)
+    for row in rows:
+        row["shop_count"] = int(row["shop_count"] or 0)
+        row["item_count"] = int(row["item_count"] or 0)
+        row["pv"] = int(row["pv"] or 0)
+        row["buy"] = int(row["buy"] or 0)
+        row["gmv"] = float(row["gmv"] or 0)
+        row["gmv_share"] = round(row["gmv"] / total_gmv, 6) if total_gmv else 0.0
+        row["buy_conversion"] = round(row["buy"] / row["pv"], 6) if row["pv"] else 0.0
+    return rows
+
+
 async def inventory_risk(
     start: date,
     end: date,

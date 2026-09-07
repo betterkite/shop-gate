@@ -148,6 +148,44 @@ def create_commerce_router() -> APIRouter:
             "items": await retail.inventory_risk(start_date, end_date, limit),
         }
 
+    @router.get("/items")
+    async def items_list(
+        start: Annotated[str | None, Query()] = None,
+        end: Annotated[str | None, Query()] = None,
+        page: Annotated[int, Query(ge=1)] = 1,
+        page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+        category_id: Annotated[int | None, Query()] = None,
+        sort: Annotated[str, Query()] = "gmv",
+    ) -> dict[str, Any]:
+        end_date = _parse_date(end, date.today())
+        assert end_date is not None
+        start_date = _parse_date(start, end_date - timedelta(days=8))
+        if start_date is None or start_date > end_date:
+            raise HTTPException(status_code=400, detail="start 不能晚于 end")
+        try:
+            return await retail.product_pool(
+                start_date,
+                end_date,
+                page=page,
+                page_size=page_size,
+                category_id=category_id,
+                sort=sort,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/channels")
+    async def channels(
+        start: Annotated[str | None, Query()] = None,
+        end: Annotated[str | None, Query()] = None,
+    ) -> list[dict[str, Any]]:
+        end_date = _parse_date(end, date.today())
+        assert end_date is not None
+        start_date = _parse_date(start, end_date - timedelta(days=8))
+        if start_date is None or start_date > end_date:
+            raise HTTPException(status_code=400, detail="start 不能晚于 end")
+        return await retail.channel_metrics(start_date, end_date)
+
     @router.get("/summary")
     async def summary(
         stat_date: Annotated[str | None, Query(alias="date")] = None,

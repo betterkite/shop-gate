@@ -450,6 +450,10 @@ export async function prefetchRetailDataForRunPlan(params: {
     generatedAt: new Date().toISOString(),
     window,
     plannedEntities: { categoryIds, itemIds },
+    // 身份评估要求最终数据携带计划的模板声明（visualization_template_missing）。
+    ...(params.plan.visualization?.templateId
+      ? { visualization: { template_id: params.plan.visualization.templateId } }
+      : {}),
     synthetic: {
       fields: ['price', 'stock', 'brand', 'shop', 'gmv'],
       note: '金额与库存来自合成主数据，展示必须带合成口径标注（PRD §5.3）。',

@@ -23,8 +23,8 @@ const WAITING_COPY: Record<
   { eyebrow: string; title: string; helper: string }
 > = {
   generating: {
-    eyebrow: '量化研究员工作中',
-    title: '正在为你生成量化看板',
+    eyebrow: '经营分析师工作中',
+    title: '正在为你生成经营看板',
     helper: '系统会持续取数、编排图表并完成自动验证，完成后自动展示。',
   },
   preview: {

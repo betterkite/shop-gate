@@ -84,7 +84,7 @@ function ReportCard({ report, onOpen }: { report: ResearchReportSnapshot; onOpen
       <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{report.summary}</p>
       <div className="mt-4 grid grid-cols-2 gap-2 text-center">
         <div className="rounded-lg bg-muted/45 px-2 py-2"><p className="text-[10px] text-muted-foreground">候选标的</p><p className="mt-1 text-sm font-bold text-foreground">{candidates.length}</p></div>
-        <div className="rounded-lg bg-muted/45 px-2 py-2"><p className="text-[10px] text-muted-foreground">股票池覆盖</p><p className="mt-1 text-sm font-bold text-foreground">{coverage ? `${Math.round(coverage.coverageRatio * 100)}%` : "-"}</p></div>
+        <div className="rounded-lg bg-muted/45 px-2 py-2"><p className="text-[10px] text-muted-foreground">观察池覆盖</p><p className="mt-1 text-sm font-bold text-foreground">{coverage ? `${Math.round(coverage.coverageRatio * 100)}%` : "-"}</p></div>
       </div>
       <div className="mt-auto flex items-center justify-between border-t border-border/40 pt-4 text-xs"><span className="truncate text-muted-foreground">{report.source}</span><span className="inline-flex items-center gap-1 font-semibold text-primary">阅读报告 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span></div>
     </button>

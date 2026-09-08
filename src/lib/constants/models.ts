@@ -24,7 +24,7 @@ export const PI_AGENT_MODEL_DEFINITIONS: PiAgentModelDefinition[] = [
   {
     id: LOCAL_QWEN_MODEL_ID,
     name: 'Qwen 3.5 9B (Local Q5_K_M)',
-    description: '通过本机 OpenAI-compatible API 接入的默认 Qwen 3.5 9B 量化模型',
+    description: '通过本机 OpenAI-compatible API 接入的默认 Qwen 3.5 9B 模型',
     supportsImages: false,
     provider: 'openai',
     runtime: 'modelport',

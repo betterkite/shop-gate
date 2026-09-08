@@ -58,7 +58,7 @@ export function reportCoverage(report: ResearchReportSnapshot): ResearchCoverage
   const coverageRatio = number(coverage.coverageRatio);
   if (!universeId && readyCount == null && memberCount == null && coverageRatio == null) return null;
   return {
-    universeId: universeId || "未绑定股票池",
+    universeId: universeId || "未绑定观察池",
     readyCount: readyCount ?? 0,
     memberCount: memberCount ?? 0,
     coverageRatio: coverageRatio ?? 0,

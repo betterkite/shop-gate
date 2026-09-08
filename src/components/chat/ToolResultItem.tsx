@@ -160,7 +160,7 @@ const describeFileTarget = (target: string, action: ToolAction) => {
   if (normalized.endsWith('evidence/sources.json')) return '记录数据来源、接口、抓取时间和来源说明。';
   if (normalized.endsWith('evidence/data_quality.json')) return '记录数据质量、缺失字段、异常和限制。';
   if (normalized.endsWith('data_file/final/dashboard-data.json')) return '写入最终看板数据，页面将基于它渲染图表。';
-  if (normalized.endsWith('app/page.tsx')) return action === 'Read' ? '读取看板页面代码，确认当前渲染结构。' : '生成或更新量化可视化看板页面。';
+  if (normalized.endsWith('app/page.tsx')) return action === 'Read' ? '读取看板页面代码，确认当前渲染结构。' : '生成或更新零售经营可视化看板页面。';
   if (normalized.endsWith('app/globals.css')) return action === 'Read' ? '读取页面样式，确认图表和布局基础。' : '更新看板样式，保证布局、图表和响应式体验。';
   if (normalized.endsWith('next.config.js')) return '检查 Next.js 配置，确保预览和构建链路可用。';
   if (normalized.endsWith('package.json')) return '检查项目依赖和脚本，确保 build/dev 可执行。';
@@ -303,7 +303,7 @@ const buildToolSummary = ({
     if (lowerTool.includes('data-quality')) return '检查数据覆盖率、缺失字段、来源和可用性。';
     if (lowerTool.includes('visualization')) return '基于最终数据生成可视化看板页面。';
     if (lowerTool.includes('comparison')) return '组织多标的对比数据，生成横向研究视角。';
-    return '执行量化分析 skill，推进当前阶段。';
+    return '执行经营分析 skill，推进当前阶段。';
   }
 
   const curlSummary = describeCurlCommand(target);

@@ -487,7 +487,7 @@ export async function rewriteRetailQuerySemanticsWithConfiguredProvider(
     : new OpenAICompatibleProvider({ ...providerOptions, providerName: 'openai' });
 
   try {
-    // 本地量化模型偶发完成强制工具调用但参数不合 schema。只重试这一窄失败；
+    // 本地模型偶发完成强制工具调用但参数不合 schema。只重试这一窄失败；
     // 绝不用关键词抽取替代模型语义。
     const semanticAttempts = 1 + Math.min(
       2,

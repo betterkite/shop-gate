@@ -497,7 +497,7 @@ async function collectLogSources(includeEntries: boolean): Promise<OpsLogSource[
   const sources: Array<{ id: string; label: string; filePath: string | null }> = [
     { id: 'next-dev', label: '前端 Next.js dev', filePath: path.join(ROOT, '.next', 'dev', 'logs', 'next-development.log') },
     { id: 'frontend-runtime', label: '前端启动脚本', filePath: path.join(ROOT, 'tmp', 'runtime', 'frontend.log') },
-    { id: 'market-api', label: '量化数据后端', filePath: path.join(ROOT, 'tmp', 'runtime', 'market-api.log') },
+    { id: 'market-api', label: '经营数据后端', filePath: path.join(ROOT, 'tmp', 'runtime', 'market-api.log') },
     { id: 'eval-queue', label: '评测队列最新运行', filePath: latestEvalLog },
   ];
   const [fileSources, lokiSource] = await Promise.all([
@@ -578,7 +578,7 @@ function buildRuntimeHealthProfile(params: {
       score: scoreGroup(['database', 'docker-timescaledb', 'market-api'], 12, 35),
       weight: 40,
       status: scoreStatus(scoreGroup(['database', 'docker-timescaledb', 'market-api'], 12, 35)),
-      summary: '数据库、TimescaleDB、Docker 和量化数据后端可用性。',
+      summary: '数据库、TimescaleDB、Docker 和经营数据后端可用性。',
     },
     {
       id: 'toolchain',
@@ -850,7 +850,7 @@ export async function getOpsPlatformDashboard(params: {
     },
     {
       id: 'market-api',
-      label: '量化数据后端',
+      label: '经营数据后端',
       status: marketApiStatus,
       summary: `${MARKET_API_BASE_URL} · health=${marketHealth.status ?? '-'} · registry=${marketRegistry.status ?? '-'}`,
       detail: marketHealth.ok && marketRegistry.ok
@@ -899,11 +899,11 @@ export async function getOpsPlatformDashboard(params: {
         : 'failed',
       summary: `${capabilityCenter.summary.availableProviders}/${capabilityCenter.summary.dataProviders} 个数据源可用`,
       detail: `${capabilityCenter.summary.degradedProviders} 个数据源降级；market API ${capabilityCenter.marketApi.status}。`,
-      actions: capabilityCenter.summary.availableProviders ? [] : ['启动量化数据后端并检查数据源注册表。'],
+      actions: capabilityCenter.summary.availableProviders ? [] : ['启动经营数据后端并检查数据源注册表。'],
     },
     {
       id: 'quant-schema',
-      label: '量化数据表',
+      label: '经营数据表',
       status: infrastructure.data.quantSchema.tables.length >= 4 ? 'ok' : componentUnavailableStatus(database),
       summary: `${infrastructure.data.quantSchema.tables.length} 张 quant 表`,
       detail: infrastructure.data.quantSchema.tables.map((table) => `quant.${table}`).join('、') || '尚未初始化 quant schema。',

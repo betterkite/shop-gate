@@ -129,7 +129,7 @@ const FILTER_CHIPS: { id: SkillHealthStatus | "all"; label: string; icon?: typeo
 type SkillScope = NonNullable<SkillsPayload["skills"][number]["scope"]>;
 const SCOPE_LABELS: Record<SkillScope, string> = {
   workflow: "工作流",
-  quant: "量化",
+  quant: "数据源",
   input: "输入",
   evidence: "证据",
   platform: "平台",
@@ -139,7 +139,7 @@ const SCOPE_LABELS: Record<SkillScope, string> = {
 const SCOPE_CHIPS: Array<{ id: SkillScope | "all"; label: string }> = [
   { id: "all", label: "全部域" },
   { id: "workflow", label: "工作流" },
-  { id: "quant", label: "量化" },
+  { id: "quant", label: "数据源" },
   { id: "input", label: "输入" },
   { id: "evidence", label: "证据" },
   { id: "platform", label: "平台" },

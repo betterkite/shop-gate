@@ -77,7 +77,7 @@ function recognitionTable(runPlan: RetailRunPlan): string {
   const object = runPlan.entities.length > 0
     ? runPlan.entities.join('、')
     : runPlan.visualization.templateId === 'stock-selection'
-      ? 'A 股股票池'
+      ? 'A 股观察池'
       : '待从问题或附件确认';
   const timeRange = runPlan.timeRange ?? '未指定';
   const timeStatus = runPlan.timeRange

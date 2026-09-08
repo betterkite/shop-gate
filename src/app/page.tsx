@@ -744,7 +744,7 @@ export default function HomePage() {
           >
             <div className="min-w-0">
               <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.08em] text-primary">
-                <Sparkles className="h-3.5 w-3.5" />量化研究工作台
+                <Sparkles className="h-3.5 w-3.5" />零售经营分析工作台
               </div>
               <p className="mt-1 text-lg font-bold tracking-[-0.025em] sm:text-xl">{greeting}，{accountName}</p>
               <p className="mt-0.5 text-xs leading-5 text-muted-foreground">从一个清晰的问题开始，在同一工作区完成取数、分析、验证与可视化。</p>

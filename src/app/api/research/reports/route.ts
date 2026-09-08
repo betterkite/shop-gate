@@ -74,7 +74,7 @@ async function executeResearchOperation(params: {
       if (operation.state === 'in_progress') {
         return idempotencyStateResponse(
           'IDEMPOTENCY_IN_PROGRESS',
-          '相同幂等键的投研任务正在执行，请稍后重试。',
+          '相同幂等键的日报任务正在执行，请稍后重试。',
           operation.retryAfterSeconds,
         );
       }
@@ -82,7 +82,7 @@ async function executeResearchOperation(params: {
         if (!operation.responseAvailable || operation.responseBody === null) {
           return idempotencyStateResponse(
             'IDEMPOTENCY_RESULT_UNAVAILABLE',
-            '该投研任务已经完成，但响应过大未进入幂等缓存；为避免重复生成或推送，本次不会重新执行。',
+            '该日报任务已经完成，但响应过大未进入幂等缓存；为避免重复生成或推送，本次不会重新执行。',
           );
         }
         return NextResponse.json(operation.responseBody, {
@@ -158,7 +158,7 @@ async function executeResearchOperation(params: {
       console.error('[Idempotency] Failed to persist research response:', error);
       return createErrorResponse(
         'Failed to safely persist idempotent research result',
-        '投研任务已执行，但暂时无法安全保存幂等结果，请稍后使用相同幂等键重试。',
+        '日报任务已执行，但暂时无法安全保存幂等结果，请稍后使用相同幂等键重试。',
         503,
       );
     }

@@ -66,10 +66,10 @@
       "fileCount": 4
     },
     "dashboard-visualization": {
-      "version": "0.6.1",
+      "version": "0.7.0",
       "packagePath": ".pi/skill-packages/dashboard-visualization.tgz",
-      "sourceSha256": "64d41be14a8ee20e8d25a807c4967728428722784d5470d0125f2c9af7624e10",
-      "packageSha256": "5acf3f75c36153eb7c1cc6b57e29239c73c6181f9c3f6c9d87e21536bba5901b",
+      "sourceSha256": "37e9d545e1a708a88f804c0150ec73788148c9e43339c1df97dbb551a614a14e",
+      "packageSha256": "97d991f7ca5571538267e54e9783aa62f73d765a40eb7576b349804a5ec8eafc",
       "fileCount": 6
     },
     "platform-ui-product-design": {

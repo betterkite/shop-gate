@@ -63,7 +63,6 @@ import {
   type RetailCapabilityId,
 } from "@/lib/domains/retail/capabilities";
 import { cn } from "@/lib/utils";
-import homeAnimeResearcher from "@/assets/home-anime-quant-researcher-v3.webp";
 import {
   buildQuestionInstruction,
   questionOutputLabel,
@@ -788,20 +787,13 @@ export default function HomePage() {
               <div className="pointer-events-none absolute left-1/2 top-2 -z-20 h-64 w-[58rem] max-w-[94vw] -translate-x-1/2 rounded-full bg-primary/[0.075] blur-3xl" />
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-8 -top-8 -z-10 h-48 w-40 opacity-[0.13] mix-blend-multiply [mask-image:radial-gradient(ellipse_at_62%_42%,black_32%,transparent_76%)] sm:-right-4 sm:-top-24 sm:h-[32rem] sm:w-[26rem] sm:opacity-[0.16] dark:opacity-[0.075] dark:mix-blend-screen"
+                className="pointer-events-none absolute -right-8 -top-8 -z-10 h-48 w-40 rounded-full bg-[radial-gradient(circle,hsl(var(--primary)/0.18),transparent_70%)] blur-2xl sm:-right-4 sm:-top-24 sm:h-[32rem] sm:w-[26rem]"
               >
-                <Image
-                  src={homeAnimeResearcher}
-                  alt=""
-                  fill
-                  sizes="(max-width: 640px) 160px, 416px"
-                  className="object-cover object-top saturate-[1.02]"
-                />
               </div>
 
               <div className="relative z-10">
                 <div className="text-center">
-                  <h1 className="text-[1.9rem] font-bold tracking-[-0.045em] sm:text-[2.45rem]">今天想研究什么？</h1>
+                  <h1 className="text-[1.9rem] font-bold tracking-[-0.045em] sm:text-[2.45rem]">今天想分析什么经营问题？</h1>
                   <p className="mx-auto mt-1.5 max-w-2xl text-xs leading-5 text-muted-foreground sm:text-sm">
                     <span className="sm:hidden">说清标的、时间和目标。</span>
                     <span className="hidden sm:inline">描述标的、时间范围和希望得到的结论，系统会自动补全取数、证据与验证步骤。</span>

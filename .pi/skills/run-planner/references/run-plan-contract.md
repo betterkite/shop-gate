@@ -1,6 +1,6 @@
 # Run plan 只读契约与失败边界
 
-在校验 `.data-agent/finance-run-plan.json` 的字段、继承上一轮任务或判断是否必须停止执行时读取本参考。不要为普通意图判断加载它。
+在校验 `.data-agent/retail-run-plan.json` 的字段、继承上一轮任务或判断是否必须停止执行时读取本参考。不要为普通意图判断加载它。
 
 ## 最小契约
 

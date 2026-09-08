@@ -203,7 +203,7 @@ def validate(payload: Any) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Validate a QuantPilot finance-query-rewrite.json contract.",
+        description="Validate a QuantPilot retail-query-rewrite.json contract.",
     )
     parser.add_argument(
         "--input",

@@ -63,7 +63,7 @@ description: Generate, repair, or enhance real-data Next.js/HTML quantitative da
 
 ## 平台预取模式
 
-当 `.data-agent/finance-run-plan.json` 为 `planned`，且 `data_file/final/dashboard-data.json`、`evidence/sources.json`、`evidence/data_quality.json` 已存在时，平台已完成规划和取数。此时执行以下低自由度流程：
+当 `.data-agent/retail-run-plan.json` 为 `planned`，且 `data_file/final/dashboard-data.json`、`evidence/sources.json`、`evidence/data_quality.json` 已存在时，平台已完成规划和取数。此时执行以下低自由度流程：
 
 1. 把 run plan、final 数据和 evidence 当作权威输入，不重新调用 run-planner 或取数 skill。
 2. 只读 run plan；不修改 `capabilityId`、`symbols`、`visualization.templateId`、`visualization.variantId`。
@@ -112,7 +112,7 @@ description: Generate, repair, or enhance real-data Next.js/HTML quantitative da
    - `dashboard_data_binding`：让页面读取 `data_file/final/dashboard-data.json` 或同源 `/api/market/**`，禁止页面只渲染静态文案。
    - `chart_presence`/`visual_presentation`：补齐足够尺寸的主图、矩阵或表格，首屏必须有真实金融数据和核心图表。
    - `artifact_policy`：移除 CDN、远程资源、mock/static 数据和敏感字段。
-   - 模板不一致：保持 `.data-agent/finance-run-plan.json` 不变，只把 final 数据 `visualization.template_id/variant_id` 和页面结构对齐到只读 run plan。
+   - 模板不一致：保持 `.data-agent/retail-run-plan.json` 不变，只把 final 数据 `visualization.template_id/variant_id` 和页面结构对齐到只读 run plan。
 6. 修复当前失败集后调用一次 `submit_result` 并停止。不得自行运行 build、启动 preview、触发 validation、轮询报告或伪造通过状态；平台会统一执行并在需要时发起下一轮定向修复。
 7. 提交摘要只说明已修复项、修改产物和真实外部限制，不声称尚未由平台确认的验证结果。
 
@@ -192,7 +192,7 @@ const rows: JsonRecord[] = assets.flatMap((asset) => {
 
 为了让平台预取、验证和标准模板稳定工作，优先使用下面字段；字段可以补充，但不要改名或只写自定义结构：
 
-- 只读 `.data-agent/finance-run-plan.json` 的 `symbols` 是权威证券代码字符串数组，例如 `["600519"]`。如果需要保存名称、市场、secid，请放在 `resolvedSymbols[]` 或 final 数据中，不得回写 run plan。
+- 只读 `.data-agent/retail-run-plan.json` 的 `symbols` 是权威证券代码字符串数组，例如 `["600519"]`。如果需要保存名称、市场、secid，请放在 `resolvedSymbols[]` 或 final 数据中，不得回写 run plan。
 - 单标的 final 数据必须包含：
   - `symbol`、`name`、`asset_type`、`source`、`as_of`
   - `quote.price`、`quote.change_percent`、`quote.quote_time`
@@ -336,7 +336,7 @@ await fetch('/api/market/quotes/history/600519?period=daily&adjustment=qfq&limit
 4. 如果任务涉及个股基本面，再补充财务趋势、ROE/毛利率和公告列表。
 5. 如果任务涉及多标的，优先读取 `assets[]` 和 `comparison`，保留单标的主图作为可选细节，不要把多标的页面降级成主标的页面。
 6. 页面最终仍需通过平台自动验证：build、HTTP 200、final 数据、evidence、图表和 `/api/market`。
-7. 页面必须通过产物策略验证：无外部 CDN/远程资源、无 mock/static 数据、无明文密钥，且保留 `.data-agent/finance-run-plan.json`、final 数据和 evidence 标准产物。
+7. 页面必须通过产物策略验证：无外部 CDN/远程资源、无 mock/static 数据、无明文密钥，且保留 `.data-agent/retail-run-plan.json`、final 数据和 evidence 标准产物。
 
 ## 生成页面验收清单
 

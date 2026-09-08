@@ -1,10 +1,8 @@
 'use client';
 
 import { ArrowRight, BarChart3, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
-import Image from 'next/image';
 import { FormEvent, useState } from 'react';
 
-import loginHero from '@/assets/login-quant-anime-researcher-v2.webp';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,16 +58,8 @@ export default function LoginClient({
       <div className="pointer-events-none absolute bottom-[8%] right-[7%] h-40 w-40 rounded-full border border-info/10 bg-info/5 blur-sm" />
 
       <div className="relative mx-auto grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-border/80 bg-card shadow-[0_28px_90px_-42px_hsl(var(--shadow-color)/0.42)] lg:min-h-[720px] lg:grid-cols-[1.08fr_0.92fr]">
-        <section className="relative min-h-[260px] overflow-hidden border-b border-border/70 bg-muted lg:min-h-[720px] lg:border-b-0 lg:border-r">
-          <Image
-            src={loginHero}
-            alt="Shop Gate 零售经营分析师正在分析数据"
-            fill
-            priority
-            sizes="(min-width: 1024px) 55vw, 100vw"
-            className="object-cover object-[50%_42%] lg:object-[50%_44%]"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-white/10" />
+        <section className="relative min-h-[260px] overflow-hidden border-b border-border/70 lg:min-h-[720px] lg:border-b-0 lg:border-r bg-[linear-gradient(160deg,hsl(var(--primary)/0.16),hsl(var(--background))_46%,hsl(var(--info)/0.14))]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,hsl(var(--primary)/0.20),transparent_52%),radial-gradient(circle_at_84%_86%,hsl(var(--info)/0.16),transparent_56%)]" />
 
           <div className="absolute left-5 top-5 flex items-center gap-2.5 rounded-2xl border border-white/70 bg-white/80 px-3 py-2 text-sm font-bold tracking-tight text-slate-900 shadow-sm backdrop-blur-md sm:left-7 sm:top-7 sm:px-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -121,10 +111,10 @@ export default function LoginClient({
                   value={identity}
                   onChange={(event) => setIdentity(event.target.value)}
                   className="h-12 rounded-xl border-input bg-background px-4 shadow-sm placeholder:text-muted-foreground/65 focus-visible:ring-primary"
-                  placeholder="admin 或 name@example.com"
+                  placeholder="admin@shopgate.local"
                 />
                 {developmentAdmin ? (
-                  <p className="inline-flex rounded-lg bg-primary/[0.07] px-2.5 py-1.5 text-xs font-medium text-primary">本地默认：admin / admin</p>
+                  <p className="inline-flex rounded-lg bg-primary/[0.07] px-2.5 py-1.5 text-xs font-medium text-primary">本地默认：admin@shopgate.local / shopgate2025</p>
                 ) : null}
               </div>
               <div className="space-y-2">

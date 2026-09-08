@@ -746,6 +746,15 @@
     "dashboard-visualization": {
       "releases": [
         {
+          "version": "0.7.0",
+          "date": "2026-09-07",
+          "summary": "零售场景化可视化模板：为 retail 模板 id 补齐 scenario-template 运行时资源，修复零售 repair 路径因缺场景段而死。",
+          "changes": [
+            "scenario_templates.md 新增 catalog-structure/funnel-analysis/price-inventory/daily-brief 四个零售场景段。",
+            "修复 dashboard-visualization 在零售模板 id 下缺少必需 runtime resource scenario-template 的问题（此前零售 repair 路径会失败）。"
+          ]
+        },
+        {
           "version": "0.6.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",

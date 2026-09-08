@@ -389,7 +389,7 @@
     {
       "id": "dashboard-visualization",
       "name": "可视化看板",
-      "version": "0.6.1",
+      "version": "0.7.0",
       "status": "stable",
       "scope": "visualization",
       "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与金融指标判读生成 Next.js 金融分析看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",

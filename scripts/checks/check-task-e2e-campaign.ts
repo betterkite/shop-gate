@@ -134,7 +134,8 @@ function taskTitle(campaign: string, item: TaskCase): string {
 }
 
 async function readDataset(): Promise<TaskDataset> {
-  const target = path.join(root, 'config', 'evals', 'task-e2e-v1.json');
+  const datasetName = option('dataset') ?? 'task-e2e-v1';
+  const target = path.join(root, 'config', 'evals', `${datasetName}.json`);
   const dataset = JSON.parse(await fs.readFile(target, 'utf8')) as TaskDataset;
   assert(dataset.schemaVersion === 1, 'Unsupported task E2E dataset schema.');
   assert(dataset.cases.length === 30, `Task E2E dataset must contain exactly 30 cases, got ${dataset.cases.length}.`);

@@ -1,45 +1,19 @@
 #!/usr/bin/env node
 
-const path = require('path');
+// P9：金融 benchmarks/shopgate 评测体系已随金融域移除（P0 删数据、P3 删域），
+// 原 attest 逻辑引用的 src/lib/domains/finance/ 与 data-prefetch.ts 已不存在，
+// 无法再提供有效校验。零售域的真实校验由零售 task-E2E 基准承担：
+// 本入口执行 check-retail-e2e-benchmark（数据集结构 + 最近一次运行证据）并透传结果。
+
 const { spawnSync } = require('child_process');
-const { loadCommerceE2eSuite } = require('./commerce-e2e-suite');
+const path = require('path');
 
-const root = process.cwd();
-
-if (!require('fs').existsSync(path.resolve('benchmarks/shopgate'))) {
-  console.log('[eval-benchmarks] SKIPPED: benchmarks dataset removed at P0; rebuild tracked as ISSUE-P9.');
-  process.exit(0);
-}
-const runRuntimeControls = process.argv.includes('--run-runtime-controls');
-
-function main() {
-  const suite = loadCommerceE2eSuite({ root, requireReleaseCoverage: true });
-  console.log(
-    `[e2e-suite] ok: ${suite.id} live-model=${suite.caseIds.length} ` +
-    `product-controls=${suite.productControlCaseIds.length} runtime-tests=${suite.runtimeTestFiles.length}`,
-  );
-  if (!runRuntimeControls) return;
-
-  const executable = path.join(
-    root,
-    'node_modules',
-    '.bin',
-    process.platform === 'win32' ? 'vitest.cmd' : 'vitest',
-  );
-  const result = spawnSync(executable, ['run', ...suite.runtimeTestFiles], {
-    cwd: root,
-    env: process.env,
-    shell: false,
-    stdio: 'inherit',
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status || 1);
-  console.log('[e2e-suite] repair/recovery/security runtime controls passed');
-}
-
-try {
-  main();
-} catch (error) {
-  console.error('[e2e-suite] failed:', error instanceof Error ? error.message : error);
-  process.exit(1);
-}
+const retailCheck = path.join(
+  process.cwd(),
+  'scripts',
+  'checks',
+  'check-retail-e2e-benchmark.js',
+);
+const result = spawnSync(process.execPath, [retailCheck], { stdio: 'inherit' });
+if (result.status !== 0) process.exit(result.status || 1);
+console.log('[eval-benchmarks] 金融基准体系已随金融域移除；真实校验由零售 task-E2E 基准承担。');

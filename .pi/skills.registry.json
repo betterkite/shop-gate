@@ -10,7 +10,7 @@
     {
       "id": "run-planner",
       "name": "运行规划",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "status": "stable",
       "scope": "workflow",
       "boundary": "解释平台生成的通用任务、领域计划和澄清门禁，指导后续执行；不生成或改写平台控制产物。",
@@ -89,11 +89,11 @@
       ]
     },
     {
-      "id": "quant-data-registry",
-      "name": "数据注册与信源选择",
-      "version": "0.5.2",
+      "id": "commerce-data-registry",
+      "name": "数据注册与信源",
+      "version": "1.0.1",
       "status": "stable",
-      "scope": "quant",
+      "scope": "commerce",
       "boundary": "查询后端数据能力、本地 TimescaleDB 覆盖、候选信源、缓存、主备源、字段补数和降级规则。",
       "inputs": [
         ".data-agent/retail-run-plan.json",
@@ -120,14 +120,15 @@
       ],
       "references": [
         "references/registry-routing-contract.md"
-      ]
+      ],
+      "description": "发现 commerce-data 覆盖、能力与正确后端端点。"
     },
     {
-      "id": "quant-symbol-resolver",
-      "name": "标的解析",
-      "version": "0.4.1",
+      "id": "commerce-entity-resolver",
+      "name": "实体解析",
+      "version": "1.0.1",
       "status": "stable",
-      "scope": "quant",
+      "scope": "commerce",
       "boundary": "把中文简称、代码、指数、ETF 转为标准证券代码、市场和资产类型。",
       "inputs": [
         "用户问题",
@@ -147,12 +148,13 @@
       ],
       "references": [
         "references/symbol-resolution-contract.md"
-      ]
+      ],
+      "description": "把商品/类目名称或标识解析到实体（item:/cat:）。"
     },
     {
       "id": "image-extraction",
       "name": "图片提取",
-      "version": "0.4.3",
+      "version": "0.5.0",
       "status": "stable",
       "scope": "input",
       "boundary": "读取用户上传的图片附件清单，校验图片文件，抽取或标注持仓截图中的资产、股票、成本、盈亏、现金和仓位字段。",
@@ -181,11 +183,11 @@
       ]
     },
     {
-      "id": "quant-market-data",
-      "name": "行情数据",
-      "version": "0.5.3",
+      "id": "commerce-market-data",
+      "name": "经营数据取数",
+      "version": "1.0.1",
       "status": "stable",
-      "scope": "quant",
+      "scope": "commerce",
       "boundary": "本地 TimescaleDB K 线、实时行情、指数/ETF、批量行情、多源 fallback 和本地字段补数。",
       "inputs": [
         "symbols",
@@ -223,14 +225,15 @@
       ],
       "references": [
         "references/market-data-contract.md"
-      ]
+      ],
+      "description": "取零售行为与商品窗口数据，复用 commerce-data 后端接证据。"
     },
     {
-      "id": "quant-fundamentals",
-      "name": "基本面与事件",
-      "version": "0.3.2",
+      "id": "commerce-master-data",
+      "name": "商品主数据",
+      "version": "1.0.1",
       "status": "stable",
-      "scope": "quant",
+      "scope": "commerce",
       "boundary": "财务报表、财务衍生指标、公告和事件上下文。",
       "inputs": [
         "symbols",
@@ -257,14 +260,15 @@
       ],
       "references": [
         "references/fundamentals-contract.md"
-      ]
+      ],
+      "description": "商品/类目主数据（价格/库存/属性，合成口径）与经营基础指标。"
     },
     {
-      "id": "quant-indicators",
-      "name": "指标计算",
-      "version": "0.3.2",
+      "id": "commerce-metrics",
+      "name": "经营指标",
+      "version": "1.0.1",
       "status": "stable",
-      "scope": "quant",
+      "scope": "commerce",
       "boundary": "技术指标、收益、波动、最大回撤、成交量、相关性、流动性和风险指标计算。",
       "inputs": [
         "kline.bars",
@@ -294,14 +298,15 @@
       ],
       "references": [
         "references/technical-risk-methodology.md"
-      ]
+      ],
+      "description": "计算转化/客单价/库销比/环比/动销等经营指标。"
     },
     {
-      "id": "quant-backtest",
-      "name": "回测复盘",
-      "version": "0.3.2",
+      "id": "commerce-rule-review",
+      "name": "规则/策略验证",
+      "version": "1.0.1",
       "status": "stable",
-      "scope": "quant",
+      "scope": "commerce",
       "boundary": "基于本地 TimescaleDB K 线的策略参数、回测执行、净值曲线、回撤、交易明细和限制说明。",
       "inputs": [
         "symbols",
@@ -327,7 +332,8 @@
       ],
       "references": [
         "references/backtest-contract.md"
-      ]
+      ],
+      "description": "对类目/选品/定价规则做可复现的窗口验证与复盘。"
     },
     {
       "id": "data-quality",
@@ -389,7 +395,7 @@
     {
       "id": "dashboard-visualization",
       "name": "可视化看板",
-      "version": "0.8.1",
+      "version": "0.9.0",
       "status": "stable",
       "scope": "visualization",
       "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与金融指标判读生成 Next.js 金融分析看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",

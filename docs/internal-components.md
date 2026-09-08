@@ -103,10 +103,10 @@ Skills 是 Agent 的项目内能力手册。它们不是简单提示词，而是
 | Skill 类型 | 例子 | 作用 |
 | --- | --- | --- |
 | 规划 | `run-planner` | 把自然语言问题转成 run plan |
-| 数据 | `quant-market-data`、`quant-fundamentals` | 获取行情、财务、公告和指标 |
+| 数据 | `commerce-market-data`、`commerce-master-data` | 获取行情、财务、公告和指标 |
 | 质量 | `data-quality` | 记录来源、缺失字段和风险 |
 | 可视化 | `dashboard-visualization`、`platform-ui-product-design` | 生成金融看板并修复布局问题 |
-| 回测 | `quant-backtest` | 管理策略参数、回测结果和限制说明 |
+| 回测 | `commerce-rule-review` | 管理策略参数、回测结果和限制说明 |
 
 学习 Skills 的详细教程见 [07. Skills 编写与迭代教程](learning/07-skills-authoring.md)。
 

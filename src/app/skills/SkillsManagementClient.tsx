@@ -152,13 +152,13 @@ const SKILL_LIST_MAX_WIDTH = 400;
 
 const SKILL_ICONS: Record<string, typeof Package> = {
   "run-planner": Target,
-  "quant-data-registry": Database,
-  "quant-symbol-resolver": Search,
+  "commerce-data-registry": Database,
+  "commerce-entity-resolver": Search,
   "image-extraction": ImageIcon,
-  "quant-market-data": BarChart3,
-  "quant-fundamentals": BookOpen,
-  "quant-indicators": BarChart3,
-  "quant-backtest": Workflow,
+  "commerce-market-data": BarChart3,
+  "commerce-master-data": BookOpen,
+  "commerce-metrics": BarChart3,
+  "commerce-rule-review": Workflow,
   "data-quality": Shield,
   "platform-ui-product-design": LayoutGrid,
   "dashboard-visualization": Sparkles,
@@ -166,13 +166,13 @@ const SKILL_ICONS: Record<string, typeof Package> = {
 
 const SKILL_COLORS: Record<string, { bg: string; ring: string; text: string }> = {
   "run-planner": { bg: "bg-blue-50", ring: "ring-blue-100", text: "text-blue-600" },
-  "quant-data-registry": { bg: "bg-emerald-50", ring: "ring-emerald-100", text: "text-emerald-600" },
-  "quant-symbol-resolver": { bg: "bg-violet-50", ring: "ring-violet-100", text: "text-violet-600" },
+  "commerce-data-registry": { bg: "bg-emerald-50", ring: "ring-emerald-100", text: "text-emerald-600" },
+  "commerce-entity-resolver": { bg: "bg-violet-50", ring: "ring-violet-100", text: "text-violet-600" },
   "image-extraction": { bg: "bg-pink-50", ring: "ring-pink-100", text: "text-pink-600" },
-  "quant-market-data": { bg: "bg-cyan-50", ring: "ring-cyan-100", text: "text-cyan-600" },
-  "quant-fundamentals": { bg: "bg-amber-50", ring: "ring-amber-100", text: "text-amber-600" },
-  "quant-indicators": { bg: "bg-indigo-50", ring: "ring-indigo-100", text: "text-indigo-600" },
-  "quant-backtest": { bg: "bg-orange-50", ring: "ring-orange-100", text: "text-orange-600" },
+  "commerce-market-data": { bg: "bg-cyan-50", ring: "ring-cyan-100", text: "text-cyan-600" },
+  "commerce-master-data": { bg: "bg-amber-50", ring: "ring-amber-100", text: "text-amber-600" },
+  "commerce-metrics": { bg: "bg-indigo-50", ring: "ring-indigo-100", text: "text-indigo-600" },
+  "commerce-rule-review": { bg: "bg-orange-50", ring: "ring-orange-100", text: "text-orange-600" },
   "data-quality": { bg: "bg-teal-50", ring: "ring-teal-100", text: "text-teal-600" },
   "platform-ui-product-design": { bg: "bg-rose-50", ring: "ring-rose-100", text: "text-rose-600" },
   "dashboard-visualization": { bg: "bg-lime-50", ring: "ring-lime-100", text: "text-lime-600" },
@@ -183,7 +183,7 @@ type SkillDialogTab = "features" | "delivery";
 
 const FEATURED_SKILL_IDS = [
   "dashboard-visualization",
-  "quant-market-data",
+  "commerce-market-data",
   "platform-ui-product-design",
 ];
 

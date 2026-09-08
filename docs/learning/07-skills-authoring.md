@@ -33,13 +33,13 @@ Skill 可以理解成 Agent 的本地专业手册。模型本身有通用能力�
 | --- | --- |
 | `run-planner` | 如何把用户问题拆成 run plan、澄清问题和数据需求 |
 | `query-rewrite` | 如何消费 LLM-first 语义合同并保持失败关闭 |
-| `quant-data-registry` | 如何选择主数据源、降级源和字段口径 |
-| `quant-symbol-resolver` | 如何解析股票、指数、ETF 名称和代码 |
+| `commerce-data-registry` | 如何选择主数据源、降级源和字段口径 |
+| `commerce-entity-resolver` | 如何解析股票、指数、ETF 名称和代码 |
 | `image-extraction` | 如何从截图提取持仓、表格和用户输入 |
-| `quant-market-data` | 如何获取实时行情、K 线、指数 ETF 和批量行情 |
-| `quant-fundamentals` | 如何处理财务、估值和公告事件 |
-| `quant-indicators` | 如何计算趋势、风险、流动性和技术指标 |
-| `quant-backtest` | 如何描述策略参数、回测结果和限制 |
+| `commerce-market-data` | 如何获取实时行情、K 线、指数 ETF 和批量行情 |
+| `commerce-master-data` | 如何处理财务、估值和公告事件 |
+| `commerce-metrics` | 如何计算趋势、风险、流动性和技术指标 |
+| `commerce-rule-review` | 如何描述策略参数、回测结果和限制 |
 | `data-quality` | 如何记录来源、时效、缺失字段和异常 |
 | `dashboard-visualization` | 如何生成金融可视化页面并自动修复 |
 | `platform-ui-product-design` | 如何约束 UI/UX、信息密度、布局和反模式 |

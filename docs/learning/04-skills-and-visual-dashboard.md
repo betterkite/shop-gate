@@ -21,10 +21,10 @@ Skills 是 Agent 的本地能力包。仓库根目录 `.pi/skills/` 是受 regis
 | Skill | 用途 |
 | --- | --- |
 | `run-planner` | 把自然语言问题拆成 run plan |
-| `quant-data-registry` | 选择数据源和字段口径 |
-| `quant-market-data` | 行情、K 线、实时数据和 provider 规则 |
-| `quant-fundamentals` | 财务、估值和公告事件 |
-| `quant-indicators` | MA、收益率、回撤、波动率等指标 |
+| `commerce-data-registry` | 选择数据源和字段口径 |
+| `commerce-market-data` | 行情、K 线、实时数据和 provider 规则 |
+| `commerce-master-data` | 财务、估值和公告事件 |
+| `commerce-metrics` | MA、收益率、回撤、波动率等指标 |
 | `dashboard-visualization` | 生成可视化看板和自动修复布局 |
 | `data-quality` | 检查缺失字段、来源和数据质量 |
 

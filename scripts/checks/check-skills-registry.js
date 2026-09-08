@@ -381,7 +381,7 @@ function validateLockPackagePath(skillId, lockEntry, expectedPackagePath) {
   }
 }
 
-const validScopes = new Set(['workflow', 'quant', 'input', 'evidence', 'platform', 'visualization']);
+const validScopes = new Set(['workflow', 'quant', 'commerce', 'input', 'evidence', 'platform', 'visualization']);
 const validCapsulePhases = new Set([
   'planning',
   'data-preparation',
@@ -529,6 +529,12 @@ function validateSkillNaming(skill) {
   }
   if (skill.scope !== 'quant' && skill.id.startsWith('quant-')) {
     fail(`non-quant core skill ${skill.id} must not use quant- prefix`);
+  }
+  if (skill.scope === 'commerce' && !skill.id.startsWith('commerce-')) {
+    fail(`commerce scoped core skill ${skill.id} must use commerce- prefix`);
+  }
+  if (skill.scope !== 'commerce' && skill.id.startsWith('commerce-')) {
+    fail(`non-commerce core skill ${skill.id} must not use commerce- prefix`);
   }
   if (skill.scope === 'platform' && !skill.id.startsWith('platform-')) {
     fail(`platform scoped core skill ${skill.id} must use platform- prefix`);

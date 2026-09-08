@@ -55,7 +55,7 @@
       "doneWhen": ["query rewrite 与 run plan 的标的、周期和澄清状态一致。"],
       "resources": []
     },
-    "quant-data-registry": {
+    "commerce-data-registry": {
       "priority": 70,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
@@ -71,7 +71,7 @@
       "doneWhen": ["来源选择和字段缺口均能被 evidence 追溯。"],
       "resources": []
     },
-    "quant-symbol-resolver": {
+    "commerce-entity-resolver": {
       "priority": 95,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
@@ -100,7 +100,7 @@
       "doneWhen": ["图片相关字段有来源或明确的人工确认缺口。"],
       "resources": []
     },
-    "quant-market-data": {
+    "commerce-market-data": {
       "priority": 110,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
@@ -117,7 +117,7 @@
       "doneWhen": ["每个计划标的都有可用数据或可审计失败原因。"],
       "resources": []
     },
-    "quant-fundamentals": {
+    "commerce-master-data": {
       "priority": 90,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
@@ -130,7 +130,7 @@
       "doneWhen": ["关键财务指标能追溯到报告期和来源，缺失项对页面可见。"],
       "resources": []
     },
-    "quant-indicators": {
+    "commerce-metrics": {
       "priority": 90,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
@@ -143,7 +143,7 @@
       "doneWhen": ["页面所需指标有数值、口径和样本不足说明。"],
       "resources": []
     },
-    "quant-backtest": {
+    "commerce-rule-review": {
       "priority": 100,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],

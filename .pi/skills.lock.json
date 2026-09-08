@@ -45,17 +45,17 @@
       "fileCount": 4
     },
     "run-planner": {
-      "version": "0.5.1",
+      "version": "0.6.0",
       "packagePath": ".pi/skill-packages/run-planner.tgz",
-      "sourceSha256": "94a51c79259b844570b5be753b02049a25140212178a08bbd7d47c271f6c57a1",
-      "packageSha256": "bc966bda1245c4fc31ddfad763efef36f441573103838db279c6c02dce950a0f",
+      "sourceSha256": "ed7ef262d1af82a70ec5bc54c7d141db461f8f3d8c8a552816fa512c1ba31861",
+      "packageSha256": "e045d6b7d2b68dd71555f7132d1184ecb0805c5bfd2f2c8e1a53feeec4a42afb",
       "fileCount": 4
     },
     "image-extraction": {
-      "version": "0.4.3",
+      "version": "0.5.0",
       "packagePath": ".pi/skill-packages/image-extraction.tgz",
-      "sourceSha256": "59b172506ec8f388c1784f70864164401850c4538db69fb38d0f638acfbc68d3",
-      "packageSha256": "9c694c0c2c5a74dc82ee7e3d26e804d54e6b99ef98b337918669e1e2cda6f0ff",
+      "sourceSha256": "2f06baf56c369fa3c400fba72b6897a0622352b9ce84d2602faf229e2063321b",
+      "packageSha256": "5dac6f58863bd25a879bb228e15c062a9c4f327a99465bdc8abf48fc65d4ef29",
       "fileCount": 4
     },
     "data-quality": {
@@ -66,10 +66,10 @@
       "fileCount": 4
     },
     "dashboard-visualization": {
-      "version": "0.8.1",
+      "version": "0.9.0",
       "packagePath": ".pi/skill-packages/dashboard-visualization.tgz",
-      "sourceSha256": "0ffc2c1121d845479980b4c21d2fab3b5e8b59d803b58e759f663f2f6a955721",
-      "packageSha256": "ac46a49108c410a0d4a1b3fe20af1fb6b6d6e3b6b454d55602cf7a3af45a4b83",
+      "sourceSha256": "193c3bb9619ece169536b2c00d7e22a6575fd3f4a5c821b8142f351d66752a00",
+      "packageSha256": "7208f50aaabc35f77f7f4c8731146f220c1c454f71c7a970359005b853034a3e",
       "fileCount": 6
     },
     "platform-ui-product-design": {
@@ -84,6 +84,48 @@
       "packagePath": ".pi/skill-packages/query-rewrite.tgz",
       "sourceSha256": "442f83702c7e7bb269e4c0473f35871664c31b3a98678cd77a78bd4090ff22d1",
       "packageSha256": "a45da0376ae6b934277730425434ac04478550307cd5bd698e0f4285ad4fcf97",
+      "fileCount": 4
+    },
+    "commerce-market-data": {
+      "version": "1.0.1",
+      "packagePath": ".pi/skill-packages/commerce-market-data.tgz",
+      "sourceSha256": "c42770618d944a12ea6e07a7dae714ba81524c19e2620b573b29d3258a132732",
+      "packageSha256": "7124adab6f6b80e1571335a96557abbd47d468dbffedd2997fe5f2034678a3ba",
+      "fileCount": 4
+    },
+    "commerce-master-data": {
+      "version": "1.0.1",
+      "packagePath": ".pi/skill-packages/commerce-master-data.tgz",
+      "sourceSha256": "3fd625bdc3229d457a82c177fcf312f2cb3f0f3976e7cfab86508327d02ff862",
+      "packageSha256": "78685cd9d459fbed807e1d9043a31359161bf392be41fd0ea1506e8a9023d220",
+      "fileCount": 4
+    },
+    "commerce-rule-review": {
+      "version": "1.0.1",
+      "packagePath": ".pi/skill-packages/commerce-rule-review.tgz",
+      "sourceSha256": "48c9550eda09d768cbda58e4a00a5b7b91061b303808b43331c09d23b60d457b",
+      "packageSha256": "31aa7c65ecb9974a29cc1e145623d130887078c2e6ce8e4da8d0206b24d536db",
+      "fileCount": 4
+    },
+    "commerce-metrics": {
+      "version": "1.0.1",
+      "packagePath": ".pi/skill-packages/commerce-metrics.tgz",
+      "sourceSha256": "b35c870f43365cc45fabf2d8b928b51b4f39f9f91e54688cbd0f34a4f10cf073",
+      "packageSha256": "1a04b61510710f86a5c71e5629e56ffd2861a83f448dc588c173042ab25d0906",
+      "fileCount": 6
+    },
+    "commerce-data-registry": {
+      "version": "1.0.1",
+      "packagePath": ".pi/skill-packages/commerce-data-registry.tgz",
+      "sourceSha256": "574de93279e6fdfcdcbb8bb659bfe96e9b6df40127d713e8bddc550b6dfaa841",
+      "packageSha256": "5b86d23c0cd9d3c8d4a7000b856110d8a7c8c93191fa0254fed57923c6d57003",
+      "fileCount": 4
+    },
+    "commerce-entity-resolver": {
+      "version": "1.0.1",
+      "packagePath": ".pi/skill-packages/commerce-entity-resolver.tgz",
+      "sourceSha256": "36593c1b9be38418bb1f984c51e8964b8177ade28da37508645d3a1f17f2761a",
+      "packageSha256": "94ada24680a252b52813e80faa3c2e2f550aa76391d7dc35cfe585fea2acb05c",
       "fileCount": 4
     }
   }

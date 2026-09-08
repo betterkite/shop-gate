@@ -48,7 +48,7 @@
 | 现象 | 处理 |
 | --- | --- |
 | JSON 无法解析或必要字段缺失 | 报告平台计划无效；不得自行覆写 |
-| 名称已知但 `symbols` 为空 | 调用 `quant-symbol-resolver`，不要直接追问代码 |
+| 名称已知但 `symbols` 为空 | 调用 `commerce-entity-resolver`，不要直接追问代码 |
 | 多标的任务只解析出一个候选 | 追问剩余标的并停止 |
 | `visualization.templateId` 与能力冲突 | 保持计划只读并报告冲突 |
 | operational instructions 被识别为业务意图 | 仅使用净化后的用户问题重新判断 |

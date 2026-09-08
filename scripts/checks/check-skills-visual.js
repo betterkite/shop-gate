@@ -41,7 +41,7 @@ async function inspectProfile(browser, profile) {
       return problems;
     }
     const market = page.locator('main:visible');
-    await market.getByText('QUANTPILOT SKILLS MARKET', { exact: true }).waitFor({ state: 'visible' });
+    await market.getByText('Skills Market', { exact: true }).waitFor({ state: 'visible' });
     await market.getByRole('heading', { name: '精选能力' }).waitFor({ state: 'visible' });
     await market.getByRole('heading', { name: '探索全部技能' }).waitFor({ state: 'attached' });
 

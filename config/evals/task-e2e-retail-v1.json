@@ -3,35 +3,185 @@
   "id": "shopgate-task-e2e-retail-v1",
   "description": "零售域任务级回归集：真实经过 Project API、/act、PI Agent Mission、Workspace、验证和预览链路的零售问法 → 多面板看板。",
   "cases": [
-    { "id": "R01", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "数据窗口内 GMV 最高的 5 个类目是哪些？给出各类目的转化率和客单价对比。" },
-    { "id": "R02", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "数据窗口内的行为漏斗（曝光→收藏→加购→购买）与分日转化趋势如何？" },
-    { "id": "R03", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "窗口内各价格带的商品分布与库销比风险如何？" },
-    { "id": "R04", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "请按全库口径，分析窗口末日 2017-12-03 的经营摘要（GMV/转化/客单价）与类目异动。" },
-    { "id": "R05", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "窗口内类目集中度（Top-5 GMV 占比）与重点动销类目有哪些？生成类目结构看板。" },
-    { "id": "R06", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "数据窗口内的转化率（buy/pv）走势如何？给出分日漏斗与转化率变化。" },
-    { "id": "R07", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "窗口内滞销商品清单与库销比排行如何？哪些商品动销正常？" },
-    { "id": "R08", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "窗口末日的经营日报：GMV、曝光、转化、客单价与日环比如何？" },
-    { "id": "R09", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "类目商品结构里 GMV 与曝光最高的前 10 个类目是哪些？转化与客单价如何？" },
-    { "id": "R10", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "窗口内收藏与加购到购买的转化漏斗如何？给出分日行为趋势。" },
-    { "id": "R11", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "窗口内商品价格带分布与库存健康度（动销/滞销占比）怎样？" },
-    { "id": "R12", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "按全库口径，给出窗口末日的经营摘要与类目异动榜。" },
-    { "id": "R13", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "数据窗口内转化率最高的 5 个类目是哪些？给出 GMV 与客单价对比。" },
-    { "id": "R14", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "窗口内每日曝光与购买的走势如何？给出漏斗与转化趋势看板。" },
-    { "id": "R15", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "窗口内库存风险最高的商品（库销比高）有哪些？给出滞销清单。" },
-    { "id": "R16", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "窗口末日经营摘要：GMV、购买人数、客单价与日环比表现如何？" },
-    { "id": "R17", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "数据窗口内类目 GMV 排名与集中度如何？生成类目结构看板。" },
-    { "id": "R18", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "窗口内加购到购买的转化漏斗如何？分日趋势是否波动？" },
-    { "id": "R19", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "窗口内客单价较高的价格带与对应库销比如何？" },
-    { "id": "R20", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "请生成窗口末日的经营日报：GMV、转化、客单价与类目异动摘要。" },
-    { "id": "R21", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "窗口内曝光量最大的类目有哪些？给出 GMV、转化与客单价矩阵。" },
-    { "id": "R22", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "数据窗口内的行为漏斗与分日转化趋势，生成漏斗看板。" },
-    { "id": "R23", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "窗口内价格带分布与库存健康度，生成价格库存看板。" },
-    { "id": "R24", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "窗口末日的经营摘要与类目异动榜，生成经营日报看板。" },
-    { "id": "R25", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "类目集中度与动销商品明细，生成类目结构看板。" },
-    { "id": "R26", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "窗口内漏斗各阶段事件数与相对转化，生成流量漏斗看板。" },
-    { "id": "R27", "capabilityId": "price_inventory", "model": "deepseek:deepseek-v4-flash", "question": "库存健康度与库销比排行，生成库存风险看板。" },
-    { "id": "R28", "capabilityId": "daily_brief", "model": "deepseek:deepseek-v4-flash", "question": "窗口末日经营摘要卡与日环比，生成经营日报。" },
-    { "id": "R29", "capabilityId": "catalog_structure", "model": "deepseek:deepseek-v4-flash", "question": "窗口内类目 GMV 前 8 与集中度，生成类目结构看板。" },
-    { "id": "R30", "capabilityId": "traffic_funnel", "model": "deepseek:deepseek-v4-flash", "question": "窗口内分日曝光/购买趋势与转化率，生成转化趋势看板。" }
+    {
+      "id": "R01",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "数据窗口内 GMV 最高的 5 个类目是哪些？给出各类目的转化率和客单价对比。"
+    },
+    {
+      "id": "R02",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "数据窗口内的行为漏斗（曝光→收藏→加购→购买）与分日转化趋势如何？"
+    },
+    {
+      "id": "R03",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内各价格带的商品分布与库销比风险如何？"
+    },
+    {
+      "id": "R04",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "请按全库口径，分析窗口末日 2017-12-03 的经营摘要（GMV/转化/客单价）与类目异动。"
+    },
+    {
+      "id": "R05",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内类目集中度（Top-5 GMV 占比）与重点动销类目有哪些？生成类目结构看板。"
+    },
+    {
+      "id": "R06",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "数据窗口内的转化率（buy/pv）走势如何？给出分日漏斗与转化率变化。"
+    },
+    {
+      "id": "R07",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内滞销商品清单与库销比排行如何？哪些商品动销正常？"
+    },
+    {
+      "id": "R08",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "窗口末日的经营日报：GMV、曝光、转化、客单价与日环比如何？"
+    },
+    {
+      "id": "R09",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "类目商品结构里 GMV 与曝光最高的前 10 个类目是哪些？转化与客单价如何？"
+    },
+    {
+      "id": "R10",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内收藏与加购到购买的转化漏斗如何？给出分日行为趋势。"
+    },
+    {
+      "id": "R11",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内商品价格带分布与库存健康度（动销/滞销占比）怎样？"
+    },
+    {
+      "id": "R12",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "按全库口径，给出窗口末日的经营摘要与类目异动榜。"
+    },
+    {
+      "id": "R13",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "数据窗口内转化率最高的 5 个类目是哪些？给出 GMV 与客单价对比。"
+    },
+    {
+      "id": "R14",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内每日曝光与购买的走势如何？给出漏斗与转化趋势看板。"
+    },
+    {
+      "id": "R15",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内库存风险最高的商品（库销比高）有哪些？给出滞销清单。"
+    },
+    {
+      "id": "R16",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "窗口末日经营摘要：GMV、购买人数、客单价与日环比表现如何？"
+    },
+    {
+      "id": "R17",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "数据窗口内类目 GMV 排名与集中度如何？生成类目结构看板。"
+    },
+    {
+      "id": "R18",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内加购到购买的转化漏斗如何？分日趋势是否波动？"
+    },
+    {
+      "id": "R19",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内客单价较高的价格带与对应库销比如何？"
+    },
+    {
+      "id": "R20",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "请生成窗口末日的经营日报：GMV、转化、客单价与类目异动摘要。"
+    },
+    {
+      "id": "R21",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内曝光量最大的类目有哪些？给出 GMV、转化与客单价矩阵。"
+    },
+    {
+      "id": "R22",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "数据窗口内的行为漏斗与分日转化趋势，生成漏斗看板。"
+    },
+    {
+      "id": "R23",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内价格带分布与库存健康度，生成价格库存看板。"
+    },
+    {
+      "id": "R24",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "窗口末日的经营摘要与类目异动榜，生成经营日报看板。"
+    },
+    {
+      "id": "R25",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "类目集中度与动销商品明细，生成类目结构看板。"
+    },
+    {
+      "id": "R26",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内漏斗各阶段事件数与相对转化，生成流量漏斗看板。"
+    },
+    {
+      "id": "R27",
+      "capabilityId": "price_inventory",
+      "model": "deepseek-v4-flash",
+      "question": "库存健康度与库销比排行，生成库存风险看板。"
+    },
+    {
+      "id": "R28",
+      "capabilityId": "daily_brief",
+      "model": "deepseek-v4-flash",
+      "question": "窗口末日经营摘要卡与日环比，生成经营日报。"
+    },
+    {
+      "id": "R29",
+      "capabilityId": "catalog_structure",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内类目 GMV 前 8 与集中度，生成类目结构看板。"
+    },
+    {
+      "id": "R30",
+      "capabilityId": "traffic_funnel",
+      "model": "deepseek-v4-flash",
+      "question": "窗口内分日曝光/购买趋势与转化率，生成转化趋势看板。"
+    }
   ]
 }

@@ -73,6 +73,7 @@
     "doctor": "node scripts/checks/doctor.js",
     "doctor:full": "node scripts/checks/doctor.js --full",
     "check:skills": "node scripts/checks/check-skills-registry.js --check-lock && node scripts/checks/check-skill-scripts.js",
+    "check:retail-e2e": "node scripts/checks/check-retail-e2e-benchmark.js",
     "check:skills:metadata": "node scripts/checks/check-skills-registry.js",
     "check:skills:scripts": "node scripts/checks/check-skill-scripts.js",
     "package:skills": "node scripts/skills/package-skills.js",

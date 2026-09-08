@@ -30,7 +30,7 @@ python .pi/skills/image-extraction/scripts/normalize_extraction.py --input extra
 ## 标准流程
 
 1. 读取 `.data-agent/attachments.json`，确认附件路径、文件名、公开 URL 和提取契约。
-2. 调用当前 Finance Domain Pack 注册的 `quant_extract_uploaded_image`：
+2. 调用当前零售 Domain Pack 注册的 `commerce_extract_uploaded_image`：
    - 默认参数：`{"attachmentContextPath": ".data-agent/attachments.json", "prompt": "<用户问题>"}`
    - 该工具会校验图片文件是否存在，并返回格式、尺寸、哈希、字段契约和缺失字段。
 3. 工具返回 `manual_confirmation_required` 时，不得自行填写截图字段；把字段保留为 `null` 并明确需要人工确认。

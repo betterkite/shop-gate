@@ -1,5 +1,5 @@
 import type { PiAgentAcceptedMissionSnapshot } from '@/lib/agent/mission';
-import type { QuantGenerationRunStatus } from '@/lib/commerce/generation-state';
+import type { QuantGenerationRunStatus } from '@/lib/generation/generation-state';
 import type { RetailValidationReport } from '@/lib/commerce/retail-validation';
 import type { PreviewInfo } from '@/lib/services/preview';
 

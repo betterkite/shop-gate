@@ -12,8 +12,8 @@ import {
 } from '@/lib/services/user-requests';
 import { streamManager } from '@/lib/services/stream';
 import { getProjectById } from '@/lib/services/project';
-import { markQuantGenerationQueueCancelled } from '@/lib/commerce/generation-queue';
-import { cancelQuantGenerationRun } from '@/lib/commerce/generation-state';
+import { markQuantGenerationQueueCancelled } from '@/lib/generation/generation-queue';
+import { cancelQuantGenerationRun } from '@/lib/generation/generation-state';
 import {
   cancelActivePiAgentMissions,
   cancelPiAgentMission,

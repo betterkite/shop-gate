@@ -28,21 +28,21 @@ vi.mock("@/lib/services/project", () => ({
   getProjectById: mocks.getProjectById,
 }));
 
-vi.mock("@/lib/commerce/generation-state", () => ({
+vi.mock("@/lib/generation/generation-state", () => ({
   readQuantGenerationState: mocks.readGenerationState,
   readRetailGenerationState: mocks.readGenerationState,
   updateQuantGenerationStep: mocks.updateGenerationStep,
   updateRetailGenerationStep: mocks.updateGenerationStep,
 }));
 
-vi.mock("@/lib/commerce/generation-queue", () => ({
+vi.mock("@/lib/generation/generation-queue", () => ({
   runQuantGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
     input.task(),
   runRetailGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
     input.task(),
 }));
 
-vi.mock("@/lib/commerce/generation-preview", () => ({
+vi.mock("@/lib/generation/generation-preview", () => ({
   startPersistentValidatedPreview: mocks.startPreview,
 }));
 

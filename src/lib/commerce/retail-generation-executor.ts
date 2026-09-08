@@ -17,8 +17,8 @@ import {
   readPiAgentMissionSpec,
 } from "@/lib/services/pi-agent-mission-store";
 import { getProjectById, updateProjectActivity } from "@/lib/services/project";
-import { createWorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
-import { updateRetailGenerationStep } from "@/lib/commerce/generation-state";
+import { createWorkspaceProgressPublisher } from "@/lib/generation/workspace-progress";
+import { updateRetailGenerationStep } from "@/lib/generation/generation-state";
 import {
   readRetailRunPlan,
   type RetailRunPlan,
@@ -33,11 +33,11 @@ import { getProjectIntegrationScope } from "@/lib/platform/context/integration-s
 import { recordContextExposure } from "@/lib/platform/context/use-manifest";
 import { streamManager } from "@/lib/services/stream";
 import { markUserRequestAsFailed } from "@/lib/services/user-requests";
-import { runValidationAfterExecution } from "@/lib/commerce/generation-validation";
+import { runValidationAfterExecution } from "@/lib/generation/generation-validation";
 import {
   RETAIL_AGENT_PROFILE_ID,
 } from "@/lib/domains/retail/agent-profile";
-import { getApplicationDataAgentCatalog } from "@/lib/commerce/data-agent-application";
+import { getApplicationDataAgentCatalog } from "@/lib/generation/data-agent-application";
 
 export interface RetailGenerationPayload {
   effectiveInstruction: string;

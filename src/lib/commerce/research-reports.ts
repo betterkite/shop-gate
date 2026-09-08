@@ -7,7 +7,7 @@ import {
   deliverResearchReportNotification,
   type ResearchNotificationChannelInput,
   type ResearchNotificationReportInput,
-} from './notification-adapters';
+} from '../generation/notification-adapters';
 
 const MARKET_API_BASE_URL =
   process.env.SHOPGATE_MARKET_API_URL ||

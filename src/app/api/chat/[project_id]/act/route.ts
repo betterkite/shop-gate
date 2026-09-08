@@ -25,7 +25,7 @@ import {
   ChatActContractError,
   MAX_CHAT_ACT_IMAGE_ATTACHMENTS,
   parseChatActRequest,
-} from "@/lib/commerce/chat-act-contract";
+} from "@/lib/generation/chat-act-contract";
 import {
   MAX_DATA_AGENT_TOTAL_IMAGE_BYTES,
   normalizeDataAgentImageAttachment,
@@ -54,19 +54,19 @@ import {
   quotaErrorResponse,
 } from "@/lib/quota";
 import { readRetailRunPlan } from "@/lib/domains/retail/workspace";
-import { createWorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
-import { shouldEscalateStalledRepair } from "@/lib/commerce/repair-convergence";
+import { createWorkspaceProgressPublisher } from "@/lib/generation/workspace-progress";
+import { shouldEscalateStalledRepair } from "@/lib/generation/repair-convergence";
 import { buildClarificationContinuation } from "@/lib/domains/retail/intent";
 import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
   updateRetailGenerationStep,
-} from "@/lib/commerce/generation-state";
+} from "@/lib/generation/generation-state";
 import {
   finishQuantGenerationQueueItem,
   enqueueQuantGeneration,
   startQuantGenerationQueued,
-} from "@/lib/commerce/generation-queue";
+} from "@/lib/generation/generation-queue";
 import { validatePiAgentIngressInput } from "@/lib/agent/input-policy";
 import { classifyPiAgentExecutionError } from "@/lib/services/pi-agent-execution-error";
 import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-lease-store";
@@ -88,7 +88,7 @@ import {
 import {
   startPersistentValidatedPreview,
   type ValidatedGenerationPreview,
-} from "@/lib/commerce/generation-preview";
+} from "@/lib/generation/generation-preview";
 import { recallPersonalization } from "@/lib/platform/memory";
 import { detectPersonalMemoryCandidate } from "@/lib/platform/memory/candidate";
 import {
@@ -97,12 +97,12 @@ import {
 } from "@/lib/platform/knowledge";
 import { recordContextAcceptance } from "@/lib/platform/context/use-manifest";
 import { createRetailGenerationEnvelope } from "@/lib/commerce/retail-generation-executor";
-import { createApplicationGenerationRuntime } from "@/lib/commerce/generation-runtime";
+import { createApplicationGenerationRuntime } from "@/lib/generation/generation-runtime";
 import { prepareRetailActGeneration } from "@/lib/commerce/retail-act-preparation";
 import {
   loadRetailValidation,
   resolveProjectRoot,
-} from "@/lib/commerce/chat-act-support";
+} from "@/lib/generation/chat-act-support";
 
 interface RouteContext {
   params: Promise<{ project_id: string }>;

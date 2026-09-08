@@ -9,9 +9,9 @@ import {
   DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
-import { readQuantArtifactContractReport } from '@/lib/commerce/artifact-contracts';
-import { readQuantGenerationQueue } from '@/lib/commerce/generation-queue';
-import { readQuantGenerationState, type QuantGenerationState } from '@/lib/commerce/generation-state';
+import { readQuantArtifactContractReport } from '@/lib/generation/artifact-contracts';
+import { readQuantGenerationQueue } from '@/lib/generation/generation-queue';
+import { readQuantGenerationState, type QuantGenerationState } from '@/lib/generation/generation-state';
 import { readQuantVisualValidationReport } from '@/lib/commerce/visual-validation';
 import type { Project } from '@/types/backend';
 

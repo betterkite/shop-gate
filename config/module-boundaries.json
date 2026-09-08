@@ -210,7 +210,8 @@
         "src/components/eval-console/skills-*.tsx",
         "src/components/eval-console/workspace-*.tsx",
         "src/components/eval-console/console-primitives.tsx",
-        "src/components/chat/**"
+        "src/components/chat/**",
+        "src/lib/generation/**"
       ],
       "dependsOn": [
         "shared-kernel",
@@ -476,13 +477,13 @@
         "nextAction": "保持上游 PI loop 单一入口，并按 adapter、tool governance、event projection 和 terminalization 拆分宿主逻辑。"
       },
       {
-        "path": "src/lib/commerce/validation.ts",
+        "path": "src/lib/commerce/retail-validation.ts",
         "maxLines": 3140,
         "targetLines": 1600,
         "nextAction": "按 artifact、data contract、visual、repair 和 acceptance pipeline 拆分，保留单一 validation facade。"
       },
       {
-        "path": "src/lib/commerce/data-prefetch.ts",
+        "path": "src/lib/commerce/retail-data-prefetch.ts",
         "maxLines": 2040,
         "targetLines": 1200,
         "nextAction": "将通用数据计划、金融 endpoint adapter、证据落盘和错误归一化拆开。"
@@ -498,18 +499,6 @@
         "maxLines": 1540,
         "targetLines": 700,
         "nextAction": "收敛为 app factory 和 router 注册；业务 endpoint 必须进入 routers/，use case 必须进入 services/。"
-      },
-      {
-        "path": "src/app/strategy-platform/StrategyPlatformClient.tsx",
-        "maxLines": 1100,
-        "targetLines": 900,
-        "nextAction": "已拆 helpers、Knowledge、Universe、Kline、Sector、Factor、Foundation 视图；继续拆 dialogs、hooks 和 tables。"
-      },
-      {
-        "path": "src/lib/commerce/strategies.ts",
-        "maxLines": 1170,
-        "targetLines": 900,
-        "nextAction": "已拆 catalog/types/scan repository/readiness/response mappers；继续拆 market API client 和 dashboard service。"
       },
       {
         "path": "src/lib/eval/runtime.ts",

@@ -14,7 +14,7 @@ vi.mock('@/lib/auth/authorization', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/commerce/generation-observability', () => ({
+vi.mock('@/lib/generation/generation-observability', () => ({
   getGenerationObservabilityDashboard: mocks.getDashboard,
 }));
 

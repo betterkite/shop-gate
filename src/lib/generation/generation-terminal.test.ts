@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RetailValidationCheck } from './retail-validation';
+import type { RetailValidationCheck } from '../commerce/retail-validation';
 import { deriveQuantGenerationTerminalSnapshot } from './generation-terminal';
 
 const validation = (runId: string | undefined, passed = true) => ({

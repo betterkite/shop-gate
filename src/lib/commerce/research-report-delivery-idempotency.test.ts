@@ -17,7 +17,7 @@ vi.mock('@/lib/db/client', () => ({
   },
 }));
 
-vi.mock('./notification-adapters', () => ({
+vi.mock('../generation/notification-adapters', () => ({
   deliverResearchReportNotification: mocks.deliverNotification,
 }));
 

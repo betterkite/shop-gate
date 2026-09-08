@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 import { getCapabilityCenterData } from '@/lib/commerce/retail-capability-center';
-import { getWorkspaceHealthDashboard, type WorkspaceHealthDashboard } from '@/lib/commerce/workspace-health';
+import { getWorkspaceHealthDashboard, type WorkspaceHealthDashboard } from '@/lib/generation/workspace-health';
 import { getInfrastructureHealth, type InfrastructureHealth } from '@/lib/ops/infrastructure-health';
 import {
   componentUnavailableStatus,

@@ -5,7 +5,7 @@ description: Interpret the platform-created QuantPilot run plan, validate intent
 
 # QuantPilot 运行规划能力
 
-本 Skill 用于理解平台生成的通用 Data Agent 任务和金融分析计划。QuantPilot 会先写入 `workspace.json` / `profile.json` / `task.json`，再由 Finance Domain Pack 写入 `finance-query-rewrite.json`、`plan.json` 和 `finance-run-plan.json`；Agent 只读取这些 `.data-agent/**` 平台产物，再按计划取数或生成页面。
+本 Skill 用于理解平台生成的通用 Data Agent 任务和金融分析计划。QuantPilot 会先写入 `workspace.json` / `profile.json` / `task.json`，再由 Finance Domain Pack 写入 `retail-query-rewrite.json`、`plan.json` 和 `retail-run-plan.json`；Agent 只读取这些 `.data-agent/**` 平台产物，再按计划取数或生成页面。
 
 > `.data-agent/**` 是平台只读状态目录。不得使用 Write、Edit、MultiEdit、Bash 或脚本修改、删除、移动其中任何文件；如计划结构异常，由平台修复后重新执行。
 
@@ -24,7 +24,7 @@ python .pi/skills/run-planner/scripts/intent_clarifier.py \
   --input '{"question":"贵州茅台最近走势怎么样？","capability":"stock_diagnosis"}'
 ```
 
-脚本只向 stdout 输出确定性的 JSON 判断，不读写项目文件；输入无效时向 stderr 输出 JSON 并以非零状态退出。输出的 `required`、`missing`、`questions` 和 `target_candidates` 仅用于发现计划缺口，平台 `finance-run-plan.json` 仍是最终门禁。
+脚本只向 stdout 输出确定性的 JSON 判断，不读写项目文件；输入无效时向 stderr 输出 JSON 并以非零状态退出。输出的 `required`、`missing`、`questions` 和 `target_candidates` 仅用于发现计划缺口，平台 `retail-run-plan.json` 仍是最终门禁。
 
 如果平台计划或辅助判断显示缺少关键输入，向用户提出 1-3 个简短问题并停止后续取数和页面生成。澄清状态与计划落盘由平台完成，Agent 不得自行改写。
 
@@ -48,7 +48,7 @@ python .pi/skills/run-planner/scripts/intent_clarifier.py \
 
 ## 二次对话上下文继承
 
-用户在同一个生成项目里继续说“这个看板方向对”“重构当前页面”“删除/新增/保留某个模块”“移动端不要横向溢出”等，且没有给出新的标的代码或名称时，必须先读取上一轮 `.data-agent/finance-run-plan.json` 并继承：
+用户在同一个生成项目里继续说“这个看板方向对”“重构当前页面”“删除/新增/保留某个模块”“移动端不要横向溢出”等，且没有给出新的标的代码或名称时，必须先读取上一轮 `.data-agent/retail-run-plan.json` 并继承：
 
 - `symbols`
 - `timeRange`
@@ -73,14 +73,14 @@ python .pi/skills/run-planner/scripts/intent_clarifier.py \
 .data-agent/profile.json
 .data-agent/task.json
 .data-agent/plan.json
-.data-agent/finance-query-rewrite.json
-.data-agent/finance-run-plan.json
+.data-agent/retail-query-rewrite.json
+.data-agent/retail-run-plan.json
 .data-agent/events.jsonl
 ```
 
-先核对 `finance-query-rewrite.json.resolvedSymbols`、`timeRange`、`analysisFocus` 和澄清状态，再核对 run plan；不得重新用另一套字符串规则提取标的。
+先核对 `retail-query-rewrite.json.resolvedSymbols`、`timeRange`、`analysisFocus` 和澄清状态，再核对 run plan；不得重新用另一套字符串规则提取标的。
 
-Agent 必须读取并遵循 `finance-run-plan.json` 的这些字段：
+Agent 必须读取并遵循 `retail-run-plan.json` 的这些字段：
 
 - `status`: `planned` 或 `needs_clarification`
 - `question`: 用户原始问题
@@ -118,7 +118,7 @@ Agent 必须读取并遵循 `finance-run-plan.json` 的这些字段：
 
 ## 标准流程
 
-1. 读取 `.data-agent/workspace.json`、`profile.json`、`task.json`、`plan.json` 和 `finance-query-rewrite.json`，确认运行时、领域包、`capabilityId`、通用任务、领域计划引用和验证规则。
+1. 读取 `.data-agent/workspace.json`、`profile.json`、`task.json`、`plan.json` 和 `retail-query-rewrite.json`，确认运行时、领域包、`capabilityId`、通用任务、领域计划引用和验证规则。
 2. 从用户问题识别：
    - 标的名称或代码
    - 时间范围

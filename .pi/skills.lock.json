@@ -10,10 +10,10 @@
       "fileCount": 4
     },
     "quant-symbol-resolver": {
-      "version": "0.3.1",
+      "version": "0.4.0",
       "packagePath": ".pi/skill-packages/quant-symbol-resolver.tgz",
-      "sourceSha256": "a51653f09ba83e7ae89ba6963f9d38ace9715208460cbddd445603aceab91134",
-      "packageSha256": "f8f8b21b4cd8cc71f626f7287ba222f51fafdce099609750631535541e6e7267",
+      "sourceSha256": "5661e775600ca16b3020fbd5d998560293f639d60d1a4d3a1c74bced1bd4c5a3",
+      "packageSha256": "ef74ab54b8e85fbb70c2efc7aa0e33b998897e6260497528b68c55b807311ebf",
       "fileCount": 4
     },
     "quant-market-data": {
@@ -45,10 +45,10 @@
       "fileCount": 4
     },
     "run-planner": {
-      "version": "0.4.1",
+      "version": "0.5.0",
       "packagePath": ".pi/skill-packages/run-planner.tgz",
-      "sourceSha256": "5af0179c6d2cd2922a679a71261ffe67ae9d07b5947fabafd7b7974ee0428cd6",
-      "packageSha256": "11df93262101938400aa8f83df21d8602f9855ab0c329feb0f8437af7850aceb",
+      "sourceSha256": "e77bcd582ea2c71d19f784bca952621c8e1323e5d825cdd077558eda23ec94a0",
+      "packageSha256": "ffe70e165ac660591fe84bfda36021dd69741cc8e7abc9a6979c8f7824eb50e9",
       "fileCount": 4
     },
     "image-extraction": {
@@ -59,17 +59,17 @@
       "fileCount": 4
     },
     "data-quality": {
-      "version": "0.4.1",
+      "version": "0.5.0",
       "packagePath": ".pi/skill-packages/data-quality.tgz",
-      "sourceSha256": "0f1acebc41b7cc33690c3133a3583c5d00cff04cc6a1d4e5f927f8fce02c1595",
-      "packageSha256": "acce59328a99ebefd4dffe5b878ce6c31112ec37815ca19b9e0174b385b4a4f5",
+      "sourceSha256": "ef94920f8df370b17c9f2d6410ebb08a9bcfbe6268f9b9eed755faa0054d8029",
+      "packageSha256": "6eaaccac38a4b0e8f49e5c8c7ea900b75b1b6313f8cddac8e28f6e58ff5163c5",
       "fileCount": 4
     },
     "dashboard-visualization": {
-      "version": "0.7.0",
+      "version": "0.8.0",
       "packagePath": ".pi/skill-packages/dashboard-visualization.tgz",
-      "sourceSha256": "37e9d545e1a708a88f804c0150ec73788148c9e43339c1df97dbb551a614a14e",
-      "packageSha256": "97d991f7ca5571538267e54e9783aa62f73d765a40eb7576b349804a5ec8eafc",
+      "sourceSha256": "743e0f61f99c5d40562131be69b8403574c3e0edc621185bfdd88c2b4d7153f8",
+      "packageSha256": "a6c8a48a257c9a95a5c5038e1296136c7dd10f1897b4f99d7c443d17672a6b26",
       "fileCount": 6
     },
     "platform-ui-product-design": {
@@ -80,10 +80,10 @@
       "fileCount": 5
     },
     "query-rewrite": {
-      "version": "0.5.1",
+      "version": "0.6.0",
       "packagePath": ".pi/skill-packages/query-rewrite.tgz",
-      "sourceSha256": "e1fc908d98352a150621d0bd7dc04456caa1d7ec656b3b2b8557534bd4cd7200",
-      "packageSha256": "b6152a4f5be2f8e638c3989627b52ba6cb498b0e54ab0c679925c2525189f24e",
+      "sourceSha256": "bc1e1e42f96e2329eac230fd0814a39acd383031101a0ac72849c160d67fcc6b",
+      "packageSha256": "2bf59e29f89ab10564815fe0083bdf9aba88de43ed579ab1fc799b6e9188941b",
       "fileCount": 4
     }
   }

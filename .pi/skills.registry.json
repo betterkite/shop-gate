@@ -10,7 +10,7 @@
     {
       "id": "run-planner",
       "name": "运行规划",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "status": "stable",
       "scope": "workflow",
       "boundary": "解释平台生成的通用任务、领域计划和澄清门禁，指导后续执行；不生成或改写平台控制产物。",
@@ -20,8 +20,8 @@
         ".data-agent/profile.json",
         ".data-agent/task.json",
         ".data-agent/plan.json",
-        ".data-agent/finance-query-rewrite.json",
-        "当前或上一轮 .data-agent/finance-run-plan.json"
+        ".data-agent/retail-query-rewrite.json",
+        "当前或上一轮 .data-agent/retail-run-plan.json"
       ],
       "outputs": [
         "意图完整性结果",
@@ -45,7 +45,7 @@
     {
       "id": "query-rewrite",
       "name": "问题改写",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "status": "stable",
       "scope": "workflow",
       "boundary": "作为规划前唯一语义事实源，由所选 LLM 通过严格 Schema 解析全部自然语言语义，再经原文字面证据、独立标的 Resolver 与确定性安全策略核验；模型不可用时失败关闭。",
@@ -57,7 +57,7 @@
         "用户选择的 capabilityId"
       ],
       "outputs": [
-        ".data-agent/finance-query-rewrite.json",
+        ".data-agent/retail-query-rewrite.json",
         "resolvedSymbols",
         "timeRange",
         "analysisFocus",
@@ -96,7 +96,7 @@
       "scope": "quant",
       "boundary": "查询后端数据能力、本地 TimescaleDB 覆盖、候选信源、缓存、主备源、字段补数和降级规则。",
       "inputs": [
-        ".data-agent/finance-run-plan.json",
+        ".data-agent/retail-run-plan.json",
         "后端 /api/v1/registry",
         "后端 /api/v1/research/universes/summary",
         "后端 /api/v1/research/universes/{universe_id}/members",
@@ -125,7 +125,7 @@
     {
       "id": "quant-symbol-resolver",
       "name": "标的解析",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "status": "stable",
       "scope": "quant",
       "boundary": "把中文简称、代码、指数、ETF 转为标准证券代码、市场和资产类型。",
@@ -138,7 +138,7 @@
         "resolvedSymbols"
       ],
       "validation": [
-        "finance-run-plan.symbols 必须是代码字符串数组",
+        "retail-run-plan.symbols 必须是代码字符串数组",
         "同名 A 股唯一时必须自动选择并继续",
         "只有多个同优先级候选时才允许追问"
       ],
@@ -332,14 +332,14 @@
     {
       "id": "data-quality",
       "name": "数据质量",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "status": "stable",
       "scope": "evidence",
       "boundary": "证据文件、来源、时效、缺失字段、异常值和限制说明。",
       "inputs": [
         "raw data",
         "dashboard-data.json",
-        ".data-agent/finance-run-plan.json"
+        ".data-agent/retail-run-plan.json"
       ],
       "outputs": [
         "evidence/sources.json",
@@ -389,14 +389,14 @@
     {
       "id": "dashboard-visualization",
       "name": "可视化看板",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "status": "stable",
       "scope": "visualization",
       "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与金融指标判读生成 Next.js 金融分析看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",
       "inputs": [
         "data_file/final/dashboard-data.json",
         "evidence",
-        ".data-agent/finance-run-plan.json",
+        ".data-agent/retail-run-plan.json",
         ".data-agent/validation.json",
         ".data-agent/validation-repair-plan.json",
         ".data-agent/visual-validation.json"

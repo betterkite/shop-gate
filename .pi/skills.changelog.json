@@ -9,6 +9,15 @@
     "query-rewrite": {
       "releases": [
         {
+          "version": "0.6.0",
+          "date": "2026-09-07",
+          "summary": "清洗金融文件路径：skills 中 finance-run-plan.json / finance-query-rewrite.json 改为 retail-run-plan.json / retail-query-rewrite.json（与实际运行时 .data-agent 路径对齐）。",
+          "changes": [
+            "将 finance-query-rewrite.json→retail-query-rewrite.json。",
+            "将 finance-run-plan.json→retail-run-plan.json。"
+          ]
+        },
+        {
           "version": "0.5.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -74,6 +83,15 @@
     },
     "run-planner": {
       "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-09-07",
+          "summary": "清洗金融文件路径：skills 中 finance-run-plan.json / finance-query-rewrite.json 改为 retail-run-plan.json / retail-query-rewrite.json（与实际运行时 .data-agent 路径对齐）。",
+          "changes": [
+            "将 finance-query-rewrite.json→retail-query-rewrite.json。",
+            "将 finance-run-plan.json→retail-run-plan.json。"
+          ]
+        },
         {
           "version": "0.4.1",
           "date": "2026-07-28",
@@ -239,6 +257,15 @@
     },
     "quant-symbol-resolver": {
       "releases": [
+        {
+          "version": "0.4.0",
+          "date": "2026-09-07",
+          "summary": "清洗金融文件路径：skills 中 finance-run-plan.json / finance-query-rewrite.json 改为 retail-run-plan.json / retail-query-rewrite.json（与实际运行时 .data-agent 路径对齐）。",
+          "changes": [
+            "将 finance-query-rewrite.json→retail-query-rewrite.json。",
+            "将 finance-run-plan.json→retail-run-plan.json。"
+          ]
+        },
         {
           "version": "0.3.1",
           "date": "2026-07-28",
@@ -630,6 +657,15 @@
     "data-quality": {
       "releases": [
         {
+          "version": "0.5.0",
+          "date": "2026-09-07",
+          "summary": "清洗金融文件路径：skills 中 finance-run-plan.json / finance-query-rewrite.json 改为 retail-run-plan.json / retail-query-rewrite.json（与实际运行时 .data-agent 路径对齐）。",
+          "changes": [
+            "将 finance-query-rewrite.json→retail-query-rewrite.json。",
+            "将 finance-run-plan.json→retail-run-plan.json。"
+          ]
+        },
+        {
           "version": "0.4.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -745,6 +781,15 @@
     },
     "dashboard-visualization": {
       "releases": [
+        {
+          "version": "0.8.0",
+          "date": "2026-09-07",
+          "summary": "清洗金融文件路径：skills 中 finance-run-plan.json / finance-query-rewrite.json 改为 retail-run-plan.json / retail-query-rewrite.json（与实际运行时 .data-agent 路径对齐）。",
+          "changes": [
+            "将 finance-query-rewrite.json→retail-query-rewrite.json。",
+            "将 finance-run-plan.json→retail-run-plan.json。"
+          ]
+        },
         {
           "version": "0.7.0",
           "date": "2026-09-07",

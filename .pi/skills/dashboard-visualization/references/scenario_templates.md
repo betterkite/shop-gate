@@ -4,7 +4,7 @@
 
 ## 选择顺序
 
-1. 优先使用 `.data-agent/finance-run-plan.json -> visualization.templateId` 和 `visualization.variantId`。
+1. 优先使用 `.data-agent/retail-run-plan.json -> visualization.templateId` 和 `visualization.variantId`。
 2. 如果 `dashboard-data.json.visualization.template_id` / `variant_id` 已存在，必须与 run plan 对齐；不一致时以 run plan 为准，并在数据质量区域说明修正。
 3. 如果两者都缺失，先按字段推断模板族：
    - `holdings[]`、`portfolio`、`cash`、截图持仓、调仓：`holding-analysis`

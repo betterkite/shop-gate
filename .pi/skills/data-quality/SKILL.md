@@ -40,7 +40,7 @@ evidence/sources.json
 evidence/data_quality.json
 ```
 
-如果当前任务已有 `.data-agent/finance-run-plan.json`，证据文件中的 `runId` 应与当前 run plan 的 `runId` 保持一致。
+如果当前任务已有 `.data-agent/retail-run-plan.json`，证据文件中的 `runId` 应与当前 run plan 的 `runId` 保持一致。
 
 ## sources.json 结构建议
 
@@ -99,7 +99,7 @@ evidence/data_quality.json
 
 ## 工作流程
 
-1. 读取 `.data-agent/finance-run-plan.json`，确认当前问题、标的、数据需求和 runId。
+1. 读取 `.data-agent/retail-run-plan.json`，确认当前问题、标的、数据需求和 runId。
 2. 汇总本轮已经获取的数据，包括实时行情、K 线、财务、公告等。
 3. 检查每个数据集：
    - 是否为空。

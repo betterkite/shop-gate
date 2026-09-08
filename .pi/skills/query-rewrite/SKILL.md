@@ -5,13 +5,13 @@ description: Consume the platform-owned LLM-first quantitative query contract be
 
 # QuantPilot Query Rewrite
 
-Consume `.data-agent/finance-query-rewrite.json` as the only semantic bridge between the user's wording, the run plan, and API-based data skills. QuantPilot calls the selected LLM once through a strict Tool Schema, checks every semantic evidence span against the original query, and then sends literal target names or codes to the independent symbol Resolver.
+Consume `.data-agent/retail-query-rewrite.json` as the only semantic bridge between the user's wording, the run plan, and API-based data skills. QuantPilot calls the selected LLM once through a strict Tool Schema, checks every semantic evidence span against the original query, and then sends literal target names or codes to the independent symbol Resolver.
 
 > `.data-agent/**` is platform-owned and read-only. Never create, edit, delete, or repair the rewrite artifact from the Agent runtime.
 
 ## Workflow
 
-1. Read the rewrite contract supplied in the Task Packet or `.data-agent/finance-query-rewrite.json`.
+1. Read the rewrite contract supplied in the Task Packet or `.data-agent/retail-query-rewrite.json`.
 2. Inspect `execution.strategy` and `execution.llm` first:
    - `llm_primary` requires `llm.applied=true` and `llm.status=applied`.
    - `llm_unavailable` is a hard semantic gate. Stop before planning or data retrieval and surface the retry guidance in `issues[]`.
@@ -36,7 +36,7 @@ Consume `.data-agent/finance-query-rewrite.json` as the only semantic bridge bet
 
 ## Configuration contract
 
-- Audit executor/model identity in `.data-agent/workspace.json.runtime` and the secret-free provider profile in `.data-agent/finance-run-plan.json.llm`.
+- Audit executor/model identity in `.data-agent/workspace.json.runtime` and the secret-free provider profile in `.data-agent/retail-run-plan.json.llm`.
 - `provider`, `model`, `baseUrl`, `credentialEnv`, `agent`, and `queryRewrite` must be present. Only the credential environment-variable name may be persisted.
 - The default profile is local Qwen through ModelPort. ModelPort-hosted DeepSeek, optional direct DeepSeek, and other registered OpenAI-compatible models use the same Query Rewrite contract.
 - If Query Rewrite is disabled or its credential is unavailable, the request fails closed; it does not become a model-free rewrite.
@@ -45,7 +45,7 @@ Consume `.data-agent/finance-query-rewrite.json` as the only semantic bridge bet
 
 ```bash
 python .pi/skills/query-rewrite/scripts/validate_query_rewrite.py \
-  --input .data-agent/finance-query-rewrite.json
+  --input .data-agent/retail-query-rewrite.json
 ```
 
 The validator performs no network calls and writes no files. A non-zero exit means the contract must be regenerated before continuing. Read [query-rewrite-contract.md](references/query-rewrite-contract.md) for schema and state invariants.

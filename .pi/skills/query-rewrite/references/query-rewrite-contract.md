@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`.data-agent/finance-query-rewrite.json` is the versioned, platform-owned semantic input shared by planning, prefetch, and Agent skills. Query Rewrite is LLM-first; the Resolver remains a separate deterministic identity service. Downstream modules must not infer targets, periods, or capabilities from the original wording.
+`.data-agent/retail-query-rewrite.json` is the versioned, platform-owned semantic input shared by planning, prefetch, and Agent skills. Query Rewrite is LLM-first; the Resolver remains a separate deterministic identity service. Downstream modules must not infer targets, periods, or capabilities from the original wording.
 
 ## Required fields
 

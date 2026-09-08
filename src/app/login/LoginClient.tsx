@@ -63,7 +63,7 @@ export default function LoginClient({
         <section className="relative min-h-[260px] overflow-hidden border-b border-border/70 bg-muted lg:min-h-[720px] lg:border-b-0 lg:border-r">
           <Image
             src={loginHero}
-            alt="动漫风格的 Shop Gate 量化研究员正在分析数据"
+            alt="Shop Gate 零售经营分析师正在分析数据"
             fill
             priority
             sizes="(min-width: 1024px) 55vw, 100vw"
@@ -84,7 +84,7 @@ export default function LoginClient({
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-2 text-xs font-semibold text-primary">
                   <Sparkles className="h-3.5 w-3.5" />
-                  AI 量化研究工作台
+                  AI 零售经营分析工作台
                 </span>
                 <span aria-hidden="true" className="h-3 w-px bg-slate-300" />
                 <span className="text-xs font-medium text-slate-500">数据真实 · 过程可追溯</span>

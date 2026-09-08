@@ -3108,7 +3108,7 @@ const persistProjectPreferences = useCallback(
                   void runAct(message, images, mode);
                 }}
                 disabled={false}
-                placeholder={mode === 'act' ? "向 Shop Gate 描述你的量化需求..." : "和 Shop Gate 讨论项目细节..."}
+                placeholder={mode === 'act' ? "向 Shop Gate 描述你的经营分析需求..." : "和 Shop Gate 讨论项目细节..."}
                 mode={mode}
                 onModeChange={setMode}
                 projectId={projectId}

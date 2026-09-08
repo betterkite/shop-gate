@@ -52,10 +52,10 @@
       "fileCount": 4
     },
     "image-extraction": {
-      "version": "0.4.2",
+      "version": "0.4.3",
       "packagePath": ".pi/skill-packages/image-extraction.tgz",
-      "sourceSha256": "b0b8890b809a35da1d614face870479a9ac9f6fa2022f4fa2c7c7fdb266c0cf4",
-      "packageSha256": "786cc9b1e7101ce5618c26823d5618335af4f5178ae63fedaa620922836cd889",
+      "sourceSha256": "59b172506ec8f388c1784f70864164401850c4538db69fb38d0f638acfbc68d3",
+      "packageSha256": "9c694c0c2c5a74dc82ee7e3d26e804d54e6b99ef98b337918669e1e2cda6f0ff",
       "fileCount": 4
     },
     "data-quality": {

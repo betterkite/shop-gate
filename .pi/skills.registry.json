@@ -152,7 +152,7 @@
     {
       "id": "image-extraction",
       "name": "图片提取",
-      "version": "0.4.2",
+      "version": "0.4.3",
       "status": "stable",
       "scope": "input",
       "boundary": "读取用户上传的图片附件清单，校验图片文件，抽取或标注持仓截图中的资产、股票、成本、盈亏、现金和仓位字段。",

@@ -369,6 +369,14 @@
     "image-extraction": {
       "releases": [
         {
+          "version": "0.4.3",
+          "date": "2026-09-07",
+          "summary": "工具名归零：quant_extract_uploaded_image→commerce_extract_uploaded_image。",
+          "changes": [
+            "对齐 runtime 契约，将 quant_extract_uploaded_image 改为 commerce_extract_uploaded_image。"
+          ]
+        },
+        {
           "version": "0.4.2",
           "date": "2026-09-07",
           "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",

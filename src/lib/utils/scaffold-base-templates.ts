@@ -893,7 +893,7 @@ function SignalPanel({
     <article className="data-panel signal-panel">
       <div className="panel-heading compact">
         <div>
-          <h2>量化信号摘要</h2>
+          <h2>经营指标摘要</h2>
           <p>价格位置、均线结构、量能、数据信源与数据质量</p>
         </div>
         <span className={'quality-pill ' + qualityTone(dataQualityStatus)}>{dataQualityStatus}</span>

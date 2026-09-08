@@ -541,7 +541,7 @@ export async function ensureResearchAutomationSeed() {
     where: { id: DEFAULT_CHANNEL_ID },
     create: {
       id: DEFAULT_CHANNEL_ID,
-      name: '企业微信投研日报 Dry-run',
+      name: '企业微信经营日报 Dry-run',
       channelType: 'wxwork',
       status: 'configured',
       target: '本地模拟推送',
@@ -668,7 +668,7 @@ function buildProviderMatrix(
   channels: NotificationChannelSnapshot[] = []
 ): ResearchProviderMatrixItem[] {
   const evidenceBySource = new Map(evidence.map((item) => [item.source, item]));
-  const market = evidenceBySource.get('本地股票池');
+  const market = evidenceBySource.get('本地观察池');
   const screener = evidenceBySource.get('短线候选筛选');
   const clickhouse = evidenceBySource.get('ClickHouse 分析层');
 
@@ -676,7 +676,7 @@ function buildProviderMatrix(
     {
       id: 'local-commerce-data',
       name: '本地 commerce-data',
-      role: '股票池、行情覆盖、K 线和候选筛选的事实源',
+      role: '观察池、行情覆盖、K 线和候选筛选的事实源',
       status: market?.status ?? 'partial',
       detail: market?.detail ?? '等待下一次日报运行采样。',
     },
@@ -722,7 +722,7 @@ function buildReport(params: {
   clickhouseProbe: MarketProbe;
 }): ReportBuildResult {
   const evidence = [
-    { ...params.universesProbe.evidence, source: '本地股票池' },
+    { ...params.universesProbe.evidence, source: '本地观察池' },
     { ...params.screenerProbe.evidence, source: '短线候选筛选' },
     { ...params.clickhouseProbe.evidence, source: 'ClickHouse 分析层' },
   ];
@@ -746,12 +746,12 @@ function buildReport(params: {
   const evidenceLines = evidence.map((item) => `- ${item.source}: ${item.status}，${item.detail}`);
   const checklist = [
     candidates.length > 0 ? '核对前 3 个候选标的的最新 K 线、成交额和涨跌停状态。' : '先检查筛选条件和本地行情覆盖，确认为何没有候选标的。',
-    coverageRatio >= 0.8 ? '股票池覆盖率可用于日报观察，继续保留补数监控。' : '优先补齐股票池日线覆盖，避免日报结论偏样本。',
+    coverageRatio >= 0.8 ? '观察池覆盖率可用于日报观察，继续保留补数监控。' : '优先补齐观察池日线覆盖，避免日报结论偏样本。',
     analytics.engine === 'clickhouse' ? 'ClickHouse 已参与筛选，可继续扩展横截面因子。' : '当前未确认 ClickHouse 命中，批量筛选仍需关注性能。',
     '任何买卖动作必须结合人工复核和风控仓位，不把日报作为即时交易指令。',
   ];
 
-  const title = `${reportDateValue()} ${params.watchlist.name} 投研日报`;
+  const title = `${reportDateValue()} ${params.watchlist.name} 经营日报`;
   const summary = candidates.length > 0
     ? `本次生成 ${candidates.length} 个候选标的，综合评分 ${score}，建议：${recommendation}。`
     : `本次未生成候选标的，综合评分 ${score}，重点处理数据覆盖和筛选证据。`;
@@ -768,8 +768,8 @@ function buildReport(params: {
     `- 建议：${recommendation}`,
     '',
     `## 观察池`,
-    `- 股票池：${params.watchlist.universeId ?? '未绑定'}`,
-    `- 标的：${params.watchlist.symbols.join('、') || '使用股票池成员'}`,
+    `- 观察池：${params.watchlist.universeId ?? '未绑定'}`,
+    `- 标的：${params.watchlist.symbols.join('、') || '使用观察池成员'}`,
     `- 市场：${params.watchlist.markets.join('、') || '未设置'}`,
     '',
     `## 候选标的`,
@@ -890,7 +890,7 @@ export async function runDailyResearchReport(
   try {
     const universeId = watchlist.universeId ?? DEFAULT_UNIVERSE_ID;
     const [universesProbe, screenerProbe, clickhouseProbe] = await Promise.all([
-      fetchMarketProbe(`/api/v1/research/universes/summary`, '本地股票池'),
+      fetchMarketProbe(`/api/v1/research/universes/summary`, '本地观察池'),
       fetchMarketProbe(`/api/v1/research/screeners/a-share/short-term-candidates?universe_id=${encodeURIComponent(universeId)}&limit=8`, '短线候选筛选', 5000),
       fetchMarketProbe(`/api/v1/analytics/clickhouse/health`, 'ClickHouse 分析层'),
     ]);

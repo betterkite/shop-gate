@@ -56,7 +56,7 @@ export function ResearchInsightsView({ data }: {
         <ResearchMetricCard icon={<Target className="h-4 w-4" />} label="候选标的" value={candidateRanking.length} helper={`${signalCount} 个结构化研究信号`} tone="primary" />
         <ResearchMetricCard icon={<Gauge className="h-4 w-4" />} label="平均研究评分" value={averageScore ?? "-"} helper={`${data.latestReports.length} 份近期报告`} tone={averageScore == null ? "slate" : averageScore >= 80 ? "emerald" : "amber"} />
         <ResearchMetricCard icon={<Database className="h-4 w-4" />} label="可用证据" value={evidence.length ? `${readyEvidence}/${evidence.length}` : "-"} helper="按最新报告证据快照统计" tone={readyEvidence ? "emerald" : "blue"} />
-        <ResearchMetricCard icon={<Layers3 className="h-4 w-4" />} label="股票池覆盖" value={latestCoverage ? `${Math.round(latestCoverage.coverageRatio * 100)}%` : "待采样"} helper={latestCoverage ? `${latestCoverage.readyCount}/${latestCoverage.memberCount} 个成员就绪` : "首次日报会写入覆盖快照"} tone={latestCoverage ? "blue" : "slate"} />
+        <ResearchMetricCard icon={<Layers3 className="h-4 w-4" />} label="观察池覆盖" value={latestCoverage ? `${Math.round(latestCoverage.coverageRatio * 100)}%` : "待采样"} helper={latestCoverage ? `${latestCoverage.readyCount}/${latestCoverage.memberCount} 个成员就绪` : "首次日报会写入覆盖快照"} tone={latestCoverage ? "blue" : "slate"} />
       </section>
 
       <section className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
@@ -71,8 +71,8 @@ export function ResearchInsightsView({ data }: {
         </div>
 
         <div className="flex flex-col gap-4">
-          <ResearchSectionHeader eyebrow="RESEARCH SCOPE" title="当前研究范围" description="日报覆盖的股票池、核心标的与市场范围。" />
-          <div className="flex-1 space-y-3">{data.watchlists.map((watchlist) => <article key={watchlist.id} className="h-full rounded-xl border border-border/60 bg-card p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-foreground">{watchlist.name}</h3><p className="mt-1 break-all text-xs text-muted-foreground">{watchlist.universeId ?? "未绑定股票池"}</p></div><ResearchStatusBadge status={watchlist.status} /></div><p className="mt-3 text-sm leading-6 text-muted-foreground">{watchlist.description}</p><div className="mt-4 flex flex-wrap gap-1.5">{watchlist.symbols.map((symbol) => <Badge key={symbol} variant="outline" className="font-mono text-[10px]">{symbol}</Badge>)}{watchlist.markets.map((market) => <Badge key={market} className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">{market}</Badge>)}</div></article>)}</div>
+          <ResearchSectionHeader eyebrow="RESEARCH SCOPE" title="当前观察范围" description="日报覆盖的观察池、重点商品与范围。" />
+          <div className="flex-1 space-y-3">{data.watchlists.map((watchlist) => <article key={watchlist.id} className="h-full rounded-xl border border-border/60 bg-card p-5"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-foreground">{watchlist.name}</h3><p className="mt-1 break-all text-xs text-muted-foreground">{watchlist.universeId ?? "未绑定观察池"}</p></div><ResearchStatusBadge status={watchlist.status} /></div><p className="mt-3 text-sm leading-6 text-muted-foreground">{watchlist.description}</p><div className="mt-4 flex flex-wrap gap-1.5">{watchlist.symbols.map((symbol) => <Badge key={symbol} variant="outline" className="font-mono text-[10px]">{symbol}</Badge>)}{watchlist.markets.map((market) => <Badge key={market} className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">{market}</Badge>)}</div></article>)}</div>
         </div>
       </section>
 

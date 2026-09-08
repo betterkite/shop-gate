@@ -292,7 +292,7 @@ function ServicesView({ data }: { data: OpsPlatformDashboard }) {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <OpsMetricCard icon={<Network className="h-4 w-4" />} label="服务目录" value={`${data.serviceCatalogValidation.enabledCount}/${data.serviceCatalogValidation.serviceCount}`} helper={`${data.serviceCatalogValidation.requiredCount} 个核心依赖`} tone={data.serviceCatalogValidation.ok ? "emerald" : "red"} />
         <OpsMetricCard icon={<Database className="h-4 w-4" />} label="事实数据库" value={infrastructure.connected ? "已连接" : "未连接"} helper={infrastructure.timescale.enabled ? `TimescaleDB ${infrastructure.timescale.version}` : "TimescaleDB 未启用"} tone={infrastructure.connected ? "emerald" : "red"} />
-        <OpsMetricCard icon={<HardDrive className="h-4 w-4" />} label="量化表" value={infrastructure.quantSchema.tables.length} helper="quant schema 可用表" tone={infrastructure.quantSchema.tables.length >= 4 ? "blue" : "amber"} />
+        <OpsMetricCard icon={<HardDrive className="h-4 w-4" />} label="经营数据表" value={infrastructure.quantSchema.tables.length} helper="quant schema 可用表" tone={infrastructure.quantSchema.tables.length >= 4 ? "blue" : "amber"} />
         <OpsMetricCard icon={<ServerCog className="h-4 w-4" />} label="数据库容器" value={infrastructure.docker.running ? "运行中" : "未运行"} helper={infrastructure.docker.service?.status ?? infrastructure.docker.error ?? "未发现容器"} tone={infrastructure.docker.running ? "emerald" : "amber"} />
       </section>
 
@@ -309,7 +309,7 @@ function ServicesView({ data }: { data: OpsPlatformDashboard }) {
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">{data.serviceDependencyEdges.map((edge) => <div key={`${edge.from}-${edge.to}`} className={cn("flex items-center gap-3 rounded-xl border px-4 py-3", edge.active ? "border-border/60 bg-card" : "border-border/40 bg-muted/30 opacity-60")}><span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{edge.fromName}</span><ArrowRight className="h-4 w-4 shrink-0 text-primary" /><span className="min-w-0 flex-1 truncate text-right text-sm font-semibold text-foreground">{edge.toName}</span></div>)}</div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-2"><CheckGroup title="基础环境巡检" description="运行时、工具链、存储、数据库与外部服务探测。" checks={data.systemChecks} /><CheckGroup title="平台能力巡检" description="能力目录、Skills、数据源、量化表与日志入口。" checks={data.capabilityChecks} /></section>
+      <section className="grid gap-5 xl:grid-cols-2"><CheckGroup title="基础环境巡检" description="运行时、工具链、存储、数据库与外部服务探测。" checks={data.systemChecks} /><CheckGroup title="平台能力巡检" description="能力目录、Skills、数据源、经营数据表与日志入口。" checks={data.capabilityChecks} /></section>
 
       <section className="rounded-xl border border-border/60 bg-card p-5"><h3 className="flex items-center gap-2 text-sm font-bold text-foreground"><Command className="h-4 w-4 text-primary" />数据库常用命令</h3><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{Object.entries(infrastructure.commands).map(([name, command]) => <div key={name} className="rounded-lg border border-border/60 bg-background/60 px-3 py-3"><p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{name}</p><code className="mt-1 block break-all text-xs text-foreground">{command}</code></div>)}</div></section>
       <ServiceDetail service={selected} open={detailOpen} onOpenChange={setDetailOpen} />

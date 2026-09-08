@@ -284,7 +284,7 @@ function toolStartSummary(name: string, target?: string): string {
   if (name === 'inspect_dashboard_contract') return '正在核验看板结构、数据绑定和可编辑入口。';
   if (name === 'apply_dashboard_spec') return '正在按权威任务合同编译标准看板。';
   if (name === 'semantic_edit') return `正在对 ${target || '目标源码'} 执行版本化语义编辑。`;
-  if (name === 'commerce_api_get') return `正在从 ${target || '量化数据接口'} 获取真实数据。`;
+  if (name === 'commerce_api_get') return `正在从 ${target || '经营数据接口'} 获取真实数据。`;
   if (name === 'commerce_extract_uploaded_image' || name === 'extract_image_evidence') {
     return '正在提取图片中的可验证金融字段。';
   }
@@ -976,7 +976,7 @@ async function executePiAgentPhase(
             {
               name: 'submit_result',
               arguments: {
-                summary: `已通过可信渲染器生成 ${templateId}/${variantId} 标准量化看板。`,
+                summary: `已通过可信渲染器生成 ${templateId}/${variantId} 标准经营看板。`,
                 artifacts: ['app/page.tsx', 'app/globals.css'],
                 notes: '零模型 Token 的确定性编译结果，等待平台独立验证。',
               },

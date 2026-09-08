@@ -102,7 +102,7 @@ function InfrastructureTab({
           <p className="mt-1 text-sm text-slate-600">
             {infrastructure?.timescale.version
               ? `版本 ${infrastructure.timescale.version}`
-              : "用于股票 K 线、因子和信号"}
+              : "用于经营行为与商品数据"}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -132,7 +132,7 @@ function InfrastructureTab({
             </p>
           </div>
           <div className="rounded-lg bg-slate-50 p-3">
-            <p className="text-xs font-medium text-slate-500">量化时序表</p>
+            <p className="text-xs font-medium text-slate-500">经营时序表</p>
             <p className="mt-1 text-sm text-slate-700">
               {infrastructure?.quantSchema.tables.length
                 ? infrastructure.quantSchema.tables.map((t) => `quant.${t}`).join("、")

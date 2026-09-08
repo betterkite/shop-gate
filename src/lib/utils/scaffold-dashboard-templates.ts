@@ -463,7 +463,7 @@ function StrategyResearchProtocol({ data }: { data: JsonRecord | null }) {
   const warnings = asArray(data?.warnings).map(String).filter(Boolean);
   const conclusion = asRecord(data?.conclusion);
   const hypothesis = candidates.length > 0
-    ? '在真实股票池中观察量价、趋势、回撤与流动性共同改善的候选；当前结果只形成待验证假设。'
+    ? '在真实观察池中观察量价、趋势、回撤与流动性共同改善的候选；当前结果只形成待验证假设。'
     : '当前筛选未形成候选，保留原始规则与空结果，不降低安全门槛。';
   return (
     <section className="strategy-protocol" aria-label="策略假设与验证协议">
@@ -478,7 +478,7 @@ function StrategyResearchProtocol({ data }: { data: JsonRecord | null }) {
       <article className="selection-panel">
         <div className="panel-heading"><div><h2>样本参数</h2><p>保持筛选口径和覆盖范围可复核</p></div></div>
         <dl className="strategy-parameter-list">
-          <div><dt>股票池</dt><dd>{String(screener?.universe_id ?? '待确认')}</dd></div>
+          <div><dt>观察池</dt><dd>{String(screener?.universe_id ?? '待确认')}</dd></div>
           <div><dt>模式</dt><dd>{String(screener?.mode ?? '待确认')}</dd></div>
           <div><dt>交易日</dt><dd>{String(screener?.trade_date ?? data?.as_of ?? '-')}</dd></div>
           <div><dt>扫描/入选</dt><dd>{formatNumber(screener?.scanned_symbols, 0)} / {formatNumber(screener?.total_candidates ?? candidates.length, 0)}</dd></div>

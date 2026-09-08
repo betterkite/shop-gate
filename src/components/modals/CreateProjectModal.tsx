@@ -522,7 +522,7 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
           {/* Quant Capability */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              量化能力
+              经营分析能力
             </label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               {RETAIL_CAPABILITIES.map((capability) => (

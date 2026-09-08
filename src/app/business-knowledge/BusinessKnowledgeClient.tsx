@@ -305,7 +305,7 @@ function OverviewView({ data, groupNameById, onViewChange, onOpenCapability, onO
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-3xl">
             <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary"><BriefcaseBusiness className="mr-1.5 h-3.5 w-3.5" />QUANT BUSINESS KNOWLEDGE</Badge>
-            <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">把业务问题，映射为可执行的量化能力</h1>
+            <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">把业务问题，映射为可执行的经营分析能力</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">这里沉淀 Shop Gate 能解决的业务场景、分析关注点、交付标准和能力边界。数据、Skills 与接口是支撑资源，而不是平台本身。</p>
             <div className="mt-6 flex flex-wrap gap-2">
               <Button onClick={() => onViewChange("capabilities")} className="gap-2"><Compass className="h-4 w-4" />浏览能力目录</Button>
@@ -326,7 +326,7 @@ function OverviewView({ data, groupNameById, onViewChange, onOpenCapability, onO
       </section>
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <MetricCard icon={<BriefcaseBusiness className="h-4 w-4" />} label="业务能力" value={data.summary.capabilities} helper="覆盖完整量化分析链路" />
+        <MetricCard icon={<BriefcaseBusiness className="h-4 w-4" />} label="业务能力" value={data.summary.capabilities} helper="覆盖完整经营分析链路" />
         <MetricCard icon={<CheckCircle2 className="h-4 w-4" />} label="可直接使用" value={data.summary.readyCapabilities} helper={`${data.summary.plannedCapabilities} 项仍在演进`} tone="emerald" />
         <MetricCard icon={<BookOpenCheck className="h-4 w-4" />} label="知识规则" value={totalRules} helper="约束业务交付质量" tone="blue" />
         <MetricCard icon={<Workflow className="h-4 w-4" />} label="支撑 Skills" value={data.summary.skills} helper={data.summary.skillErrors ? `${data.summary.skillErrors} 项异常` : "当前全部健康"} tone={data.summary.skillErrors ? "amber" : "primary"} />
@@ -406,7 +406,7 @@ function CapabilitiesView({ data, groupNameById, keyword, groupFilter, statusFil
 
   return (
     <div className="space-y-5">
-      <SectionHeader eyebrow="CAPABILITY CATALOG" title="量化业务能力目录" description="按业务领域和成熟度检索能力，查看适用场景、分析关注点和交付标准。" />
+      <SectionHeader eyebrow="CAPABILITY CATALOG" title="经营业务能力目录" description="按业务领域和成熟度检索能力，查看适用场景、分析关注点和交付标准。" />
       <div className="rounded-xl border border-border/60 bg-card/85 p-3 shadow-[0_16px_38px_-32px_hsl(var(--shadow-color)/0.55)]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1 lg:max-w-[420px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={keyword} onChange={(event) => onKeywordChange(event.target.value)} placeholder="搜索业务能力、场景或关注点..." aria-label="搜索业务能力、场景或关注点" className="h-10 bg-background pl-9" /></div>
@@ -558,7 +558,7 @@ export default function BusinessKnowledgeClient({ initialData }: Props) {
   return (
     <div className="platform-shell min-h-dvh">
       <PageHeader
-        title="量化业务知识中心"
+        title="经营业务知识中心"
         badge={<Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">{data.summary.capabilities} 项能力</Badge>}
         subtitle={`业务场景、分析方法与交付规范 · 更新于 ${formatDate(data.generatedAt)}`}
       />

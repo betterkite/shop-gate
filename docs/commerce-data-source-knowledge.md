@@ -1,3 +1,12 @@
+# 【金融域遗留 · 已归档】行情数据源采集知识库
+
+> **本文档是 Shop Gate 前身（QuantPilot 金融域）的行情数据采集知识库，描述的是股票/ETF 行情体系（东方财富/Baostock/`quant.*` schema），这些内容已随金融域在 P3 移除，不适用于当前零售电商项目。**
+>
+> 零售域的数据采集与接入请看 **[零售数据接入：真实 UserBehavior 与自有数据连接器](commerce-data-ingestion.md)** 与 [数据字典](data-dictionary.md)（`commerce.*` schema）。
+> 本文档仅保留作历史参考。
+
+---
+
 # 行情数据源采集知识库
 
 Shop Gate 的行情链路以 PostgreSQL + TimescaleDB 为事实库，外部数据源只作为采集入口。生成工作空间和策略平台应优先读取本地后端，不要在页面里临时抓网页接口。

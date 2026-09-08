@@ -11,9 +11,9 @@
         {
           "version": "0.6.1",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -102,9 +102,9 @@
         {
           "version": "0.5.1",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -228,9 +228,9 @@
         {
           "version": "0.5.2",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -324,9 +324,9 @@
         {
           "version": "0.4.1",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -427,9 +427,9 @@
         {
           "version": "0.4.2",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -486,7 +486,7 @@
           "date": "2026-05-25",
           "summary": "新增上传图片和持仓截图提取能力。",
           "changes": [
-            "要求图片任务先读取 .data-agent/attachments.json 并调用 QuantPilotImage MCP 工具。",
+            "要求图片任务先读取 .data-agent/attachments.json 并调用 Shop GateImage MCP 工具。",
             "输出 evidence/image_extraction.json 与 dashboard-data.json.imageExtraction 契约。",
             "视觉识别不可用时必须保留 null 字段并列出需要人工确认的信息。"
           ]
@@ -514,9 +514,9 @@
         {
           "version": "0.5.3",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -611,9 +611,9 @@
         {
           "version": "0.3.2",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -668,7 +668,7 @@
         {
           "version": "0.1.1",
           "date": "2026-07-15",
-          "summary": "将已由 QuantPilot typed API 与 PI Agent runtime capsule 承载的基本面能力提升为稳定能力。",
+          "summary": "将已由 Shop Gate typed API 与 PI Agent runtime capsule 承载的基本面能力提升为稳定能力。",
           "changes": [
             "确认财务、基本面指标和公告端点进入 ready capability 的受检执行链。",
             "运行时只投影 typed-tool 兼容步骤，不向 PI Agent 暴露历史 Python/Shell 调用示例。"
@@ -706,9 +706,9 @@
         {
           "version": "0.3.2",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -753,7 +753,7 @@
         {
           "version": "0.1.1",
           "date": "2026-07-15",
-          "summary": "将已由 QuantPilot typed API 与 PI Agent runtime capsule 承载的指标能力提升为稳定能力。",
+          "summary": "将已由 Shop Gate typed API 与 PI Agent runtime capsule 承载的指标能力提升为稳定能力。",
           "changes": [
             "确认技术指标、风险和数据质量步骤进入 ready capability 的受检执行链。",
             "运行时优先使用 typed endpoint 与 final bars 的确定性计算，不暴露历史 Python/Shell 调用示例。"
@@ -791,9 +791,9 @@
         {
           "version": "0.3.2",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -851,9 +851,9 @@
         {
           "version": "0.5.1",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -930,9 +930,9 @@
         {
           "version": "0.3.2",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -968,7 +968,7 @@
         {
           "version": "0.2.0",
           "date": "2026-05-28",
-          "summary": "接入 UI/UX Pro Max 方法论并沉淀 QuantPilot 适配层。",
+          "summary": "接入 UI/UX Pro Max 方法论并沉淀 Shop Gate 适配层。",
           "changes": [
             "新增 references/ui-ux-pro-max-adapter.md，覆盖产品类型、页面模式、风格、配色、字体、UX、Next.js/shadcn 和图表规则。",
             "将平台 UI 工作流调整为先做 UI/UX Pro Max 风格设计决策，再实施组件和页面。",
@@ -978,7 +978,7 @@
         {
           "version": "0.1.0",
           "date": "2026-05-28",
-          "summary": "建立 QuantPilot 主平台页面和组件的 UI 产品设计能力。",
+          "summary": "建立 Shop Gate 主平台页面和组件的 UI 产品设计能力。",
           "changes": [
             "新增平台页面设计工作流，覆盖信息层级、组件复用、响应式和状态完整性。",
             "明确主平台 UI 与生成工作空间金融看板的职责边界。",
@@ -1000,9 +1000,9 @@
         {
           "version": "0.8.1",
           "date": "2026-09-07",
-          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "summary": "品牌归零：Shop Gate→Shop Gate（品牌词清洗，文案级）。",
           "changes": [
-            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+            "将 skill 源中的 Shop Gate 品牌词替换为 Shop Gate。"
           ]
         },
         {
@@ -1210,7 +1210,7 @@
           "date": "2026-05-28",
           "summary": "补充生成金融看板的 UI/UX Pro Max 视觉质量门槛。",
           "changes": [
-            "要求生成页面参考 QuantPilot 的 UI/UX Pro Max 适配层，默认使用 Data-Dense Dashboard 结构。",
+            "要求生成页面参考 Shop Gate 的 UI/UX Pro Max 适配层，默认使用 Data-Dense Dashboard 结构。",
             "新增首屏真实金融内容、图表表格 fallback、语义配色、响应式和动效约束。",
             "明确功能正确但视觉粗糙或像默认模板的生成页面不算完成。"
           ]

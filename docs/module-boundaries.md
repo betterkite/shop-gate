@@ -15,8 +15,8 @@ Shop Gate 目前不适合拆成多语言微服务，也不需要引入 Java/Dubb
 | `platform-core` | 项目、设置、Token、服务目录和外部集成 | `src/lib/platform/**`、核心 `src/lib/services/**` |
 | `agent-runtime` | PI Agent Provider、执行循环、上下文、类型化工具、Skills 编译和通用 Mission 机制 | `src/lib/agent/**`、通用运行服务 |
 | `data-agent-core` | 通用数据任务、实体、指标、Connector、Domain Pack、Agent Profile 与执行计划合同 | `src/lib/data-agent/**` |
-| `finance-domain` | 证券实体、金融能力目录、行情工具、金融 Mission、验证和可视化配置 | `src/lib/domains/finance/**` |
-| `quant-core` | 金融产品编排、LLM-first Query Rewrite、Resolver、运行规划、策略、证据、验证和数据预取 | `src/lib/commerce/**`、策略平台/业务知识中心 |
+| `retail-domain` | 零售电商 Domain Pack：零售能力目录、商品/类目实体解析、commerce 工具、零售 Mission 合同与零售可视化配置 | `src/lib/domains/retail/**` |
+| `quant-core` | 数据产品编排、LLM-first Query Rewrite、Resolver、运行规划、证据、验证和数据预取 | `src/lib/commerce/**`、业务知识中心 |
 | `eval-core` | 评测集、用例、运行、报告和 CI 质量门 | `src/lib/eval/**`、评测页面、评测脚本 |
 | `ops-core` | Docker、服务健康、日志和运维面板 | `src/lib/ops/**`、运行治理中心、观测配置 |
 | `commerce-data-backend` | FastAPI、行情、回测、TimescaleDB、Redis、ClickHouse | `services/commerce-data/**` |

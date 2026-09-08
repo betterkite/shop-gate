@@ -22,13 +22,13 @@ import {
 } from "@/lib/domains/retail/workspace";
 import { prefetchRetailDataForRunPlan } from "@/lib/commerce/retail-data-prefetch";
 import { getRetailCapability } from "@/lib/domains/retail/capabilities";
-import type { WorkspaceProgressPublisher } from "@/lib/commerce/workspace-progress";
+import type { WorkspaceProgressPublisher } from "@/lib/generation/workspace-progress";
 import { buildRetailClarificationMessage } from "@/lib/domains/retail/intent";
 import {
   startRetailGenerationRun,
   updateRetailGenerationStep,
-} from "@/lib/commerce/generation-state";
-import { runRetailGenerationStage } from "@/lib/commerce/generation-queue";
+} from "@/lib/generation/generation-state";
+import { runRetailGenerationStage } from "@/lib/generation/generation-queue";
 import {
   createRetailPiAgentMission,
   markRetailPiAgentMissionNode,
@@ -51,7 +51,7 @@ import {
   missingAgentInputArtifacts,
   publishRetailPipelineToolMessage,
   publishRetailPipelineToolStart,
-} from "@/lib/commerce/chat-act-support";
+} from "@/lib/generation/chat-act-support";
 
 export interface RetailActPreparationInput {
   projectId: string;

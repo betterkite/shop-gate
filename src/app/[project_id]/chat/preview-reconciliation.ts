@@ -1,4 +1,4 @@
-import type { QuantGenerationTerminalSnapshot } from '@/lib/commerce/generation-terminal';
+import type { QuantGenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
 
 export type PreviewReconciliationPlan =
   | {

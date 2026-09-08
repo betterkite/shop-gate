@@ -29,13 +29,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import type { WorkspaceHealthStatus } from '@/lib/commerce/workspace-health';
+import type { WorkspaceHealthStatus } from '@/lib/generation/workspace-health';
 import type {
   GenerationStageId,
   GenerationTimelineEvent,
   GenerationTraceProject,
   GenerationTraceStatus,
-} from '@/lib/commerce/generation-observability';
+} from '@/lib/generation/generation-observability';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 

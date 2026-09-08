@@ -1,5 +1,5 @@
-import { getWorkspaceHealthDashboard } from '@/lib/commerce/workspace-health';
-import { getGenerationObservabilityDashboard } from '@/lib/commerce/generation-observability';
+import { getWorkspaceHealthDashboard } from '@/lib/generation/workspace-health';
+import { getGenerationObservabilityDashboard } from '@/lib/generation/generation-observability';
 import { getOpsPlatformDashboard } from '@/lib/ops/ops-platform';
 import OpsPlatformClient, { type OpsView } from './OpsPlatformClient';
 import type { Metadata } from 'next';

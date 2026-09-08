@@ -12,7 +12,7 @@ vi.mock('@/lib/services/project', () => ({
   getProjectById: mocks.getProjectById,
 }));
 
-vi.mock('@/lib/commerce/generation-state', () => ({
+vi.mock('@/lib/generation/generation-state', () => ({
   readQuantGenerationState: mocks.readGeneration,
 }));
 

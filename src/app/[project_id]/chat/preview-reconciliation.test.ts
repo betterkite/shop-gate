@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { QuantGenerationTerminalSnapshot } from '@/lib/commerce/generation-terminal';
+import type { QuantGenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
 import { planPreviewReconciliation } from './preview-reconciliation';
 
 function snapshot(

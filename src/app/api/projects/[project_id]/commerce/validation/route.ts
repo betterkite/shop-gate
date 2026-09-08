@@ -7,9 +7,9 @@ import { getProjectById } from "@/lib/services/project";
 import {
   readQuantGenerationState,
   updateRetailGenerationStep,
-} from "@/lib/commerce/generation-state";
-import { startPersistentValidatedPreview } from "@/lib/commerce/generation-preview";
-import { runRetailGenerationStage } from "@/lib/commerce/generation-queue";
+} from "@/lib/generation/generation-state";
+import { startPersistentValidatedPreview } from "@/lib/generation/generation-preview";
+import { runRetailGenerationStage } from "@/lib/generation/generation-queue";
 import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-lease-store";
 import { streamManager } from "@/lib/services/stream";
 import {

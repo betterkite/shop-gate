@@ -6,7 +6,7 @@ import {
   readQuantGenerationState,
   startRetailGenerationRun,
   updateRetailGenerationStep,
-} from '@/lib/commerce/generation-state';
+} from '@/lib/generation/generation-state';
 import type { RetailValidationReport } from '@/lib/commerce/retail-validation';
 import { failBenchmarkGenerationRun, runBenchmarkRepairLoop } from './benchmark-repair';
 

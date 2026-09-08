@@ -7,7 +7,7 @@ import {
   buildWorkspaceProgressMessage,
   WORKSPACE_PROGRESS_TOTAL,
   type WorkspaceProgressOptions,
-} from '@/lib/commerce/workspace-response';
+} from '@/lib/generation/workspace-response';
 
 export type WorkspaceProgressPublisher = (
   options: WorkspaceProgressOptions,

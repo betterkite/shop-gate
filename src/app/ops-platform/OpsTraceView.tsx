@@ -39,7 +39,7 @@ import type {
   GenerationStageId,
   GenerationTraceProject,
   GenerationTraceStatus,
-} from "@/lib/commerce/generation-observability";
+} from "@/lib/generation/generation-observability";
 import { OpsMetricCard, OpsSectionHeader } from "./OpsConsolePrimitives";
 
 type TraceFilter = GenerationTraceStatus | "all";

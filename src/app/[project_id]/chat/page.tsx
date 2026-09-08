@@ -29,7 +29,7 @@ import {
   type ActiveCliId,
   type ActiveModelOption,
 } from '@/lib/utils/cliOptions';
-import type { QuantGenerationTerminalSnapshot } from '@/lib/commerce/generation-terminal';
+import type { QuantGenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
 import {
   CHAT_PANE_DEFAULT_WIDTH,
   CHAT_PANE_MAX_WIDTH,

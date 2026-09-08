@@ -28,7 +28,7 @@ import type { DataAgentCompositionLock } from '@/lib/data-agent';
 import { getProjectLlmConfig } from '@/lib/config/llm';
 import { DEFAULT_DATA_AGENT_PROFILE_ID } from '@/lib/config/data-agent';
 import { deleteProjectWithOwnedQuota } from '@/lib/quota/allocation-reconciliation';
-import { getApplicationDataAgentCatalog } from '@/lib/commerce/data-agent-application';
+import { getApplicationDataAgentCatalog } from '@/lib/generation/data-agent-application';
 
 function parseProjectSettings(existing: string | null | undefined): Record<string, unknown> {
   let parsed: Record<string, unknown> = {};

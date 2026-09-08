@@ -7,8 +7,8 @@ import { projectRouteAction } from '@/lib/auth/project-route-action';
 import {
   deriveQuantGenerationTerminalSnapshot,
   requiresPiAgentMissionAcceptance,
-} from '@/lib/commerce/generation-terminal';
-import { readQuantGenerationState } from '@/lib/commerce/generation-state';
+} from '@/lib/generation/generation-terminal';
+import { readQuantGenerationState } from '@/lib/generation/generation-state';
 import { readRetailValidationReport } from '@/lib/commerce/retail-validation';
 import { readPiAgentAcceptedMissionSnapshot } from '@/lib/services/pi-agent-mission-store';
 import { getProjectById } from '@/lib/services/project';

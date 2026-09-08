@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/sheet";
 import { formatCompactDate as formatDate } from "@/components/eval-console/console-primitives";
 import { cn } from "@/lib/utils";
-import type { WorkspaceHealthDashboard, WorkspaceHealthItem } from "@/lib/commerce/workspace-health";
-import type { GenerationObservabilityDashboard } from "@/lib/commerce/generation-observability";
+import type { WorkspaceHealthDashboard, WorkspaceHealthItem } from "@/lib/generation/workspace-health";
+import type { GenerationObservabilityDashboard } from "@/lib/generation/generation-observability";
 import type { OpsCheck, OpsCheckStatus, OpsPlatformDashboard } from "@/lib/ops/ops-platform";
 import type { ResolvedServiceCatalogEntry } from "@/lib/platform/service-catalog";
 import {

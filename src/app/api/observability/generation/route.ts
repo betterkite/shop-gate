@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { AuthorizationError, requireAdminSession } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
-import { getGenerationObservabilityDashboard } from '@/lib/commerce/generation-observability';
+import { getGenerationObservabilityDashboard } from '@/lib/generation/generation-observability';
 
 export async function GET(request: NextRequest) {
   try {

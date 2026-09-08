@@ -4,7 +4,7 @@ import path from 'path';
 import { serializeMessage } from '@/lib/serializers/chat';
 import { createMessage } from '@/lib/services/message';
 import { streamManager } from '@/lib/services/stream';
-import { ensureBaselineEvidenceFiles } from '@/lib/commerce/evidence';
+import { ensureBaselineEvidenceFiles } from '@/lib/generation/evidence';
 import { prefetchRetailDataForRunPlan } from '@/lib/commerce/retail-data-prefetch';
 import {
   appendRetailWorkspaceEvent,
@@ -16,7 +16,7 @@ import {
   type RetailRunPlan,
 } from '@/lib/domains/retail/workspace';
 import type { RetailQueryRewriteResult } from '@/lib/domains/retail/query-rewrite';
-import { validateQuantArtifactContracts } from '@/lib/commerce/artifact-contracts';
+import { validateQuantArtifactContracts } from '@/lib/generation/artifact-contracts';
 import { validateQuantVisualPresentation } from '@/lib/commerce/visual-validation';
 import {
   generatedBuildScriptContents,

@@ -2,7 +2,7 @@ import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
   updateRetailGenerationStep,
-} from '@/lib/commerce/generation-state';
+} from '@/lib/generation/generation-state';
 import {
   buildRetailValidationRepairInstruction,
   repairRetailPlatformOwnedArtifacts,

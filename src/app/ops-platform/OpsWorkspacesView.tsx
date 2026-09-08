@@ -35,7 +35,7 @@ import type {
   WorkspaceHealthDashboard,
   WorkspaceHealthItem,
   WorkspaceHealthStatus,
-} from "@/lib/commerce/workspace-health";
+} from "@/lib/generation/workspace-health";
 import { OpsMetricCard, OpsSectionHeader } from "./OpsConsolePrimitives";
 
 type HealthFilter = WorkspaceHealthStatus | "all";

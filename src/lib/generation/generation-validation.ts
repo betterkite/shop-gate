@@ -19,7 +19,7 @@ import {
 import {
   startPersistentValidatedPreview,
   type ValidatedGenerationPreview,
-} from '@/lib/commerce/generation-preview';
+} from '@/lib/generation/generation-preview';
 import {
   persistAcceptedGovernedKnowledgeUse,
   recordGovernedKnowledgeUsage,
@@ -32,10 +32,10 @@ import {
   incrementQuantGenerationRepairAttempt,
   readQuantGenerationState,
   updateRetailGenerationStep,
-} from '@/lib/commerce/generation-state';
-import { finishQuantGenerationQueueItem } from '@/lib/commerce/generation-queue';
-import type { WorkspaceProgressPublisher } from '@/lib/commerce/workspace-progress';
-import { shouldEscalateStalledRepair } from '@/lib/commerce/repair-convergence';
+} from '@/lib/generation/generation-state';
+import { finishQuantGenerationQueueItem } from '@/lib/generation/generation-queue';
+import type { WorkspaceProgressPublisher } from '@/lib/generation/workspace-progress';
+import { shouldEscalateStalledRepair } from '@/lib/generation/repair-convergence';
 import {
   isUserRequestCancelled,
   markUserRequestAsCompleted,

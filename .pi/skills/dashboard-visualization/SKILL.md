@@ -3,7 +3,7 @@ name: dashboard-visualization
 description: Generate, repair, or enhance real-data Next.js/HTML quantitative dashboards with financial charts, matrices, responsive layouts, and evidence-backed states. Use after data preparation or whenever the user asks for a visualization page, market dashboard, research workbench, or validation repair.
 ---
 
-# QuantPilot 金融可视化看板能力
+# Shop Gate 金融可视化看板能力
 
 这个 skill 负责把已获取的行情、财务、公告和分析结果转换为真正可运行的可视化页面。它不是“写分析说明”的 skill；触发后必须产出或更新页面文件。
 
@@ -36,7 +36,7 @@ description: Generate, repair, or enhance real-data Next.js/HTML quantitative da
 2. 必须生成可访问、可交互、可刷新的页面；不能只回复文字、不能只写计划、不能留下 Next.js 默认页。
 3. 如果用户问的是股票、行情或趋势，页面必须包含真实图表区域，不允许只用指标带替代图表。
 4. 如果历史 K 线接口失败，页面必须显示真实错误和降级视图，但仍要保留 K 线面板和重试能力。
-5. 数据必须来自 QuantPilot 本地后端或已经获取到的真实结果，不得编造行情、财报或 K 线。
+5. 数据必须来自 Shop Gate 本地后端或已经获取到的真实结果，不得编造行情、财报或 K 线。
 6. 完成后必须能通过平台自动验证：Next.js build、预览 HTTP 200、`data_file/final/dashboard-data.json`、`evidence/sources.json`、`evidence/data_quality.json`、金融图表存在性和 `/api/market` 代理检查。
 7. 不要把当前取到的数据大段硬编码进 `app/page.tsx`；页面必须读取 `data_file/final/dashboard-data.json`，或通过同源 `/api/market/**` 刷新。
 8. 生成项目默认已有金融看板模板时，必须在模板上增强，不要推倒重写成营销页、说明页或只有指标带的静态页。
@@ -101,7 +101,7 @@ description: Generate, repair, or enhance real-data Next.js/HTML quantitative da
 
 ## 自动修复模式
 
-当看到 `QuantPilot 自动验证未通过`、`validation-repair-plan.json`、`看板验证未通过` 或用户指出生成页面仍停留在失败页时，按以下流程处理：
+当看到 `Shop Gate 自动验证未通过`、`validation-repair-plan.json`、`看板验证未通过` 或用户指出生成页面仍停留在失败页时，按以下流程处理：
 
 1. 先定向读取 `.data-agent/validation-repair-plan.json` 中当前失败 ID、允许修改路径和证据指针，再读取 `.data-agent/validation.json` 中对应失败项；仅打开这些指针命中的页面、final 数据或 evidence 片段，不顺序全量读取整个工作空间。
 2. 如果失败项指向视觉问题，再定向读取 `.data-agent/visual-validation.json` 中对应 failures、viewport metrics 和 screenshotPath；只围绕当前截图问题调整首屏、图表、移动端或横向溢出。
@@ -295,7 +295,7 @@ const rows: JsonRecord[] = assets.flatMap((asset) => {
 
 ## Next.js 代理示例
 
-QuantPilot 新建项目默认已经预置同源代理和基础金融看板。如果下列文件已存在，优先复用并增强，不要重复创建冲突目录：
+Shop Gate 新建项目默认已经预置同源代理和基础金融看板。如果下列文件已存在，优先复用并增强，不要重复创建冲突目录：
 
 - `app/api/market/[...path]/route.ts`
 - `app/page.tsx`
@@ -356,7 +356,7 @@ await fetch('/api/market/quotes/history/600519?period=daily&adjustment=qfq&limit
 - 连续指标带没有桌面端 `N + 1` 孤项、大面积空白、数字竖排或数值拆行。
 - 没有 Next.js 默认页文案，没有 `SAMPLE_DATA`、`MOCK_DATA`、`STATIC_QUOTES` 等静态样例数据。
 - 没有 `https://cdn...`、`unpkg`、`jsdelivr`、`cdnjs`、远程 `<script>`、远程 `<link>`、远程字体或浏览器直连 `http(s)` 接口。
-- 不修改父级 QuantPilot 平台工程，只修改当前生成项目。
+- 不修改父级 Shop Gate 平台工程，只修改当前生成项目。
 
 ## 禁止事项
 
@@ -365,7 +365,7 @@ await fetch('/api/market/quotes/history/600519?period=daily&adjustment=qfq&limit
 - 不要把图表做成静态截图。
 - 不要只做“趋势占位区”；必须呈现真实数据或真实错误状态。
 - 不要创建和任务无关的示例项目。
-- 不要修改父级 QuantPilot 平台工程。
-- 不要启动开发服务器；QuantPilot 会管理预览服务。
+- 不要修改父级 Shop Gate 平台工程。
+- 不要启动开发服务器；Shop Gate 会管理预览服务。
 - 不要通过 Bash 重定向或 heredoc 写源码文件；这会破坏平台的过程记录和自动验证。
 - 不要通过 CDN 或远程 npm 模块加载图表库；金融图表优先用平台模板内置的 SVG/CSS/React 组件实现。

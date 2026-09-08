@@ -1,4 +1,4 @@
-# QuantPilot 平台 UI 交付契约
+# Shop Gate 平台 UI 交付契约
 
 在实现平台页面、控制台、设置、表格、导航或弹窗时读取本文件。它定义可机器检查的状态矩阵；视觉风格选择继续读取 `ui-ux-pro-max-adapter.md`。
 

@@ -1,11 +1,11 @@
 ---
 name: quant-data-registry
-description: Use this skill to discover QuantPilot local database coverage, market data capabilities, and the right backend endpoint before fetching financial data.
+description: Use this skill to discover Shop Gate local database coverage, market data capabilities, and the right backend endpoint before fetching financial data.
 ---
 
-# QuantPilot 数据源注册表
+# Shop Gate 数据源注册表
 
-先查询 QuantPilot 本地数据注册表和 TimescaleDB 覆盖，再选择具体数据能力。不要凭记忆猜接口，也不要在本地库已有数据时优先调用外部历史接口。
+先查询 Shop Gate 本地数据注册表和 TimescaleDB 覆盖，再选择具体数据能力。不要凭记忆猜接口，也不要在本地库已有数据时优先调用外部历史接口。
 
 ## 资源与确定性路由
 
@@ -38,7 +38,7 @@ curl 'http://127.0.0.1:8000/api/v1/research/bars/002156.SZ?timeframe=daily&adjus
 
 ## Local-first 数据路线
 
-QuantPilot 的行情链路以 PostgreSQL + TimescaleDB 为事实库。首页对话、生成工作空间、策略平台和可视化任务遇到股票、指数、ETF 或历史分析时，默认路线是：
+Shop Gate 的行情链路以 PostgreSQL + TimescaleDB 为事实库。首页对话、生成工作空间、策略平台和可视化任务遇到股票、指数、ETF 或历史分析时，默认路线是：
 
 1. `/api/v1/registry`：确认后端能力和 provider 边界。
 2. `/api/v1/research/universes/summary`：快速确认本地股票池、ETF/指数池、成员数、ready 数、bar 数和最新数据时间。

@@ -1,9 +1,9 @@
 ---
 name: quant-backtest
-description: Execute, validate, and explain reproducible single-asset backtests from QuantPilot local bars. Use for MA crossover or comparable long-only strategy research requiring parameters, fees, equity curve, drawdown, trades, local-data coverage, and explicit model limitations.
+description: Execute, validate, and explain reproducible single-asset backtests from Shop Gate local bars. Use for MA crossover or comparable long-only strategy research requiring parameters, fees, equity curve, drawdown, trades, local-data coverage, and explicit model limitations.
 ---
 
-# QuantPilot 可复现回测
+# Shop Gate 可复现回测
 
 基于已校验的本地 bars 执行回测，保存参数、数据口径和逐日净值证据。回测结果用于研究，不是未来收益承诺。
 

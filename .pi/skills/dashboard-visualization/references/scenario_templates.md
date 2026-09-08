@@ -1,4 +1,4 @@
-# QuantPilot 场景化可视化模板矩阵
+# Shop Gate 场景化可视化模板矩阵
 
 本文件用于给 `dashboard-visualization` 选择页面模板。PI Agent 通常只注入与只读 run plan 中 `visualization.templateId` 匹配的二级标题；确需直接查看本文件时，也只读取匹配的 `##` 段落，不顺序读取整份 reference。如果 run plan 没有模板字段，再按用户问题和 final 数据字段推断模板和变体。
 

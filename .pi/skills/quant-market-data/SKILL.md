@@ -1,9 +1,9 @@
 ---
 name: quant-market-data
-description: Fetch and validate stock, index, ETF, or A-share market bars and quotes through QuantPilot's local-first market-data backend. Use for price history, realtime snapshots, liquidity fields, data coverage, or evidence needed by analysis, backtests, and dashboards.
+description: Fetch and validate stock, index, ETF, or A-share market bars and quotes through Shop Gate's local-first market-data backend. Use for price history, realtime snapshots, liquidity fields, data coverage, or evidence needed by analysis, backtests, and dashboards.
 ---
 
-# QuantPilot 行情取数
+# Shop Gate 行情取数
 
 只负责取得可追溯的行情证据，不设计页面、不用示例数据替代真实数据。本地 PostgreSQL/TimescaleDB 是历史分析的默认事实库；外部提供方只用于实时快照或已确认的本地缺口。
 

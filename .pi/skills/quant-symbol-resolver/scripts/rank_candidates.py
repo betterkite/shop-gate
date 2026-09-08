@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rank QuantPilot symbol-resolution candidates without guessing through ambiguity."""
+"""Rank Shop Gate symbol-resolution candidates without guessing through ambiguity."""
 
 from __future__ import annotations
 

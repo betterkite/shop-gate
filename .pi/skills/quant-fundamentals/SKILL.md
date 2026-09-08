@@ -1,9 +1,9 @@
 ---
 name: quant-fundamentals
-description: Analyze A-share financial reports, derived profitability and growth indicators, announcement evidence, and valuation scenarios. Use for fundamental analysis, earnings quality, valuation, corporate-event context, or when consolidating financials, fundamentalIndicators, announcements, and valuation into QuantPilot final data.
+description: Analyze A-share financial reports, derived profitability and growth indicators, announcement evidence, and valuation scenarios. Use for fundamental analysis, earnings quality, valuation, corporate-event context, or when consolidating financials, fundamentalIndicators, announcements, and valuation into Shop Gate final data.
 ---
 
-# QuantPilot 基本面与事件
+# Shop Gate 基本面与事件
 
 把财务报表、衍生指标、公告事件和估值情景组织为统一、可核验的基本面证据。
 

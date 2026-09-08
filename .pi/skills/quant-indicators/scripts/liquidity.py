@@ -170,7 +170,7 @@ def emit(value: JsonRecord, output_path: str | None) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="计算 QuantPilot dashboard-data 流动性摘要。")
+    parser = argparse.ArgumentParser(description="计算 Shop Gate dashboard-data 流动性摘要。")
     parser.add_argument("input", nargs="?", default="-", help="JSON 文件；传 - 或省略时读取 stdin。")
     parser.add_argument("-o", "--output", help="输出 JSON 路径；不传则打印到 stdout。")
     args = parser.parse_args()

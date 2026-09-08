@@ -3,7 +3,7 @@ name: data-quality
 description: Use this skill after fetching quantitative data and before visualization to assess data quality, write evidence files, and expose source/time/limitation details.
 ---
 
-# QuantPilot 数据质量与证据能力
+# Shop Gate 数据质量与证据能力
 
 本 skill 用于把“已经取到的数据”变成可追溯证据。任何量化分析任务在生成可视化页面前，都必须检查数据质量，并写入 `evidence/sources.json` 与 `evidence/data_quality.json`。
 

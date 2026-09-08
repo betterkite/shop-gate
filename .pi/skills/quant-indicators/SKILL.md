@@ -1,9 +1,9 @@
 ---
 name: quant-indicators
-description: Compute deterministic technical, return, volatility, drawdown, volume, liquidity, correlation, and trend metrics from QuantPilot bars. Use for stock diagnosis, multi-asset comparison, portfolio risk, trend confirmation, liquidity review, or preparing technicalIndicators, computedMetrics, correlation, liquidity, and trendTemplate.
+description: Compute deterministic technical, return, volatility, drawdown, volume, liquidity, correlation, and trend metrics from Shop Gate bars. Use for stock diagnosis, multi-asset comparison, portfolio risk, trend confirmation, liquidity review, or preparing technicalIndicators, computedMetrics, correlation, liquidity, and trendTemplate.
 ---
 
-# QuantPilot 指标计算
+# Shop Gate 指标计算
 
 把已获取的 K 线转换为统一的技术、风险、相关性、流动性和趋势结果。
 

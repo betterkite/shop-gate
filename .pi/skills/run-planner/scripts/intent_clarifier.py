@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QuantPilot intent clarification helper.
+"""Shop Gate intent clarification helper.
 
 The script is intentionally lightweight and deterministic. It only classifies
 whether a question lacks execution-critical slots; it does not fetch data or
@@ -221,14 +221,14 @@ def load_json_input(value: str) -> dict[str, Any]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Assess whether a QuantPilot task needs clarification.")
+    parser = argparse.ArgumentParser(description="Assess whether a Shop Gate task needs clarification.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--question", help="User question or task instruction (legacy-compatible interface).")
     source.add_argument(
         "--input",
         help="JSON object literal, JSON file path, or '-' for stdin; expects question and optional capability.",
     )
-    parser.add_argument("--capability", default=None, help="Optional QuantPilot capability id.")
+    parser.add_argument("--capability", default=None, help="Optional Shop Gate capability id.")
     return parser.parse_args()
 
 

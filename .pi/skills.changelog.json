@@ -9,6 +9,14 @@
     "query-rewrite": {
       "releases": [
         {
+          "version": "0.6.1",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.6.0",
           "date": "2026-09-07",
           "summary": "清洗金融文件路径：skills 中 finance-run-plan.json / finance-query-rewrite.json 改为 retail-run-plan.json / retail-query-rewrite.json（与实际运行时 .data-agent 路径对齐）。",
@@ -83,6 +91,14 @@
     },
     "run-planner": {
       "releases": [
+        {
+          "version": "0.5.1",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
         {
           "version": "0.5.0",
           "date": "2026-09-07",
@@ -186,6 +202,14 @@
     "quant-data-registry": {
       "releases": [
         {
+          "version": "0.5.2",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.5.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -257,6 +281,14 @@
     },
     "quant-symbol-resolver": {
       "releases": [
+        {
+          "version": "0.4.1",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
         {
           "version": "0.4.0",
           "date": "2026-09-07",
@@ -337,6 +369,14 @@
     "image-extraction": {
       "releases": [
         {
+          "version": "0.4.2",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.4.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -399,6 +439,14 @@
     },
     "quant-market-data": {
       "releases": [
+        {
+          "version": "0.5.3",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
         {
           "version": "0.5.2",
           "date": "2026-07-28",
@@ -473,6 +521,14 @@
     "quant-fundamentals": {
       "releases": [
         {
+          "version": "0.3.2",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.3.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -544,6 +600,14 @@
     "quant-indicators": {
       "releases": [
         {
+          "version": "0.3.2",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.3.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -605,6 +669,14 @@
     "quant-backtest": {
       "releases": [
         {
+          "version": "0.3.2",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.3.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -656,6 +728,14 @@
     },
     "data-quality": {
       "releases": [
+        {
+          "version": "0.5.1",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
         {
           "version": "0.5.0",
           "date": "2026-09-07",
@@ -728,6 +808,14 @@
     "platform-ui-product-design": {
       "releases": [
         {
+          "version": "0.3.2",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
+        {
           "version": "0.3.1",
           "date": "2026-07-28",
           "summary": "统一采用 PI Agent 命名合同和 .pi Skill 权威源。",
@@ -781,6 +869,14 @@
     },
     "dashboard-visualization": {
       "releases": [
+        {
+          "version": "0.8.1",
+          "date": "2026-09-07",
+          "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
+          "changes": [
+            "将 skill 源中的 QuantPilot 品牌词替换为 Shop Gate。"
+          ]
+        },
         {
           "version": "0.8.0",
           "date": "2026-09-07",

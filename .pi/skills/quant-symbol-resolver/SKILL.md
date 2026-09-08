@@ -3,7 +3,7 @@ name: quant-symbol-resolver
 description: Use this skill when the user mentions a stock name, abbreviation, ticker, or ambiguous security identifier that must be resolved before data retrieval.
 ---
 
-# QuantPilot 证券标识解析能力
+# Shop Gate 证券标识解析能力
 
 把 Query Rewrite 尚未确定的股票名称、简称、拼音或代码解析成标准证券代码和东方财富 `secid`。优先复用 `.data-agent/retail-query-rewrite.json.resolvedSymbols`，不得重复解析已经确认的标的。
 

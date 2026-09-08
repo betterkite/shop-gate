@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Choose a deterministic local-first QuantPilot data route from known coverage."""
+"""Choose a deterministic local-first Shop Gate data route from known coverage."""
 
 from __future__ import annotations
 
@@ -181,7 +181,7 @@ def choose_route(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Select a deterministic local-first QuantPilot data route.")
+    parser = argparse.ArgumentParser(description="Select a deterministic local-first Shop Gate data route.")
     parser.add_argument("--input", required=True, help="JSON object literal, JSON file path, or '-' for stdin.")
     args = parser.parse_args()
     try:

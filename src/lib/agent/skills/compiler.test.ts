@@ -8,14 +8,14 @@ import { compilePiAgentSkills, installPiAgentSkillsForWorkspace } from './compil
 import type { PiAgentSkillCapabilityDescriptor } from './types';
 
 const TEST_CAPABILITY_SKILLS = {
-  stock_diagnosis: ['query-rewrite', 'run-planner', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'quant-fundamentals', 'data-quality', 'dashboard-visualization'],
-  technical_analysis: ['query-rewrite', 'run-planner', 'image-extraction', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'data-quality', 'dashboard-visualization'],
-  fundamental_analysis: ['query-rewrite', 'run-planner', 'image-extraction', 'quant-symbol-resolver', 'quant-market-data', 'quant-fundamentals', 'data-quality', 'dashboard-visualization'],
-  asset_comparison: ['query-rewrite', 'run-planner', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'quant-fundamentals', 'data-quality', 'dashboard-visualization'],
-  sector_rotation: ['query-rewrite', 'run-planner', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'data-quality', 'dashboard-visualization'],
-  strategy_research: ['query-rewrite', 'run-planner', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'quant-backtest', 'data-quality', 'dashboard-visualization'],
-  backtest_review: ['query-rewrite', 'run-planner', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'quant-backtest', 'data-quality', 'dashboard-visualization'],
-  portfolio_risk: ['query-rewrite', 'run-planner', 'image-extraction', 'quant-symbol-resolver', 'quant-market-data', 'quant-indicators', 'data-quality', 'dashboard-visualization'],
+  stock_diagnosis: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  technical_analysis: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
+  fundamental_analysis: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  asset_comparison: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  sector_rotation: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
+  strategy_research: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-rule-review', 'data-quality', 'dashboard-visualization'],
+  backtest_review: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-rule-review', 'data-quality', 'dashboard-visualization'],
+  portfolio_risk: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
 } as const;
 
 function getFinanceSkillCapabilityDescriptor(
@@ -89,14 +89,14 @@ describe('compilePiAgentSkills', () => {
       capabilityId: 'technical_analysis',
       capability: getFinanceSkillCapabilityDescriptor('technical_analysis'),
       phase: 'data-preparation',
-      excludedSkillIds: ['image-extraction', 'quant-symbol-resolver'],
+      excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
       maxSystemContextChars: 6_000,
     });
 
     expect(result.runtime).toBe('PI Agent');
-    expect(result.selectedSkillIds).toContain('quant-market-data');
-    expect(result.selectedSkillIds).toContain('quant-indicators');
-    expect(result.selectedSkillIds).not.toContain('quant-backtest');
+    expect(result.selectedSkillIds).toContain('commerce-market-data');
+    expect(result.selectedSkillIds).toContain('commerce-metrics');
+    expect(result.selectedSkillIds).not.toContain('commerce-rule-review');
     expect(result.totalCharacters).toBeLessThanOrEqual(6_000);
     expect(result.selectedSkillIds).not.toContain('run-planner');
     expect(result.selectedSkillIds).not.toContain('image-extraction');
@@ -128,7 +128,7 @@ describe('compilePiAgentSkills', () => {
         capabilityId,
         capability: getFinanceSkillCapabilityDescriptor(capabilityId),
         phase: 'data-preparation',
-        excludedSkillIds: ['image-extraction', 'quant-symbol-resolver'],
+        excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
         templateId,
         maxSystemContextChars: 6_000,
       });
@@ -172,8 +172,8 @@ describe('compilePiAgentSkills', () => {
       capability: getFinanceSkillCapabilityDescriptor('stock_diagnosis'),
       phase: 'data-preparation',
       activatedSkillIds: ['image-extraction', 'data-quality'],
-      excludedSkillIds: ['quant-symbol-resolver'],
-      maxSystemContextChars: 5_000,
+      excludedSkillIds: ['commerce-entity-resolver'],
+      maxSystemContextChars: 5_200,
     });
     expect(result.selectedSkillIds).toContain('image-extraction');
     expect(result.selectedSkillIds).toContain('data-quality');
@@ -298,9 +298,9 @@ describe('compilePiAgentSkills', () => {
     expect(Object.keys(receipt.skills)).toEqual(expect.arrayContaining([
       'run-planner',
       'image-extraction',
-      'quant-symbol-resolver',
-      'quant-market-data',
-      'quant-indicators',
+      'commerce-entity-resolver',
+      'commerce-market-data',
+      'commerce-metrics',
       'data-quality',
       'dashboard-visualization',
       'platform-ui-product-design',

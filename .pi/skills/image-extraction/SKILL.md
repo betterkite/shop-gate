@@ -58,8 +58,8 @@ data_file/final/dashboard-data.json -> imageExtraction
 
 ## 后续衔接
 
-- 如果识别到股票名称或代码，下一步使用 `quant-symbol-resolver` 标准化标的。
-- 如果识别到持仓数量、成本和现金，后续 `quant-market-data` 应获取实时行情和 K 线。
+- 如果识别到股票名称或代码，下一步使用 `commerce-entity-resolver` 标准化标的。
+- 如果识别到持仓数量、成本和现金，后续 `commerce-market-data` 应获取实时行情和 K 线。
 - `data-quality` 必须把截图识别、行情补全和人工确认字段分开说明。
 - `dashboard-visualization` 生成持仓/调仓看板时，必须展示图片字段来源和缺失项。
 

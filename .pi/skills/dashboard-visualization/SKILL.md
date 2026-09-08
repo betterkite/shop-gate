@@ -28,7 +28,7 @@ description: Generate, repair, or enhance real-data Next.js/HTML quantitative da
 
 - 可视化界面、HTML 看板、量化分析页面、行情大屏、投研 dashboard。
 - K 线、趋势、量价、均线、收益、回撤、波动率、财务趋势、公告时间线。
-- 已经通过 `quant-market-data`、`quant-fundamentals`、`quant-indicators` 或其他规范 Skill 拿到数据后，需要呈现结果。
+- 已经通过 `commerce-market-data`、`commerce-master-data`、`commerce-metrics` 或其他规范 Skill 拿到数据后，需要呈现结果。
 
 ## 不可妥协的交付要求
 

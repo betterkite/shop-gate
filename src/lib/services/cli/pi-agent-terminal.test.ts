@@ -959,7 +959,7 @@ describe('PI Agent terminal ownership', () => {
     expect(mocks.compileSkills).toHaveBeenCalledWith(expect.objectContaining({
       capabilityId: 'traffic_funnel',
       phase: 'data-preparation',
-      excludedSkillIds: ['image-extraction', 'quant-symbol-resolver'],
+      excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
     }));
     expect(mocks.compileSkills.mock.calls[0]?.[0]).not.toHaveProperty('requiredSkillIds');
     expect(mocks.createTools).toHaveBeenCalledWith(expect.objectContaining({

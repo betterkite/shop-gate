@@ -891,7 +891,7 @@ async function executePiAgentPhase(
           : [],
         excludedSkillIds: [
           ...(!images?.length ? ['image-extraction'] : []),
-          ...(runPlan?.entities?.length ? ['quant-symbol-resolver'] : []),
+          ...(runPlan?.entities?.length ? ['commerce-entity-resolver'] : []),
         ],
         templateId,
         variantId,

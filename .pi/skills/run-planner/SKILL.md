@@ -42,7 +42,7 @@ python .pi/skills/run-planner/scripts/intent_clarifier.py \
 - 已给出可解析的证券名称，例如“中信证券最近怎么样”。名称中包含“证券”“股份”“公司”不代表缺少标的，不得因为用户没有同时给出 6 位代码而追问。
 - 只缺时间范围或输出形式时，使用默认值：趋势默认最近 120 个交易日，财务默认最近报告期，输出默认可验证看板。
 
-“最近怎么样”“走势如何”“表现怎么样”都属于可执行的泛化诊断目标。对这类问题，必须先用 `quant-symbol-resolver` 解析名称；能唯一确定优先级最高的 A 股时，直接进入 `planned` 并生成综合诊断看板。只有解析后仍存在多个同优先级、无法排除的证券时才追问。
+“最近怎么样”“走势如何”“表现怎么样”都属于可执行的泛化诊断目标。对这类问题，必须先用 `commerce-entity-resolver` 解析名称；能唯一确定优先级最高的 A 股时，直接进入 `planned` 并生成综合诊断看板。只有解析后仍存在多个同优先级、无法排除的证券时才追问。
 
 如果任务文本包含“承接上一轮澄清”“原始问题”“用户补充”，必须把原始问题和补充信息合并成一个完整任务来判断。平台计划已恢复为 `planned` 时继续执行；仍是 `needs_clarification` 时只追问剩余缺口。
 
@@ -85,7 +85,7 @@ Agent 必须读取并遵循 `retail-run-plan.json` 的这些字段：
 - `status`: `planned` 或 `needs_clarification`
 - `question`: 用户原始问题
 - `capabilityId`: 必须与 `.data-agent/profile.json` 中的能力选择一致
-- `symbols`: 待分析标的，未知时先留空并在下一步调用 `quant-symbol-resolver`
+- `symbols`: 待分析标的，未知时先留空并在下一步调用 `commerce-entity-resolver`
 - `timeRange`: 用户要求或默认范围
 - `dataRequirements`: 需要调用的数据接口
 - `analysisSteps`: 后续执行步骤
@@ -124,15 +124,15 @@ Agent 必须读取并遵循 `retail-run-plan.json` 的这些字段：
    - 时间范围
    - 分析类型
    - 是否需要可视化页面
-3. 已有名称但没有代码时，先调用 `quant-symbol-resolver`，不要把“请给代码”当作默认追问。
+3. 已有名称但没有代码时，先调用 `commerce-entity-resolver`，不要把“请给代码”当作默认追问。
 4. 如果平台计划是 `needs_clarification`，输出 1-3 个追问问题并停止。
 5. 如果平台计划是 `planned`，核对标的、时间范围、数据要求和页面模板；发现结构问题时报告平台，不自行修改。
 6. 向平台返回本 skill 已确认的计划事实与缺口；事件文件和用户可见进度由平台统一维护。
 7. 然后按计划调用后续 data skill：
-   - 标的不明确：`quant-symbol-resolver`
-   - 实时行情、历史走势、指数/ETF：`quant-market-data`
-   - 财务、估值、公告事件：`quant-fundamentals`
-   - 技术、风险、相关性与流动性：`quant-indicators`
+   - 标的不明确：`commerce-entity-resolver`
+   - 实时行情、历史走势、指数/ETF：`commerce-market-data`
+   - 财务、估值、公告事件：`commerce-master-data`
+   - 技术、风险、相关性与流动性：`commerce-metrics`
    - 看板生成：`dashboard-visualization`
 
 ## Workspace 回答协作

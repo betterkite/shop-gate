@@ -50,7 +50,7 @@ const FALLBACK_CORE_SKILLS: QuantCoreSkill[] = [
     boundary: '意图澄清、任务拆解和 run_plan 生成。',
   },
   {
-    id: 'quant-data-registry',
+    id: 'commerce-data-registry',
     name: '数据注册与信源选择',
     version: '0.1.0',
     status: 'stable',
@@ -58,7 +58,7 @@ const FALLBACK_CORE_SKILLS: QuantCoreSkill[] = [
     boundary: '查询后端数据能力和信源选择。',
   },
   {
-    id: 'quant-symbol-resolver',
+    id: 'commerce-entity-resolver',
     name: '标的解析',
     version: '0.1.0',
     status: 'stable',
@@ -66,7 +66,7 @@ const FALLBACK_CORE_SKILLS: QuantCoreSkill[] = [
     boundary: '把名称和代码解析为标准证券标识。',
   },
   {
-    id: 'quant-market-data',
+    id: 'commerce-market-data',
     name: '行情数据',
     version: '0.1.0',
     status: 'stable',

@@ -517,7 +517,7 @@ export async function prepareRetailActGeneration(
           runPlan,
           skillIds: Array.from(
             new Set([
-              "quant-data-registry",
+              "commerce-data-registry",
               ...getRetailCapability(
                 runPlan.requestedCapabilityId ?? runPlan.capabilityId,
               ).requiredSkills.filter(

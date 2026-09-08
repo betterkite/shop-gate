@@ -125,8 +125,8 @@ const TOOL_NAME_ACTION_MAP: Record<string, ToolAction> = {
   query_json: "Read",
   query_text_file: "Read",
   inspect_dashboard_contract: "Read",
-  "quant-data-registry": "Read",
-  "quant-market-data": "Read",
+  "commerce-data-registry": "Read",
+  "commerce-market-data": "Read",
   "dashboard-visualization": "Created",
   submit_result: "Generated",
 };

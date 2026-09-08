@@ -38,13 +38,13 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 | --- | --- |
 | `run-planner` | 意图澄清、澄清承接、任务规划和 run plan |
 | `query-rewrite` | 消费平台 LLM-first 语义合同，守住 Resolver 和失败关闭边界 |
-| `quant-data-registry` | 数据源选择、主备源和降级说明 |
-| `quant-symbol-resolver` | 股票、指数、ETF 标的解析 |
+| `commerce-data-registry` | 数据源选择、主备源和降级说明 |
+| `commerce-entity-resolver` | 股票、指数、ETF 标的解析 |
 | `image-extraction` | 持仓截图、表格截图和用户上传图片的结构化提取 |
-| `quant-market-data` | 实时行情、历史 K 线、指数 ETF、批量行情 |
-| `quant-fundamentals` | 财务报表、财务指标、公告和估值情景 |
-| `quant-indicators` | 技术指标、风险、相关性、流动性和趋势模板 |
-| `quant-backtest` | 策略参数、回测执行、交易明细和限制说明 |
+| `commerce-market-data` | 实时行情、历史 K 线、指数 ETF、批量行情 |
+| `commerce-master-data` | 财务报表、财务指标、公告和估值情景 |
+| `commerce-metrics` | 技术指标、风险、相关性、流动性和趋势模板 |
+| `commerce-rule-review` | 策略参数、回测执行、交易明细和限制说明 |
 | `data-quality` | 来源、时效、缺失字段、异常值和证据文件 |
 | `platform-ui-product-design` | 主平台 UI、控制台、组件状态和响应式体验 |
 | `dashboard-visualization` | 基于已验证数据生成可视化看板 |
@@ -57,7 +57,7 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 
 | Scope | 命名规则 | 例子 |
 | --- | --- | --- |
-| `quant` | 必须使用 `quant-` 前缀 | `quant-market-data`、`quant-backtest` |
+| `quant` | 必须使用 `quant-` 前缀 | `commerce-market-data`、`commerce-rule-review` |
 | `platform` | 必须使用 `platform-` 前缀 | `platform-ui-product-design` |
 | `workflow` | 不使用 `quant-` 或 `platform-` | `run-planner` |
 | `input` | 不使用 `quant-` 或 `platform-` | `image-extraction` |

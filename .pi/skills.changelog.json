@@ -92,6 +92,14 @@
     "run-planner": {
       "releases": [
         {
+          "version": "0.6.0",
+          "date": "2026-09-07",
+          "summary": "引用零售化：run-planner 提及的 quant-* skill id 改为 commerce-*。",
+          "changes": [
+            "对齐改名后的零售 skill id。"
+          ]
+        },
+        {
           "version": "0.5.1",
           "date": "2026-09-07",
           "summary": "品牌归零：QuantPilot→Shop Gate（品牌词清洗，文案级）。",
@@ -199,8 +207,24 @@
         }
       ]
     },
-    "quant-data-registry": {
+    "commerce-data-registry": {
       "releases": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-07",
+          "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
+          "changes": [
+            "frontmatter 描述与标题改为零售语义。"
+          ]
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-09-07",
+          "summary": "领域 skill 零售化改名：commerce-data-registry（major 版本）。",
+          "changes": [
+            "id 与内容零售化，名称=《数据注册与信源》。"
+          ]
+        },
         {
           "version": "0.5.2",
           "date": "2026-09-07",
@@ -224,7 +248,7 @@
           "date": "2026-07-22",
           "summary": "数据路由 Skill 迁入唯一的 .pi 权威源。",
           "changes": [
-            "脚本调用路径统一为 .pi/skills/quant-data-registry。",
+            "脚本调用路径统一为 .pi/skills/commerce-data-registry。",
             "发布包与 lock 只记录规范 Skill ID。"
           ]
         },
@@ -279,8 +303,24 @@
         }
       ]
     },
-    "quant-symbol-resolver": {
+    "commerce-entity-resolver": {
       "releases": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-07",
+          "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
+          "changes": [
+            "frontmatter 描述与标题改为零售语义。"
+          ]
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-09-07",
+          "summary": "领域 skill 零售化改名：commerce-entity-resolver（major 版本）。",
+          "changes": [
+            "id 与内容零售化，名称=《实体解析》。"
+          ]
+        },
         {
           "version": "0.4.1",
           "date": "2026-09-07",
@@ -314,7 +354,7 @@
           "summary": "标的解析对齐 Finance Query Rewrite 的唯一语义合同。",
           "changes": [
             "只从 .data-agent/finance-query-rewrite.json 复用已确认标的。",
-            "脚本调用路径统一为 .pi/skills/quant-symbol-resolver。"
+            "脚本调用路径统一为 .pi/skills/commerce-entity-resolver。"
           ]
         },
         {
@@ -368,6 +408,14 @@
     },
     "image-extraction": {
       "releases": [
+        {
+          "version": "0.5.0",
+          "date": "2026-09-07",
+          "summary": "引用零售化。",
+          "changes": [
+            "对齐改名后的 retail skill id。"
+          ]
+        },
         {
           "version": "0.4.3",
           "date": "2026-09-07",
@@ -445,8 +493,24 @@
         }
       ]
     },
-    "quant-market-data": {
+    "commerce-market-data": {
       "releases": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-07",
+          "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
+          "changes": [
+            "frontmatter 描述与标题改为零售语义。"
+          ]
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-09-07",
+          "summary": "领域 skill 零售化改名：commerce-market-data（major 版本）。",
+          "changes": [
+            "id 与内容零售化，名称=《经营数据取数》。"
+          ]
+        },
         {
           "version": "0.5.3",
           "date": "2026-09-07",
@@ -526,8 +590,24 @@
         }
       ]
     },
-    "quant-fundamentals": {
+    "commerce-master-data": {
       "releases": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-07",
+          "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
+          "changes": [
+            "frontmatter 描述与标题改为零售语义。"
+          ]
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-09-07",
+          "summary": "领域 skill 零售化改名：commerce-master-data（major 版本）。",
+          "changes": [
+            "id 与内容零售化，名称=《商品主数据》。"
+          ]
+        },
         {
           "version": "0.3.2",
           "date": "2026-09-07",
@@ -552,7 +632,7 @@
           "summary": "基本面、财务指标、估值和公告统一为单一规范 Skill。",
           "changes": [
             "删除对已废弃拆分 Skill ID 的兼容说明。",
-            "下游只调用 quant-fundamentals 规范 ID。"
+            "下游只调用 commerce-master-data 规范 ID。"
           ]
         },
         {
@@ -605,8 +685,24 @@
         }
       ]
     },
-    "quant-indicators": {
+    "commerce-metrics": {
       "releases": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-07",
+          "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
+          "changes": [
+            "frontmatter 描述与标题改为零售语义。"
+          ]
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-09-07",
+          "summary": "领域 skill 零售化改名：commerce-metrics（major 版本）。",
+          "changes": [
+            "id 与内容零售化，名称=《经营指标》。"
+          ]
+        },
         {
           "version": "0.3.2",
           "date": "2026-09-07",
@@ -631,7 +727,7 @@
           "summary": "技术、风险、相关性、流动性和趋势计算统一为单一规范 Skill。",
           "changes": [
             "删除对已废弃技术指标 Skill ID 的承接说明。",
-            "下游只调用 quant-indicators 规范 ID。"
+            "下游只调用 commerce-metrics 规范 ID。"
           ]
         },
         {
@@ -674,8 +770,24 @@
         }
       ]
     },
-    "quant-backtest": {
+    "commerce-rule-review": {
       "releases": [
+        {
+          "version": "1.0.1",
+          "date": "2026-09-07",
+          "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
+          "changes": [
+            "frontmatter 描述与标题改为零售语义。"
+          ]
+        },
+        {
+          "version": "1.0.0",
+          "date": "2026-09-07",
+          "summary": "领域 skill 零售化改名：commerce-rule-review（major 版本）。",
+          "changes": [
+            "id 与内容零售化，名称=《规则/策略验证》。"
+          ]
+        },
         {
           "version": "0.3.2",
           "date": "2026-09-07",
@@ -877,6 +989,14 @@
     },
     "dashboard-visualization": {
       "releases": [
+        {
+          "version": "0.9.0",
+          "date": "2026-09-07",
+          "summary": "引用零售化。",
+          "changes": [
+            "对齐改名后的 retail skill id。"
+          ]
+        },
         {
           "version": "0.8.1",
           "date": "2026-09-07",

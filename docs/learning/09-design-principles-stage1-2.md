@@ -106,7 +106,7 @@
 ### 原则 11：语义翻译分层——查表先行，模型补剩余，解不动就问人
 
 - **一句原则**：能查表的绝不请模型；模型只补语义剩余；fail-closed 的终点是"问人"，不是"猜"。
-- **现场证据**："帮我看看茅台"四层落地：能力目录匹配意图 → 标的解析查表（知识在 quant-symbol-resolver 技能，`rank_candidates.py` 由平台跑——模型没有 shell）→ `query-rewrite` 模型补时间窗与口径 → 模型缺席即暂停（`query-rewrite.ts:770`"大模型未配置，任务已暂停"＝ws-B 那次暂停的产房，`:777` needs_clarification；`:819-821` 还有 partial 档，确定性层已解析的标的不丢弃）。
+- **现场证据**："帮我看看茅台"四层落地：能力目录匹配意图 → 标的解析查表（知识在 commerce-entity-resolver 技能，`rank_candidates.py` 由平台跑——模型没有 shell）→ `query-rewrite` 模型补时间窗与口径 → 模型缺席即暂停（`query-rewrite.ts:770`"大模型未配置，任务已暂停"＝ws-B 那次暂停的产房，`:777` needs_clarification；`:819-821` 还有 partial 档，确定性层已解析的标的不丢弃）。
 - **专业坐标**：intent resolution；deterministic-first pipeline；human-in-the-loop fallback。
 - **带走的话**：猜错的代价（给错误标的生成一本正经的错误诊断）远高于多问一句的成本；已有进展不丢弃。
 

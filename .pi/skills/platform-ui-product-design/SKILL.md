@@ -1,17 +1,17 @@
 ---
 name: platform-ui-product-design
-description: Use this skill when designing, refactoring, reviewing, or polishing QuantPilot platform pages, generated-page templates, React components, layouts, dashboards, settings panels, navigation, tables, modals, charts, and UI states to make the frontend more beautiful, consistent, responsive, accessible, and production-ready using the QuantPilot-adapted UI/UX Pro Max design workflow.
+description: Use this skill when designing, refactoring, reviewing, or polishing Shop Gate platform pages, generated-page templates, React components, layouts, dashboards, settings panels, navigation, tables, modals, charts, and UI states to make the frontend more beautiful, consistent, responsive, accessible, and production-ready using the Shop Gate-adapted UI/UX Pro Max design workflow.
 ---
 
-# QuantPilot 平台 UI 产品设计
+# Shop Gate 平台 UI 产品设计
 
-这个 skill 面向 QuantPilot 主平台前端：`src/app` 页面、`src/components` 组件、控制台、设置、列表、详情、弹窗、导航和响应式体验。生成工作空间里的金融分析看板继续使用 `dashboard-visualization`；本 skill 只负责平台自身的页面开发质量。
+这个 skill 面向 Shop Gate 主平台前端：`src/app` 页面、`src/components` 组件、控制台、设置、列表、详情、弹窗、导航和响应式体验。生成工作空间里的金融分析看板继续使用 `dashboard-visualization`；本 skill 只负责平台自身的页面开发质量。
 
-本 skill 参考 `nextlevelbuilder/ui-ux-pro-max-skill` 的设计智能思路：先判断产品类型，再选择页面模式、视觉风格、配色、字体、动效、UX 规则、技术栈规则和图表规则。QuantPilot 的落地版见 `references/ui-ux-pro-max-adapter.md`。
+本 skill 参考 `nextlevelbuilder/ui-ux-pro-max-skill` 的设计智能思路：先判断产品类型，再选择页面模式、视觉风格、配色、字体、动效、UX 规则、技术栈规则和图表规则。Shop Gate 的落地版见 `references/ui-ux-pro-max-adapter.md`。
 
 ## Bundled Resources
 
-- 设计或评审具体平台页面前，读取 [QuantPilot UI/UX 适配规则](references/ui-ux-pro-max-adapter.md)。
+- 设计或评审具体平台页面前，读取 [Shop Gate UI/UX 适配规则](references/ui-ux-pro-max-adapter.md)。
 - 定义页面状态、响应式断点或验收证据时，读取 [平台 UI 交付契约](references/platform-ui-contract.md)。
 - 实现后把状态矩阵保存为 JSON，并运行 `python scripts/validate_state_matrix.py --input <state-matrix.json>`；脚本只校验确定性覆盖，不替代浏览器视觉检查。
 
@@ -31,7 +31,7 @@ description: Use this skill when designing, refactoring, reviewing, or polishing
 ## 标准工作流
 
 1. 先读取目标页面、相邻组件和设计基线：`docs/ui-shadcn-migration.md`、`src/components/ui/*`、`src/components/quant/*primitives*`。
-2. 读取 [QuantPilot UI/UX 适配规则](references/ui-ux-pro-max-adapter.md)，按“产品类型 -> 页面模式 -> 风格 -> 配色 -> 字体 -> UX 规则 -> 技术栈规则 -> 图表规则”做一次设计决策。
+2. 读取 [Shop Gate UI/UX 适配规则](references/ui-ux-pro-max-adapter.md)，按“产品类型 -> 页面模式 -> 风格 -> 配色 -> 字体 -> UX 规则 -> 技术栈规则 -> 图表规则”做一次设计决策。
 3. 明确信息层级：顶部任务栏或页面标题、主工作流、关键指标、列表/图表、详情面板、次级诊断。
 4. 优先复用现有组件和 token；只有多个页面会共同受益时才新增业务 primitive。
 5. 补齐状态：loading、empty、error、success、disabled、pending、long text、权限/连接缺失和列表分页。
@@ -39,7 +39,7 @@ description: Use this skill when designing, refactoring, reviewing, or polishing
 7. 对可视页面变更，检查 375px、768px、1440px 宽度下无文字溢出、遮挡、布局跳动和不可点击控件。
 8. 按 [平台 UI 交付契约](references/platform-ui-contract.md) 记录状态矩阵，并用 `scripts/validate_state_matrix.py` 先做机器可检的完整性检查。
 
-## QuantPilot 视觉原则
+## Shop Gate 视觉原则
 
 - 产品气质是量化 Agent 工作台：克制、密集、可扫描、可信赖；不要做营销页式巨型 hero、装饰卡片堆和空洞口号。
 - 默认页面模式是 Data-Dense Dashboard / Real-Time Operations，不是通用 SaaS landing page。

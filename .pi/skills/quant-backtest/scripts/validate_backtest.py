@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a reproducible long-only QuantPilot backtest result."""
+"""Validate a reproducible long-only Shop Gate backtest result."""
 
 from __future__ import annotations
 
@@ -214,7 +214,7 @@ def validate(payload: Any) -> tuple[list[str], list[str], dict[str, Any]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate a QuantPilot long-only backtest result JSON.")
+    parser = argparse.ArgumentParser(description="Validate a Shop Gate long-only backtest result JSON.")
     parser.add_argument("--input", default="-", help="JSON file path, or '-' for stdin (default).")
     args = parser.parse_args()
     try:

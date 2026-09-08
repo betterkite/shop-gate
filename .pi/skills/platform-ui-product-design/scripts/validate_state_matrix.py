@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the deterministic delivery matrix for a QuantPilot platform page."""
+"""Validate the deterministic delivery matrix for a Shop Gate platform page."""
 
 from __future__ import annotations
 

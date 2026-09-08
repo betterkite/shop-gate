@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a QuantPilot query rewrite artifact without network or file writes."""
+"""Validate a Shop Gate query rewrite artifact without network or file writes."""
 
 from __future__ import annotations
 
@@ -203,7 +203,7 @@ def validate(payload: Any) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Validate a QuantPilot retail-query-rewrite.json contract.",
+        description="Validate a Shop Gate retail-query-rewrite.json contract.",
     )
     parser.add_argument(
         "--input",

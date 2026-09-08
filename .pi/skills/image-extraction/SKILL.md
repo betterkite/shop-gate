@@ -1,9 +1,9 @@
 ---
 name: image-extraction
-description: Use this skill whenever a QuantPilot task includes uploaded images or .data-agent/attachments.json, especially portfolio/account screenshots that need holdings, cost, cash, PnL, and position fields extracted before market data and visualization.
+description: Use this skill whenever a Shop Gate task includes uploaded images or .data-agent/attachments.json, especially portfolio/account screenshots that need holdings, cost, cash, PnL, and position fields extracted before market data and visualization.
 ---
 
-# QuantPilot 图片提取能力
+# Shop Gate 图片提取能力
 
 本 skill 用于承接用户上传的图片附件，尤其是券商持仓、账户、成交或自选股截图。当前确定性工具负责核验图片文件、格式、尺寸和哈希，并生成待确认字段合同；它不伪装成 OCR 或视觉模型。只有上游已经提供可验证识别结果时，才允许归一化业务字段。
 

@@ -1,11 +1,11 @@
 ---
 name: run-planner
-description: Interpret the platform-created QuantPilot run plan, validate intent completeness, and guide the next quantitative research step without modifying platform-owned .data-agent artifacts.
+description: Interpret the platform-created Shop Gate run plan, validate intent completeness, and guide the next quantitative research step without modifying platform-owned .data-agent artifacts.
 ---
 
-# QuantPilot 运行规划能力
+# Shop Gate 运行规划能力
 
-本 Skill 用于理解平台生成的通用 Data Agent 任务和金融分析计划。QuantPilot 会先写入 `workspace.json` / `profile.json` / `task.json`，再由 Finance Domain Pack 写入 `retail-query-rewrite.json`、`plan.json` 和 `retail-run-plan.json`；Agent 只读取这些 `.data-agent/**` 平台产物，再按计划取数或生成页面。
+本 Skill 用于理解平台生成的通用 Data Agent 任务和金融分析计划。Shop Gate 会先写入 `workspace.json` / `profile.json` / `task.json`，再由 Finance Domain Pack 写入 `retail-query-rewrite.json`、`plan.json` 和 `retail-run-plan.json`；Agent 只读取这些 `.data-agent/**` 平台产物，再按计划取数或生成页面。
 
 > `.data-agent/**` 是平台只读状态目录。不得使用 Write、Edit、MultiEdit、Bash 或脚本修改、删除、移动其中任何文件；如计划结构异常，由平台修复后重新执行。
 

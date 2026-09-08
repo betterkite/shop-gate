@@ -1,6 +1,6 @@
-# UI/UX Pro Max Adapter for QuantPilot
+# UI/UX Pro Max Adapter for Shop Gate
 
-This reference adapts the public `nextlevelbuilder/ui-ux-pro-max-skill` workflow to QuantPilot. Use it as the design decision layer before implementing platform pages or judging generated financial dashboards.
+This reference adapts the public `nextlevelbuilder/ui-ux-pro-max-skill` workflow to Shop Gate. Use it as the design decision layer before implementing platform pages or judging generated financial dashboards.
 
 ## Source Workflow
 
@@ -15,9 +15,9 @@ UI/UX Pro Max uses a searchable design system workflow:
 7. Apply chart/data visualization rules.
 8. Run a pre-delivery checklist.
 
-QuantPilot should use the same sequence, but with narrower defaults for quant, agent, evaluation, operations, and data-platform pages.
+Shop Gate should use the same sequence, but with narrower defaults for quant, agent, evaluation, operations, and data-platform pages.
 
-## QuantPilot Default Design System
+## Shop Gate Default Design System
 
 - Product type: quant SaaS, AI agent workbench, data platform, operations console, financial analytics.
 - Page pattern: Real-Time / Operations Landing for home and platform entry pages; Data-Dense Dashboard for consoles and generated reports.
@@ -33,7 +33,7 @@ Suggested token direction:
 | --- | --- |
 | Background | `#F8FAFC`, `#F6F7FB`, or existing app surface token |
 | Foreground | slate-900 / neutral-900 |
-| Primary | QuantPilot brand red where product identity matters; blue for running/info/links |
+| Primary | Shop Gate brand red where product identity matters; blue for running/info/links |
 | Accent | amber for warnings and secondary emphasis |
 | Success | emerald |
 | Error | red |

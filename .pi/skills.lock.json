@@ -3,87 +3,87 @@
   "packageFormat": "tgz",
   "skills": {
     "quant-data-registry": {
-      "version": "0.5.1",
+      "version": "0.5.2",
       "packagePath": ".pi/skill-packages/quant-data-registry.tgz",
-      "sourceSha256": "719250943616d94e0c4dc54935d5c68d607fb6ef7fe009aa83e239331098eda3",
-      "packageSha256": "ad1b9300728b69ea5451cda63c2ec498eda425ef84e875ec29ed00458c188ec3",
+      "sourceSha256": "743ccc854cebaa2488985b90e383eed8e384bc5d32c9bff370abb2fb0f878307",
+      "packageSha256": "acd99996617e5445dd383faf8f44767dfa5064f390683355d97c876fa9e79654",
       "fileCount": 4
     },
     "quant-symbol-resolver": {
-      "version": "0.4.0",
+      "version": "0.4.1",
       "packagePath": ".pi/skill-packages/quant-symbol-resolver.tgz",
-      "sourceSha256": "5661e775600ca16b3020fbd5d998560293f639d60d1a4d3a1c74bced1bd4c5a3",
-      "packageSha256": "ef74ab54b8e85fbb70c2efc7aa0e33b998897e6260497528b68c55b807311ebf",
+      "sourceSha256": "6c2407bf09df7d25c536b221c5f439e78f3cb3df3e20594df151098aa4fea607",
+      "packageSha256": "77161fe8e8b764cfd2e3431e894e987ff1fa5da05434707a2126c4325d9c3207",
       "fileCount": 4
     },
     "quant-market-data": {
-      "version": "0.5.2",
+      "version": "0.5.3",
       "packagePath": ".pi/skill-packages/quant-market-data.tgz",
-      "sourceSha256": "aef0d9fe6d1803d4944fd498c25803fcbec3f1cd0d46c1f89019d008a4758bbe",
-      "packageSha256": "6d7a7967db77b10db7625f6c2316052f7c399d88bceba0a89048f650c65795e2",
+      "sourceSha256": "bf30fa816a6074e09722568c4a87dc7636e3866f809cd7b1b22053719d64d46d",
+      "packageSha256": "8b4bc1a45e48242ed847fb2bd087ea96c58a9fcd323670da89afe611612206da",
       "fileCount": 4
     },
     "quant-fundamentals": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "packagePath": ".pi/skill-packages/quant-fundamentals.tgz",
-      "sourceSha256": "d111027b7b61c5e7d3657ae6d738456bbd74b8c058cf81c2b450a3510c9488cb",
-      "packageSha256": "31b0ab094d8a8f74c64edf28a71beffce1173ed9b216ee0cb5e229a45c5e6c32",
+      "sourceSha256": "daab3f13e9e660ce7b9dbd2a423c09f7a2023239334a5fe1f2b089c0e35445be",
+      "packageSha256": "da5aa39f209636a6e7bd26b48a72a48f744d8eccd2d60dad37610521275ad242",
       "fileCount": 4
     },
     "quant-indicators": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "packagePath": ".pi/skill-packages/quant-indicators.tgz",
-      "sourceSha256": "81e9386e7432e40dd45cb3a6995bfac08c36fdf14421d24ffbb2a3ca56cb4f2d",
-      "packageSha256": "68d01e6d5b677dc3634fe53a069be294d79bfcba7ab4e6181736ae44db7f1ec0",
+      "sourceSha256": "6f1355213cb3ecec91d4d5b999e7be3488e538397e6e2d99c96b0d8356ab51c5",
+      "packageSha256": "354e0eaf7eee28e2df0afff199f86d46226849d7cdbe10f953b2419eb48ac783",
       "fileCount": 6
     },
     "quant-backtest": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "packagePath": ".pi/skill-packages/quant-backtest.tgz",
-      "sourceSha256": "af4d587f7f8fab37950134580c2e7740a80b95bf1771aa4240374aa47291af5c",
-      "packageSha256": "10d33e8532dbd875148a9382269dcc983ef620b8738bc919aba8e15203d7e111",
+      "sourceSha256": "0f9872cb23a60c52927552f580595053b2148639602e8b1ebfe9cb74804176de",
+      "packageSha256": "d263424d753b95ba3a0a9c9ba9cf1d9c180d3652e5a5bfbbb7190d6d68e6705b",
       "fileCount": 4
     },
     "run-planner": {
-      "version": "0.5.0",
+      "version": "0.5.1",
       "packagePath": ".pi/skill-packages/run-planner.tgz",
-      "sourceSha256": "e77bcd582ea2c71d19f784bca952621c8e1323e5d825cdd077558eda23ec94a0",
-      "packageSha256": "ffe70e165ac660591fe84bfda36021dd69741cc8e7abc9a6979c8f7824eb50e9",
+      "sourceSha256": "94a51c79259b844570b5be753b02049a25140212178a08bbd7d47c271f6c57a1",
+      "packageSha256": "bc966bda1245c4fc31ddfad763efef36f441573103838db279c6c02dce950a0f",
       "fileCount": 4
     },
     "image-extraction": {
-      "version": "0.4.1",
+      "version": "0.4.2",
       "packagePath": ".pi/skill-packages/image-extraction.tgz",
-      "sourceSha256": "9d3484f04a0becf93525c08ade0d49d84d060982866f48276053f7c0e793c7bd",
-      "packageSha256": "8fa888e1fd6b8457b61950ef8b85af508128fd8d64d1200761e366c9acd5f5c6",
+      "sourceSha256": "b0b8890b809a35da1d614face870479a9ac9f6fa2022f4fa2c7c7fdb266c0cf4",
+      "packageSha256": "786cc9b1e7101ce5618c26823d5618335af4f5178ae63fedaa620922836cd889",
       "fileCount": 4
     },
     "data-quality": {
-      "version": "0.5.0",
+      "version": "0.5.1",
       "packagePath": ".pi/skill-packages/data-quality.tgz",
-      "sourceSha256": "ef94920f8df370b17c9f2d6410ebb08a9bcfbe6268f9b9eed755faa0054d8029",
-      "packageSha256": "6eaaccac38a4b0e8f49e5c8c7ea900b75b1b6313f8cddac8e28f6e58ff5163c5",
+      "sourceSha256": "e1c40444ead0c899a6c2c64fe802c9d8365d5921be1e290468f2a6e730ceb5be",
+      "packageSha256": "e81490d4e4628a2dd1aea7433941ea2a1d69b291d2aba6601cb312377e0c194d",
       "fileCount": 4
     },
     "dashboard-visualization": {
-      "version": "0.8.0",
+      "version": "0.8.1",
       "packagePath": ".pi/skill-packages/dashboard-visualization.tgz",
-      "sourceSha256": "743e0f61f99c5d40562131be69b8403574c3e0edc621185bfdd88c2b4d7153f8",
-      "packageSha256": "a6c8a48a257c9a95a5c5038e1296136c7dd10f1897b4f99d7c443d17672a6b26",
+      "sourceSha256": "0ffc2c1121d845479980b4c21d2fab3b5e8b59d803b58e759f663f2f6a955721",
+      "packageSha256": "ac46a49108c410a0d4a1b3fe20af1fb6b6d6e3b6b454d55602cf7a3af45a4b83",
       "fileCount": 6
     },
     "platform-ui-product-design": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "packagePath": ".pi/skill-packages/platform-ui-product-design.tgz",
-      "sourceSha256": "3244cbc6b9402a372ef89b7f002ea95d933142a669c1e8649991e40a70c78b39",
-      "packageSha256": "98076ba93164449c77d65dcd32844308b2bdf102f0d586eaef2f2ca4d88d8bef",
+      "sourceSha256": "a5cd5a64ef63004bd40a126dff6a03e3fc3a2614f3641c1f27c06b5c17e05c8a",
+      "packageSha256": "5b675d3cacb9499a737ce3fc151d39e3bcafae91ec8683661a911b4db12de766",
       "fileCount": 5
     },
     "query-rewrite": {
-      "version": "0.6.0",
+      "version": "0.6.1",
       "packagePath": ".pi/skill-packages/query-rewrite.tgz",
-      "sourceSha256": "bc1e1e42f96e2329eac230fd0814a39acd383031101a0ac72849c160d67fcc6b",
-      "packageSha256": "2bf59e29f89ab10564815fe0083bdf9aba88de43ed579ab1fc799b6e9188941b",
+      "sourceSha256": "442f83702c7e7bb269e4c0473f35871664c31b3a98678cd77a78bd4090ff22d1",
+      "packageSha256": "a45da0376ae6b934277730425434ac04478550307cd5bd698e0f4285ad4fcf97",
       "fileCount": 4
     }
   }

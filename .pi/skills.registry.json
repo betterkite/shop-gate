@@ -4,13 +4,13 @@
     "targetCoreSkillCount": 12,
     "packageFormat": "tgz",
     "packageDir": ".pi/skill-packages",
-    "description": "QuantPilot Skills 仅使用已登记的规范 ID 和当前版本合同；非量化强相关能力不使用 quant 前缀，新增能力优先并入核心 Skill。"
+    "description": "Shop Gate Skills 仅使用已登记的规范 ID 和当前版本合同；非量化强相关能力不使用 quant 前缀，新增能力优先并入核心 Skill。"
   },
   "coreSkills": [
     {
       "id": "run-planner",
       "name": "运行规划",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "status": "stable",
       "scope": "workflow",
       "boundary": "解释平台生成的通用任务、领域计划和澄清门禁，指导后续执行；不生成或改写平台控制产物。",
@@ -45,7 +45,7 @@
     {
       "id": "query-rewrite",
       "name": "问题改写",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "status": "stable",
       "scope": "workflow",
       "boundary": "作为规划前唯一语义事实源，由所选 LLM 通过严格 Schema 解析全部自然语言语义，再经原文字面证据、独立标的 Resolver 与确定性安全策略核验；模型不可用时失败关闭。",
@@ -91,7 +91,7 @@
     {
       "id": "quant-data-registry",
       "name": "数据注册与信源选择",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "status": "stable",
       "scope": "quant",
       "boundary": "查询后端数据能力、本地 TimescaleDB 覆盖、候选信源、缓存、主备源、字段补数和降级规则。",
@@ -125,7 +125,7 @@
     {
       "id": "quant-symbol-resolver",
       "name": "标的解析",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "status": "stable",
       "scope": "quant",
       "boundary": "把中文简称、代码、指数、ETF 转为标准证券代码、市场和资产类型。",
@@ -152,7 +152,7 @@
     {
       "id": "image-extraction",
       "name": "图片提取",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "status": "stable",
       "scope": "input",
       "boundary": "读取用户上传的图片附件清单，校验图片文件，抽取或标注持仓截图中的资产、股票、成本、盈亏、现金和仓位字段。",
@@ -183,7 +183,7 @@
     {
       "id": "quant-market-data",
       "name": "行情数据",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "status": "stable",
       "scope": "quant",
       "boundary": "本地 TimescaleDB K 线、实时行情、指数/ETF、批量行情、多源 fallback 和本地字段补数。",
@@ -228,7 +228,7 @@
     {
       "id": "quant-fundamentals",
       "name": "基本面与事件",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "status": "stable",
       "scope": "quant",
       "boundary": "财务报表、财务衍生指标、公告和事件上下文。",
@@ -262,7 +262,7 @@
     {
       "id": "quant-indicators",
       "name": "指标计算",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "status": "stable",
       "scope": "quant",
       "boundary": "技术指标、收益、波动、最大回撤、成交量、相关性、流动性和风险指标计算。",
@@ -299,7 +299,7 @@
     {
       "id": "quant-backtest",
       "name": "回测复盘",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "status": "stable",
       "scope": "quant",
       "boundary": "基于本地 TimescaleDB K 线的策略参数、回测执行、净值曲线、回撤、交易明细和限制说明。",
@@ -332,7 +332,7 @@
     {
       "id": "data-quality",
       "name": "数据质量",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "status": "stable",
       "scope": "evidence",
       "boundary": "证据文件、来源、时效、缺失字段、异常值和限制说明。",
@@ -358,10 +358,10 @@
     {
       "id": "platform-ui-product-design",
       "name": "平台 UI 产品设计",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "status": "stable",
       "scope": "platform",
-      "boundary": "QuantPilot 主平台页面、组件、控制台、设置、列表、导航、状态和响应式体验设计，不负责生成工作空间金融看板。",
+      "boundary": "Shop Gate 主平台页面、组件、控制台、设置、列表、导航、状态和响应式体验设计，不负责生成工作空间金融看板。",
       "inputs": [
         "src/app 页面",
         "src/components 组件",
@@ -389,7 +389,7 @@
     {
       "id": "dashboard-visualization",
       "name": "可视化看板",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "status": "stable",
       "scope": "visualization",
       "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与金融指标判读生成 Next.js 金融分析看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",

@@ -47,4 +47,33 @@ describe('generation state terminal transitions', () => {
       requestId: 'request-state',
     });
   });
+
+  it('keeps a repairable execution failure non-terminal while repair is active', async () => {
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-generation-state-'));
+    temporaryProjects.push(projectPath);
+    const identifiers = {
+      projectPath,
+      projectId: 'project-repair-state',
+      requestId: 'request-repair-state',
+    };
+
+    await startRetailGenerationRun({
+      ...identifiers,
+      instruction: 'generate a dashboard',
+    });
+    await updateRetailGenerationStep({
+      ...identifiers,
+      stepId: 'agent_execution',
+      status: 'failed',
+      summary: 'model output budget exhausted; validation repair will continue',
+      runStatus: 'repairing',
+      errorMessage: 'MAX_TOKENS',
+    });
+
+    expect(await readQuantGenerationState(projectPath)).toMatchObject({
+      status: 'repairing',
+      completedAt: null,
+      requestId: 'request-repair-state',
+    });
+  });
 });

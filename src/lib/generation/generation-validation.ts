@@ -387,6 +387,9 @@ export function runValidationAfterExecution(params: {
               : {}),
           }
         : {}),
+      ...(classifiedExecutionError?.repairableByValidation
+        ? { runStatus: "repairing" as const }
+        : {}),
     });
 
     if (

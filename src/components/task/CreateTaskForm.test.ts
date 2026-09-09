@@ -10,7 +10,7 @@ import {
 } from "./CreateTaskForm";
 
 const defaultProps: CreateTaskFormProps = {
-  prompt: "分析贵州茅台近 60 个交易日的趋势",
+  prompt: "分析高曝光低转化商品",
   onPromptChange: () => undefined,
   isCreating: false,
   onSubmit: () => undefined,
@@ -25,9 +25,9 @@ const defaultProps: CreateTaskFormProps = {
   modelOptions: [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" }],
   selectedRole: {
     id: "traffic_funnel",
-    name: "股票诊断",
-    shortName: "诊断",
-    description: "分析股票的趋势、估值与风险。",
+    name: "流量与转化漏斗",
+    shortName: "漏斗",
+    description: "分析行为漏斗、分日趋势与分类目对比。",
     capabilityId: "traffic_funnel",
   },
 };
@@ -84,7 +84,7 @@ describe("CreateTaskForm submission reliability", () => {
 
     expect(html).toContain('role="alert"');
     expect(html).toContain("已添加图片，请补充文字说明后再开始研究。");
-    expect(elementTagByAriaLabel(html, "textarea", "量化分析需求")).toContain('aria-invalid="true"');
+    expect(elementTagByAriaLabel(html, "textarea", "经营分析需求")).toContain('aria-invalid="true"');
     expect(elementTagByAriaLabel(html, "button", "提交任务")).toContain("disabled");
   });
 });

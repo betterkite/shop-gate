@@ -161,7 +161,6 @@ requireFlag('SHOPGATE_REQUIRE_INDEPENDENT_JUDGE');
 
 secureSecret('SHOPGATE_AUTH_SECRET');
 secureSecret('SHOPGATE_ADMIN_TOKEN');
-secureSecret('SHOPGATE_MARKET_ADMIN_TOKEN');
 requireValue('ENCRYPTION_KEY', (configured) => /^[0-9a-f]{64}$/i.test(configured), 'ENCRYPTION_KEY 必须是 64 位十六进制随机值。');
 requireValue(
   'PROJECTS_DIR',

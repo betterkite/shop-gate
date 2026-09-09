@@ -68,7 +68,6 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 PREVIEW_PORT_START=4100
 PREVIEW_PORT_END=4999
 SHOPGATE_ADMIN_TOKEN=""
-SHOPGATE_MARKET_ADMIN_TOKEN=""
 ```
 
 ## 组件分工
@@ -163,13 +162,8 @@ Loki 宿主机端口默认使用 `33100`，生成项目预览端口池从 `4100`
 | `SHOPGATE_OBSERVABILITY_ENABLED` | `1` | 是否探测 Loki/Grafana/Alloy。关闭后运行治理中心只读本地文件日志。 |
 | `SHOPGATE_OBSERVABILITY_REQUIRED` | `0` | Loki/Grafana/Alloy 不可用时是否失败。 |
 | `SHOPGATE_REDIS_CACHE_ENABLED` | `1` | 是否启用 Redis 缓存；Redis 不可用时后端会自动直读/文件缓存兜底。 |
-| `SHOPGATE_SCREENER_CACHE_TTL_SECONDS` | `60` | commerce-data 数据筛选接口的短 TTL；skills/首页重复调用同一日期和模式时优先返回缓存结果。 |
 | `SHOPGATE_REDIS_REQUIRED` | `0` | Redis 不可用时是否作为健康失败。 |
 | `SHOPGATE_ADMIN_TOKEN` | 空 | Skills 发布、评测启动等宿主写接口令牌；生产/strict 模式必须配置。 |
-| `SHOPGATE_MARKET_ADMIN_TOKEN` | 空 | 补数、同步、质量扫描等 commerce-data 写接口令牌；非 loopback 或 strict 模式必须配置。 |
-| `SHOPGATE_MARKET_MAINTENANCE_ENABLED` | `0` | 是否已部署每日数据维护调度；生产门禁要求为 `1`。实际 timer 模板位于 `deploy/systemd/shopgate-market-maintenance.timer`。 |
-| `SHOPGATE_MARKET_MAINTENANCE_UNIVERSE_ID` | `a-share-sample-research-pool` | 每日同步使用的数据池标识。 |
-| `SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS` | `250` | 最新数据日必须覆盖的最少商品数，避免单一商品更新掩盖整体数据过期。 |
 | `SHOPGATE_ALLOW_SKILLS_REGISTRY_FALLBACK` | `0` | 是否允许 Skills registry 损坏时使用内置降级表；默认 fail closed，生产不得开启。 |
 | `SHOPGATE_WEB_HOST` | `127.0.0.1` | 主前端开发服务监听地址；本地默认仅回环可访问，需要受控局域网访问时再显式覆盖。 |
 

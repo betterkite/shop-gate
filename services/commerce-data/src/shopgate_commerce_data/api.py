@@ -1,8 +1,4 @@
-"""Shop Gate commerce-data API（零售最小集，PRD §8.1）。
-
-P2 起本服务只挂载：零售 commerce 路由 + /health + /ready。
-上游金融路由文件保留为休眠代码（P3 统一移除），不再在此挂载。
-"""
+"""Shop Gate commerce-data API（零售最小集，PRD §8.1）。"""
 
 from __future__ import annotations
 

@@ -16,7 +16,7 @@ Shop Gate 支持项目级可配置登录。它默认保持 `disabled`，兼容�
 - 管理员创建或重置的普通临时凭据必须首次改密；本机固定默认管理员 `admin / admin` 不触发首次改密。改密会保留当前会话并撤销其他会话。
 - 登录、退出、改密、用户管理、项目授权和拒绝访问会写入安全审计表，审计记录不保存密码或会话 token。
 
-`/api/auth/*` 由认证组件自行完成 Origin/CSRF 校验。只有不包含基础设施细节的 `/api/health` 保持公开，供负载均衡器检查进程存活；包含数据库和 Docker 状态的 `/api/infrastructure/health` 仍要求登录。FastAPI 市场数据服务是内部服务边界，不应直接暴露到公网；它的写接口继续由 `SHOPGATE_MARKET_ADMIN_TOKEN` 保护。
+`/api/auth/*` 由认证组件自行完成 Origin/CSRF 校验。只有不包含基础设施细节的 `/api/health` 保持公开，供负载均衡器检查进程存活；包含数据库和 Docker 状态的 `/api/infrastructure/health` 仍要求登录。FastAPI commerce-data 服务是内部只读数据边界，不应直接暴露到公网；导入通过受控的本地 CLI 执行。
 
 ## 启用本地账号登录
 

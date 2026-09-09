@@ -6,7 +6,6 @@ export type ServiceRuntime =
   | 'rust'
   | 'postgresql'
   | 'redis'
-  | 'clickhouse'
   | 'loki'
   | 'grafana'
   | 'alloy';

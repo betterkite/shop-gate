@@ -21,7 +21,7 @@ Shop Gate 采用一个 Next.js 主应用、一个 Python commerce 数据后端�
 | `config/service-catalog.json` | Python/Node 服务目录、组件 endpoint、依赖边和启动命令 |
 | `services/commerce-data/` | Python/FastAPI commerce 数据服务 |
 | `deploy/observability/` | Loki、Grafana 和 Alloy 本地可观测性配置 |
-| `docker-compose.yml` | 本地 TimescaleDB、Redis、Loki、Grafana 和 Alloy 容器编排（ClickHouse 容器定义为金融遗留） |
+| `docker-compose.yml` | 本地 TimescaleDB、Redis、Loki、Grafana 和 Alloy 容器编排 |
 | `scripts/` | 本地开发、诊断、迁移、评测和构建脚本，按职责拆分子目录 |
 | `docs/` | 架构、控制台、基础设施、治理和排障文档 |
 | `.pi/skills/` | 受 registry/lock、版本与 SHA-256 完整性校验的当前 Skill 权威源；工作空间镜像不参与运行时发现 |
@@ -103,19 +103,17 @@ Shop Gate 采用一个 Next.js 主应用、一个 Python commerce 数据后端�
 
 ## 后端边界
 
-`services/commerce-data/` 是独立 Python 服务，只负责零售数据、指标聚合、基础组件、导入任务和数据分析接口。它不直接管理前端项目状态，也不直接写主应用 Prisma 表。零售行为数据、日聚合、数据质量扫描和导入任务书签写入 `commerce` schema，主应用通过 API 读取。
+`services/commerce-data/` 是独立 Python 服务，只负责零售行为、商品主数据、日聚合和导入任务。它不直接管理前端项目状态，也不直接写主应用 Prisma 表；主应用通过 `/api/v1/commerce/*` 读取 `commerce` schema。
 
-后端长期按 Controller / Use Case / Repository / Provider Adapter 分层。当前 `api.py` 只作为应用装配入口并继续迁出剩余路由；旧 `database.py` 兼容门面已删除。新增能力优先落到下面这些边界：
+当前后端采用最小 Controller + Domain Query 边界：`api.py` 负责装配与健康检查，`routers/commerce.py` 负责 HTTP 协议，`retail.py` 负责零售查询与纯计算，`database_core.py` 负责连接和共享转换。
 
 | 路径 | 责任 |
 | --- | --- |
-| `services/commerce-data/src/shopgate_commerce_data/routers/` | FastAPI controller，只处理 HTTP 参数、状态码和响应模型 |
-| `services/commerce-data/src/shopgate_commerce_data/services/` | use case 编排，处理缓存、降级、provider 选择和数据质量 |
-| `services/commerce-data/src/shopgate_commerce_data/repositories/` | TimescaleDB/PostgreSQL 查询、读模型缓存、事务、批量写入和分页 |
+| `services/commerce-data/src/shopgate_commerce_data/routers/commerce.py` | FastAPI controller，只处理零售 HTTP 参数、状态码和响应模型 |
+| `services/commerce-data/src/shopgate_commerce_data/retail.py` | 零售查询、漏斗/库销比等纯计算和 commerce SQL 读模型 |
 | `services/commerce-data/src/shopgate_commerce_data/database_core.py` | 数据库连接、日期、Decimal、JSON 和实体元数据解析等无业务状态基础函数 |
-| `services/commerce-data/src/shopgate_commerce_data/providers/` | 外部数据源协议 adapter 与候选信源探针 |
 | `services/commerce-data/src/shopgate_commerce_data/import_cli.py` | `shopgate-commerce-import` 导入 CLI（UserBehavior 导入、合成数据、日聚合） |
-| `services/commerce-data/src/shopgate_commerce_data/cache.py` | 本地 JSON 和 Redis cache-aside |
+| `services/commerce-data/src/shopgate_commerce_data/cache.py` | 可选 Redis JSON cache |
 
 完整规则见 [后端能力架构与持续优化边界](backend-capability-architecture.md)。
 

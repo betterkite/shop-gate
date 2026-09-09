@@ -312,11 +312,10 @@ SHOPGATE_REDIS_CACHE_ENABLED=0
 | --- | --- | --- |
 | PostgreSQL/TimescaleDB | `DATABASE_URL`, `POSTGRES_*`, `TIMESCALEDB_IMAGE` | 应用状态、项目、消息、时序数据；Compose 与应用连接信息要同步 |
 | Redis | `REDIS_URL`, `REDIS_NAMESPACE`, `SHOPGATE_REDIS_*` | 缓存；`REQUIRED=0` 允许降级但不代表关闭 |
-| ClickHouse | `CLICKHOUSE_*`, `SHOPGATE_CLICKHOUSE_*` | 金融域遗留配置组，默认关闭，未接入零售链路 |
 | Web/预览 | `PORT`, `WEB_PORT`, `NEXT_PUBLIC_APP_URL`, `PREVIEW_PORT_*` | 主站与生成 workspace 预览端口池 |
 | 认证 | `SHOPGATE_AUTH_*`, `BETTER_AUTH_URL` | 本地可关闭；生产必须强 secret、安全 Cookie、可信 Origin |
-| 管理接口 | `SHOPGATE_ADMIN_TOKEN`, `SHOPGATE_MARKET_ADMIN_TOKEN` | 保护 host 级写操作和 commerce-data 写接口 |
-| 零售数据 | `SHOPGATE_MARKET_*`, `SHOPGATE_SCREENER_*` | FastAPI 地址、启动与缓存超时 |
+| 管理接口 | `SHOPGATE_ADMIN_TOKEN` | 保护 host 级写操作 |
+| 零售数据 | `SHOPGATE_MARKET_*`, `SHOPGATE_REDIS_*` | FastAPI 地址、启动、管理令牌和缓存配置 |
 | Model/Agent | `MODELPORT_API_KEY`, `DEEPSEEK_API_KEY`, `SHOPGATE_LLM_*`, `PI_AGENT_*` | Provider 凭据、运行预算、超时、lease 和上下文上限 |
 | Memory | `SHOPGATE_MEMORY_*` | 可选召回、broker、租户和有界上下文 |
 | 受治理知识 | `SHOPGATE_KNOWLEDGE_*` | AKEP ContextPack、Space、Purpose、Citation、Usage 与 Feedback |

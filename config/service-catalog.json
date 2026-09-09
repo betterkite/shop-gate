@@ -28,8 +28,8 @@
     },
     {
       "id": "commerce-data",
-      "name": "Python 市场数据后端",
-      "summary": "FastAPI 市场数据、股票池、回测、ClickHouse 同步和 provider 编排。",
+      "name": "Python 零售数据后端",
+      "summary": "FastAPI 零售行为、商品主数据、经营聚合和导入 CLI。",
       "runtime": "python",
       "kind": "api",
       "domain": "commerce-data",
@@ -50,8 +50,8 @@
         "start": "cd services/commerce-data && uv run shopgate-commerce-api",
         "test": "cd services/commerce-data && uv run pytest"
       },
-      "dependencies": ["timescaledb", "redis", "clickhouse"],
-      "capabilities": ["quotes", "research-universe", "backtests", "analytics"]
+      "dependencies": ["timescaledb", "redis"],
+      "capabilities": ["commerce-events", "catalog", "funnel", "inventory", "daily-brief"]
     },
     {
       "id": "memory",
@@ -151,7 +151,7 @@
     {
       "id": "timescaledb",
       "name": "PostgreSQL / TimescaleDB",
-      "summary": "应用事实库和量化时序事实库。",
+      "summary": "应用事实库和零售行为时序事实库。",
       "runtime": "postgresql",
       "kind": "database",
       "domain": "storage",
@@ -178,7 +178,7 @@
     {
       "id": "redis",
       "name": "Redis 短期缓存",
-      "summary": "跨进程短 TTL 缓存、热点行情摘要和后续任务进度状态。",
+      "summary": "跨进程短 TTL 缓存、零售查询摘要和后续任务进度状态。",
       "runtime": "redis",
       "kind": "cache",
       "domain": "runtime-cache",
@@ -200,34 +200,6 @@
       },
       "dependencies": [],
       "capabilities": ["cache-aside", "hot-query-cache", "runtime-state"]
-    },
-    {
-      "id": "clickhouse",
-      "name": "ClickHouse 分析加速层",
-      "summary": "append-only 评测事件、生成事件、全市场宽表和大规模研究扫描。",
-      "runtime": "clickhouse",
-      "kind": "analytics",
-      "domain": "analytics",
-      "owner": "storage-platform",
-      "lifecycle": "supporting",
-      "enabledByDefault": false,
-      "requiredByDefault": false,
-      "enabledEnv": "SHOPGATE_CLICKHOUSE_ENABLED",
-      "requiredEnv": "SHOPGATE_CLICKHOUSE_REQUIRED",
-      "dockerService": "clickhouse",
-      "endpoint": {
-        "protocol": "http",
-        "env": ["CLICKHOUSE_URL"],
-        "default": "http://127.0.0.1:8123",
-        "healthPath": "/ping",
-        "healthMethod": "GET"
-      },
-      "commands": {
-        "start": "docker compose up -d clickhouse",
-        "health": "curl http://127.0.0.1:8123/ping"
-      },
-      "dependencies": ["timescaledb"],
-      "capabilities": ["analytics-acceleration", "event-log", "wide-table"]
     },
     {
       "id": "loki",

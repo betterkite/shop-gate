@@ -66,7 +66,7 @@
 | 项目结构 | [项目结构与分层边界](project-structure.md) | 前端、后端、零售领域层、脚本和生成工作空间边界 |
 | 模块边界 | [模块边界与模块化单体治理](module-boundaries.md) | 模块清单、允许依赖、质量门和拆分顺序 |
 | 路线图 | [持续完善路线图](ROADMAP.md) | 后续优先级、验收标准和暂不建议事项 |
-| 后端能力 | [后端能力架构与持续优化边界](backend-capability-architecture.md) | Python 后端、设计模式、模块落点、ClickHouse 和迁移路线 |
+| 后端能力 | [后端能力架构与持续优化边界](backend-capability-architecture.md) | Python 零售后端、设计模式、模块落点和迁移路线 |
 | API | [API 总览](api-reference.md) | Next.js API、commerce-data API、调用方和排查路径 |
 | 数据字典 | [数据字典](data-dictionary.md) | Prisma 表、quant schema、字段来源、因子和数据质量口径 |
 | 基础设施 | [基础设施配置](infrastructure.md) | PostgreSQL、TimescaleDB、Redis、Loki/Grafana/Alloy、SQL 初始化和降级模式 |

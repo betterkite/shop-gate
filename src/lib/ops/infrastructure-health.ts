@@ -9,7 +9,7 @@ export interface InfrastructureHealth {
   databaseUrl: string;
   connected: boolean;
   timescale: { enabled: boolean; version: string | null };
-  quantSchema: { tables: string[] };
+  commerceSchema: { tables: string[] };
   docker: {
     available: boolean;
     running: boolean;
@@ -89,7 +89,7 @@ function baseHealth(databaseUrl: string, docker: InfrastructureHealth['docker'])
       enabled: false,
       version: null,
     },
-    quantSchema: {
+    commerceSchema: {
       tables: [],
     },
     docker,
@@ -114,12 +114,12 @@ export async function getInfrastructureHealth(): Promise<InfrastructureHealthRes
             SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'
           `
         : [];
-    const quantTables =
+    const commerceTables =
       provider === 'postgresql'
         ? await prisma.$queryRaw<Array<{ table_name: string }>>`
             SELECT table_name
             FROM information_schema.tables
-            WHERE table_schema = 'quant'
+            WHERE table_schema = 'commerce'
             ORDER BY table_name
           `
         : [];
@@ -135,8 +135,8 @@ export async function getInfrastructureHealth(): Promise<InfrastructureHealthRes
           enabled: extension.length > 0,
           version: extension[0]?.extversion ?? null,
         },
-        quantSchema: {
-          tables: quantTables.map((row) => row.table_name),
+        commerceSchema: {
+          tables: commerceTables.map((row) => row.table_name),
         },
       },
     };

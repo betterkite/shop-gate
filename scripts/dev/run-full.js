@@ -104,7 +104,7 @@ async function startMarketApiIfNeeded() {
   console.log(`🚀 Starting commerce-data service on ${url}`);
   const child = spawn(
     'uv',
-    ['run', '--extra', 'baostock', '--extra', 'akshare', 'shopgate-commerce-api'],
+    ['run', 'shopgate-commerce-api'],
     {
       cwd: marketDataDir,
       stdio: 'inherit',

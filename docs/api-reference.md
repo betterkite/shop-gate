@@ -165,7 +165,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 
 ## commerce-data 数据服务 API
 
-该服务自 P2 起只挂载零售 commerce 路由 + `/health` + `/ready`；金融域的行情、K 线、回测与东方财富/Baostock/ClickHouse 采集端点已随金融域删除。
+该服务只挂载零售 commerce 路由 + `/health` + `/ready`；不提供股票行情、回测或其他金融域端点。
 
 ### 健康与零售数据端点
 

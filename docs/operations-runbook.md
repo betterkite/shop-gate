@@ -32,7 +32,7 @@ npm run dev:web
 ```bash
 npm run doctor
 curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/api/v1/foundation/status
+curl http://127.0.0.1:8000/api/v1/commerce/meta
 ```
 
 如果只想看页面结构，可以用降级模式；涉及真实零售数据、导入任务和生成链路时不要长期保持 offline：
@@ -155,20 +155,7 @@ uv run shopgate-commerce-import aggregate-daily
 
 事件 CSV 契约：表头严格 5 列 `user_id,item_id,category_id,behavior_type,timestamp`（Unix 秒）。行为类型为 `pv`(曝光) / `fav`(收藏) / `cart`(加购) / `buy`(购买)。零售数据是固定窗口的公开切片，没有“每日收盘后入库”的需求；重新演示其他窗口时使用 `--time-shift last-week`。
 
-导入任务的书签与状态落 `commerce.market_data_ingestion_jobs` / `commerce.market_data_sync_state`；长任务控制面对应：
-
-```text
-GET  /api/v1/ingestion/jobs
-POST /api/v1/ingestion/jobs/{job_id}/control
-```
-
-控制语义：
-
-| 操作 | 语义 |
-| --- | --- |
-| `pause` | 当前安全点停住，保存 offset 和已完成批次 |
-| `resume` | 从任务元数据和 offset 继续 |
-| `stop` | 终止任务，保留已入库数据和任务日志 |
+导入命令以进程退出码作为成功信号；可重复执行的重建语义由 CLI 自身保证。任务表只保留导入记录和数据源书签，不再提供旧行情域的 HTTP 控制面。
 
 ### 验证导入结果
 
@@ -193,9 +180,7 @@ SELECT count(*) AS category_days FROM commerce.daily_category_metrics; -- 期望
 SELECT count(*) AS items FROM commerce.items;                    -- 期望 412130
 ```
 
-如果行数明显偏少，先看 `GET /api/v1/ingestion/jobs` 的失败原因，再看 commerce-data 日志。
-
-> 遗留标注：原 Baostock/东方财富 A 股日线补数链路已随金融域移除（P3）。`npm run market:maintain`、`npm run check:market-freshness` 与 `deploy/systemd/shopgate-market-maintenance.timer` 是金融遗留命名的脚本，不再作为零售数据刷新入口；零售数据刷新一律以上面的导入 CLI 为准。
+如果行数明显偏少，先看导入 CLI 的终端输出和 commerce-data 日志，再检查 `commerce.market_data_ingestion_jobs` 的最近记录。
 
 ## 商品池与观察池维护
 
@@ -314,7 +299,7 @@ npm run check:benchmark-coverage
 | --- | --- |
 | 对象存储 | 截图、规则验证报告、原始 CSV 切片和大 JSON 明显膨胀 |
 | 独立 Worker | 导入、日聚合、批量指标任务需要脱离 Next.js/uvicorn 进程 |
-| 列式分析引擎 | 超大行为事件扫描或跨窗口聚合进入主线时再评估（ClickHouse 链路已随金融域移除） |
+| 列式分析引擎 | 超大行为事件扫描或跨窗口聚合进入主线时再单独评估 |
 | 消息队列 | 任务需要跨机器分发和可靠重试 |
 
 短期优先把 PostgreSQL/TimescaleDB + Redis + Loki 这套用扎实。

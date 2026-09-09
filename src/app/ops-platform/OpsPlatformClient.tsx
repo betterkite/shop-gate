@@ -292,7 +292,7 @@ function ServicesView({ data }: { data: OpsPlatformDashboard }) {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <OpsMetricCard icon={<Network className="h-4 w-4" />} label="服务目录" value={`${data.serviceCatalogValidation.enabledCount}/${data.serviceCatalogValidation.serviceCount}`} helper={`${data.serviceCatalogValidation.requiredCount} 个核心依赖`} tone={data.serviceCatalogValidation.ok ? "emerald" : "red"} />
         <OpsMetricCard icon={<Database className="h-4 w-4" />} label="事实数据库" value={infrastructure.connected ? "已连接" : "未连接"} helper={infrastructure.timescale.enabled ? `TimescaleDB ${infrastructure.timescale.version}` : "TimescaleDB 未启用"} tone={infrastructure.connected ? "emerald" : "red"} />
-        <OpsMetricCard icon={<HardDrive className="h-4 w-4" />} label="经营数据表" value={infrastructure.quantSchema.tables.length} helper="quant schema 可用表" tone={infrastructure.quantSchema.tables.length >= 4 ? "blue" : "amber"} />
+        <OpsMetricCard icon={<HardDrive className="h-4 w-4" />} label="经营数据表" value={infrastructure.commerceSchema.tables.length} helper="commerce schema 可用表" tone={infrastructure.commerceSchema.tables.length >= 4 ? "blue" : "amber"} />
         <OpsMetricCard icon={<ServerCog className="h-4 w-4" />} label="数据库容器" value={infrastructure.docker.running ? "运行中" : "未运行"} helper={infrastructure.docker.service?.status ?? infrastructure.docker.error ?? "未发现容器"} tone={infrastructure.docker.running ? "emerald" : "amber"} />
       </section>
 

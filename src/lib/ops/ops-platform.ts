@@ -591,10 +591,10 @@ function buildRuntimeHealthProfile(params: {
     {
       id: 'storage-schema',
       label: '存储与表结构',
-      score: scoreGroup(['workspace-storage', 'repo-baseline', 'quant-schema'], 10, 30),
+      score: scoreGroup(['workspace-storage', 'repo-baseline', 'commerce-schema'], 10, 30),
       weight: 25,
-      status: scoreStatus(scoreGroup(['workspace-storage', 'repo-baseline', 'quant-schema'], 10, 30)),
-      summary: '工作空间目录、基础文件和 quant schema 是否完整。',
+      status: scoreStatus(scoreGroup(['workspace-storage', 'repo-baseline', 'commerce-schema'], 10, 30)),
+      summary: '工作空间目录、基础文件和 commerce schema 是否完整。',
     },
     {
       id: 'observability',
@@ -819,7 +819,7 @@ export async function getOpsPlatformDashboard(params: {
       summary: infrastructure.data.connected
         ? `已连接 ${infrastructure.data.provider}，TimescaleDB ${infrastructure.data.timescale.version ?? '未启用'}`
         : componentUnavailableSummary(database, '数据库'),
-      detail: infrastructure.error ?? `${infrastructure.data.quantSchema.tables.length} 张 quant 表可用。`,
+      detail: infrastructure.error ?? `${infrastructure.data.commerceSchema.tables.length} 张 commerce 表可用。`,
       actions: database.enabled && !infrastructure.data.connected ? ['运行 npm run db:up 和 npm run prisma:deploy。'] : [],
     },
     {
@@ -902,12 +902,12 @@ export async function getOpsPlatformDashboard(params: {
       actions: capabilityCenter.summary.availableProviders ? [] : ['启动经营数据后端并检查数据源注册表。'],
     },
     {
-      id: 'quant-schema',
+      id: 'commerce-schema',
       label: '经营数据表',
-      status: infrastructure.data.quantSchema.tables.length >= 4 ? 'ok' : componentUnavailableStatus(database),
-      summary: `${infrastructure.data.quantSchema.tables.length} 张 quant 表`,
-      detail: infrastructure.data.quantSchema.tables.map((table) => `quant.${table}`).join('、') || '尚未初始化 quant schema。',
-      actions: database.enabled && infrastructure.data.quantSchema.tables.length < 4 ? ['执行 sqls/README.md 中的初始化 SQL。'] : [],
+      status: infrastructure.data.commerceSchema.tables.length >= 4 ? 'ok' : componentUnavailableStatus(database),
+      summary: `${infrastructure.data.commerceSchema.tables.length} 张 commerce 表`,
+      detail: infrastructure.data.commerceSchema.tables.map((table) => `commerce.${table}`).join('、') || '尚未初始化 commerce schema。',
+      actions: database.enabled && infrastructure.data.commerceSchema.tables.length < 4 ? ['执行 sqls/README.md 中的初始化 SQL。'] : [],
     },
     {
       id: 'logs',

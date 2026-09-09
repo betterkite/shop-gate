@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `001-commerce-timeseries.sql` | TimescaleDB / commerce schema | 创建 TimescaleDB 扩展、`commerce` schema、真实用户行为事件流（天池 UserBehavior 抽样）与商品/类目日聚合表 |
 | `002-commerce-catalog.sql` | 商品主数据 | 合成 SKU 档案（价格/库存/品牌/店铺）与类目表；`category_id`/`item_id` 继承真实行为流，合成字段带标注（PRD §5.2） |
-| `003-commerce-platform.sql` | 平台基础组件 | 数据导入任务、同步水位、数据质量扫描和通用平台任务表（自上游 `quant.*` 迁移，已移除金融外键） |
+| `003-commerce-platform.sql` | 平台基础组件 | 数据导入任务、同步水位、数据质量扫描和通用平台任务表（已按零售 schema 落地） |
 
 主业务表由 Prisma 维护，不在这里手写：
 
@@ -40,4 +40,4 @@ npm run db:doctor
 - 行为事件流与聚合表放在 `commerce` schema。
 - 真实数据（行为流、类目/商品 ID）与合成数据（价格/库存/品牌/店铺）必须在表注释和字段标注中可区分（PRD §5.3 红线）。
 - 平台主业务表继续先改 `prisma/schema.prisma`，再通过 Prisma 生成数据库结构。
-- 后续若引入 Redis、对象存储或 ClickHouse，只把 PostgreSQL/TimescaleDB 相关 SQL 放在这里。
+- 后续若引入 Redis、对象存储或列式分析，只把 PostgreSQL/TimescaleDB 相关 SQL 放在这里。

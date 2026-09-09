@@ -290,20 +290,21 @@
     },
     {
       "id": "commerce-data-backend",
-      "name": "Python 市场数据后端",
-      "summary": "FastAPI、行情 provider、TimescaleDB 事实库、Redis 缓存、ClickHouse 分析层和回测。",
+      "name": "Python 零售数据后端",
+      "summary": "FastAPI 零售行为查询、商品主数据、导入 CLI、TimescaleDB 和 Redis 缓存。",
       "owner": "backend-platform",
       "paths": [
         "services/commerce-data/**"
       ],
       "dependsOn": [],
       "publicSurface": [
-        "services/commerce-data/src/shopgate_commerce_data/routers",
-        "services/commerce-data/src/shopgate_commerce_data/services",
-        "services/commerce-data/src/shopgate_commerce_data/repositories"
+        "services/commerce-data/src/shopgate_commerce_data/api.py",
+        "services/commerce-data/src/shopgate_commerce_data/routers/commerce.py",
+        "services/commerce-data/src/shopgate_commerce_data/retail.py",
+        "services/commerce-data/src/shopgate_commerce_data/import_cli.py"
       ],
       "migrationNotes": [
-        "旧 database.py 兼容门面已删除；连接与转换工具只进入 database_core.py，业务 SQL 只进入对应 repository。"
+        "金融行情、provider、回测、ClickHouse 和旧 repository/service 分层已删除；零售查询统一进入 retail.py，连接与共享转换进入 database_core.py。"
       ]
     }
   ],
@@ -485,16 +486,10 @@
         "nextAction": "将通用数据计划、金融 endpoint adapter、证据落盘和错误归一化拆开。"
       },
       {
-        "path": "services/commerce-data/src/shopgate_commerce_data/models.py",
-        "maxLines": 1625,
-        "targetLines": 900,
-        "nextAction": "按 quotes、research、ingestion、financials、analytics 分拆 Pydantic contracts，并由 models package 统一导出。"
-      },
-      {
         "path": "services/commerce-data/src/shopgate_commerce_data/api.py",
-        "maxLines": 1540,
-        "targetLines": 700,
-        "nextAction": "收敛为 app factory 和 router 注册；业务 endpoint 必须进入 routers/，use case 必须进入 services/。"
+        "maxLines": 120,
+        "targetLines": 120,
+        "nextAction": "保持 app factory、健康检查和唯一 commerce router 装配边界。"
       },
       {
         "path": "src/lib/eval/runtime.ts",

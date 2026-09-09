@@ -7,7 +7,7 @@ interface InfrastructureHealth {
   databaseUrl: string;
   connected: boolean;
   timescale: { enabled: boolean; version: string | null };
-  quantSchema: { tables: string[] };
+  commerceSchema: { tables: string[] };
   docker: {
     available: boolean;
     running: boolean;
@@ -27,11 +27,6 @@ const INFRASTRUCTURE_RECOMMENDATIONS = [
     name: "对象存储",
     stage: "产物规模上来后",
     description: "保存截图、回测报告、原始行情文件和大 JSON，数据库只保留索引与摘要。",
-  },
-  {
-    name: "ClickHouse",
-    stage: "暂不引入",
-    description: "只有 tick、盘口快照和多维研究分析达到很大规模时再接入。",
   },
 ];
 
@@ -134,8 +129,8 @@ function InfrastructureTab({
           <div className="rounded-lg bg-slate-50 p-3">
             <p className="text-xs font-medium text-slate-500">经营时序表</p>
             <p className="mt-1 text-sm text-slate-700">
-              {infrastructure?.quantSchema.tables.length
-                ? infrastructure.quantSchema.tables.map((t) => `quant.${t}`).join("、")
+              {infrastructure?.commerceSchema.tables.length
+                ? infrastructure.commerceSchema.tables.map((t) => `commerce.${t}`).join("、")
                 : "尚未初始化"}
             </p>
           </div>

@@ -253,30 +253,6 @@ async function ensureEnvironment(options = {}) {
   if (!hasEnvKey(envContents, 'SHOPGATE_REDIS_CACHE_ENABLED')) {
     envDefaults.SHOPGATE_REDIS_CACHE_ENABLED = '1';
   }
-  if (!hasEnvKey(envContents, 'CLICKHOUSE_IMAGE')) {
-    envDefaults.CLICKHOUSE_IMAGE = '"clickhouse/clickhouse-server:25.8"';
-  }
-  if (!hasEnvKey(envContents, 'CLICKHOUSE_DB')) {
-    envDefaults.CLICKHOUSE_DB = '"shopgate"';
-  }
-  if (!hasEnvKey(envContents, 'CLICKHOUSE_USER')) {
-    envDefaults.CLICKHOUSE_USER = '"shopgate"';
-  }
-  if (!hasEnvKey(envContents, 'CLICKHOUSE_PASSWORD')) {
-    envDefaults.CLICKHOUSE_PASSWORD = '"shopgate_dev_password"';
-  }
-  if (!hasEnvKey(envContents, 'CLICKHOUSE_HTTP_PORT')) {
-    const clickHouseHttpPort = await findAvailablePort(8_123, 8_199, 8_123);
-    envDefaults.CLICKHOUSE_HTTP_PORT = String(clickHouseHttpPort);
-    envDefaults.CLICKHOUSE_URL = `"http://127.0.0.1:${clickHouseHttpPort}"`;
-  } else if (!hasEnvKey(envContents, 'CLICKHOUSE_URL')) {
-    const clickHouseHttpPort = extractPort(envContents, ['CLICKHOUSE_HTTP_PORT']) ?? 8_123;
-    envDefaults.CLICKHOUSE_URL = `"http://127.0.0.1:${clickHouseHttpPort}"`;
-  }
-  if (!hasEnvKey(envContents, 'CLICKHOUSE_NATIVE_PORT')) {
-    const clickHouseNativePort = await findAvailablePort(9_000, 9_099, 9_000);
-    envDefaults.CLICKHOUSE_NATIVE_PORT = String(clickHouseNativePort);
-  }
   if (!hasEnvKey(envContents, 'PROJECTS_DIR')) {
     envDefaults.PROJECTS_DIR = '"./data/projects"';
   }

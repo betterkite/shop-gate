@@ -21,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/commercepilot /opt/shopgate/current/tmp /opt/shopgate/current/public/uploads /opt/shopgate/current/.next/standalone/.next/cache
+ReadWritePaths=/var/lib/shopgate /opt/shopgate/current/tmp /opt/shopgate/current/public/uploads /opt/shopgate/current/.next/standalone/.next/cache
 LimitNOFILE=65536
 
 [Install]

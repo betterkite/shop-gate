@@ -12,7 +12,7 @@
 ## 首次部署
 
 1. 从 [`.env.production.example`](../.env.production.example) 生成环境文件，替换全部占位值，并设置目录权限为 `0600`。
-2. 创建 `shopgate` 系统用户以及 `/var/lib/commercepilot/projects`、`/var/backups/shopgate`，只授予该用户所需权限。
+2. 创建 `shopgate` 系统用户以及 `/var/lib/shopgate/projects`、`/var/backups/shopgate`，只授予该用户所需权限。
 3. 先运行生产配置预检。组件可以通过 `ENABLED=0` 明确关闭；只要启用，ModelPort、Memory 与 AKEP 就必须同时启用 required 模式、HTTPS 和各自的短期/作用域身份配置：
 
    ```bash
@@ -114,7 +114,6 @@ npm run db:restore:release -- \
 - `shopgate-web.service`：启动经过 production preflight 的 standalone Web；
 - `shopgate-commerce-data.service`：按锁文件启动 commerce-data API；
 - `shopgate-generation-worker.service`：消费 PostgreSQL generation job，执行领域 handler、自动验证和失败重试；
-- `shopgate-market-maintenance.timer`：每日定时执行可恢复的数据同步与维护（`npm run market:maintain`），并运行新鲜度与数据覆盖门禁；
 - `shopgate-auth-cleanup.timer`：每日清理过期会话、验证记录，并执行审计保留策略；
 - `shopgate-backup.timer`：每 6 小时生成一次带校验清单的备份。
 

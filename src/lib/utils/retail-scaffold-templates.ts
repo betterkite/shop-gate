@@ -159,8 +159,8 @@ function svgDonut(segments: Array<{ label: string; value: number; color: string 
     '</svg>';
 }
 
-function syntheticBadge(): string {
-  return '<span class="synthetic-badge" title="价格/库存/品牌/店铺与 GMV 金额来自合成主数据，不代表真实交易数据">合成口径</span>';
+function syntheticBadge() {
+  return <span className="synthetic-badge" title="价格/库存/品牌/店铺与 GMV 金额来自合成主数据，不代表真实交易数据">合成口径</span>;
 }
 `;
 

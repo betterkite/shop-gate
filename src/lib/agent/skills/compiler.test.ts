@@ -463,8 +463,9 @@ describe('compilePiAgentSkills', () => {
       ),
     ]);
 
+    const canonicalFixtureRoot = await fs.realpath(fixtureRoot);
     await expect(compilePiAgentSkills({
-      repositoryRoot: fixtureRoot,
+      repositoryRoot: canonicalFixtureRoot,
       requiredSkillIds: ['image-extraction'],
     })).rejects.toThrow('源目录哈希不一致');
   });

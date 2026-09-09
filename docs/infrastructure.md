@@ -36,7 +36,7 @@ curl -fsS http://127.0.0.1:38089/readyz
 
 根路径必须公布 `api_contract=evolvable-memory-http/v1`。完整步骤、配置和效果验证见[用户记忆服务接入、使用与效果验证](user-memory-integration.md)。
 
-`npm run db:sync-workspaces` 和 `npm run db:migrate-platform-state` 只在需要迁移旧本地文件状态时运行，不属于每次启动的必需步骤。
+`npm run db:sync-workspaces` 只在需要回填旧本地工作空间索引时运行，不属于每次启动的必需步骤。
 
 默认连接信息：
 
@@ -197,13 +197,7 @@ npm run db:sync-workspaces
 
 该命令只会为 PostgreSQL 中缺失的 workspace 创建项目记录，不会修改工作空间源码。
 
-平台级状态迁移：
-
-```bash
-npm run db:migrate-platform-state
-```
-
-当前会迁移 `data/global-settings.json`、`data/strategy-scans/jobs/*.json`、`data/strategy-scans/runs/*.json`、评测报告索引、评测队列、评测修复单和评测定时配置到 PostgreSQL。workspace 源码、证据文件、验证报告原件、评测日志和图表数据仍保留在文件系统，后续按“索引进库、文件留原地”的方式继续收敛。
+旧平台状态迁移脚本已随金融策略扫描域移除；当前仅保留 workspace 索引回填和评测运行时自身的持久化入口。workspace 源码、证据文件、验证报告原件、评测日志和图表数据仍保留在文件系统。
 
 ## 时序表
 

@@ -54,7 +54,7 @@ jobs:
       - name: Generated artifact policy
         run: npm run check:generated-artifacts
 
-      - name: Quant guardrails
+      - name: Retail E2E guardrails
         run: npm run check:retail-e2e
 
       - name: Backend architecture guardrails
@@ -213,7 +213,7 @@ jobs:
           path: tmp/auth-web.log
 
   contract-evaluation:
-    name: Quant contract evaluation
+    name: Retail contract evaluation
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -298,7 +298,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: quant-contract-evidence-${{ github.run_id }}
+          name: retail-contract-evidence-${{ github.run_id }}
           if-no-files-found: warn
           retention-days: 14
           path: |

@@ -548,18 +548,6 @@ async function ensureComparisonDashboardTemplate(projectPath: string) {
   }
 }
 
-export async function ensureQuantDashboardTemplate(projectPath: string) {
-  // 零售任务走零售能力模板；金融兜底走 comparison。
-  const retailRunPlan = await readJsonRecord(
-    path.join(projectPath, '.data-agent', 'retail-run-plan.json'),
-  );
-  if (retailRunPlan) {
-    return ensureRetailDashboardTemplate(projectPath);
-  }
-  await scaffoldBasicNextApp(projectPath, path.basename(projectPath));
-  await ensureComparisonDashboardTemplate(projectPath);
-}
-
 export async function ensureRetailDashboardTemplate(projectPath: string) {
   await scaffoldBasicNextApp(projectPath, path.basename(projectPath));
   await writeRetailDashboardTemplate(projectPath);

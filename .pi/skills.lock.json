@@ -2,48 +2,6 @@
   "schemaVersion": 1,
   "packageFormat": "tgz",
   "skills": {
-    "quant-data-registry": {
-      "version": "0.5.2",
-      "packagePath": ".pi/skill-packages/quant-data-registry.tgz",
-      "sourceSha256": "743ccc854cebaa2488985b90e383eed8e384bc5d32c9bff370abb2fb0f878307",
-      "packageSha256": "acd99996617e5445dd383faf8f44767dfa5064f390683355d97c876fa9e79654",
-      "fileCount": 4
-    },
-    "quant-symbol-resolver": {
-      "version": "0.4.1",
-      "packagePath": ".pi/skill-packages/quant-symbol-resolver.tgz",
-      "sourceSha256": "6c2407bf09df7d25c536b221c5f439e78f3cb3df3e20594df151098aa4fea607",
-      "packageSha256": "77161fe8e8b764cfd2e3431e894e987ff1fa5da05434707a2126c4325d9c3207",
-      "fileCount": 4
-    },
-    "quant-market-data": {
-      "version": "0.5.3",
-      "packagePath": ".pi/skill-packages/quant-market-data.tgz",
-      "sourceSha256": "bf30fa816a6074e09722568c4a87dc7636e3866f809cd7b1b22053719d64d46d",
-      "packageSha256": "8b4bc1a45e48242ed847fb2bd087ea96c58a9fcd323670da89afe611612206da",
-      "fileCount": 4
-    },
-    "quant-fundamentals": {
-      "version": "0.3.2",
-      "packagePath": ".pi/skill-packages/quant-fundamentals.tgz",
-      "sourceSha256": "daab3f13e9e660ce7b9dbd2a423c09f7a2023239334a5fe1f2b089c0e35445be",
-      "packageSha256": "da5aa39f209636a6e7bd26b48a72a48f744d8eccd2d60dad37610521275ad242",
-      "fileCount": 4
-    },
-    "quant-indicators": {
-      "version": "0.3.2",
-      "packagePath": ".pi/skill-packages/quant-indicators.tgz",
-      "sourceSha256": "6f1355213cb3ecec91d4d5b999e7be3488e538397e6e2d99c96b0d8356ab51c5",
-      "packageSha256": "354e0eaf7eee28e2df0afff199f86d46226849d7cdbe10f953b2419eb48ac783",
-      "fileCount": 6
-    },
-    "quant-backtest": {
-      "version": "0.3.2",
-      "packagePath": ".pi/skill-packages/quant-backtest.tgz",
-      "sourceSha256": "0f9872cb23a60c52927552f580595053b2148639602e8b1ebfe9cb74804176de",
-      "packageSha256": "d263424d753b95ba3a0a9c9ba9cf1d9c180d3652e5a5bfbbb7190d6d68e6705b",
-      "fileCount": 4
-    },
     "run-planner": {
       "version": "0.6.0",
       "packagePath": ".pi/skill-packages/run-planner.tgz",

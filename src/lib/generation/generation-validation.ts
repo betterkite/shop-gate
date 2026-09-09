@@ -53,11 +53,6 @@ async function loadQuantValidation() {
   return import('@/lib/commerce/retail-validation');
 }
 
-async function ensureQuantDashboardTemplateForAct(projectPath: string) {
-  const { ensureQuantDashboardTemplate } = await import('@/lib/utils/scaffold');
-  return ensureQuantDashboardTemplate(projectPath);
-}
-
 class ValidatedPreviewStartError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);

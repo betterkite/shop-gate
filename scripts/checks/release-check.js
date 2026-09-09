@@ -41,6 +41,7 @@ const checks = [
   ['Backend architecture', 'npm', ['run', 'check:backend-architecture'], ROOT],
   ['Module boundaries', 'npm', ['run', 'check:module-boundaries'], ROOT],
   ['Service catalog', 'npm', ['run', 'check:service-catalog'], ROOT],
+  ['Retail E2E guardrails', 'npm', ['run', 'check:retail-e2e'], ROOT],
   ['Benchmark coverage', 'npm', ['run', 'check:benchmark-coverage'], ROOT],
   ['Evaluation dataset and snapshot contracts', 'npm', ['run', 'check:eval-datasets'], ROOT],
   ['Evaluator mutation kill-rate', 'npm', ['run', 'check:eval-mutations'], ROOT],

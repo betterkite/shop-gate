@@ -8,24 +8,11 @@ import { serializeMessage } from "@/lib/serializers/chat";
 import type { writeInitialRunPlan } from "@/lib/domains/retail/workspace";
 import { resolveManagedWorkspacePath } from "@/lib/data-agent";
 
-export class QuantPreparationError extends Error {
-  constructor(
-    readonly code:
-      | "SYMBOL_RESOLVER_UNAVAILABLE"
-      | "QUANT_ARTIFACT_PREPARATION_FAILED",
-    message: string,
-    readonly retryable: boolean,
-  ) {
-    super(message);
-    this.name = "QuantPreparationError";
-  }
-}
-
 export async function loadRetailValidation() {
   return import("@/lib/commerce/retail-validation");
 }
 
-export async function ensureQuantDashboardTemplateForAct(projectPath: string) {
+export async function ensureRetailDashboardTemplateForAct(projectPath: string) {
   const { ensureRetailDashboardTemplate } = await import("@/lib/utils/scaffold");
   return ensureRetailDashboardTemplate(projectPath);
 }
@@ -78,7 +65,7 @@ export function canUsePrefetchedDashboard(params: {
   );
 }
 
-function quantPipelineToolAction(toolName: string) {
+function retailPipelineToolAction(toolName: string) {
   return toolName === "run-planner"
     ? "Generated"
     : toolName === "dashboard-visualization"
@@ -86,7 +73,7 @@ function quantPipelineToolAction(toolName: string) {
       : "Read";
 }
 
-function stringifyQuantPipelineToolDetail(value: unknown) {
+function stringifyRetailPipelineToolDetail(value: unknown) {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "string") return value;
   try {
@@ -96,7 +83,7 @@ function stringifyQuantPipelineToolDetail(value: unknown) {
   }
 }
 
-export async function publishQuantPipelineToolStart(params: {
+export async function publishRetailPipelineToolStart(params: {
   projectId: string;
   requestId: string;
   conversationId?: string | null;
@@ -106,13 +93,13 @@ export async function publishQuantPipelineToolStart(params: {
   target?: string;
   input?: unknown;
 }): Promise<string> {
-  const toolCallId = `quant-pipeline-${randomUUID()}`;
+  const toolCallId = `retail-pipeline-${randomUUID()}`;
   const metadata = {
     toolName: params.toolName,
     tool_name: params.toolName,
     toolCallId,
     tool_call_id: toolCallId,
-    action: quantPipelineToolAction(params.toolName),
+    action: retailPipelineToolAction(params.toolName),
     success: true,
     resultStatus: "running",
     summary: params.summary,
@@ -146,7 +133,7 @@ export async function publishQuantPipelineToolStart(params: {
   return toolCallId;
 }
 
-export async function publishQuantPipelineToolMessage(params: {
+export async function publishRetailPipelineToolMessage(params: {
   projectId: string;
   requestId: string;
   conversationId?: string | null;
@@ -169,7 +156,7 @@ export async function publishQuantPipelineToolMessage(params: {
     ...(params.toolCallId
       ? { toolCallId: params.toolCallId, tool_call_id: params.toolCallId }
       : {}),
-    action: quantPipelineToolAction(params.toolName),
+    action: retailPipelineToolAction(params.toolName),
     success,
     resultStatus,
     summary: params.summary,
@@ -189,9 +176,9 @@ export async function publishQuantPipelineToolMessage(params: {
       : {}),
     ...(params.output !== undefined
       ? {
-          toolOutput: stringifyQuantPipelineToolDetail(params.output),
-          tool_output: stringifyQuantPipelineToolDetail(params.output),
-          output: stringifyQuantPipelineToolDetail(params.output),
+          toolOutput: stringifyRetailPipelineToolDetail(params.output),
+          tool_output: stringifyRetailPipelineToolDetail(params.output),
+          output: stringifyRetailPipelineToolDetail(params.output),
         }
       : {}),
     isShopGatePipelineStep: true,
@@ -215,13 +202,6 @@ export async function publishQuantPipelineToolMessage(params: {
 
   return message;
 }
-
-// Retail 别名导出（P3 切换期；P8 清理时统一改原名）
-export {
-  ensureQuantDashboardTemplateForAct as ensureRetailDashboardTemplateForAct,
-  publishQuantPipelineToolMessage as publishRetailPipelineToolMessage,
-  publishQuantPipelineToolStart as publishRetailPipelineToolStart,
-};
 
 export class RetailPreparationError extends Error {
   constructor(

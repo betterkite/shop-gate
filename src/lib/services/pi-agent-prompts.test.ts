@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { rewriteRetailQuery } from '@/lib/domains/retail/query-rewrite';
 import { writeInitialRunPlan } from '@/lib/domains/retail/workspace';
 import {
-  assessPlatformPreparedQuantArtifacts,
+  assessPlatformPreparedArtifacts,
   buildShopGateSystemPrompt,
   buildShopGateTaskPrompt,
   buildShopGateUserPrompt,
-  hasPlatformPreparedQuantArtifacts,
+  hasPlatformPreparedArtifacts,
 } from './pi-agent-prompts';
 
 const temporaryProjects: string[] = [];
@@ -121,7 +121,7 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(prompt).not.toContain('curl -G');
     expect(prompt).not.toContain(projectPath);
     expect(prompt.length).toBeLessThan(2_500);
-    expect(await hasPlatformPreparedQuantArtifacts(projectPath)).toBe(true);
+    expect(await hasPlatformPreparedArtifacts(projectPath)).toBe(true);
   });
 
   it('does not enter the prepared phase for empty or stale marker files', async () => {
@@ -143,7 +143,7 @@ describe('PI Agent Shop Gate prompts', () => {
       fs.writeFile(path.join(projectPath, 'evidence', 'data_quality.json'), '{}'),
     ]);
 
-    const assessment = await assessPlatformPreparedQuantArtifacts(projectPath);
+    const assessment = await assessPlatformPreparedArtifacts(projectPath);
     expect(assessment.ready).toBe(false);
     expect(assessment.reasons).toEqual(expect.arrayContaining([
       'final_data_not_usable',
@@ -189,7 +189,7 @@ describe('PI Agent Shop Gate prompts', () => {
       })),
     ]);
 
-    const assessment = await assessPlatformPreparedQuantArtifacts(projectPath);
+    const assessment = await assessPlatformPreparedArtifacts(projectPath);
     expect(assessment.ready).toBe(false);
     expect(assessment.reasons).toEqual(expect.arrayContaining([
       'sources_evidence_not_usable',

@@ -1654,7 +1654,7 @@ async function ensurePrefetchedFinalData(projectPath: string) {
     });
   } catch (error) {
     console.warn(
-      '[QuantValidation] Failed to prefetch final dashboard data before validation:',
+      '[RetailValidation] Failed to prefetch final dashboard data before validation:',
       error
     );
   }

@@ -580,7 +580,7 @@ export async function prepareRetailActGeneration(
             metric: "commerce.data_units.daily",
             quantity: dataUnits,
             idempotencyKey: `chat-data-prefetch:${quotaActorUserId}:${requestId}`,
-            sourceType: "quant_data_prefetch",
+            sourceType: "commerce_data_prefetch",
             sourceId: requestId,
             metadata: {
               datasetCount: prefetch.datasetKeys?.length ?? 0,
@@ -588,7 +588,7 @@ export async function prepareRetailActGeneration(
             },
           }).catch((error) => {
             console.error(
-              "[Quota] Failed to record chat data-prefetch usage:",
+              "[Quota] Failed to record commerce data-prefetch usage:",
               error,
             );
           });

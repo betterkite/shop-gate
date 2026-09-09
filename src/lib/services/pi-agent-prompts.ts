@@ -66,14 +66,14 @@ function buildCapabilityContext(
 - 验收：${validationRules.join('；')}`;
 }
 
-export async function hasPlatformPreparedQuantArtifacts(
+export async function hasPlatformPreparedArtifacts(
   projectPath: string,
   runPlan?: RetailRunPlan | null,
 ): Promise<boolean> {
-  return (await assessPlatformPreparedQuantArtifacts(projectPath, runPlan)).ready;
+  return (await assessPlatformPreparedArtifacts(projectPath, runPlan)).ready;
 }
 
-export interface PlatformPreparedQuantArtifactsAssessment {
+export interface PlatformPreparedArtifactsAssessment {
   ready: boolean;
   reasons: string[];
   dashboardSpecReady: boolean;
@@ -184,10 +184,10 @@ function hasUsableQualityEvidence(quality: JsonRecord | null): boolean {
  * Classifies the platform-prefetched hand-off semantically. File existence is
  * insufficient because it would disable data tools for stale or empty `{}` artifacts.
  */
-export async function assessPlatformPreparedQuantArtifacts(
+export async function assessPlatformPreparedArtifacts(
   projectPath: string,
   runPlan?: RetailRunPlan | null,
-): Promise<PlatformPreparedQuantArtifactsAssessment> {
+): Promise<PlatformPreparedArtifactsAssessment> {
   const normalizedProjectPath = path.resolve(projectPath);
   const authoritativePlan = runPlan ?? await readRetailRunPlan(normalizedProjectPath);
   const reasons: string[] = [];
@@ -281,7 +281,7 @@ export async function buildShopGateTaskPrompt(
   const normalizedProjectPath = path.resolve(projectPath);
   const runPlan = options.runPlan ?? await readRetailRunPlan(normalizedProjectPath);
   const prepared = options.platformPrepared ??
-    await hasPlatformPreparedQuantArtifacts(normalizedProjectPath, runPlan);
+    await hasPlatformPreparedArtifacts(normalizedProjectPath, runPlan);
   const phase = options.phase ?? (prepared ? 'workspace-generation' : 'data-preparation');
   if (phase === 'validation-repair') {
     const capability = getRetailCapability(

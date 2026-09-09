@@ -57,12 +57,12 @@ vi.mock('@/lib/agent/skills', () => ({
   compilePiAgentSkills: mocks.compileSkills,
 }));
 
-vi.mock('@/lib/domains/finance', () => ({
-  createFinancePiAgentTools: mocks.createTools,
+vi.mock('@/lib/domains/retail', () => ({
+  createRetailPiAgentTools: mocks.createTools,
   createInspectDashboardContractTool: mocks.createInspector,
-  isDashboardSpecCapabilitySupported: mocks.supportsCompiler,
-  FINANCE_PREPARED_SOURCE_WRITE_GLOBS: ['app/page.tsx', 'app/globals.css'],
-  getFinanceSkillCapabilityDescriptor: vi.fn((id: string) => ({
+  isRetailDashboardSpecCapabilitySupported: mocks.supportsCompiler,
+  RETAIL_PREPARED_SOURCE_WRITE_GLOBS: ['app/page.tsx', 'app/globals.css'],
+  getRetailSkillCapabilityDescriptor: vi.fn((id: string) => ({
     id,
     status: 'ready',
     requiredSkillIds: ['dashboard-visualization'],
@@ -73,7 +73,7 @@ vi.mock('@/lib/services/pi-agent-prompts', () => ({
   buildShopGateSystemPrompt: vi.fn(() => 'system prompt'),
   buildShopGateTaskPrompt: vi.fn(async (instruction: string) => instruction),
   buildShopGateUserPrompt: mocks.buildUserPrompt,
-  assessPlatformPreparedQuantArtifacts: mocks.assessPreparedArtifacts,
+  assessPlatformPreparedArtifacts: mocks.assessPreparedArtifacts,
 }));
 
 vi.mock('@/lib/services/pi-agent-provenance', () => ({
@@ -95,7 +95,7 @@ vi.mock('@/lib/services/pi-agent-recovery', () => ({
   auditPrismaPiAgentRecovery: mocks.auditRecovery,
 }));
 
-vi.mock('@/lib/domains/finance/workspace', () => ({
+vi.mock('@/lib/domains/retail/workspace', () => ({
   readRetailRunPlan: mocks.readRunPlan,
 }));
 
@@ -668,7 +668,7 @@ describe('PI Agent terminal ownership', () => {
     ]);
   });
 
-  it('selects only the quant capability skills and never appends the platform-only UI skill', async () => {
+  it('selects only the retail capability skills and never appends the platform-only UI skill', async () => {
     mocks.run.mockResolvedValue(result('completed'));
     mocks.readRunPlan.mockResolvedValue({ requestedCapabilityId: 'asset_comparison' });
 
@@ -693,7 +693,7 @@ describe('PI Agent terminal ownership', () => {
     expect(mocks.compileSkills.mock.calls[0]?.[0]).not.toHaveProperty('additionalSkillIds');
   });
 
-  it('uses the default quant capability instead of loading every stable skill without a run plan', async () => {
+  it('uses the default retail capability instead of loading every stable skill without a run plan', async () => {
     mocks.run.mockResolvedValue(result('completed'));
 
     await executePiAgent(
@@ -748,7 +748,7 @@ describe('PI Agent terminal ownership', () => {
     expect(mocks.createTools).toHaveBeenCalledWith(expect.objectContaining({
       profile: 'generation',
       includeImageExtraction: false,
-      includeQuantApi: false,
+      includeCommerceApi: false,
       targetedReadsOnly: true,
       preparedSurface: 'custom',
       includeDashboardSpec: false,
@@ -964,7 +964,7 @@ describe('PI Agent terminal ownership', () => {
     expect(mocks.compileSkills.mock.calls[0]?.[0]).not.toHaveProperty('requiredSkillIds');
     expect(mocks.createTools).toHaveBeenCalledWith(expect.objectContaining({
       profile: 'generation',
-      includeQuantApi: true,
+      includeCommerceApi: true,
       targetedReadsOnly: false,
     }));
     expect(mocks.run).toHaveBeenCalledWith(expect.objectContaining({

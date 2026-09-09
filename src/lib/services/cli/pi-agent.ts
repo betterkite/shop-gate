@@ -38,7 +38,7 @@ import {
 } from '@/lib/constants/models';
 import { createRealtimeMessage, serializeMessage } from '@/lib/serializers/chat';
 import {
-  assessPlatformPreparedQuantArtifacts,
+  assessPlatformPreparedArtifacts,
   buildShopGateSystemPrompt,
   buildShopGateTaskPrompt,
   buildShopGateUserPrompt,
@@ -704,7 +704,7 @@ async function executePiAgentPhase(
     const runPlan = await readRetailRunPlan(workspace);
     const capabilityId = runPlan?.requestedCapabilityId ?? runPlan?.capabilityId ?? null;
     const [preparedAssessment, repairReport] = await Promise.all([
-      assessPlatformPreparedQuantArtifacts(workspace, runPlan),
+      assessPlatformPreparedArtifacts(workspace, runPlan),
       profile === 'repair' ? readRetailValidationReport(workspace) : Promise.resolve(null),
     ]);
     const platformPrepared = preparedAssessment.ready;
@@ -877,8 +877,8 @@ async function executePiAgentPhase(
     const availableToolNames = tools.map((tool) => tool.name);
     const [skillBundle, taskPrompt, history] = await raceWithAbort(Promise.all([
       compilePiAgentSkills({
-        // Runtime work is always a generated financial workspace. Falling
-        // back to the default quant capability avoids the compiler's broad
+        // Runtime work is always a generated retail workspace. Falling
+        // back to the default retail capability avoids the compiler's broad
         // "all stable skills" mode, which includes platform-only UI guidance.
         capabilityId: capabilityId ?? DEFAULT_RETAIL_CAPABILITY_ID,
         capability: getRetailSkillCapabilityDescriptor(

@@ -13,9 +13,9 @@ const adminPassword = process.env.PLATFORM_ADMIN_PASSWORD || 'admin';
 
 const routes = [
   { id: 'home', path: '/', expected: 'Shop Gate' },
-  { id: 'business', path: '/business-knowledge', expected: '业务知识中心' },
+  { id: 'business', path: '/business-knowledge', expected: '经营业务知识中心' },
   { id: 'commerce', path: '/commerce-platform', expected: '商品运营' },
-  { id: 'operations', path: '/operations-briefing', expected: '经营情报' },
+  { id: 'briefing', path: '/operations-briefing', expected: '经营情报' },
   { id: 'eval', path: '/eval-platform', expected: '质量总览' },
   { id: 'ops', path: '/ops-platform', expected: '运行治理中心' },
   { id: 'skills', path: '/skills', expected: 'Skills Market' },
@@ -26,6 +26,7 @@ const routes = [
 const legacyRoutes = [
   ['/capabilities', '/business-knowledge'],
   ['/data-platform', '/business-knowledge'],
+  ['/strategies', '/commerce-platform'],
   ['/workspaces', '/ops-platform'],
   ['/evals', '/eval-platform'],
   ['/observability', '/ops-platform'],

@@ -68,7 +68,7 @@
 | 路线图 | [持续完善路线图](ROADMAP.md) | 后续优先级、验收标准和暂不建议事项 |
 | 后端能力 | [后端能力架构与持续优化边界](backend-capability-architecture.md) | Python 零售后端、设计模式、模块落点和迁移路线 |
 | API | [API 总览](api-reference.md) | Next.js API、commerce-data API、调用方和排查路径 |
-| 数据字典 | [数据字典](data-dictionary.md) | Prisma 表、quant schema、字段来源、因子和数据质量口径 |
+| 数据字典 | [数据字典](data-dictionary.md) | Prisma 表、commerce schema、字段来源、指标和数据质量口径 |
 | 基础设施 | [基础设施配置](infrastructure.md) | PostgreSQL、TimescaleDB、Redis、Loki/Grafana/Alloy、SQL 初始化和降级模式 |
 | 认证与访问治理 | [用户、权限与会话管理](authentication.md) | 用户生命周期、capability 与项目角色双层授权、用量配额、数据库会话、安全审计和页面/API/WebSocket 边界 |
 | 用户记忆 | [用户记忆服务接入、使用与效果验证](user-memory-integration.md) | 启动接入、HTTP 解耦、实际效果、个性化键、归因反馈、鉴权与降级 |

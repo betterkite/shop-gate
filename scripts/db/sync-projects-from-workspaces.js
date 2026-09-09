@@ -55,7 +55,7 @@ async function inferProject(projectDirName) {
     preferredCli: 'pi',
     selectedModel: workspace?.runtime?.modelId || generationState?.selectedModel || null,
     settings: JSON.stringify({
-      quant: {
+      dataAgent: {
         capabilityId: capabilityId || 'stock_diagnosis',
         status: 'recovered_from_workspace',
       },

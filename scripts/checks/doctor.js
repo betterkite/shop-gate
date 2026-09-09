@@ -342,13 +342,13 @@ async function main() {
   if (degradation.marketApi.enabled) {
     const backend = await requestJson('http://127.0.0.1:8000/health');
     addCheck(
-      'commerce-data 后端 :8000',
+      '量化数据后端 :8000',
       backend.ok ? 'ok' : unavailableStatus(degradation.marketApi),
       backend.ok ? `HTTP ${backend.statusCode}` : '未连接，已使用数据源注册表/本地数据兜底。',
       backend.ok ? [] : ['进入 services/commerce-data 后运行 uv run shopgate-commerce-api。']
     );
   } else {
-    addCheck('commerce-data 后端 :8000', 'warn', '已按降级配置停用。', ['商品运营与经营情报页面会优先展示本地/内置兜底数据。']);
+    addCheck('零售数据后端 :8000', 'warn', '已按降级配置停用。', ['商品运营和业务知识中心会优先展示本地/内置兜底数据。']);
   }
 
   if (degradation.memory.enabled) {
@@ -398,6 +398,16 @@ async function main() {
     : 0;
   addCheck('工作空间目录', fs.existsSync(projectRoot) ? 'ok' : 'warn', `${path.relative(ROOT, projectRoot)} (${projectCount} 个项目)`);
   await checkDatabase();
+  if (degradation.database.enabled) {
+    checkCommand('行情新鲜度', 'node', ['scripts/checks/check-commerce-data-freshness.js'], {
+      successSummary: '交易日历与本地 daily/qfq 日线已跟进最近完成交易日。',
+      failureSummary: '本地行情数据已过期。',
+      warnOnly: true,
+    });
+  } else {
+    addCheck('行情新鲜度', 'warn', '数据库已停用，跳过本地行情新鲜度检查。');
+  }
+
   checkCommand('Skills 注册表', 'node', ['scripts/checks/check-skills-registry.js', '--check-lock'], {
     successSummary: 'registry / changelog / lock / package 一致。',
   });

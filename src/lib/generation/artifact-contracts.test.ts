@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { DATA_AGENT_WORKSPACE_RELATIVE_PATH } from '@/lib/data-agent';
-import { validateQuantArtifactContracts } from './artifact-contracts';
+import { validateDataAgentArtifactContracts } from './artifact-contracts';
 
 const roots: string[] = [];
 
@@ -52,7 +52,7 @@ afterEach(async () => {
 describe('PI workspace artifact contract', () => {
   it('accepts the canonical PI Agent workspace identity', async () => {
     const root = await writeWorkspace('PI Agent', 'pi');
-    const report = await validateQuantArtifactContracts({
+    const report = await validateDataAgentArtifactContracts({
       projectPath: root,
       projectId: 'project-1',
     });

@@ -36,10 +36,10 @@ describe('project authentication proxy', () => {
 
   it('redirects anonymous page requests to login and preserves a local next path', async () => {
     vi.mocked(getAuthSession).mockResolvedValue(null);
-    const response = await proxy(request('/strategy-platform?tab=factors'));
+    const response = await proxy(request('/commerce-platform?view=items'));
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'http://localhost:3000/login?next=%2Fstrategy-platform%3Ftab%3Dfactors',
+      'http://localhost:3000/login?next=%2Fcommerce-platform%3Fview%3Ditems',
     );
   });
 

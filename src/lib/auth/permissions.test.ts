@@ -76,11 +76,11 @@ describe('permission evaluator', () => {
 
   it('treats shared quant and research capabilities as account scoped', () => {
     for (const action of [
-      'quant.data.read',
-      'quant.query.rewrite.llm',
-      'quant.strategy.run',
-      'research.report.read',
-      'research.report.run',
+      'commerce.data.read',
+      'commerce.query.rewrite.llm',
+      'commerce.operation.run',
+      'operations.brief.read',
+      'operations.brief.run',
     ] as const) {
       expect(ACCESS_CONTROL_CATALOG.actions[action].scope).toBe('account');
       expect(evaluatePermission(request(action, { project: undefined })))
@@ -114,7 +114,7 @@ describe('permission evaluator', () => {
     expect(evaluatePermission(request('agent.run', {
       project: { id: 'project-1', role: 'viewer' },
     }))).toMatchObject({ allowed: false, reason: 'PROJECT_ROLE_NOT_GRANTED' });
-    expect(evaluatePermission(request('quant.data.read', {
+    expect(evaluatePermission(request('commerce.data.read', {
       actor: { id: 'user-1', permissionProfileKey: 'readonly-default' },
       project: { id: 'project-1', role: 'viewer' },
     }))).toMatchObject({ allowed: true });

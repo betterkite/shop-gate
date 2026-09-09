@@ -177,7 +177,7 @@ Agent Knowledge Platform 是可选的独立 AKEP HTTP 服务。它只提供已�
 SHOPGATE_KNOWLEDGE_ENABLED=1
 SHOPGATE_KNOWLEDGE_REQUIRED=0
 SHOPGATE_KNOWLEDGE_API_URL="http://localhost:33005"
-SHOPGATE_KNOWLEDGE_PURPOSE="quant-research"
+SHOPGATE_KNOWLEDGE_PURPOSE="retail-operations"
 SHOPGATE_KNOWLEDGE_SPACES="https://knowledge.local/spaces/default"
 SHOPGATE_KNOWLEDGE_PROJECT_SPACES_ENABLED=1
 SHOPGATE_KNOWLEDGE_PROJECT_SPACE_BASE_URL="https://knowledge.local/spaces/shopgate/projects"
@@ -272,7 +272,7 @@ SHOPGATE_MEMORY_API_URL="http://127.0.0.1:38089"
 SHOPGATE_KNOWLEDGE_ENABLED=1
 SHOPGATE_KNOWLEDGE_REQUIRED=0
 SHOPGATE_KNOWLEDGE_API_URL="http://127.0.0.1:33005"
-SHOPGATE_KNOWLEDGE_PURPOSE="quant-research"
+SHOPGATE_KNOWLEDGE_PURPOSE="retail-operations"
 SHOPGATE_KNOWLEDGE_SPACES="https://knowledge.local/spaces/default,https://knowledge.local/spaces/shopgate-acceptance"
 ```
 

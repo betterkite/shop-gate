@@ -66,8 +66,8 @@ Shop Gate 的主平台、零售数据后端、评测平台、商品运营和基�
 
 对应文档：
 
-- [AI 工作空间生成链路](learning/02-ai-workspace-generation.md)
-- [Skills 与可视化看板](learning/04-skills-and-visual-dashboard.md)
+- [生成工作空间契约](generated-workspace-contract.md)
+- [Skills 治理规范](skills-governance.md)
 - [生成工作空间契约](generated-workspace-contract.md)
 - [Agent 评测指南](evals-guide.md)
 
@@ -86,7 +86,7 @@ Shop Gate 的主平台、零售数据后端、评测平台、商品运营和基�
 - [模块边界与模块化单体治理](module-boundaries.md)
 - [项目结构与分层边界](project-structure.md)
 - [Agent 评测指南](evals-guide.md)
-- [评测、运维与质量门](learning/05-evaluation-and-operations.md)
+- [评测指南](evals-guide.md) / [运行手册](operations-runbook.md)
 
 ## P1：补齐真正有经营分析价值的数据能力
 
@@ -102,10 +102,10 @@ Shop Gate 的主平台、零售数据后端、评测平台、商品运营和基�
 
 对应文档：
 
-- [零售数据接入与商品运营（learning 路径）](learning/03-commerce-data-and-strategy-platform.md)
-- [经营日报自动化指南](research-automation-guide.md)
+- [零售数据接入与商品运营](commerce-data-ingestion.md)
+- [API 总览](api-reference.md)
 - [数据字典](data-dictionary.md)
-- [数据源采集知识库](commerce-data-source-knowledge.md)
+- [数据字典](data-dictionary.md)
 
 ## P0-P1：把长任务和队列做得更稳
 

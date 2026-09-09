@@ -16,7 +16,7 @@ Shop Gate 目前不适合拆成多语言微服务，也不需要引入 Java/Dubb
 | `agent-runtime` | PI Agent Provider、执行循环、上下文、类型化工具、Skills 编译和通用 Mission 机制 | `src/lib/agent/**`、通用运行服务 |
 | `data-agent-core` | 通用数据任务、实体、指标、Connector、Domain Pack、Agent Profile 与执行计划合同 | `src/lib/data-agent/**` |
 | `retail-domain` | 零售电商 Domain Pack：零售能力目录、商品/类目实体解析、commerce 工具、零售 Mission 合同与零售可视化配置 | `src/lib/domains/retail/**` |
-| `quant-core` | 数据产品编排、LLM-first Query Rewrite、Resolver、运行规划、证据、验证和数据预取 | `src/lib/commerce/**`、`src/lib/generation/**`、业务知识中心 |
+| `commerce-core` | 数据产品编排、LLM-first Query Rewrite、Resolver、运行规划、证据、验证和数据预取 | `src/lib/commerce/**`、`src/lib/generation/**`、业务知识中心 |
 | `eval-core` | 评测集、用例、运行、报告和 CI 质量门 | `src/lib/eval/**`、评测页面、评测脚本 |
 | `ops-core` | Docker、服务健康、日志和运维面板 | `src/lib/ops/**`、运行治理中心、观测配置 |
 | `commerce-data-backend` | FastAPI 零售数据服务、TimescaleDB、Redis | `services/commerce-data/**` |
@@ -24,7 +24,7 @@ Shop Gate 目前不适合拆成多语言微服务，也不需要引入 Java/Dubb
 ## 依赖原则
 
 1. 页面层可以依赖领域模块，领域模块不能反向依赖页面层。
-2. `ui-kit` 不能依赖 `quant-core`、`ops-core`、`agent-runtime` 或 `src/app/**`。
+2. `ui-kit` 不能依赖 `commerce-core`、`ops-core`、`agent-runtime` 或 `src/app/**`。
 3. Python 后端不能依赖 Next.js 源码。
 4. 新能力先找模块归属，再决定文件位置；不要把新业务继续塞进现有最大文件。
 5. 跨模块调用优先走 public surface，避免深层私有文件互相引用。

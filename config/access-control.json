@@ -58,33 +58,33 @@
       "scope": "project",
       "description": "Cancel an agent run"
     },
-    "quant.data.read": {
+    "commerce.data.read": {
       "scope": "account",
-      "description": "Query quantitative data sources"
+      "description": "Query commerce data sources"
     },
-    "quant.query.rewrite.llm": {
+    "commerce.query.rewrite.llm": {
       "scope": "account",
-      "description": "Use an LLM to rewrite a quantitative query"
+      "description": "Use an LLM to rewrite a commerce query"
     },
-    "quant.strategy.run": {
+    "commerce.operation.run": {
       "scope": "account",
-      "description": "Run a quantitative strategy"
+      "description": "Run a commerce operation"
     },
-    "quant.strategy.manage": {
+    "commerce.operation.manage": {
       "scope": "account",
-      "description": "Create or modify quantitative strategies"
+      "description": "Create or modify commerce operations"
     },
-    "research.report.read": {
+    "operations.brief.read": {
       "scope": "account",
-      "description": "Read research reports"
+      "description": "Read operations briefs"
     },
-    "research.report.run": {
+    "operations.brief.run": {
       "scope": "account",
-      "description": "Generate research reports"
+      "description": "Generate operations briefs"
     },
-    "research.report.send": {
+    "operations.brief.send": {
       "scope": "account",
-      "description": "Send or publish research reports"
+      "description": "Send or publish operations briefs"
     },
     "platform.users.manage": {
       "scope": "platform",
@@ -129,11 +129,11 @@
         "project.deploy",
         "agent.run",
         "agent.cancel",
-        "quant.data.read",
-        "quant.query.rewrite.llm",
-        "quant.strategy.run",
-        "research.report.read",
-        "research.report.run"
+        "commerce.data.read",
+        "commerce.query.rewrite.llm",
+        "commerce.operation.run",
+        "operations.brief.read",
+        "operations.brief.run"
       ],
       "deny": []
     },
@@ -154,13 +154,13 @@
         "project.deploy",
         "agent.run",
         "agent.cancel",
-        "quant.data.read",
-        "quant.query.rewrite.llm",
-        "quant.strategy.run",
-        "quant.strategy.manage",
-        "research.report.read",
-        "research.report.run",
-        "research.report.send"
+        "commerce.data.read",
+        "commerce.query.rewrite.llm",
+        "commerce.operation.run",
+        "commerce.operation.manage",
+        "operations.brief.read",
+        "operations.brief.run",
+        "operations.brief.send"
       ],
       "deny": []
     },
@@ -169,8 +169,8 @@
       "allow": [
         "project.read",
         "project.source.read",
-        "quant.data.read",
-        "research.report.read"
+        "commerce.data.read",
+        "operations.brief.read"
       ],
       "deny": []
     },
@@ -179,8 +179,8 @@
       "allow": [
         "project.read",
         "project.source.read",
-        "quant.data.read",
-        "research.report.read"
+        "commerce.data.read",
+        "operations.brief.read"
       ],
       "deny": []
     }

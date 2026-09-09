@@ -67,7 +67,7 @@ async function negotiate(
 }
 
 function taskCategory(value: string): string {
-  return value.slice(0, 255) || 'quant-research';
+  return value.slice(0, 255) || 'retail-operations';
 }
 
 function capsuleContent(pack: Awaited<ReturnType<GovernedKnowledgePort['createContextPack']>>): string {

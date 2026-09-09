@@ -76,7 +76,7 @@ const nightlyContracts = [
   ['manual live evaluation remains fail-closed', /GITHUB_EVENT_NAME.*workflow_dispatch[\s\S]*DEEPSEEK_API_KEY must be configured/],
   ['scheduled missing-secret runs emit a notice', /::notice::DEEPSEEK_API_KEY is not configured/],
   ['hosted live evaluation selects the remote DeepSeek model', /SHOPGATE_EVAL_MODEL:\s*deepseek-v4-flash/],
-  ['generation passes the expected DeepSeek model explicitly', /benchmark:quant:e2e -- --model deepseek-v4-flash/],
+  ['generation passes the expected DeepSeek model explicitly', /benchmark:commerce:e2e -- --model deepseek-v4-flash/],
   ['the independent gate expects the same DeepSeek model', /eval:ci:e2e -- --model deepseek-v4-flash/],
 ];
 for (const [description, pattern] of nightlyContracts) {

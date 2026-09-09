@@ -144,13 +144,13 @@ const ACTION_LABELS: Record<string, string> = {
   'project.deploy': '部署项目',
   'agent.run': '运行智能体',
   'agent.cancel': '取消智能体运行',
-  'quant.data.read': '查询经营数据',
-  'quant.query.rewrite.llm': '使用 LLM 改写查询',
-  'quant.strategy.run': '运行经营策略',
-  'quant.strategy.manage': '管理经营策略',
-  'research.report.read': '查看研究报告',
-  'research.report.run': '生成研究报告',
-  'research.report.send': '发送或发布报告',
+  'commerce.data.read': '查询经营数据',
+  'commerce.query.rewrite.llm': '使用 LLM 改写经营问题',
+  'commerce.operation.run': '运行经营动作',
+  'commerce.operation.manage': '管理经营动作',
+  'operations.brief.read': '查看经营情报',
+  'operations.brief.run': '生成经营日报',
+  'operations.brief.send': '发送或发布经营情报',
   'platform.users.manage': '管理平台用户',
   'platform.quotas.manage': '管理权限与配额',
   'platform.audit.read': '查看安全审计',
@@ -165,10 +165,10 @@ const METRIC_LABELS: Record<string, string> = {
   'agent.concurrent': '智能体并发数',
   'agent.requests.daily': '智能体每日请求',
   'llm.total_tokens.monthly': 'LLM 每月 Token',
-  'query_rewrite.llm.daily': 'LLM 查询改写次数',
-  'quant.data_units.daily': '经营数据单元',
-  'research.report_runs.daily': '研究报告生成次数',
-  'research.report_sends.daily': '研究报告发送次数',
+  'commerce.query_rewrite.llm.daily': 'LLM 经营问题改写次数',
+  'commerce.data_units.daily': '经营数据单元',
+  'operations.brief_runs.daily': '经营日报生成次数',
+  'operations.brief_sends.daily': '经营情报发送次数',
 };
 
 const WINDOW_LABELS: Record<QuotaWindow, string> = {
@@ -680,7 +680,7 @@ export default function AccessQuotaPanel({
                 ].includes(metric);
                 const postpaidMetric = [
                   'llm.total_tokens.monthly',
-                  'quant.data_units.daily',
+                  'commerce.data_units.daily',
                 ].includes(metric);
                 return (
                   <article key={metric} className="w-[min(86vw,23rem)] shrink-0 snap-start rounded-2xl border bg-background p-4 shadow-sm">

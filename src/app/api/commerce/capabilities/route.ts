@@ -8,7 +8,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAction({ headers: request.headers, action: 'quant.data.read' });
+    await requireAction({ headers: request.headers, action: 'commerce.data.read' });
   } catch (error) {
     return authErrorResponse(error);
   }

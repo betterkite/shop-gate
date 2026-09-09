@@ -9,7 +9,7 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-gene
   interopDefault: true,
 });
 
-const { checkQuantArtifactPolicy } = jiti('../../src/lib/commerce/validation.ts');
+const { checkRetailArtifactPolicy } = jiti('../../src/lib/commerce/retail-validation.ts');
 
 async function writeFile(filePath, content) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -21,7 +21,7 @@ async function writeJson(filePath, value) {
 }
 
 async function createBaseProject(projectPath) {
-  await writeJson(path.join(projectPath, '.data-agent/finance-run-plan.json'), {
+  await writeJson(path.join(projectPath, '.data-agent/retail-run-plan.json'), {
     schemaVersion: 1,
     capabilityId: 'market_analysis',
     symbols: ['600519'],
@@ -86,7 +86,7 @@ export default function Page() {
 `
     );
 
-    const failed = await checkQuantArtifactPolicy(projectPath);
+    const failed = await checkRetailArtifactPolicy(projectPath);
     const failedDetails = `${failed.summary}\n${failed.details ?? ''}`;
     const failedAsExpected =
       failed.status === 'failed' &&
@@ -126,7 +126,7 @@ export default async function Page() {
 `
     );
 
-    const passed = await checkQuantArtifactPolicy(projectPath);
+    const passed = await checkRetailArtifactPolicy(projectPath);
     if (passed.status !== 'passed') {
       console.error('[artifact-policy] expected passed policy check');
       console.error(JSON.stringify(passed, null, 2));

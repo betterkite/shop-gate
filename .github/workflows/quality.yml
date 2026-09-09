@@ -55,7 +55,7 @@ jobs:
         run: npm run check:generated-artifacts
 
       - name: Quant guardrails
-        run: npm run check:quant-guardrails
+        run: npm run check:retail-e2e
 
       - name: Backend architecture guardrails
         run: npm run check:backend-architecture
@@ -284,7 +284,7 @@ jobs:
       - name: Run deterministic contract suite
         run: |
           set -o pipefail
-          npm run benchmark:quant:contract 2>&1 | tee tmp/contract-benchmark.log
+          npm run benchmark:commerce:contract 2>&1 | tee tmp/contract-benchmark.log
 
       - name: PiAgent PostgreSQL fencing integration
         env:

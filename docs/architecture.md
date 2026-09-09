@@ -143,7 +143,7 @@ Shop Gate 当前采用 Python/Node 长期主线，不引入 Dubbo3 作为配置�
 
 Shop Gate 当前采用模块化单体，而不是微服务化。运行态继续保持 `Next.js + Python commerce-data`，代码侧按模块治理：
 
-- `config/module-boundaries.json` 定义 shared-kernel、ui-kit、platform-navigation-ui、product-shell、platform-core、agent-runtime、data-agent-core、retail-domain（零售电商 Domain Pack）、quant-core（承载 `src/lib/commerce/**` 零售平台实现，模块 ID 为金融遗留命名）、eval-core、ops-core 和 commerce-data-backend。
+- `config/module-boundaries.json` 定义 shared-kernel、ui-kit、platform-navigation-ui、product-shell、platform-core、agent-runtime、data-agent-core、retail-domain（零售电商 Domain Pack）、commerce-core（承载 `src/lib/commerce/**` 零售平台实现）、eval-core、ops-core 和 commerce-data-backend。
 - `npm run check:module-boundaries` 检查反向依赖、未声明跨模块依赖、依赖环、通用 UI 污染和大文件预算。
 - 领域模块不能反向依赖 `src/app/**` 页面层。
 - `ui-kit` 只能承载无领域知识组件，不直接依赖业务领域、运维或运行时服务。
@@ -266,7 +266,7 @@ npm run build:standalone
 
 GitHub Actions 当前包含：
 
-- 前端：`npm ci`、`npm run lint`、`npm run type-check`、`npm run check:quant-guardrails`（金融遗留命名的护栏脚本）、`npm run check:backend-architecture`、`npm run build`。
+- 前端：`npm ci`、`npm run lint`、`npm run type-check`、`npm run check:retail-e2e`、`npm run check:backend-architecture`、`npm run build`。
 - 后端：`uv sync --locked --all-groups`、`uv run ruff check .`、`uv run pytest`。
 
 Dependabot 每周检查：

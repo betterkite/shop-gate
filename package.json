@@ -1,7 +1,7 @@
 {
   "name": "shopgate",
   "version": "2.0.0",
-  "description": "Quant-focused AI workflow builder powered by PI Agent and configurable model providers",
+  "description": "Retail commerce AI workspace powered by PI Agent and configurable model providers",
   "private": true,
   "main": "index.js",
   "scripts": {
@@ -86,7 +86,6 @@
     "check:docs": "node scripts/checks/check-doc-links.js",
     "check:github-workflows": "node scripts/checks/check-github-workflows.js",
     "check:scaffold-templates": "tsx scripts/build/validate-scaffold-templates.ts",
-    "check:quant-guardrails": "node scripts/checks/check-quant-research-guardrails.js",
     "check:benchmark-coverage": "node scripts/checks/check-commerce-benchmark-coverage.js",
     "check:eval-datasets": "node scripts/checks/check-eval-datasets.js",
     "check:eval-judge-calibration": "node scripts/checks/check-eval-judge-calibration.js",
@@ -104,7 +103,6 @@
     "check:eval-platform-visual": "node scripts/checks/check-eval-platform-visual.js",
     "check:business-knowledge-visual": "node scripts/checks/check-business-knowledge-visual.js",
     "check:ops-platform-visual": "node scripts/checks/check-ops-platform-visual.js",
-    "check:research-reports-visual": "node scripts/checks/check-research-reports-visual.js",
     "check:skills-visual": "node scripts/checks/check-skills-visual.js",
     "security:audit": "npm audit --audit-level=high --registry=https://registry.npmjs.org",
     "security:audit:production": "npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org",
@@ -112,10 +110,10 @@
     "release:check:full": "node scripts/checks/release-check.js --security --runtime",
     "release:check:production": "node scripts/checks/release-check.js --security --production",
     "release:check:evidence": "node scripts/checks/release-check.js --security --runtime --eval-contract --e2e-evidence",
-    "benchmark:quant:contract": "node scripts/evals/run-commerce-benchmarks.js --mode contract",
-    "benchmark:quant:e2e": "node scripts/evals/run-commerce-benchmarks.js --mode e2e",
-    "benchmark:quant:hidden": "node scripts/evals/run-commerce-benchmarks.js --mode e2e --dataset-visibility hidden",
-    "benchmark:quant:shadow": "node scripts/evals/run-commerce-benchmarks.js --mode e2e --dataset-visibility production_replay",
+    "benchmark:commerce:contract": "node scripts/evals/run-commerce-benchmarks.js --mode contract",
+    "benchmark:commerce:e2e": "node scripts/evals/run-commerce-benchmarks.js --mode e2e",
+    "benchmark:commerce:hidden": "node scripts/evals/run-commerce-benchmarks.js --mode e2e --dataset-visibility hidden",
+    "benchmark:commerce:shadow": "node scripts/evals/run-commerce-benchmarks.js --mode e2e --dataset-visibility production_replay",
     "postinstall": "npm run ensure:env"
   },
   "dependencies": {

@@ -73,7 +73,7 @@ Shop Gate 采用一个 Next.js 主应用、一个 Python commerce 数据后端�
 - `src/lib/eval/`：评测用例、评测集、运行报告、队列、运行时选项、持久化映射和修复单；`runtime-mappers.ts` 承接纯解析/数据库映射并有单元测试。
 - `src/lib/commerce/commerce-platform.ts`：商品运营页服务，承接商品池（分页/排序）、品类池和渠道分层（3 tier）的读模型。
 - `src/lib/commerce/retail-briefing.ts`、`retail-daily-report.ts`：经营日报链路的数据层与生成持久化（OperationBriefRun / OperationBrief）；路由为 `GET/POST /api/commerce/briefing/daily`。
-- `src/lib/commerce/research-reports.ts`：经营情报自动化服务，管理观察池、日报运行、报告契约和推送 dry-run 记录（推送回执待通知渠道配置）。
+- `src/lib/commerce/retail-briefing.ts`、`retail-daily-report.ts`：经营日报链路的数据层与生成持久化（OperationBriefRun / OperationBrief）。
 - `src/lib/domains/retail/query-rewrite.ts`、`query-rewrite-llm.ts`：LLM-first 语义合同、原文字面证据校验和实体 Resolver 身份核验；模型失败时失败关闭。
 - `src/lib/domains/retail/workspace.ts`、`src/lib/commerce/retail-data-prefetch.ts`：前者只消费 Query Rewrite 生成 run plan（含 window/capabilityId/visualization.templateId），后者只按 run plan 调 commerce-data API 预取；两者都不从原始问题二次猜商品或时间窗口。
 - `src/lib/commerce/retail-act-preparation.ts`：零售 Query Rewrite、run plan、预取、知识准备和 Mission 创建的应用服务；HTTP route 不复制这些领域事务。

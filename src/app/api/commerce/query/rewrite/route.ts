@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   try {
     actionContext = await requireAction({
       headers: request.headers,
-      action: 'quant.query.rewrite.llm',
+      action: 'commerce.query.rewrite.llm',
     });
   } catch (error) {
     return authErrorResponse(error);
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     try {
       const reservation = await reserveQuota({
         actorUserId: actionContext.session.user.id,
-        metric: 'query_rewrite.llm.daily',
+        metric: 'commerce.query_rewrite.llm.daily',
         quantity: 1,
         idempotencyKey: `query-rewrite:${actionContext.session.user.id}:${requestId}:attempt:${operationHandle?.attempt ?? 1}`,
       });
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
               quotaSettlement: {
                 reservationId: quotaReservationId,
                 actorUserId: actionContext.session.user.id,
-                metric: 'query_rewrite.llm.daily',
+                metric: 'commerce.query_rewrite.llm.daily',
                 actualQuantity: data.execution.llm.attempted ? 1 : 0,
                 sourceType: 'query_rewrite',
                 sourceId: requestId,

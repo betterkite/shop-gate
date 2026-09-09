@@ -159,7 +159,7 @@
 - `src/lib/commerce/retail-briefing.ts`：`getOperationsBriefingData()` 从 API 取日报摘要（`/summary?date=末日`）、类目经营榜（`/categories/top`）、观察池（`/items?sort=gmv` top-20）+ 最近生成日报。
 - `/operations-briefing`：经营日报 / 类目经营榜 / 观察池三视图（纯 RSC）。
 - `src/lib/commerce/retail-daily-report.ts`：`generateRetailDailyBrief()` 生成并**持久化** `OperationBriefRun(completed)` + `OperationBrief`；`getLatestRetailDailyBrief()` 读最新。
-- `src/app/api/commerce/briefing/daily/route.ts`：GET（最新）/ POST（生成），鉴权 `requireAction`（`research.report.read/run`）。
+- `src/app/api/commerce/briefing/daily/route.ts`：GET（最新）/ POST（生成），鉴权 `requireAction`（`operations.brief.read/run`）。
 - daily 视图"生成今日日报"按钮（客户端）+ 最近生成日报。
 
 **核查清单**

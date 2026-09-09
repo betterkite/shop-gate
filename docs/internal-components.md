@@ -106,7 +106,7 @@ Skills 是 Agent 的项目内能力手册。它们不是简单提示词，而是
 | 可视化 | `dashboard-visualization`、`platform-ui-product-design` | 生成经营看板并修复布局问题 |
 | 规则审查 | `commerce-rule-review` | 管理业务规则、验证结果和限制说明 |
 
-学习 Skills 的详细教程见 [07. Skills 编写与迭代教程](learning/07-skills-authoring.md)。
+Skills 的边界、命名与发布规则见 [Skills 治理](skills-governance.md)。
 
 ## 验证和评测组件
 
@@ -151,7 +151,7 @@ SHOPGATE_REDIS_CACHE_ENABLED=1
 | --- | --- | --- |
 | 商品/类目增加字段 | 对应 commerce-data model/repository、`src/lib/commerce/commerce-platform.ts`、商品运营页 | `docs/data-dictionary.md`、commerce 数据 README |
 | 新增数据源 | provider、注册表、数据质量、候选探针、导入 CLI | `docs/commerce-data-ingestion.md` |
-| 页面生成反复不好看 | `.pi/skills/dashboard-visualization` 或 UI skill | `docs/learning/04-skills-and-visual-dashboard.md`、`docs/skills-governance.md` |
+| 页面生成反复不好看 | `.pi/skills/dashboard-visualization` 或 UI skill | `docs/generated-workspace-contract.md`、`docs/skills-governance.md` |
 | 新增基础设施组件 | `docker-compose.yml`、`.env.example`、doctor、运行治理中心 | `docs/infrastructure.md`、`docs/troubleshooting.md` |
 | 新增评测能力 | `src/lib/eval/index.ts`、评测平台页面 | `docs/evals-guide.md` |
 | 生成工作空间文件变化 | scaffold、validation、artifact contracts | `docs/generated-workspace-contract.md` |

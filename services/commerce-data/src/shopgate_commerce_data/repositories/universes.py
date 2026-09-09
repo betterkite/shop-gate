@@ -1007,7 +1007,7 @@ async def add_security_to_universe(
         "industry": security.raw.get("industry") or security.raw.get("f100"),
         "region": security.raw.get("region") or security.raw.get("f102"),
         "concepts": security.raw.get("concepts") or security.raw.get("f103"),
-        "added_source": "strategy-platform",
+        "added_source": "commerce-platform",
     }
     async with await connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
         await cursor.execute(
@@ -1080,7 +1080,7 @@ async def add_security_to_universe(
                 symbol,
                 role or "member",
                 weight,
-                Jsonb({"order": next_order, "added_source": "strategy-platform"}),
+                Jsonb({"order": next_order, "added_source": "commerce-platform"}),
             ),
         )
 

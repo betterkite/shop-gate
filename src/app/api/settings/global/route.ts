@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAction({
       headers: request.headers,
-      action: 'quant.data.read',
+      action: 'commerce.data.read',
     });
     const settings = await loadGlobalSettings();
     const response = NextResponse.json(serialize(settings));

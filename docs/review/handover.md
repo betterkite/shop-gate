@@ -4,6 +4,10 @@
 > 适用读者：接手开发 / 评审 / 运维
 > 配套文档：[P1–P7 核查清单](p1-p7-verification.md) · [P0–P11 架构与演进](p0-p11-architecture-and-roadmap.md)
 
+> 本轮交接审计：2026-09-09 · 分支：`codex/shopgate-handover-audit` · 工作项：ISSUE-P12/P15
+
+本轮以当前工作树为交接对象，保留用户既有的 `docs/learning/**` 删除变更；历史 P0–P11 记录只作为过程证据，不把旧的“已清理”描述当作本轮现状结论。
+
 ---
 
 ## 0. 项目是什么
@@ -126,9 +130,27 @@ cd services/commerce-data && .venv/bin/ruff check src && .venv/bin/python -m pyt
 | 4 | 改名 skill body/scripts 金融计算逻辑 | 功能正确性 | 按零售语义重写（rule-review/metrics 优先） |
 | 5 | 判官校准/变异/生产回放无零售语料 | 评测深度 | 语料积累后按 A 路线重建（机制层已保留） |
 | 6 | 日报推送回执需通知渠道 | 触达 | 配置企业微信/邮件渠道后接通 |
-| 7 | `retail-domain.publicSurface` 仍指 `@/lib/domains/finance` | 配置正确性 | 改为 `@/lib/domains/retail` |
-| 8 | `assets/` 文件名带 quant（4 个 webp） | 品牌残留（文件名） | 改名 + 更新 2 处 import |
-| 9 | `docs/commerce-data-source-knowledge.md` 等归档文档 | 文档噪音 | 后续删除或深化零售化 |
+| 7 | `retail-domain.publicSurface` 曾指向 `@/lib/domains/finance` | 配置正确性 | 本轮已改为 `@/lib/domains/retail` |
+| 8 | `assets/` 文件名带 quant（4 个 webp） | 品牌残留（文件名） | 本轮确认无引用并删除 3 个旧资产；现有有效资产不含该残留 |
+| 9 | `docs/commerce-data-source-knowledge.md` 等归档文档 | 文档噪音 | 本轮删除无引用归档文档并修复链接；后续只保留必要的历史出处记录 |
+
+## 3.1 本轮交接审计结论
+
+已完成并可复核：
+
+- `npm run type-check`、`npm run lint`、`npm run check:skills`、`npm run check:docs`、`npm run check:retail-e2e`、`npm run check:module-boundaries`、`npm run check:ai-provider-boundary`、`npm run check:backend-architecture`、`npm run check:service-catalog` 全部通过。
+- `npm run check:generated-artifacts`、`npm run check:validation-repair`、`npm run check:validation-stale` 全部通过；后端 `UV_CACHE_DIR=/private/tmp/shopgate-uv-cache uv run ruff check src` 与 `UV_CACHE_DIR=/private/tmp/shopgate-uv-cache uv run pytest -q` 通过（109 tests）。
+- 已删除无引用的旧 research API/UI、旧 research visual check、QuantPilot 头像资产和归档文档；当前文档链接检查为 43 个 Markdown / 207 个本地链接。
+- 当前默认 profile、workspace artifact、权限 action、配额 metric、平台视觉检查路由均已切换到零售/commerce/operations 命名；历史 Prisma migration 未修改，新增命名迁移保持追加式。
+- 全量 Vitest 当前为 `171 passed / 40 failed / 28 skipped`；40 个失败集中在受限环境的 preview listener `EPERM`、generated sandbox/skills 临时路径和 PI Agent terminal workspace identity，非本轮权限、路径或文档改动引入；权限/配额相关目标测试已 `77 passed`，新增 defaults migration 对齐测试 `2 passed`。
+
+仍需单独 PR 的范围：
+
+- `ISSUE-P13`：`services/commerce-data` 中未由 API 入口使用的旧金融后端模块，需要先做 import/运行入口/测试引用图，再分批删除。
+- `ISSUE-P14`：generation、eval、scaffold 中的 `Quant*` 类型与金融模板/语料，需要按公共 API、workspace artifact 和测试契约分阶段改名/重写。
+- `ISSUE-P16`：视觉回归需要登录态运行环境，catalog 基准仍有 token-budget 偶发失败，不能仅靠静态检查宣称完成。
+
+RepoSteward 备注：本地仓库未配置 remote，因此本轮没有创建远端 GitHub Issue/PR；上述条目已写入 `ISSUES.md` 作为后续 PR 的 reviewed work items。当前改动仍在专用分支，未合入 `main`。
 
 ## 4. 迭代进化路线
 

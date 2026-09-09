@@ -83,13 +83,12 @@ assertIncludes('docs/backend-capability-architecture.md', [
   'Repository',
   'Provider Adapter',
   'Cache Aside',
-  'ClickHouse',
   'TimescaleDB',
 ]);
 
-assertIncludes('docs/architecture.md', ['后端语言边界', 'ClickHouse', 'Python']);
+assertIncludes('docs/architecture.md', ['后端语言边界', 'TimescaleDB', 'Python']);
 assertIncludes('docs/README.md', ['后端能力架构']);
-assertIncludes('docs/project-structure.md', ['routers/', 'services/', 'repositories/', 'analytics/']);
+assertIncludes('docs/project-structure.md', ['routers/', 'services/', 'repositories/', 'database_core.py']);
 assertIncludes('services/commerce-data/src/shopgate_commerce_data/api.py', [
   'include_router(create_commerce_router())',
   'create_commerce_router',

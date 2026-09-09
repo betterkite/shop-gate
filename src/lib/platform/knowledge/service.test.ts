@@ -13,7 +13,7 @@ const config: KnowledgeIntegrationConfig = {
   enabled: true,
   required: false,
   apiUrl: 'https://knowledge.example',
-  purpose: 'quant-research',
+  purpose: 'retail-operations',
   spaces: ['https://knowledge.example/spaces/research'],
   projectSpacesEnabled: true,
   projectSpaceBaseUrl: 'https://knowledge.example/spaces/projects',
@@ -49,7 +49,7 @@ function port(): GovernedKnowledgePort {
       createdAt: '2026-07-19T00:00:00.000Z',
       exposureReceiptId: 'urn:uuid:00000000-0000-4000-8000-000000000001',
       policyEpoch: 'epoch-1',
-      purpose: 'quant-research',
+      purpose: 'retail-operations',
       passages: [{
         citationId: 'urn:akep:citation:one',
         chunkId: 'chunk-1',
@@ -122,7 +122,7 @@ describe('governed knowledge service', () => {
     expect(usage.status).toBe('recorded');
     expect(adapter.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
-        purpose: 'quant-research',
+        purpose: 'retail-operations',
         taskCategory: 'risk-dashboard',
         occurredAt: '2026-07-19T00:00:00.000Z',
         citations: [expect.objectContaining({ influence: 'seen' })],
@@ -171,7 +171,7 @@ describe('governed knowledge service', () => {
     const adapter = port();
     vi.mocked(adapter.createContextPack).mockImplementationOnce(async () => {
       const base = await port().createContextPack({
-        task: 'x', purpose: 'quant-research', spaces: [], maxCharacters: 1, supportedObligations: [],
+        task: 'x', purpose: 'retail-operations', spaces: [], maxCharacters: 1, supportedObligations: [],
       });
       return {
         ...base,

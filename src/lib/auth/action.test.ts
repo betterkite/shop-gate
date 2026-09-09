@@ -31,9 +31,9 @@ describe('PrismaPermissionPolicyRepository', () => {
       key: 'custom',
       name: 'Custom',
       isDefault: false,
-      grants: [grant('quant.data.read')],
+      grants: [grant('commerce.data.read')],
     };
-    const userOverrides = [grant('research.report.send', 'deny')];
+    const userOverrides = [grant('operations.brief.send', 'deny')];
     const findFirst = vi.fn();
     const permissionRepository = new PrismaPermissionPolicyRepository({
       authUser: {
@@ -182,12 +182,12 @@ describe('requireAction', () => {
   it('returns 403 when the account profile does not grant a capability', async () => {
     await expect(requireAction({
       headers,
-      action: 'research.report.send',
+      action: 'operations.brief.send',
     }, {
       authEnabled: true,
       getSession: vi.fn().mockResolvedValue(session()),
       repository: repository({
-        profile: { key: 'member-default', grants: [grant('research.report.read')] },
+        profile: { key: 'member-default', grants: [grant('operations.brief.read')] },
       }),
     })).rejects.toMatchObject({
       code: 'CAPABILITY_DENIED',
@@ -198,13 +198,13 @@ describe('requireAction', () => {
   it('allows account-scoped quant capabilities without a fake project context', async () => {
     await expect(requireAction({
       headers,
-      action: 'quant.data.read',
+      action: 'commerce.data.read',
     }, {
       authEnabled: true,
       getSession: vi.fn().mockResolvedValue(session()),
       getProjectRole: vi.fn(),
       repository: repository({
-        profile: { key: 'member-default', grants: [grant('quant.data.read')] },
+        profile: { key: 'member-default', grants: [grant('commerce.data.read')] },
       }),
     })).resolves.toMatchObject({ projectRole: null, decision: { allowed: true } });
   });

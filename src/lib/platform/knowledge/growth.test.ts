@@ -108,7 +108,7 @@ describe('governed knowledge growth loop', () => {
           contextDigest: `sha256:${'b'.repeat(64)}`,
           exposureReceiptId: 'urn:uuid:00000000-0000-4000-8000-000000000001',
           policyEpoch: 'epoch-1',
-          purpose: 'quant-research',
+          purpose: 'retail-operations',
           citations: [
             {
               ...knowledgeUseRecord().citations[0],
@@ -158,7 +158,7 @@ describe('governed knowledge growth loop', () => {
             contextDigest: `sha256:${'b'.repeat(64)}`,
             exposureReceiptId: 'urn:uuid:00000000-0000-4000-8000-000000000001',
             policyEpoch: 'epoch-1',
-            purpose: 'quant-research',
+          purpose: 'retail-operations',
             citations: [],
             obligations: [],
             qualityDecision: 'suitable',

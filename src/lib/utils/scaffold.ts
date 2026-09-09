@@ -462,7 +462,7 @@ async function scrubLegacyTradingPlanCss(cssPath: string) {
 
 async function ensureComparisonDashboardTemplate(projectPath: string) {
   const finalData = await readJsonRecord(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'));
-  const runPlan = await readJsonRecord(path.join(projectPath, '.data-agent', 'finance-run-plan.json'));
+  const runPlan = await readJsonRecord(path.join(projectPath, '.data-agent', 'retail-run-plan.json'));
   const runPlanVisualization = readRecord(runPlan?.visualization);
   const plannedTemplateId =
     typeof runPlanVisualization?.templateId === 'string'

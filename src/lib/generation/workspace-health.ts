@@ -9,10 +9,14 @@ import {
   DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
-import { readQuantArtifactContractReport } from '@/lib/generation/artifact-contracts';
+import { readDataAgentArtifactContractReport } from '@/lib/generation/artifact-contracts';
 import { readQuantGenerationQueue } from '@/lib/generation/generation-queue';
 import { readQuantGenerationState, type QuantGenerationState } from '@/lib/generation/generation-state';
 import { readQuantVisualValidationReport } from '@/lib/commerce/visual-validation';
+import {
+  RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+  RETAIL_RUN_PLAN_RELATIVE_PATH,
+} from '@/lib/domains/retail/workspace-artifacts';
 import type { Project } from '@/types/backend';
 
 type JsonRecord = Record<string, unknown>;
@@ -53,7 +57,7 @@ export interface WorkspaceHealthItem {
   repoPath: string;
   preferredCli: string | null;
   selectedModel: string | null;
-  quantCapabilityId: string | null;
+  capabilityId: string | null;
   previewUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -162,8 +166,8 @@ const REQUIRED_ARTIFACTS = [
   { id: 'profile', label: 'Agent Profile', path: '.data-agent/profile.json' },
   { id: 'task', label: 'Data Agent Task', path: '.data-agent/task.json' },
   { id: 'plan', label: 'Data Agent Plan', path: '.data-agent/plan.json' },
-  { id: 'query_rewrite', label: 'Finance Query Rewrite', path: '.data-agent/finance-query-rewrite.json' },
-  { id: 'run_plan', label: 'Run Plan', path: '.data-agent/finance-run-plan.json' },
+  { id: 'query_rewrite', label: 'Retail Query Rewrite', path: RETAIL_QUERY_REWRITE_RELATIVE_PATH },
+  { id: 'run_plan', label: 'Retail Run Plan', path: RETAIL_RUN_PLAN_RELATIVE_PATH },
   { id: 'generation_state', label: '生成状态', path: DATA_AGENT_GENERATION_STATE_RELATIVE_PATH },
   { id: 'generation_queue', label: '生成队列', path: DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH },
   { id: 'events', label: '事件日志', path: '.data-agent/events.jsonl' },
@@ -188,8 +192,8 @@ function readSettingsCapabilityId(settings?: string | null) {
   if (!settings) return null;
   try {
     const parsed = JSON.parse(settings);
-    if (!isRecord(parsed) || !isRecord(parsed.quant)) return null;
-    return stringValue(parsed.quant.capabilityId) || null;
+    if (!isRecord(parsed) || !isRecord(parsed.retail)) return null;
+    return stringValue(parsed.retail.capabilityId) || null;
   } catch {
     return null;
   }
@@ -513,7 +517,7 @@ async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> 
     readJsonRecord(path.join(projectPath, 'evidence', 'sources.json')),
     readQuantGenerationState(projectPath),
     readQuantGenerationQueue(projectPath, project.id),
-    readQuantArtifactContractReport(projectPath),
+    readDataAgentArtifactContractReport(projectPath),
     readQuantVisualValidationReport(projectPath),
   ]);
 
@@ -636,7 +640,7 @@ async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> 
     repoPath: path.relative(ROOT, projectPath),
     preferredCli: project.preferredCli ?? null,
     selectedModel: project.selectedModel ?? null,
-    quantCapabilityId: readSettingsCapabilityId(project.settings),
+    capabilityId: readSettingsCapabilityId(project.settings),
     previewUrl: project.previewUrl ?? null,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),

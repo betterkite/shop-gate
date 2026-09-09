@@ -105,7 +105,6 @@ const nextConfig = {
       { source: '/observability', destination: '/ops-platform?view=trace', permanent: true },
       { source: '/capabilities', destination: '/business-knowledge', permanent: true },
       { source: '/data-platform', destination: '/business-knowledge', permanent: true },
-      { source: '/strategies', destination: '/strategy-platform', permanent: true },
       { source: '/workspaces', destination: '/ops-platform', permanent: true },
       { source: '/evals', destination: '/eval-platform', permanent: true },
       { source: '/evals/runs/:runId', destination: '/eval-platform/runs/:runId', permanent: true },

@@ -90,7 +90,7 @@ describe('restoreQuantDashboardTemplate', () => {
     const projectPath = await createProject();
     await Promise.all([
       fs.writeFile(
-        path.join(projectPath, '.data-agent', 'finance-run-plan.json'),
+        path.join(projectPath, '.data-agent', 'retail-run-plan.json'),
         JSON.stringify({
           status: 'planned',
           capabilityId: 'technical_analysis',

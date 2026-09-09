@@ -107,7 +107,7 @@ jobs:
         run: node scripts/checks/check-commerce-e2e-suite.js --run-runtime-controls
 
       - name: Run real DeepSeek regression suite
-        run: npm run benchmark:quant:e2e -- --model deepseek-v4-flash --concurrency 1 --repeat 2
+        run: npm run benchmark:commerce:e2e -- --model deepseek-v4-flash --concurrency 1 --repeat 2
 
       - name: Enforce E2E gate
         run: npm run eval:ci:e2e -- --model deepseek-v4-flash --min-pass-rate 100 --min-average-score 90 --min-first-pass-rate 75 --max-repair-rate 25 --min-stability-rate 100 --min-stability-confidence-lower 60 --max-score-standard-deviation 10

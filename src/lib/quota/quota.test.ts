@@ -256,7 +256,7 @@ describe("quota policy and reservation service", () => {
     const service = createQuotaService(quotaClient(tx) as never);
 
     await expect(
-      service.resolvePolicy("member-1", "research.report_sends.daily"),
+      service.resolvePolicy("member-1", "operations.brief_sends.daily"),
     ).resolves.toMatchObject({
       source: "builtin-default",
       unlimited: false,
@@ -410,7 +410,7 @@ describe("quota policy and reservation service", () => {
       actorUserId: "member-1",
       projectId: null,
       bucketId: "bucket-1",
-      metric: "research.report_sends.daily",
+      metric: "operations.brief_sends.daily",
       reservedQuantity: 1n,
       committedQuantity: 0n,
       status: "active",
@@ -457,7 +457,7 @@ describe("quota policy and reservation service", () => {
       actorUserId: "member-1",
       projectId: null,
       bucketId: "bucket-1",
-      metric: "research.report_sends.daily",
+      metric: "operations.brief_sends.daily",
       reservedQuantity: 1n,
       committedQuantity: 0n,
       status: "active",

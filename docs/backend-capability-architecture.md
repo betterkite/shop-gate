@@ -123,7 +123,7 @@ TimescaleDB 是事实主库。零售指标读取优先走 `commerce.daily_item_m
 
 ```bash
 npm run check:backend-architecture
-npm run check:quant-guardrails  # 脚本名为金融遗留命名，仍在护栏中执行
+npm run check:backend-architecture
 cd services/commerce-data && uv run ruff check . && uv run pytest
 ```
 

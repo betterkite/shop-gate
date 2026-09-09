@@ -4,7 +4,7 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 
 仓库根目录的 `.pi/**` 是唯一 Skill 权威源和 PI Agent 受信编译输入；完整性由 registry/lock、版本与 SHA-256 校验提供，目前没有密码学签名。生成工作空间的 `.pi/skills/` 是可检查的参考镜像，不是执行发现源，Agent 不会改写该镜像。
 
-如果是第一次学习或修改 skill，先读 [Skills 编写与迭代教程](learning/07-skills-authoring.md)。本文偏治理规范，教程会更详细解释 skill 是什么、怎么写、怎么发布、怎么把用户反馈沉淀成长期规则。
+如果是第一次学习或修改 skill，先读本页的目录职责、命名规则和发布检查，再结合对应 skill 的 `SKILL.md` 与 references 实践。本文保留长期稳定的治理规范。
 
 ## 核心原则
 

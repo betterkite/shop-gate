@@ -154,8 +154,8 @@ const describeCurlCommand = (command: string) => {
 const describeFileTarget = (target: string, action: ToolAction) => {
   const normalized = target.replaceAll('\\', '/');
   if (!normalized) return '';
-  if (normalized.endsWith('.data-agent/finance-query-rewrite.json')) return '统一整理标的、周期、分析重点、输出方式和待确认项。';
-  if (normalized.endsWith('.data-agent/finance-run-plan.json')) return '记录本次分析计划、标的、数据需求和验收项。';
+  if (normalized.endsWith('.data-agent/retail-query-rewrite.json')) return '统一整理经营问题、时间窗口、分析重点、输出方式和待确认项。';
+  if (normalized.endsWith('.data-agent/retail-run-plan.json')) return '记录本次经营分析计划、数据需求和验收项。';
   if (normalized.endsWith('.data-agent/events.jsonl')) return '追加可见执行事件，便于复盘每个阶段。';
   if (normalized.endsWith('evidence/sources.json')) return '记录数据来源、接口、抓取时间和来源说明。';
   if (normalized.endsWith('evidence/data_quality.json')) return '记录数据质量、缺失字段、异常和限制。';

@@ -19,26 +19,26 @@ import {
 } from '@/lib/domains/retail/workspace-artifacts';
 import { appendRetailWorkspaceEvent, ensureRetailWorkspace } from '@/lib/domains/retail/workspace';
 
-export type QuantArtifactContractStatus = 'passed' | 'failed' | 'warning';
+export type DataAgentArtifactContractStatus = 'passed' | 'failed' | 'warning';
 
-export interface QuantArtifactContractCheck {
+export interface DataAgentArtifactContractCheck {
   id: string;
   label: string;
   path: string;
   required: boolean;
-  status: QuantArtifactContractStatus;
+  status: DataAgentArtifactContractStatus;
   summary: string;
   details?: string;
 }
 
-export interface QuantArtifactContractReport {
+export interface DataAgentArtifactContractReport {
   schemaVersion: 1;
   projectId: string;
   requestId?: string | null;
-  status: QuantArtifactContractStatus;
+  status: DataAgentArtifactContractStatus;
   passed: boolean;
   reportPath: string;
-  checks: QuantArtifactContractCheck[];
+  checks: DataAgentArtifactContractCheck[];
   createdAt: string;
   updatedAt: string;
 }
@@ -161,7 +161,7 @@ const dataAgentPlanSchema = z.object({
   updatedAt: nonEmptyString,
 });
 
-const financeQueryRewriteSchema = z.object({
+const retailQueryRewriteSchema = z.object({
   schemaVersion: z.literal(4),
   originalQuery: nonEmptyString,
   normalizedQuery: nonEmptyString,
@@ -508,11 +508,11 @@ const CONTRACTS: ContractDefinition[] = [
     schema: dataAgentPlanSchema,
   },
   {
-    id: 'finance_query_rewrite_contract',
-    label: 'Finance Query Rewrite 契约',
+    id: 'retail_query_rewrite_contract',
+    label: 'Retail Query Rewrite 契约',
     relativePath: RETAIL_QUERY_REWRITE_RELATIVE_PATH,
     required: true,
-    schema: financeQueryRewriteSchema,
+    schema: retailQueryRewriteSchema,
   },
   {
     id: 'run_plan_contract',
@@ -598,7 +598,7 @@ function formatZodIssue(issue: z.core.$ZodIssue) {
   return `${pathLabel}: ${issue.message}`;
 }
 
-async function checkContract(projectPath: string, definition: ContractDefinition): Promise<QuantArtifactContractCheck> {
+async function checkContract(projectPath: string, definition: ContractDefinition): Promise<DataAgentArtifactContractCheck> {
   const payload = await readJson(projectPath, definition.relativePath);
   if (!payload.ok) {
     return {
@@ -649,19 +649,19 @@ async function checkContract(projectPath: string, definition: ContractDefinition
   };
 }
 
-export async function validateQuantArtifactContracts(params: {
+export async function validateDataAgentArtifactContracts(params: {
   projectPath: string;
   projectId: string;
   requestId?: string | null;
-}): Promise<QuantArtifactContractReport> {
+}): Promise<DataAgentArtifactContractReport> {
   const projectPath = path.resolve(params.projectPath);
   const now = new Date().toISOString();
   await ensureRetailWorkspace(projectPath);
   const checks = await Promise.all(CONTRACTS.map((definition) => checkContract(projectPath, definition)));
   const requiredFailures = checks.filter((check) => check.required && check.status === 'failed');
   const warnings = checks.filter((check) => check.status === 'warning');
-  const status: QuantArtifactContractStatus = requiredFailures.length ? 'failed' : warnings.length ? 'warning' : 'passed';
-  const report: QuantArtifactContractReport = {
+  const status: DataAgentArtifactContractStatus = requiredFailures.length ? 'failed' : warnings.length ? 'warning' : 'passed';
+  const report: DataAgentArtifactContractReport = {
     schemaVersion: 1,
     projectId: params.projectId,
     requestId: params.requestId ?? null,
@@ -694,12 +694,12 @@ export async function validateQuantArtifactContracts(params: {
   return report;
 }
 
-export async function readQuantArtifactContractReport(projectPath: string): Promise<QuantArtifactContractReport | null> {
+export async function readDataAgentArtifactContractReport(projectPath: string): Promise<DataAgentArtifactContractReport | null> {
   const content = await fs.readFile(path.join(projectPath, DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH), 'utf8').catch(() => null);
   if (!content) return null;
   try {
     const parsed = JSON.parse(content);
-    return parsed && typeof parsed === 'object' ? parsed as QuantArtifactContractReport : null;
+    return parsed && typeof parsed === 'object' ? parsed as DataAgentArtifactContractReport : null;
   } catch {
     return null;
   }

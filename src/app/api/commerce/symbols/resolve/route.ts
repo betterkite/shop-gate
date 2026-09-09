@@ -12,7 +12,7 @@ const MARKET_API_BASE_URL = (
 export async function GET(request: NextRequest) {
   let context: Awaited<ReturnType<typeof requireAction>>;
   try {
-    context = await requireAction({ headers: request.headers, action: 'quant.data.read' });
+    context = await requireAction({ headers: request.headers, action: 'commerce.data.read' });
   } catch (error) {
     return authErrorResponse(error);
   }
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     try {
       await consumeQuota({
         actorUserId: context.session.user.id,
-        metric: 'quant.data_units.daily',
+        metric: 'commerce.data_units.daily',
         quantity: 1,
         idempotencyKey: `symbol-resolve:${context.session.user.id}:${requestId}`,
         sourceType: 'symbol_resolve',

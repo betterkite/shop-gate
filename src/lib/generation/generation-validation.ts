@@ -627,14 +627,14 @@ export function runValidationAfterExecution(params: {
           capsule: params.governedKnowledge,
           requestId: params.requestId,
           taskCategory:
-            params.governedKnowledgeTaskCategory ?? "quant-research",
+            params.governedKnowledgeTaskCategory ?? "retail-operations",
           occurredAt: acceptance.receipt.createdAt,
         });
         await persistAcceptedGovernedKnowledgeUse({
           projectId: params.projectId,
           requestId: params.requestId,
           taskCategory:
-            params.governedKnowledgeTaskCategory ?? "quant-research",
+            params.governedKnowledgeTaskCategory ?? "retail-operations",
           capsule: params.governedKnowledge,
           usage: knowledgeUsage,
           acceptedReceiptId: acceptance.receipt.id,

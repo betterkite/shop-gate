@@ -63,7 +63,7 @@ function httpBaseUrl(value: string, label: string): string {
 }
 
 function purpose(value: string | undefined): string {
-  const normalized = value?.trim() || 'quant-research';
+  const normalized = value?.trim() || 'retail-operations';
   if (!PURPOSE_PATTERN.test(normalized)) {
     throw new Error('SHOPGATE_KNOWLEDGE_PURPOSE is invalid.');
   }

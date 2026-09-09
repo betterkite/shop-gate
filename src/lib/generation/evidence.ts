@@ -535,7 +535,7 @@ export async function ensureBaselineEvidenceFiles(
     };
   }
 
-  const runPlan = await readJsonRecord(path.join(projectPath, '.data-agent', 'finance-run-plan.json'));
+  const runPlan = await readJsonRecord(path.join(projectPath, '.data-agent', 'retail-run-plan.json'));
   const now = new Date().toISOString();
   const runId = pickString(runPlan?.runId, runPlan?.run_id, finalData.runId, finalData.generatedAt, now) ?? now;
   const symbol = pickString(finalData.symbol, asRecord(finalData.quote)?.symbol, 'UNKNOWN') ?? 'UNKNOWN';

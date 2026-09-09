@@ -193,7 +193,7 @@ export async function prepareRetailActGeneration(
           const queryRewriteQuota = await reserveQuota({
             actorUserId: quotaActorUserId,
             projectId: project_id,
-            metric: "query_rewrite.llm.daily",
+            metric: "commerce.query_rewrite.llm.daily",
             quantity: 1,
             idempotencyKey: `chat-query-rewrite:${quotaActorUserId}:${requestId}:reservation`,
           });
@@ -454,7 +454,7 @@ export async function prepareRetailActGeneration(
         governedKnowledgeTaskCategory =
           runPlan.requestedCapabilityId ??
           runPlan.capabilityId ??
-          "quant-research";
+          "retail-operations";
         await writeGovernedKnowledgeEvidence({
           projectPath,
           requestId,
@@ -577,7 +577,7 @@ export async function prepareRetailActGeneration(
           await recordQuotaUsage({
             actorUserId: quotaActorUserId,
             projectId: project_id,
-            metric: "quant.data_units.daily",
+            metric: "commerce.data_units.daily",
             quantity: dataUnits,
             idempotencyKey: `chat-data-prefetch:${quotaActorUserId}:${requestId}`,
             sourceType: "quant_data_prefetch",

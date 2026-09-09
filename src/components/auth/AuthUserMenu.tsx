@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 type AuthUserMenuVariant = 'floating' | 'header';
 
 const SHARED_PAGE_HEADER_PREFIXES = [
-  '/strategy-platform',
+  '/commerce-platform',
   '/operations-briefing',
   '/business-knowledge',
   '/ops-platform',

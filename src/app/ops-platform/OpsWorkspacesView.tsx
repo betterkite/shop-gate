@@ -238,7 +238,7 @@ export function OpsWorkspacesView({
       if (segmentFilter === "active" && project.deliverySegment.id === "archive_candidate") return false;
       if (segmentFilter !== "all" && segmentFilter !== "active" && project.deliverySegment.id !== segmentFilter) return false;
       if (!lower) return true;
-      return [project.id, project.name, project.description, project.repoPath, project.quantCapabilityId, ...project.runPlan.symbols]
+      return [project.id, project.name, project.description, project.repoPath, project.capabilityId, ...project.runPlan.symbols]
         .filter(Boolean).join(" ").toLowerCase().includes(lower);
     });
   }, [data.projects, healthFilter, keyword, segmentFilter]);

@@ -56,7 +56,7 @@ describe('context use manifest', () => {
         contextDigest: 'context-digest-a',
         exposureReceiptId: 'exposure-a',
         policyEpoch: 'policy-a',
-        purpose: 'quant-research',
+        purpose: 'retail-operations',
         citations: [{
           citationId: 'citation-a',
           chunkId: 'chunk-a',
@@ -168,7 +168,7 @@ describe('context use manifest', () => {
         contextDigest: 'context-digest-a',
         exposureReceiptId: 'exposure-a',
         policyEpoch: 'policy-a',
-        purpose: 'quant-research',
+        purpose: 'retail-operations',
         citations: [],
         obligations: [],
         qualityDecision: 'suitable',

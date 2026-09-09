@@ -8,10 +8,10 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-vali
 });
 
 const {
-  buildQuantValidationRepairInstruction,
-  buildQuantValidationRepairPlan,
-  quantValidationRepairWritableGlobs,
-} = jiti('../../src/lib/commerce/validation.ts');
+  buildRetailValidationRepairInstruction,
+  buildRetailValidationRepairPlan,
+  retailValidationRepairWritableGlobs,
+} = jiti('../../src/lib/commerce/retail-validation.ts');
 
 function assertCondition(condition, message, failures) {
   if (!condition) {
@@ -52,11 +52,11 @@ const report = {
 };
 
 const failures = [];
-const plan = buildQuantValidationRepairPlan(report);
-const instruction = buildQuantValidationRepairInstruction(report, {
+const plan = buildRetailValidationRepairPlan(report);
+const instruction = buildRetailValidationRepairInstruction(report, {
   originalInstruction: '分析贵州茅台最近财务和 K 线，生成可视化看板。',
 });
-const writableGlobs = quantValidationRepairWritableGlobs(report);
+const writableGlobs = retailValidationRepairWritableGlobs(report);
 
 assertCondition(plan.status === 'needed', 'repair plan 状态应为 needed。', failures);
 assertCondition(plan.repairPlanPath === '.data-agent/validation-repair-plan.json', 'repair plan 路径不正确。', failures);

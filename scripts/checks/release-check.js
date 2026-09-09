@@ -41,7 +41,6 @@ const checks = [
   ['Backend architecture', 'npm', ['run', 'check:backend-architecture'], ROOT],
   ['Module boundaries', 'npm', ['run', 'check:module-boundaries'], ROOT],
   ['Service catalog', 'npm', ['run', 'check:service-catalog'], ROOT],
-  ['Quant guardrails', 'npm', ['run', 'check:quant-guardrails'], ROOT],
   ['Benchmark coverage', 'npm', ['run', 'check:benchmark-coverage'], ROOT],
   ['Evaluation dataset and snapshot contracts', 'npm', ['run', 'check:eval-datasets'], ROOT],
   ['Evaluator mutation kill-rate', 'npm', ['run', 'check:eval-mutations'], ROOT],
@@ -69,7 +68,7 @@ if (includeProduction) {
 }
 if (generateContractEvidence) {
   checks.push(
-    ['Generate current-build contract evidence', 'npm', ['run', 'benchmark:quant:contract'], ROOT],
+    ['Generate current-build contract evidence', 'npm', ['run', 'benchmark:commerce:contract'], ROOT],
     [
       'Attest current-build contract evidence',
       'npm',
@@ -99,7 +98,7 @@ if (includeE2eEvidence) {
       'Generate current-build live Mission E2E evidence',
       'npm',
       [
-        'run', 'benchmark:quant:e2e', '--',
+        'run', 'benchmark:commerce:e2e', '--',
         '--model', evidenceModel,
         '--concurrency', '1',
         '--repeat', '2',

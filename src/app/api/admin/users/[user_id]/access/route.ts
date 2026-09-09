@@ -193,7 +193,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         );
       }
       if (
-        ['llm.total_tokens.monthly', 'quant.data_units.daily']
+        ['llm.total_tokens.monthly', 'commerce.data_units.daily']
           .includes(override.metric) &&
         override.enforcement === 'hard'
       ) {

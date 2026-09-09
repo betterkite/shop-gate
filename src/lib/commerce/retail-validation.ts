@@ -16,7 +16,7 @@ import {
   type RetailRunPlan,
 } from '@/lib/domains/retail/workspace';
 import type { RetailQueryRewriteResult } from '@/lib/domains/retail/query-rewrite';
-import { validateQuantArtifactContracts } from '@/lib/generation/artifact-contracts';
+import { validateDataAgentArtifactContracts } from '@/lib/generation/artifact-contracts';
 import { validateQuantVisualPresentation } from '@/lib/commerce/visual-validation';
 import {
   generatedBuildScriptContents,
@@ -1423,7 +1423,7 @@ function pickSymbolCode(value: unknown): string | null {
 }
 
 async function readRunPlan(projectPath: string): Promise<Record<string, unknown> | null> {
-  const raw = await readTextFile(path.join(projectPath, '.data-agent', 'finance-run-plan.json'));
+  const raw = await readTextFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'));
   if (!raw) {
     return null;
   }
@@ -2286,7 +2286,7 @@ async function checkArtifactContracts(
   projectId: string,
   requestId?: string | null
 ): Promise<Omit<RetailValidationCheck, 'id' | 'name' | 'durationMs'>> {
-  const report = await validateQuantArtifactContracts({
+  const report = await validateDataAgentArtifactContracts({
     projectPath,
     projectId,
     requestId,

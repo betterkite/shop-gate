@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   try {
     await requireAction({
       headers: request.headers,
-      action: 'quant.data.read',
+      action: 'commerce.data.read',
     });
     const status: CLIStatus = {
       pi: await checkPiAgent(),

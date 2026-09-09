@@ -123,10 +123,10 @@ npm run auth:bootstrap
 | `agent.concurrent` | 2 | `hard` / `lifetime` | 已被 Worker claim 的 running Job；由数据库状态实时计算 |
 | `agent.requests.daily` | 100 | `hard` / `day` | 每日 Agent 请求数 |
 | `llm.total_tokens.monthly` | 2,000,000 | `warn` / `month` | Agent 与其他已接入模型链路的实际总 Token；结果结算后提示超额 |
-| `query_rewrite.llm.daily` | 200 | `hard` / `day` | 每日进入 LLM 问题改写的次数；纯确定性 preview 不计此项 |
-| `quant.data_units.daily` | 2,000 | `warn` / `day` | 数据取数/生成任务的标准化数据工作量；结果结算后提示超额 |
-| `research.report_runs.daily` | 20 | `hard` / `day` | 每日日报生成任务数 |
-| `research.report_sends.daily` | 10 | `hard` / `day` | 每日真实日报推送数；dry-run 不计此项 |
+| `commerce.query_rewrite.llm.daily` | 200 | `hard` / `day` | 每日进入 LLM 经营问题改写的次数；纯确定性 preview 不计此项 |
+| `commerce.data_units.daily` | 2,000 | `warn` / `day` | 数据取数/生成任务的标准化数据工作量；结果结算后提示超额 |
+| `operations.brief_runs.daily` | 20 | `hard` / `day` | 每日经营日报生成任务数 |
+| `operations.brief_sends.daily` | 10 | `hard` / `day` | 每日真实经营情报推送数；dry-run 不计此项 |
 
 次数、Token、数据单元等计量指标使用带 TTL 的 reservation，成功后 settlement，失败或取消则 release。`agent.pending` 和 `agent.concurrent` 不使用会过期的 reservation：入口在锁住 `auth_users` actor 行后统计待执行请求，Worker claim 在同一 actor 锁下统计 running Job；任务状态本身就是配额事实源，因此长时间排队和 Worker 崩溃不会留下假并发。预留、结算和直接记账仍要求唯一幂等键，用不同 actor、metric、项目或数量复用同一键返回 `409 QUOTA_IDEMPOTENCY_CONFLICT`。
 

@@ -1,8 +1,8 @@
 # Data Agent 平台与 Domain Pack 架构
 
-Shop Gate 采用可复用的数据智能平台架构：开源 PI Agent 提供完整多轮执行循环，Shop Gate 提供权限、durable runtime 与交付治理，Data Agent 提供通用数据任务合同，不同业务通过 Domain Pack 注入实体、数据源、Skills、工具、验证和可视化规则。金融量化是第一个完整 Domain Pack，而不是通用内核的默认假设。
+Shop Gate 采用可复用的数据智能平台架构：开源 PI Agent 提供完整多轮执行循环，Shop Gate 提供权限、durable runtime 与交付治理，Data Agent 提供通用数据任务合同，不同业务通过 Domain Pack 注入实体、数据源、Skills、工具、验证和可视化规则。零售电商是当前完整 Domain Pack，而不是通用内核的默认假设。
 
-这次调整的目标不是把 Shop Gate 改成抽象框架展示项目，而是建立一条可持续扩展的产品主线：
+这次调整的目标不是把 Shop Gate 改成抽象框架展示项目，而是建立一条可持续扩展的零售产品主线：
 
 ```text
 Data Agent 产品
@@ -20,8 +20,8 @@ Data Agent 产品
 | --- | --- | --- | --- |
 | PI Agent Runtime + Shop Gate Governance | PI 完整 Agent loop；Shop Gate Provider 适配、上下文预算、类型化工具、Skill 编译、durable runtime、Mission 执行与证据验证机制 | 证券、K 线、财报等业务概念 | `src/lib/agent/pi/**`、`src/lib/agent/**` |
 | Data Agent Core | 通用任务、实体、指标、维度、数据集、Connector、Domain Pack、Agent Profile、组合锁、应用 Catalog 和执行计划合同 | 某个行业的解析规则和接口地址 | `src/lib/data-agent/**` |
-| Finance Domain Pack | 证券实体、行情连接器、量化能力、金融 Skills、金融工具、Mission、验证和可视化配置 | 通用 Agent loop 和跨行业任务模型 | `src/lib/domains/finance/**` |
-| Shop Gate Application | 项目、聊天、预取、工作空间交付和金融产品页面 | 定义新的通用 Agent 机制或领域合同 | `src/lib/commerce/**`、`src/lib/services/**`、`src/app/**` |
+| Retail Domain Pack | 商品/类目实体、commerce 数据连接器、经营能力、零售 Skills、工具、Mission、验证和可视化配置 | 通用 Agent loop 和跨行业任务模型 | `src/lib/domains/retail/**` |
+| Shop Gate Application | 项目、聊天、预取、工作空间交付和零售产品页面 | 定义新的通用 Agent 机制或领域合同 | `src/lib/commerce/**`、`src/lib/services/**`、`src/app/**` |
 | Delivery Pack | 把结果交付为 dashboard、report、dataset 或其他受验证产物 | 解释领域语义 | `src/lib/data-agent/delivery-packs/**` |
 
 依赖方向必须保持为：
@@ -29,14 +29,14 @@ Data Agent 产品
 ```mermaid
 flowchart LR
   APP[Product Application] --> DA[Data Agent Core]
-  APP --> FD[Finance Domain Pack]
-  FD --> DA
+  APP --> RD[Retail Domain Pack]
+  RD --> DA
   DA --> MA[PI Agent + Shop Gate Governance]
-  FD --> MA
+  RD --> MA
   MA --> SK[Shared Kernel]
 ```
 
-`src/lib/agent/**` 不得导入 `src/lib/data-agent/**`、`src/lib/domains/**` 或 `src/lib/commerce/**`；Data Agent Core 不得导入具体 Domain Pack；Finance Domain Pack 不得反向依赖 `quant` 产品编排层。规则由 `config/module-boundaries.json` 和 `npm run check:module-boundaries` 固化。
+`src/lib/agent/**` 不得导入 `src/lib/data-agent/**`、`src/lib/domains/**` 或 `src/lib/commerce/**`；Data Agent Core 不得导入具体 Domain Pack；Retail Domain Pack 不得反向依赖产品编排层。规则由 `config/module-boundaries.json` 和 `npm run check:module-boundaries` 固化。
 
 ## 三类核心合同
 
@@ -58,17 +58,17 @@ flowchart LR
 - validatorIds：交付前必须执行的领域检查；
 - visualizationProfileIds：业务适用的表达和可视化配置。
 
-当前金融实现位于 `src/lib/domains/finance/agent-profile.ts`，标识为 `finance.quant@1.0.0`。
+当前零售实现位于 `src/lib/domains/retail/agent-profile.ts`，标识为 `retail.core@1.0.0`。
 
 ### Agent Profile
 
 `DataAgentProfile` 不是模型名称，而是一套可部署的 Agent 组合。它选择 Domain Pack、默认 capability、Delivery Pack，以及可选的 Memory/Knowledge policy。
 
-当前 `shopgate.finance-research@1.0.0` 组合：
+当前 `shopgate.retail-ops@1.0.0` 组合：
 
 ```text
 PI Agent 0.82.1 + Shop Gate Governance
-  + finance.quant
+  + retail.core
   + workspace.next-dashboard
   + shopgate.personalization（可选）
   + shopgate.governed-knowledge（可选）
@@ -76,17 +76,17 @@ PI Agent 0.82.1 + Shop Gate Governance
 
 项目表的 `agent_profile_id`、`agent_profile_version` 和 `data_agent_composition_sha256` 是选择事实源，项目空间的 `.data-agent/workspace.json`、`profile.json` 是可审计运行投影；两者不能依赖进程内隐式默认值。`POST /api/projects` 只接受通用 `agentProfileId`、`capabilityId` 和 `capabilitySelectionSource`，未知 Profile/capability 在写目录和入库前失败关闭。
 
-`workspace.next-dashboard@1.0.0` 已作为独立 Delivery Pack 注册，声明支持的输出、工作区目录、权威产物路径和通用 validator。Finance Domain Pack 不再自行发明目录结构；应用 composition root 组合 Delivery Pack、Finance Domain Pack 与 Agent Profile。
+`workspace.next-dashboard@1.0.0` 已作为独立 Delivery Pack 注册，声明支持的输出、工作区目录、权威产物路径和通用 validator。Retail Domain Pack 不再自行发明目录结构；应用 composition root 组合 Delivery Pack、Retail Domain Pack 与 Agent Profile。
 
 `DataAgentRegistry.resolveCapability()` 会同时校验 capability 已注册、状态为 `ready`、输出被 capability 与 Delivery Pack 共同支持，并生成不可变 `DataAgentCompositionLock`。锁包含 Profile、所有 Domain Pack、Delivery Pack、capability 的 ID/版本和内容 SHA-256；项目、workspace、run plan、Mission 与 generation envelope 使用同一身份。
 
-`DataAgentApplicationCatalog` 把 Profile 绑定到项目 provision adapter。通用项目服务不再创建金融 run plan 或安装金融 Skill，而是调用选中 Profile 的 adapter。当前 Finance adapter 位于 `src/lib/commerce/data-agent-application.ts`；新增业务通过注册 adapter 扩展，不在 `project.ts` 增加行业分支。
+`DataAgentApplicationCatalog` 把 Profile 绑定到项目 provision adapter。通用项目服务不再创建零售 run plan 或安装领域 Skill，而是调用选中 Profile 的 adapter。当前 Retail adapter 位于 `src/lib/commerce/data-agent-application.ts`；新增业务通过注册 adapter 扩展，不在 `project.ts` 增加行业分支。
 
 ### Generation Envelope 与领域 Handler
 
 HTTP 请求把规划、数据准备和 Mission 创建委托给 Domain 应用服务，完成后会先把 schema v3 `DataAgentGenerationEnvelope` 写入 PostgreSQL job/outbox，再向客户端返回已排队。信封包含不可变 composition lock、Consumer/Tenant/Project/Workspace/Request scope、跨平台 `integrationScopeSha256`、Provider-neutral 执行输入和本次已准备的 Memory/Knowledge 快照，不保存 API Key、Authorization、Cookie、Provider 私有 session 或 hidden reasoning。
 
-生产 generation worker 与本地 inline 调度都根据 `composition.profile.id` 从 `DataAgentGenerationRuntimeRegistry` 解析同一个 handler。Worker 执行前重新核对 envelope 自身哈希、项目 Profile 版本/组合哈希、job 的 Project/Request、canonical workspace 和当前 integration scope；任何漂移都失败关闭。当前 composition root 只注册 `shopgate.finance-research` handler，但 Worker、dispatch、lease、heartbeat、attempt 和 fencing 都位于通用执行边界。新增业务必须注册自己的 Profile handler，不能在 Worker 脚本里增加行业判断分支。
+生产 generation worker 与本地 inline 调度都根据 `composition.profile.id` 从 `DataAgentGenerationRuntimeRegistry` 解析同一个 handler。Worker 执行前重新核对 envelope 自身哈希、项目 Profile 版本/组合哈希、job 的 Project/Request、canonical workspace 和当前 integration scope；任何漂移都失败关闭。当前 composition root 只注册 `shopgate.retail-ops` handler，但 Worker、dispatch、lease、heartbeat、attempt 和 fencing 都位于通用执行边界。新增业务必须注册自己的 Profile handler，不能在 Worker 脚本里增加行业判断分支。
 
 ```text
 Web: Task -> Domain Plan -> Data Prefetch -> Mission -> durable job/outbox
@@ -104,9 +104,9 @@ Worker/inline: registry -> domain handler -> PI Agent adapter -> Delivery valida
   profile.json       # Agent Profile 与当前 capability
   task.json          # 通用 DataAgentTask
   plan.json          # 通用 DataAgentExecutionPlan
-  finance-query-rewrite.json # 金融 schema v4 领域合同
-  finance-run-plan.json      # 金融取数和可视化计划
-  validation.json    # 当前金融 Delivery Pack 验证报告
+  retail-query-rewrite.json  # 零售 schema v4 领域合同
+  retail-run-plan.json       # 零售取数和可视化计划
+  validation.json             # 当前零售 Delivery Pack 验证报告
 data_file/final/
   dashboard-data.json
 evidence/
@@ -114,24 +114,24 @@ evidence/
   data_quality.json
 ```
 
-`.data-agent/**` 是唯一工作空间控制面。通用消费者读取 `workspace/profile/task/plan`，Finance Domain Pack 读取带 `finance-` 前缀的领域扩展；运行状态、验证和证据投影也只写入该目录。平台不会探测或读取任何旧控制目录。
+`.data-agent/**` 是唯一工作空间控制面。通用消费者读取 `workspace/profile/task/plan`，Retail Domain Pack 读取带 `retail-` 前缀的领域扩展；运行状态、验证和证据投影也只写入该目录。平台不会探测或读取任何旧控制目录。
 
 Agent 工具不能修改这个控制目录；它只能由平台编排器写入。控制 JSON 使用同目录临时文件加 rename 原子提交，并拒绝嵌套 symlink 逃逸。Mission 会把 `.data-agent/workspace.json`、`profile.json`、`task.json` 和 `plan.json` 纳入冻结 subject manifest，防止验证期间任务身份漂移。
 
-图片附件也遵循这条边界。`src/lib/data-agent/image-attachments.ts` 只负责项目相对路径校验、真实图片签名/大小校验、安全公共镜像和通用 `.data-agent/attachments.json`；它不知道持仓、证券或量化工具。`src/lib/domains/finance/image-attachment-context.ts` 才注入持仓字段、证券 Resolver、`commerce_extract_uploaded_image` 和金融证据要求。未来零售、运营或制造 Domain Pack 可复用通用附件层，并写自己的领域扩展，不需要复制聊天入口。
+图片附件也遵循这条边界。`src/lib/data-agent/image-attachments.ts` 只负责项目相对路径校验、真实图片签名/大小校验、安全公共镜像和通用 `.data-agent/attachments.json`；它不知道商品、类目或经营工具。零售 Domain Pack 负责注入商品图片解析与经营证据要求。未来其他 Domain Pack 可复用通用附件层，并写自己的领域扩展，不需要复制聊天入口。
 
 ## 运行组合
 
-一次金融任务目前按下面顺序运行：
+一次零售经营任务目前按下面顺序运行：
 
 1. 产品层根据项目选择加载 Agent Profile。
 2. 选中的 LLM 生成金融 Query Rewrite，Resolver 独立核验证券实体。
-3. Finance Domain Pack 投影出 `DataAgentTask`，并形成金融 run plan 与通用 execution plan。
-4. Finance Domain Pack 提供 capability 到 Skill descriptor 的投影。
-5. Finance 工具工厂组合通用文件工具、金融行情工具、看板编译器和检查器。
-6. Finance Mission Definition 声明所需产物、节点、预算、验证和接受条件。
-7. Web 把严格版本化的 Finance generation envelope 与 job/outbox 原子持久化；生产模式由独立 Worker claim。
-8. 通用运行时注册表把任务分派给 Finance handler，PI Agent 只消费 Shop Gate 适配后的 Skills、Tools 与 Mission，不认识任何证券或量化类型。
+3. Retail Domain Pack 投影出 `DataAgentTask`，并形成零售 run plan 与通用 execution plan。
+4. Retail Domain Pack 提供 capability 到 Skill descriptor 的投影。
+5. Retail 工具工厂组合通用文件工具、commerce 数据工具、看板编译器和检查器。
+6. Retail Mission Definition 声明所需产物、节点、预算、验证和接受条件。
+7. Web 把严格版本化的 Retail generation envelope 与 job/outbox 原子持久化；生产模式由独立 Worker claim。
+8. 通用运行时注册表把任务分派给 Retail handler，PI Agent 只消费 Shop Gate 适配后的 Skills、Tools 与 Mission，不认识任何具体行业类型。
 9. Delivery 验证通过且证据 receipt 被接受后，任务才进入 completed。
 
 Shop Gate Skills 编译器只支持通用的 `activatedSkillIds` 与 `excludedSkillIds`。例如“有附件时启用图片提取”“证券已经解析后排除 symbol resolver”均由金融调用方决定，Agent 治理层不硬编码这些 ID。`query_json` 的 artifact handles、alias、identity 校验、对象字段优先级和领域提示仍由兼容类型 `PiAgentJsonArtifactConfiguration` 注入；Finance 配置位于 `src/lib/domains/finance/agent-tools/structured-read.ts`。

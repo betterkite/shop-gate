@@ -11,6 +11,10 @@ const MIGRATION_PATH = path.join(
   'prisma/migrations/20260716000400_add_permissions_and_usage_quotas/migration.sql',
 );
 const migrationSql = readFileSync(MIGRATION_PATH, 'utf8');
+const retailNamingMigrationSql = readFileSync(path.join(
+  process.cwd(),
+  'prisma/migrations/20260909000200_rename_retail_access_metrics/migration.sql',
+), 'utf8');
 const hardeningMigrationSql = readFileSync(path.join(
   process.cwd(),
   'prisma/migrations/20260717000100_harden_default_member_quotas/migration.sql',
@@ -25,6 +29,19 @@ const hardeningBlock = hardeningMigrationSql.match(
 const warningBlock = hardeningMigrationSql.match(
   /SET\s+"enforcement" = 'warn'[\s\S]+?;/,
 )?.[0] ?? '';
+const RETAIL_IDENTIFIER_RENAMES: Record<string, string> = {
+  'quant.data.read': 'commerce.data.read',
+  'quant.query.rewrite.llm': 'commerce.query.rewrite.llm',
+  'quant.strategy.run': 'commerce.operation.run',
+  'quant.strategy.manage': 'commerce.operation.manage',
+  'research.report.read': 'operations.brief.read',
+  'research.report.run': 'operations.brief.run',
+  'research.report.send': 'operations.brief.send',
+  'query_rewrite.llm.daily': 'commerce.query_rewrite.llm.daily',
+  'quant.data_units.daily': 'commerce.data_units.daily',
+  'research.report_runs.daily': 'operations.brief_runs.daily',
+  'research.report_sends.daily': 'operations.brief_sends.daily',
+};
 
 function migrationPermissionGrants(profileId: string): string[] {
   const marker = `\n  '${profileId}',\n  permission_key,`;
@@ -36,7 +53,7 @@ function migrationPermissionGrants(profileId: string): string[] {
     throw new Error(`Migration grant array is malformed for ${profileId}.`);
   }
   return [...migrationSql.slice(arrayOffset, arrayEnd).matchAll(/'([^']+)'/g)]
-    .map((match) => match[1]);
+    .map((match) => RETAIL_IDENTIFIER_RENAMES[match[1]] ?? match[1]);
 }
 
 function migrationQuotaRules(): Array<{
@@ -55,7 +72,7 @@ function migrationQuotaRules(): Array<{
   const rules = [...block.matchAll(
     /\('[^']+', 'quota_profile_member_default', '([^']+)', (\d+), '([^']+)', '([^']+)', (NULL|\d+), (\d+),/g,
   )].map((match) => ({
-    metric: match[1],
+    metric: RETAIL_IDENTIFIER_RENAMES[match[1]] ?? match[1],
     limit: BigInt(match[2]),
     enforcement: match[3],
     windowType: match[4],
@@ -91,9 +108,9 @@ describe('built-in access-control defaults', () => {
     const expected = DEFAULT_QUOTA_RULES.map((rule) => ({ ...rule }))
       .sort((left, right) => left.metric.localeCompare(right.metric));
     const actual = migrationQuotaRules()
-      .map((rule) => hardeningBlock.includes(`'${rule.metric}'`)
+      .map((rule) => hardeningBlock.includes(`'${Object.entries(RETAIL_IDENTIFIER_RENAMES).find(([, current]) => current === rule.metric)?.[0] ?? rule.metric}'`)
         ? { ...rule, enforcement: 'hard' }
-        : warningBlock.includes(`'${rule.metric}'`)
+        : warningBlock.includes(`'${Object.entries(RETAIL_IDENTIFIER_RENAMES).find(([, current]) => current === rule.metric)?.[0] ?? rule.metric}'`)
           ? { ...rule, enforcement: 'warn' }
           : rule)
       .sort((left, right) => left.metric.localeCompare(right.metric));
@@ -105,5 +122,7 @@ describe('built-in access-control defaults', () => {
     expect(migrationSql).toContain(`'${DEFAULT_QUOTA_PROFILE.name}'`);
     expect(`${migrationSql}\n${hardeningMigrationSql}`)
       .toContain(`'${DEFAULT_QUOTA_PROFILE.description}'`);
+    expect(retailNamingMigrationSql).toContain("'quant.data.read'");
+    expect(retailNamingMigrationSql).toContain("'commerce.data.read'");
   });
 });

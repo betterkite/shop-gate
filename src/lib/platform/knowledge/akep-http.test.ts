@@ -7,7 +7,7 @@ const config: KnowledgeIntegrationConfig = {
   enabled: true,
   required: false,
   apiUrl: 'https://knowledge.example',
-  purpose: 'quant-research',
+  purpose: 'retail-operations',
   spaces: ['https://knowledge.example/spaces/research'],
   projectSpacesEnabled: true,
   projectSpaceBaseUrl: 'https://knowledge.example/spaces/projects',
@@ -62,7 +62,7 @@ describe('AKEP HTTP adapter', () => {
         createdAt: '2026-07-19T00:00:00.000Z',
         exposureReceiptId: 'urn:uuid:00000000-0000-4000-8000-000000000001',
         policyEpoch: 'epoch-1',
-        purpose: 'quant-research',
+        purpose: 'retail-operations',
         passages: [{
           citationId: 'urn:akep:citation:one',
           chunkId: 'chunk-1',
@@ -98,7 +98,7 @@ describe('AKEP HTTP adapter', () => {
     await adapter.discover();
     const pack = await adapter.createContextPack({
       task: 'Build a risk dashboard',
-      purpose: 'quant-research',
+      purpose: 'retail-operations',
       spaces: config.spaces,
       maxCharacters: 4_000,
       supportedObligations: ['cite', 'no-train'],
@@ -110,7 +110,7 @@ describe('AKEP HTTP adapter', () => {
     expect(new Headers(init.headers).get('authorization')).toBe('Bearer reader-token');
     expect(new Headers(init.headers).get('akep-version')).toBe('0.1');
     expect(JSON.parse(String(init.body))).toMatchObject({
-      purpose: 'quant-research',
+      purpose: 'retail-operations',
       mode: 'lexical',
       budget: { maxCharacters: 4000 },
     });

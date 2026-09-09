@@ -35,7 +35,7 @@ model Project {
   // Agent Runtime Preferences. PiAgent rebuilds bounded context from messages.
   preferredCli               String? @map("preferred_cli") // 产品运行时标识，规范值为 pi
   selectedModel              String? @map("selected_model") // 默认 local_qwen:qwen3.5-9b-q5km，可显式选择受控模型
-  agentProfileId             String  @default("shopgate.finance-research") @map("agent_profile_id")
+  agentProfileId             String  @default("shopgate.retail-ops") @map("agent_profile_id")
   agentProfileVersion        String  @default("1.0.0") @map("agent_profile_version")
   dataAgentCompositionSha256 String  @default("sha256:89436aed794ee3f03ae211a3d07ea6bc0c7fd94cd46663dba9f31917fcb8d575") @map("data_agent_composition_sha256")
 

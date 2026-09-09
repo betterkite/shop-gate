@@ -76,15 +76,15 @@ export async function ensureProjectLlmConfiguration(params: {
     !Array.isArray(settings.dataAgent)
     ? settings.dataAgent as Record<string, unknown>
     : {};
-  const quantSettings = settings.quant &&
-    typeof settings.quant === 'object' &&
-    !Array.isArray(settings.quant)
-    ? settings.quant as Record<string, unknown>
+  const retailSettings = settings.retail &&
+    typeof settings.retail === 'object' &&
+    !Array.isArray(settings.retail)
+    ? settings.retail as Record<string, unknown>
     : {};
   const capabilityId = typeof dataAgentSettings.capabilityId === 'string'
     ? dataAgentSettings.capabilityId
-    : typeof quantSettings.capabilityId === 'string'
-      ? quantSettings.capabilityId
+    : typeof retailSettings.capabilityId === 'string'
+      ? retailSettings.capabilityId
       : undefined;
   const application = getApplicationDataAgentCatalog().resolve(
     params.agentProfileId ?? DEFAULT_DATA_AGENT_PROFILE_ID,

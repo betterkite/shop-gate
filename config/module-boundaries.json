@@ -76,7 +76,7 @@
         "ui-kit",
         "platform-navigation-ui",
         "platform-core",
-        "quant-core",
+        "commerce-core",
         "retail-domain"
       ],
       "publicSurface": [
@@ -109,7 +109,7 @@
         "@/lib/services/settings"
       ],
       "migrationNotes": [
-        "金融项目创建服务已归入 quant-core；后续新增通用 ProjectCatalog，不把默认 Domain Pack 写回平台核心。"
+        "项目创建服务已归入 commerce-core；默认 Domain Pack 通过注册表解析，不写回平台核心。"
       ]
     },
     {
@@ -168,7 +168,7 @@
       "id": "retail-domain",
       "name": "零售电商 Domain Pack",
       "summary": "零售能力目录、商品/类目 Resolver、commerce 工具、零售 Mission 合同与零售可视化配置。",
-      "owner": "quant-platform",
+      "owner": "commerce-platform",
       "paths": [
         "src/lib/domains/retail/**"
       ],
@@ -179,14 +179,14 @@
         "platform-core"
       ],
       "publicSurface": [
-        "@/lib/domains/finance"
+        "@/lib/domains/retail"
       ]
     },
     {
-      "id": "quant-core",
-      "name": "量化核心",
-      "summary": "量化能力、策略、数据预取、工作空间证据、验证和技能治理。",
-      "owner": "quant-platform",
+      "id": "commerce-core",
+      "name": "电商业务核心",
+      "summary": "零售能力编排、数据预取、工作空间证据、验证和技能治理。",
+      "owner": "commerce-platform",
       "paths": [
         "src/lib/commerce/**",
         "src/lib/services/project.ts",
@@ -203,9 +203,7 @@
         "src/app/api/chat/**",
         "src/app/api/projects/**",
         "src/app/[project_id]/**",
-        "src/app/api/research/**",
-        "src/app/strategy-platform/**",
-        "src/app/research-reports/**",
+        "src/app/operations-briefing/**",
         "src/app/business-knowledge/**",
         "src/components/eval-console/skills-*.tsx",
         "src/components/eval-console/workspace-*.tsx",
@@ -223,16 +221,14 @@
         "platform-navigation-ui"
       ],
       "publicSurface": [
-        "@/lib/domains/finance",
         "@/lib/services/project",
         "@/lib/services/cli/pi-agent",
-        "@/lib/commerce/research-reports",
-        "@/lib/commerce/strategies",
-        "@/lib/domains/finance",
-        "@/lib/commerce/validation"
+        "@/lib/domains/retail",
+        "@/lib/commerce/retail-briefing",
+        "@/lib/commerce/retail-validation"
       ],
       "migrationNotes": [
-        "strategies.ts 已拆出 strategy-types / strategy-catalog / strategy-scan-repository / strategy-readiness / strategy-mappers；StrategyPlatformClient 已拆出 helpers、FinancialKnowledgeView、UniverseView、StockKlineDetail、SectorCapitalFlowView、FactorCatalogView、FoundationView，后续继续拆 dialogs、hooks、market API client 和 dashboard service。"
+        "零售生成与经营情报链路已按 Domain Pack、commerce service、generation platform 分层；继续拆分超大 validation facade 时保持单一公开入口。"
       ]
     },
     {
@@ -253,7 +249,7 @@
       "dependsOn": [
         "shared-kernel",
         "platform-core",
-        "quant-core",
+        "commerce-core",
         "agent-runtime",
         "platform-navigation-ui",
         "ui-kit"
@@ -283,7 +279,7 @@
       "dependsOn": [
         "shared-kernel",
         "platform-core",
-        "quant-core",
+        "commerce-core",
         "platform-navigation-ui",
         "ui-kit"
       ],

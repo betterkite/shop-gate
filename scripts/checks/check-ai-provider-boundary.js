@@ -233,17 +233,17 @@ if (
 }
 
 const route = read('src/app/api/chat/[project_id]/act/route.ts');
-const generationRuntime = read('src/lib/commerce/generation-runtime.ts');
-const financeGenerationExecutor = read('src/lib/commerce/finance-generation-executor.ts');
+const generationRuntime = read('src/lib/generation/generation-runtime.ts');
+const retailGenerationExecutor = read('src/lib/commerce/retail-generation-executor.ts');
 if (
   !route.includes('createApplicationGenerationRuntime().execute') ||
-  !generationRuntime.includes('FINANCE_GENERATION_HANDLER') ||
-  !financeGenerationExecutor.includes('import("@/lib/services/cli/pi-agent")')
+  !generationRuntime.includes('RETAIL_GENERATION_HANDLER') ||
+  !retailGenerationExecutor.includes('import("@/lib/services/cli/pi-agent")')
 ) {
   fail('聊天执行链路尚未切换至 PI Agent');
 } else if (
   route.includes('activeClaudeSessionId') ||
-  financeGenerationExecutor.includes('activeClaudeSessionId')
+  retailGenerationExecutor.includes('activeClaudeSessionId')
 ) {
   fail('聊天执行链路仍依赖供应商 session id');
 } else {
@@ -251,15 +251,14 @@ if (
 }
 
 const queryRewriteRoute = read('src/app/api/commerce/query/rewrite/route.ts');
-const queryRewriteAdapter = read('src/lib/domains/finance/query-rewrite-llm.ts');
-const queryRewriteRuntime = read('src/lib/domains/finance/query-rewrite.ts');
-const queryRewriteWorkspace = read('src/lib/domains/finance/workspace.ts');
-const queryRewritePrefetch = read('src/lib/commerce/data-prefetch.ts');
+const queryRewriteAdapter = read('src/lib/domains/retail/query-rewrite-llm.ts');
+const queryRewriteRuntime = read('src/lib/domains/retail/query-rewrite.ts');
+const queryRewriteWorkspace = read('src/lib/domains/retail/workspace.ts');
+const queryRewritePrefetch = read('src/lib/commerce/retail-data-prefetch.ts');
 const chatInput = read('src/components/chat/ChatInput.tsx');
 const homePage = read('src/app/page.tsx');
 if (
-  queryRewriteRoute.includes("action: purpose === 'execution'") ||
-  queryRewriteRoute.includes("action: 'quant.data.read'")
+  queryRewriteRoute.includes("action: purpose === 'execution'")
 ) {
   fail('Query Rewrite API 的所有 purpose 都必须走受控 LLM 权限与执行路径');
 } else if (

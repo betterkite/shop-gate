@@ -159,9 +159,9 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 
 配额支持 `observe/warn/hard`：前两者允许执行并保留是否超额的状态，`hard` 会在请求接纳或 Worker claim 前原子检查。计量型资源使用 `used + reserved + requested`；`agent.pending` 和 `agent.concurrent` 在锁住 actor 后分别统计待执行 UserRequest/Job 与 running Job。硬配额不足时接口返回 `429 QUOTA_EXCEEDED`，响应包含 metric 和剩余额度。计量型 reservation 与用量事件都使用唯一幂等键，重复相同操作不会二次扣量。
 
-默认成员配额共 9 项：`projects.owned=10 hard/lifetime`、`agent.pending=4 hard/lifetime`、`agent.concurrent=2 hard/lifetime`、`agent.requests.daily=100 hard/day`、`llm.total_tokens.monthly=2000000 warn/month`、`query_rewrite.llm.daily=200 hard/day`、`quant.data_units.daily=2000 warn/day`、`research.report_runs.daily=20 hard/day`、`research.report_sends.daily=10 hard/day`。Token 与数据单元只能在结果产生后结算，因此超额时告警而不丢弃已完成结果；请求前可判断的次数执行硬限制。管理员的限额和 `remaining` 为 `null`（表示无限），但结构状态和实际用量仍按 actor 展示。
+默认成员配额共 9 项：`projects.owned=10 hard/lifetime`、`agent.pending=4 hard/lifetime`、`agent.concurrent=2 hard/lifetime`、`agent.requests.daily=100 hard/day`、`llm.total_tokens.monthly=2000000 warn/month`、`commerce.query_rewrite.llm.daily=200 hard/day`、`commerce.data_units.daily=2000 warn/day`、`operations.brief_runs.daily=20 hard/day`、`operations.brief_sends.daily=10 hard/day`。Token 与数据单元只能在结果产生后结算，因此超额时告警而不丢弃已完成结果；请求前可判断的次数执行硬限制。管理员的限额和 `remaining` 为 `null`（表示无限），但结构状态和实际用量仍按 actor 展示。
 
-启用认证时，聊天入口把当前用户写入 `user_requests.actor_user_id`，物理 Agent run 继承为 `agent_runs.actor_user_id`，后续用量事件关联 actor、project 和 source。相同 request ID 不能跨用户或跨项目复用。LLM 问题改写的确定性 `preview` 不消费 `query_rewrite.llm.daily`；只有 execution 实际进入模型链路时才计该指标和模型 Token。
+启用认证时，聊天入口把当前用户写入 `user_requests.actor_user_id`，物理 Agent run 继承为 `agent_runs.actor_user_id`，后续用量事件关联 actor、project 和 source。相同 request ID 不能跨用户或跨项目复用。LLM 问题改写的确定性 `preview` 不消费 `commerce.query_rewrite.llm.daily`；只有 execution 实际进入模型链路时才计该指标和模型 Token。
 
 ## commerce-data 数据服务 API
 

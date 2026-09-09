@@ -9,7 +9,7 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-vali
   interopDefault: true,
 });
 
-const { readQuantValidationReport } = jiti('../../src/lib/commerce/validation.ts');
+const { readRetailValidationReport } = jiti('../../src/lib/commerce/retail-validation.ts');
 
 async function writeFile(filePath, content) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -50,7 +50,7 @@ async function main() {
       `const DATA_FILE = 'data_file/final/dashboard-data.json';\nexport default function Page(){return <main data-source-file={DATA_FILE}>ok</main>}\n`
     );
 
-    const report = await readQuantValidationReport(projectPath);
+    const report = await readRetailValidationReport(projectPath);
     const staleCheck = report?.checks?.find((check) => check.id === 'validation_report_stale');
     if (!report || !staleCheck) {
       console.error('[validation-stale] expected stale validation report warning');

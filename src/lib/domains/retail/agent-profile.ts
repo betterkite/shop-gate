@@ -17,9 +17,7 @@ import {
 export const RETAIL_DOMAIN_PACK_ID = 'retail.core';
 
 /**
- * 零售默认 Profile。注意：在 P3 切换完成前，`src/lib/config/data-agent.ts`
- * 的 DEFAULT_DATA_AGENT_PROFILE_ID 仍指向 finance Profile（'shopgate.finance-research'）；
- * 两个包在切换提交前可以并存编译，运行时注册只发生在被 import 的那一侧。
+ * 零售默认 Profile。通用平台只依赖 Profile 合同，不内置金融领域实现。
  */
 export const RETAIL_AGENT_PROFILE_ID = 'shopgate.retail-ops';
 

@@ -175,7 +175,7 @@ describe('/api/admin/users/[user_id]/access', () => {
       expectedAccessVersion: 7,
       reason: 'pilot access for research team',
       permissionOverrides: [{
-        permissionKey: 'research.report.send',
+        permissionKey: 'operations.brief.send',
         effect: 'allow',
         expiresAt: '2026-08-01T00:00:00.000Z',
       }],
@@ -199,7 +199,7 @@ describe('/api/admin/users/[user_id]/access', () => {
     expect(mocks.transactionClient.userPermissionOverride.createMany).toHaveBeenCalledWith({
       data: [{
         userId: 'member-1',
-        permissionKey: 'research.report.send',
+        permissionKey: 'operations.brief.send',
         effect: 'allow',
         reason: 'pilot access for research team',
         expiresAt: new Date('2026-08-01T00:00:00.000Z'),

@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAction({ headers: request.headers, action: 'research.report.read' });
+    await requireAction({ headers: request.headers, action: 'operations.brief.read' });
     const latest = await getLatestRetailDailyBrief();
     return createSuccessResponse(latest);
   } catch (error) {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAction({ headers: request.headers, action: 'research.report.run' });
+    await requireAction({ headers: request.headers, action: 'operations.brief.run' });
     const body = await request.json().catch(() => ({}));
     const result = await generateRetailDailyBrief({
       reportDate:

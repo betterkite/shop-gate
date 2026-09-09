@@ -55,7 +55,7 @@ export async function GET(
   try {
     await requireAction({
       headers: request.headers,
-      action: 'quant.data.read',
+      action: 'commerce.data.read',
     });
     const { skillId } = await context.params;
     const packagePath = await resolvePackagePath(skillId);

@@ -9,7 +9,7 @@ describe('governed knowledge integration config', () => {
     expect(config.enabled).toBe(false);
     expect(config.required).toBe(false);
     expect(config.apiUrl).toBe('http://localhost:33005');
-    expect(config.purpose).toBe('quant-research');
+    expect(config.purpose).toBe('retail-operations');
     expect(config.spaces).toEqual(['https://knowledge.local/spaces/default']);
     expect(config.projectSpacesEnabled).toBe(true);
     expect(config.projectSpaceBaseUrl).toBe('https://knowledge.local/spaces/shopgate/projects');
@@ -21,7 +21,7 @@ describe('governed knowledge integration config', () => {
       SHOPGATE_KNOWLEDGE_ENABLED: '1',
       SHOPGATE_KNOWLEDGE_REQUIRED: '1',
       SHOPGATE_KNOWLEDGE_API_URL: 'https://knowledge.example/platform',
-      SHOPGATE_KNOWLEDGE_PURPOSE: 'quant-research',
+      SHOPGATE_KNOWLEDGE_PURPOSE: 'retail-operations',
       SHOPGATE_KNOWLEDGE_SPACES: 'https://knowledge.example/spaces/research,https://knowledge.example/spaces/risk',
       SHOPGATE_KNOWLEDGE_PROJECT_SPACE_BASE_URL: 'https://knowledge.example/spaces/projects/',
       SHOPGATE_KNOWLEDGE_TIMEOUT_MS: '900',
@@ -33,7 +33,7 @@ describe('governed knowledge integration config', () => {
       enabled: true,
       required: true,
       apiUrl: 'https://knowledge.example/platform',
-      purpose: 'quant-research',
+      purpose: 'retail-operations',
       timeoutMs: 900,
       maxContextCharacters: 6000,
       bearerToken: 'test-reader',

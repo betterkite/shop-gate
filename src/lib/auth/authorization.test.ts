@@ -61,7 +61,7 @@ describe('authorization policy', () => {
   it('forces initial password change before other routes', async () => {
     await expect(authorizeApplicationRequest(
       session({ mustChangePassword: true }),
-      '/strategy-platform',
+      '/commerce-platform',
       'GET',
     )).resolves.toMatchObject({ allowed: false, code: 'PASSWORD_CHANGE_REQUIRED', status: 428 });
     await expect(authorizeApplicationRequest(

@@ -6,7 +6,7 @@ import { getCapabilityCenterData } from '@/lib/commerce/retail-capability-center
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAction({ headers: request.headers, action: 'quant.data.read' });
+    await requireAction({ headers: request.headers, action: 'commerce.data.read' });
     return NextResponse.json({
       success: true,
       data: await getCapabilityCenterData(),

@@ -62,10 +62,10 @@ SHOPGATE_PRODUCTION_REPLAY_CASES_PATH
 隐藏集和生产回放可以直接进入真实 E2E runner；非公开 prompt 在执行时可用，但报告中的 `question` 只保存 redacted hash 证据：
 
 ```bash
-npm run benchmark:quant:hidden
+npm run benchmark:commerce:hidden
 npm run eval:ci:hidden
 
-npm run benchmark:quant:shadow
+npm run benchmark:commerce:shadow
 npm run eval:ci:shadow
 ```
 
@@ -172,7 +172,7 @@ npm run check:task-e2e -- --dataset=task-e2e-retail-v1 --limit=1 --campaign=reta
 
 `check:retail-e2e` 校验零售数据集结构与最近一次运行证据（evidence ready > 0）；`check:task-e2e` 运行 `scripts/checks/check-task-e2e-campaign.ts`，按 `config/evals/task-e2e-retail-v1.json` 的 30 个零售 case 走完整生成链路，并以 `--campaign` 记录运行批次。
 
-历史命令 `benchmark:quant:contract`、`benchmark:quant:e2e`（及 hidden/shadow 变体）是金融基准运行器的旧入口：金融基准数据与运行器已随金融域删除（P0/P3），这些入口现在统一委托给 `check:retail-e2e` 并输出迁移提示。保留脚本名只为兼容旧调用，其输出不代表金融基准仍可用。
+历史命令 `benchmark:quant:*` 已从 package scripts 移除；当前使用 `benchmark:commerce:*`，其 contract/e2e/hidden/shadow 变体统一面向零售 task-E2E 数据集。
 
 金融域时代的确定性契约模式（`benchmarks/shopgate/query-rewrite-fixtures.json` 回放、版本化行情合同、证券 Resolver）已随金融基准删除；Query Rewrite 的 schema v4 字面证据校验、实体 Resolver、run plan 和数据预取链路在零售生成链路中保持一致，真实模型的语义理解、工具调用和失败关闭由零售 task-E2E 与集成体验集验真。
 

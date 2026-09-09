@@ -26,7 +26,7 @@ import {
 import { serializeRetailVisualizationTemplate } from '@/lib/domains/retail/visualization-templates';
 import { RETAIL_RUN_PLAN_RELATIVE_PATH } from '@/lib/domains/retail/workspace-artifacts';
 
-const financeAdapter: DataAgentApplicationAdapter = {
+const retailAdapter: DataAgentApplicationAdapter = {
   profileId: RETAIL_AGENT_PROFILE_ID,
   async provisionProject(input, application) {
     const capability = getRetailCapability(application.capability.id);
@@ -125,7 +125,7 @@ const financeAdapter: DataAgentApplicationAdapter = {
     return {
       settings: {
         llm,
-        quant: buildRetailProjectSettings(capability.id),
+        retail: buildRetailProjectSettings(capability.id),
         dataAgent: {
           profileId: application.profile.id,
           profileVersion: application.profile.version,
@@ -139,7 +139,7 @@ const financeAdapter: DataAgentApplicationAdapter = {
 
 const applicationCatalog = new DataAgentApplicationCatalog(
   createRetailDataAgentRegistry(),
-).register(financeAdapter);
+).register(retailAdapter);
 
 export function getApplicationDataAgentCatalog(): DataAgentApplicationCatalog {
   return applicationCatalog;

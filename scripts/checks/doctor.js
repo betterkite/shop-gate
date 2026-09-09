@@ -446,7 +446,7 @@ async function main() {
       failed ? [`失败用例：${failed}`] : []
     );
   } else {
-    addCheck('最近评测报告', 'warn', '未找到 tmp/shopgate-benchmark-reports/report-*.json。', ['运行 npm run benchmark:quant:contract 可生成报告。']);
+    addCheck('最近评测报告', 'warn', '未找到 tmp/shopgate-benchmark-reports/report-*.json。', ['运行 npm run benchmark:commerce:contract 可生成报告。']);
   }
 
   if (FULL_CHECKS) {

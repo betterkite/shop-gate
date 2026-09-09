@@ -50,7 +50,7 @@ describe('PI Agent typed filesystem tools', () => {
       '}',
       '',
     ].join('\n'));
-    await fs.writeFile(path.join(workspace, '.data-agent', 'finance-run-plan.json'), '{"status":"ready"}\n');
+    await fs.writeFile(path.join(workspace, '.data-agent', 'retail-run-plan.json'), '{"status":"ready"}\n');
     await fs.writeFile(path.join(outside, 'secret.txt'), 'host secret\n');
   });
 
@@ -192,14 +192,14 @@ describe('PI Agent typed filesystem tools', () => {
 
   it('keeps .data-agent permanently read-only even when a profile supplies a wildcard', async () => {
     const options = { workspaceRoot: workspace, allowedWriteGlobs: ['**'] };
-    const read = await invoke(createReadFileTool(options), { path: '.data-agent/finance-run-plan.json' });
+    const read = await invoke(createReadFileTool(options), { path: '.data-agent/retail-run-plan.json' });
     expect(read).toMatchObject({ ok: true });
 
     await expect(invoke(createWriteFileTool(options), {
-      path: '.data-agent/finance-run-plan.json',
+      path: '.data-agent/retail-run-plan.json',
       content: '{}\n',
     })).resolves.toMatchObject({ ok: false, error: { code: 'PLATFORM_PATH_READ_ONLY' } });
-    await expect(fs.readFile(path.join(workspace, '.data-agent', 'finance-run-plan.json'), 'utf8'))
+    await expect(fs.readFile(path.join(workspace, '.data-agent', 'retail-run-plan.json'), 'utf8'))
       .resolves.toBe('{"status":"ready"}\n');
   });
 

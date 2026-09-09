@@ -35,7 +35,7 @@ function boundedIdentifier(value: string, label: string, maxLength = 255): strin
 
 function taskCategory(value: string): string {
   const normalized = value.trim().slice(0, 255);
-  return normalized || 'quant-research';
+  return normalized || 'retail-operations';
 }
 
 function sha256Digest(value: string, label: string): string {

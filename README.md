@@ -68,7 +68,7 @@ npm run dev
 
 默认访问 `http://localhost:3000`。如果 `3000` 被占用，启动器会在 `3000-3099` 内选择可用端口并同步 `.env` / `.env.local` 中的 `PORT`、`WEB_PORT` 和 `NEXT_PUBLIC_APP_URL`。生成项目预览端口池从 `4100` 开始；本地 Loki 默认映射到宿主机 `33100`，不要把主前端长期放到这些端口上。
 
-不启动 Loki/Grafana 时，运行治理中心会自动降级到本地文件日志；不启动市场数据后端时，策略平台和业务知识中心只能展示有限兜底信息。
+不启动 Loki/Grafana 时，运行治理中心会自动降级到本地文件日志；不启动 commerce-data 后端时，商品运营与经营情报页面只能展示有限兜底信息。
 
 ## 常用入口
 
@@ -78,7 +78,7 @@ npm run dev
 | 商品运营 | `http://localhost:3000/commerce-platform` | 商品池（分页/排序）、品类池、渠道口径与价格带库存风险 |
 | 经营情报 | `http://localhost:3000/operations-briefing` | 经营日报、类目经营榜、观察池与日报生成/持久化 |
 | Skills 管理 | `http://localhost:3000/skills` | 编辑、发布、回滚和导入核心 skills |
-| 量化业务知识中心 | `http://localhost:3000/business-knowledge` | 查看业务能力、典型场景、交付规范和执行依赖 |
+| 业务知识中心 | `http://localhost:3000/business-knowledge` | 查看零售能力、典型场景、交付规范和执行依赖 |
 | 运行治理中心 | `http://localhost:3000/ops-platform` | 统一查看 Worker/队列、服务依赖、工作空间交付、生成链路和运行日志 |
 | 评测平台 | `http://localhost:3000/eval-platform` | 运行评测、管理评测集、查看队列和报告 |
 
@@ -88,7 +88,7 @@ npm run dev
 | --- | --- |
 | 完整开发环境（前端 + commerce-data） | `npm run dev` |
 | 仅启动主前端 | `npm run dev:web` |
-| 仅启动量化后端 | `npm run dev:commerce` |
+| 仅启动 commerce-data 后端 | `npm run dev:commerce` |
 | 指定主前端端口 | `npm run dev -- --port 3000` |
 | 单元与后端测试 | `npm test` |
 | 确定性发布质量门 | `npm run release:check` |
@@ -96,8 +96,8 @@ npm run dev
 | 数据库启动 | `npm run db:up && npm run db:init` |
 | 数据库检查 | `npm run db:doctor` |
 | 本地单次消费 generation job | `PI_AGENT_DISPATCH_MODE=worker npm run worker:generation:once` |
-| 刷新交易日历、日线并校验覆盖 | `npm run market:maintain` |
-| 只检查数据新鲜度 | `npm run market:maintain:dry-run`（金融遗留脚本，零售数据用 check:retail-e2e） |
+| 导入或重建零售数据 | `cd services/commerce-data && uv run shopgate-commerce-import --help` |
+| 检查零售基准数据与运行证据 | `npm run check:retail-e2e` |
 | 初始化/维护登录管理员 | `npm run auth:bootstrap` |
 | 验证完整用户生命周期 | `npm run auth:verify` |
 | 清理过期认证数据与配额预留 | `npm run auth:cleanup` |
@@ -108,7 +108,7 @@ npm run dev
 | 验证修复链路检查 | `npm run check:validation-repair` |
 | 首页视觉 smoke | `npm run check:homepage` |
 | 全平台响应式视觉 smoke | 启动 Web 后运行 `npm run check:platform-visuals` |
-| 量化后端 | `cd services/commerce-data && uv run shopgate-commerce-api` |
+| commerce-data 后端 | `cd services/commerce-data && uv run shopgate-commerce-api` |
 | 后端质量门 | `cd services/commerce-data && uv run ruff check . && uv run pytest` |
 | 文档本地链接检查 | `npm run check:docs` |
 | 四类生成模板真实构建 | `npm run check:scaffold-templates` |
@@ -131,11 +131,11 @@ npm run dev
 | --- | --- |
 | 不知道从哪篇开始 | [文档总览与角色路径](docs/README.md) |
 | 想选择模型、关闭 Memory 或理解 `.env` | [配置、模型接入与可选组件指南](docs/configuration.md) |
-| 想系统学习项目 | [教学路径](docs/learning/README.md) |
+| 想系统了解项目 | [文档总览](docs/README.md) |
 | 想参与开发或判断代码放哪 | [项目结构与分层边界](docs/project-structure.md) / [模块边界](docs/module-boundaries.md) |
 | 想理解或扩展 Agent 框架 | [PI Agent 采用与治理边界](docs/pi-agent-migration.md) / [PI Agent 架构](docs/pi-agent.md) |
 | 想查接口、字段或数据源口径 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) / [零售数据接入](docs/commerce-data-ingestion.md) |
-| 想做经营日报和触达 | [经营情报](docs/architecture.md)（金融投研日报指南已归档：docs/research-automation-guide.md） |
+| 想做经营日报 | [经营情报](docs/architecture.md) / [API 总览](docs/api-reference.md) |
 | 想排障或做发布前检查 | [运行手册](docs/operations-runbook.md) / [故障排查](docs/troubleshooting.md) |
 | 想启用登录或配置权限/用量配额 | [用户、权限、配额与会话管理](docs/authentication.md) |
 | 想接入、使用或排查用户记忆 | [用户记忆服务接入、使用与效果验证](docs/user-memory-integration.md) |
@@ -150,13 +150,13 @@ npm run dev
 | --- | --- | --- |
 | 先找阅读路径 | [文档总览与角色路径](docs/README.md) | 按启动、开发、排障、策略、评测、skills 等目标选择阅读顺序 |
 | 选择运行拓扑 | [配置、模型接入与可选组件指南](docs/configuration.md) | 选择 ModelPort、官方直连和 Memory 开关 |
-| 先建立全局图 | [项目学习地图](docs/learning/00-project-study-map.md) | 知道产品、数据、生成和质量四条主线 |
-| 再跑通本地环境 | [本地启动与健康检查](docs/learning/01-quick-start.md) | 拉起数据库、后端、前端和可选观测组件 |
+| 先建立全局图 | [架构总览](docs/architecture.md) | 知道产品、数据、生成和质量四条主线 |
+| 再跑通本地环境 | [基础设施配置](docs/infrastructure.md) | 拉起数据库、后端、前端和可选观测组件 |
 | 理解内部组件 | [内部组件学习指南](docs/internal-components.md) | 把页面、服务、数据、Skills、验证和运维串起来 |
-| 学会生成链路 | [AI 工作空间生成链路](docs/learning/02-ai-workspace-generation.md) | 理解 run plan、data、evidence、validation 和 repair plan |
-| 学会数据与商品运营 | [数据与商品运营](docs/learning/03-commerce-data-and-strategy-platform.md) | 理解行为事件、商品池、渠道口径和合成主数据 |
+| 学会生成链路 | [生成工作空间契约](docs/generated-workspace-contract.md) | 理解 run plan、data、evidence、validation 和 repair plan |
+| 学会数据与商品运营 | [零售数据接入](docs/commerce-data-ingestion.md) | 理解行为事件、商品池、渠道口径和合成主数据 |
 | 学会查接口和字段 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) | 知道页面读哪个接口、字段来自哪里 |
-| 学会 Skills | [Skills 编写与迭代教程](docs/learning/07-skills-authoring.md) | 知道如何修改、发布、打包和验证 skill |
+| 学会 Skills | [Skills 治理规范](docs/skills-governance.md) | 知道如何修改、发布、打包和验证 skill |
 | 看后续优先级 | [持续完善路线图](docs/ROADMAP.md) | 知道哪些事该先做，哪些事暂时不该做 |
 
 文档维护也算项目能力的一部分。改代码时如果改变了页面入口、组件职责、数据字段、环境变量、SQL 或 skill 行为，请同步更新对应文档；具体写法见 [文档写作风格指南](docs/documentation-style-guide.md)。

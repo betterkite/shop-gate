@@ -62,7 +62,7 @@ export const DEFAULT_QUOTA_RULES = Object.freeze([
     reservationTtlSeconds: 3_600,
   },
   {
-    metric: 'query_rewrite.llm.daily',
+    metric: 'commerce.query_rewrite.llm.daily',
     limit: 200n,
     enforcement: 'hard',
     windowType: 'day',
@@ -70,7 +70,7 @@ export const DEFAULT_QUOTA_RULES = Object.freeze([
     reservationTtlSeconds: 900,
   },
   {
-    metric: 'quant.data_units.daily',
+    metric: 'commerce.data_units.daily',
     limit: 2_000n,
     enforcement: 'warn',
     windowType: 'day',
@@ -78,7 +78,7 @@ export const DEFAULT_QUOTA_RULES = Object.freeze([
     reservationTtlSeconds: 900,
   },
   {
-    metric: 'research.report_runs.daily',
+    metric: 'operations.brief_runs.daily',
     limit: 20n,
     enforcement: 'hard',
     windowType: 'day',
@@ -86,7 +86,7 @@ export const DEFAULT_QUOTA_RULES = Object.freeze([
     reservationTtlSeconds: 3_600,
   },
   {
-    metric: 'research.report_sends.daily',
+    metric: 'operations.brief_sends.daily',
     limit: 10n,
     enforcement: 'hard',
     windowType: 'day',

@@ -117,7 +117,7 @@ describe('POST /api/commerce/query/rewrite', () => {
     expect(payload.meta.durationMs).toBeGreaterThanOrEqual(0);
     expect(mocks.requireAction).toHaveBeenCalledWith({
       headers: expect.any(Headers),
-      action: 'quant.query.rewrite.llm',
+      action: 'commerce.query.rewrite.llm',
     });
   });
 
@@ -157,7 +157,7 @@ describe('POST /api/commerce/query/rewrite', () => {
     });
     expect(mocks.requireAction).toHaveBeenCalledWith({
       headers: expect.any(Headers),
-      action: 'quant.query.rewrite.llm',
+      action: 'commerce.query.rewrite.llm',
     });
     expect(mocks.rewriteRetailQuery).toHaveBeenCalledWith(
       '帮我分析一下北方稀土',
@@ -182,7 +182,7 @@ describe('POST /api/commerce/query/rewrite', () => {
     });
     expect(mocks.requireAction).toHaveBeenCalledWith({
       headers: expect.any(Headers),
-      action: 'quant.query.rewrite.llm',
+      action: 'commerce.query.rewrite.llm',
     });
     expect(mocks.rewriteRetailQuery).toHaveBeenCalledWith(
       '分析大位科技最近20个交易日',
@@ -286,7 +286,7 @@ describe('POST /api/commerce/query/rewrite', () => {
     expect(mocks.completeApiOperation).toHaveBeenCalledWith(expect.objectContaining({
       quotaSettlement: expect.objectContaining({
         reservationId: 'reservation-1',
-        metric: 'query_rewrite.llm.daily',
+        metric: 'commerce.query_rewrite.llm.daily',
         usageEventIdempotencyKey: 'query-rewrite:member-1:raw:rewrite-repair:attempt:1:request',
       }),
     }));

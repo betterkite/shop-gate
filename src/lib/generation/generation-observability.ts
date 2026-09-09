@@ -9,7 +9,7 @@ import {
   DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
-import { readQuantArtifactContractReport, type QuantArtifactContractReport } from '@/lib/generation/artifact-contracts';
+import { readDataAgentArtifactContractReport, type DataAgentArtifactContractReport } from '@/lib/generation/artifact-contracts';
 import { readQuantGenerationQueue, type QuantGenerationQueueState } from '@/lib/generation/generation-queue';
 import { readQuantGenerationState, type QuantGenerationState } from '@/lib/generation/generation-state';
 import { readQuantVisualValidationReport, type QuantVisualValidationReport } from '@/lib/commerce/visual-validation';
@@ -577,7 +577,7 @@ function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof
       summary: compact(runPlan.question || `${runPlan.capabilityId} · ${runPlan.entities.join('、')}` || '已生成执行计划'),
       timestamp: runPlan.updatedAt ?? runPlan.createdAt,
       requestId: runPlan.runId ?? null,
-      artifactPath: '.data-agent/finance-run-plan.json',
+      artifactPath: '.data-agent/retail-run-plan.json',
       metadata: {
         capabilityId: runPlan.capabilityId,
         requestedCapabilityId: runPlan.requestedCapabilityId,
@@ -754,7 +754,7 @@ function buildGenerationQueueEvents(projectId: string, queue: QuantGenerationQue
   });
 }
 
-function buildArtifactContractEvents(projectId: string, report: QuantArtifactContractReport | null): GenerationTimelineEvent[] {
+function buildArtifactContractEvents(projectId: string, report: DataAgentArtifactContractReport | null): GenerationTimelineEvent[] {
   if (!report) return [];
   return [
     {
@@ -953,7 +953,7 @@ async function inspectProjectTrace(
     readValidationRepairPlanForObservability(projectPath),
     readQuantGenerationState(projectPath),
     readQuantGenerationQueue(projectPath, project.id),
-    readQuantArtifactContractReport(projectPath),
+    readDataAgentArtifactContractReport(projectPath),
     readQuantVisualValidationReport(projectPath),
   ]);
   const timeline = dedupeTimeline([

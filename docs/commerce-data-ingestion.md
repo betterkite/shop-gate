@@ -95,7 +95,7 @@ uv run --project services/commerce-data \
   用户级别样本切片。本项目导入前用脚本把切片**过滤到规范窗口**（`2017-11-25` ~
   `2017-12-03`）并输出五列 + 表头，保证 dashboard 窗口与 PRD 一致。
 
-> 注意：`docs/commerce-data-source-knowledge.md` 是早期金融行情采集知识库残留
+> 本文是当前零售数据接入的唯一数据源与连接器说明；旧金融行情知识库已删除。
 > （`quant.*` / 东方财富 / Baostock 口径），待 P10 文档终审时归并或清理；零售数据接入以本文为准。
 
 ## 6. 验证

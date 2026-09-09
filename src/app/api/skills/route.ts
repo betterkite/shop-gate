@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     await requireAction({
       headers: request.headers,
-      action: 'quant.data.read',
+      action: 'commerce.data.read',
     });
     const response = NextResponse.json({
       success: true,

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { createAuthenticatedStorageState, getVisualCredentials } = require('./visual-auth');
 
 const rootDir = path.join(__dirname, '..', '..');
 const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -20,8 +21,9 @@ function cleanMessage(value) {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
-async function inspectProfile(browser, profile) {
+async function inspectProfile(browser, storageState, profile) {
   const context = await browser.newContext({
+    storageState,
     viewport: profile.viewport,
     deviceScaleFactor: 1,
     colorScheme: profile.theme,
@@ -122,7 +124,12 @@ async function main() {
   const problems = [];
 
   try {
-    for (const profile of profiles) problems.push(...await inspectProfile(browser, profile));
+    const storageState = await createAuthenticatedStorageState(
+      browser,
+      baseUrl,
+      getVisualCredentials('EVAL_PLATFORM_ADMIN'),
+    );
+    for (const profile of profiles) problems.push(...await inspectProfile(browser, storageState, profile));
   } finally {
     await browser.close();
   }

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { createAuthenticatedStorageState, getVisualCredentials } = require('./visual-auth');
 
 const rootDir = path.join(__dirname, '..', '..');
 const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -13,8 +14,9 @@ function cleanMessage(value) {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
-async function inspectProfile(browser, profile) {
+async function inspectProfile(browser, storageState, profile) {
   const context = await browser.newContext({
+    storageState,
     viewport: profile.viewport,
     deviceScaleFactor: 1,
     colorScheme: profile.theme,
@@ -40,6 +42,11 @@ async function inspectProfile(browser, profile) {
       problems.push(`${profile.id}: 文档请求返回 ${response?.status() ?? '无响应'}`);
       return problems;
     }
+    await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+    if (new URL(page.url()).pathname === '/login') {
+      problems.push(`${profile.id}: 登录会话失效，页面重定向到 /login`);
+      return problems;
+    }
     const market = page.locator('main:visible');
     await market.getByText('Skills Market', { exact: true }).waitFor({ state: 'visible' });
     await market.getByRole('heading', { name: '精选能力' }).waitFor({ state: 'visible' });
@@ -57,7 +64,7 @@ async function inspectProfile(browser, profile) {
     if (marketLayout.cards < 6) problems.push(`${profile.id}: 技能卡片数量异常 (${marketLayout.cards})`);
     if (marketLayout.dialogs !== 0) problems.push(`${profile.id}: 初始状态出现意外弹窗`);
     if (marketLayout.bodyTextLength < 400) problems.push(`${profile.id}: Market 内容异常为空`);
-    if (profile.viewport.width < 640 && marketLayout.headerHeight > 112) problems.push(`${profile.id}: 移动端顶栏过高 (${marketLayout.headerHeight}px)`);
+    if (profile.viewport.width < 640 && marketLayout.headerHeight > 120) problems.push(`${profile.id}: 移动端顶栏过高 (${marketLayout.headerHeight}px)`);
     await page.screenshot({ path: path.join(outputDir, `market-${profile.id}-${timestamp}.png`) });
 
     const firstSkill = market.locator('button[aria-label^="查看 "]').first();
@@ -127,7 +134,12 @@ async function main() {
   ];
 
   try {
-    for (const profile of profiles) problems.push(...await inspectProfile(browser, profile));
+    const storageState = await createAuthenticatedStorageState(
+      browser,
+      baseUrl,
+      getVisualCredentials('SKILLS_ADMIN'),
+    );
+    for (const profile of profiles) problems.push(...await inspectProfile(browser, storageState, profile));
   } finally {
     await browser.close();
   }

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { createAuthenticatedStorageState, getVisualCredentials } = require('./visual-auth');
 
 const rootDir = path.join(__dirname, '..', '..');
 const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
@@ -20,8 +21,8 @@ function cleanMessage(value) {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
-async function inspectProfile(browser, profile) {
-  const context = await browser.newContext({ viewport: profile.viewport, deviceScaleFactor: 1, colorScheme: profile.theme });
+async function inspectProfile(browser, storageState, profile) {
+  const context = await browser.newContext({ storageState, viewport: profile.viewport, deviceScaleFactor: 1, colorScheme: profile.theme });
   await context.addInitScript((theme) => localStorage.setItem('shopgate-color-mode', theme), profile.theme);
   const page = await context.newPage();
   const problems = [];
@@ -39,6 +40,11 @@ async function inspectProfile(browser, profile) {
       const response = await page.goto(`${baseUrl}/ops-platform${view.query}`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
       if (!response?.ok()) {
         problems.push(`${profile.id}/${view.id}: 文档请求返回 ${response?.status() ?? '无响应'}`);
+        continue;
+      }
+      await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+      if (new URL(page.url()).pathname === '/login') {
+        problems.push(`${profile.id}/${view.id}: 登录会话失效，页面重定向到 /login`);
         continue;
       }
       await page.waitForFunction(
@@ -98,7 +104,12 @@ async function main() {
   ];
   const problems = [];
   try {
-    for (const profile of profiles) problems.push(...await inspectProfile(browser, profile));
+    const storageState = await createAuthenticatedStorageState(
+      browser,
+      baseUrl,
+      getVisualCredentials('OPS_PLATFORM_ADMIN'),
+    );
+    for (const profile of profiles) problems.push(...await inspectProfile(browser, storageState, profile));
   } finally {
     await browser.close();
   }

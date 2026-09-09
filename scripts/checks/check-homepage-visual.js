@@ -3,14 +3,14 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { createAuthenticatedStorageState, getVisualCredentials } = require('./visual-auth');
 
 const rootDir = path.join(__dirname, '..', '..');
 const homepageUrl = new URL(process.env.HOMEPAGE_URL || 'http://localhost:3000/');
 const baseUrl = homepageUrl.origin;
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'homepage');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const adminLogin = process.env.HOMEPAGE_ADMIN_LOGIN || 'admin';
-const adminPassword = process.env.HOMEPAGE_ADMIN_PASSWORD || 'admin';
+const { login: adminLogin, password: adminPassword } = getVisualCredentials('HOMEPAGE_ADMIN');
 
 const profiles = [
   { id: 'wide-light', viewport: { width: 2048, height: 1152 }, theme: 'light', touch: false },
@@ -33,10 +33,11 @@ function fail(message, details = []) {
 }
 
 async function createAuthenticatedState(browser) {
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
-    colorScheme: 'light',
+  const storageState = await createAuthenticatedStorageState(browser, baseUrl, {
+    login: adminLogin,
+    password: adminPassword,
   });
+  const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
   try {
@@ -47,30 +48,12 @@ async function createAuthenticatedState(browser) {
     if (!response?.ok()) {
       throw new Error(`首页请求返回 ${response?.status() ?? '无响应'}`);
     }
-
-    const identity = page.locator('#identity');
-    if (new URL(page.url()).pathname === '/login' || await identity.isVisible().catch(() => false)) {
-      await identity.fill(adminLogin);
-      await page.locator('#password').fill(adminPassword);
-      await page.locator('button[type="submit"]').click();
-      await page.waitForFunction(
-        () => window.location.pathname !== '/login',
-        null,
-        { timeout: 20_000 },
-      );
-
-      if (new URL(page.url()).pathname === '/login') {
-        const alert = await page.locator('[role="alert"]').textContent().catch(() => null);
-        throw new Error(alert?.trim() || '默认管理员登录失败');
-      }
-    }
-
-    await page.locator('textarea[aria-label="量化分析需求"]').waitFor({
+    await page.locator('textarea[aria-label="经营分析需求"]').waitFor({
       state: 'visible',
       timeout: 20_000,
     });
 
-    return await context.storageState();
+    return storageState;
   } finally {
     await context.close();
   }
@@ -176,7 +159,7 @@ async function inspectProfile(browser, storageState, profile) {
       return { profile: profile.id, problems: ['登录会话未能复用，首页重新跳转到 /login'] };
     }
 
-    await page.locator('textarea[aria-label="量化分析需求"]').waitFor({
+    await page.locator('textarea[aria-label="经营分析需求"]').waitFor({
       state: 'visible',
       timeout: 20_000,
     });
@@ -378,7 +361,8 @@ async function inspectSubmissionRecovery(browser, storageState) {
 
   try {
     await page.goto(homepageUrl.href, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    const textarea = page.locator('textarea[aria-label="量化分析需求"]');
+    await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+    const textarea = page.locator('textarea[aria-label="经营分析需求"]');
     const submit = page.locator('button[aria-label="提交任务"]');
     await textarea.waitFor({ state: 'visible', timeout: 20_000 });
 
@@ -386,19 +370,33 @@ async function inspectSubmissionRecovery(browser, storageState) {
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nLkAAAAASUVORK5CYII=',
       'base64',
     );
-    await page.locator('input[type="file"]').setInputFiles({
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: '上传图片' }).click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
       name: 'homepage-check.png',
       mimeType: 'image/png',
       buffer: onePixelPng,
     });
-    await page.getByText('已添加图片，请补充文字说明后再开始研究。').waitFor();
+    await page.locator('img[alt="homepage-check.png"]').waitFor({ state: 'visible', timeout: 10_000 });
+    await page.locator('p[role="alert"]', { hasText: '已添加图片，请补充文字说明后再开始研究。' }).waitFor({ state: 'visible', timeout: 10_000 });
     if (!await submit.isDisabled()) problems.push('图片-only 状态下提交按钮仍可用');
     if (projectBodies.length > 0) problems.push('图片-only 状态在填写问题前创建了项目');
     await page.getByRole('button', { name: /移除图片/ }).click();
+    await page.waitForTimeout(250);
 
     const question = '分析贵州茅台近 60 个交易日的趋势和主要风险';
     await textarea.fill(question);
     await page.getByRole('button', { name: '只做问答' }).click();
+    await page.waitForTimeout(250);
+    await page.waitForFunction(
+      () => {
+        const button = document.querySelector('button[aria-label="提交任务"]');
+        return Boolean(button && !button.disabled);
+      },
+      null,
+      { timeout: 10_000 },
+    );
     await submit.click();
     await page.getByText(/模拟 Agent 启动失败/).waitFor({ timeout: 10_000 });
 
@@ -445,7 +443,14 @@ async function main() {
     for (const profile of profiles) {
       results.push(await inspectProfile(browser, storageState, profile));
     }
-    results.push(await inspectSubmissionRecovery(browser, storageState));
+    try {
+      results.push(await inspectSubmissionRecovery(browser, storageState));
+    } catch (error) {
+      results.push({
+        profile: 'submission-recovery',
+        problems: [`提交恢复检查异常：${cleanMessage(error instanceof Error ? error.message : error)}`],
+      });
+    }
 
     const reportPath = path.join(outputDir, `report-${timestamp}.json`);
     fs.writeFileSync(reportPath, `${JSON.stringify(results, null, 2)}\n`);

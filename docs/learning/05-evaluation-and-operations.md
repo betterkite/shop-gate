@@ -27,7 +27,7 @@
 - 数据质量或证据要求。
 - 失败时应该如何分类。
 
-例如“生成贵州茅台近 5 年 K 线看板”不只检查能不能画线，还要检查是否有主 K 线、MA 指标、数据来源、时间范围、缺失字段说明和移动端可读性。
+例如“生成数据窗口内 GMV 最高的 5 个类目经营看板”不只检查能不能画图，还要检查是否有漏斗主图、类目排行、数据来源、时间窗口、缺失字段说明和移动端可读性。
 
 常用命令：
 
@@ -35,8 +35,10 @@
 npm run check:benchmark-coverage
 npm run check:eval-schedule
 npm run eval:ci
-npm run benchmark:quant:contract
+npm run check:retail-e2e
 ```
+
+零售端到端基准数据集是 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 4 个核心能力）；需要批量跑 case 时用 `npm run check:task-e2e -- --dataset=task-e2e-retail-v1`。
 
 ## 运行治理中心
 
@@ -50,7 +52,7 @@ npm run benchmark:quant:contract
 | --- | --- |
 | 工作空间健康 | 产物是否齐全、验证是否通过、预览是否可访问 |
 | 生成链路观测 | 阶段事件、队列状态、trace、错误和耗时 |
-| 基础环境健康 | Node、npm、Agent CLI、数据库、TimescaleDB、市场数据后端、Loki 和降级配置 |
+| 基础环境健康 | Node、npm、Agent CLI、数据库、TimescaleDB、数据后端（commerce-data）、Loki 和降级配置 |
 | 日志 | 优先读取 Loki 集中日志，Loki 不可用时降级到本地 `tmp/` 和 `.next` 日志 |
 | 产物检查 | run plan、data_file、evidence、validation、visual report |
 | 修复记录 | repair plan、修复次数、最后失败原因 |
@@ -90,7 +92,7 @@ npm run check:homepage
 
 质量门的基本原则是：越靠近底层的能力，越需要自动检查；越靠近视觉和交互的能力，越需要截图和人工复核结合。只跑 lint 不能证明页面好看，只看截图也不能证明数据契约正确。
 
-市场数据后端：
+数据后端（commerce-data）：
 
 ```bash
 cd services/commerce-data
@@ -104,9 +106,9 @@ uv run pytest
 | --- | --- |
 | 页面显示“看板验证未通过” | `.data-agent/validation.json` 和 `validation-repair-plan.json` |
 | 只有小趋势图，没有主图 | `visual-validation.json` 和可视化 skill 模板匹配 |
-| 多股票对比横向溢出 | 页面布局、表格宽度、移动端断点 |
-| K 线为空或只剩一天 | `data_file/final/dashboard-data.json` 是否只写入最新日 |
-| 成交额/换手率缺失 | `quant.stock_bars` 增强字段和 Baostock 补数状态 |
+| 多类目对比横向溢出 | 页面布局、表格宽度、移动端断点 |
+| 趋势图为空或只剩一天 | `data_file/final/dashboard-data.json` 是否只写入窗口最后一日 |
+| GMV/库销比缺失 | `commerce.daily_item_metrics`、`daily_category_metrics` 聚合字段和合成主数据口径 |
 | 页面编译失败 | 生成项目的 `npm run build` 输出 |
 
 评测和运维不是两个孤立模块：评测负责持续发现问题，运维负责解释单个工作空间为什么失败。

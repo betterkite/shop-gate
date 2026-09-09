@@ -13,7 +13,7 @@ Shop Gate 使用开源 `@earendil-works/pi-agent-core@0.82.1` 作为唯一 Agent
 - 可审计、可阻断：PostgreSQL 保存项目编排 lease、AgentRun、project/workspace 独占 lease、安全事件、replan checkpoint、工具 operation ledger、MissionSpec 物化节点与不可变 evidence receipt；数据库权威时钟、分层 heartbeat、CAS version 和 fencing token 拒绝陈旧 worker，文件系统资源锁与一次性提交授权共同保护物理写入，未决副作用会阻断新 attempt。
 - 副作用可人工决策：受信应用可以为明确的 `workspace_write` / `external_write` 工具声明批准、编辑、拒绝策略；等待和恢复是 AgentRun 的持久状态，批准发生在 operation prepare 之前，拒绝和过期不会接触副作用。
 - 显式完成：至少一次 workspace write 成功后才允许 `submit_result`；它只把物理 AgentRun 和 `workspace_generation` 节点推进到 `candidate_complete`。只有当前 candidate version 通过独立 EvidenceVerifier 并写入 accepted receipt，产品 Mission 才能进入 `completed`。
-- 信息增益驱动：工作区版本未变化时，相同参数的可缓存读取只保留第一次真实观察；重复读取返回带原始结果摘要哈希的短引用并立即推动阶段收敛。实时行情/API 读取永不进入该缓存。
+- 信息增益驱动：工作区版本未变化时，相同参数的可缓存读取只保留第一次真实观察；重复读取返回带原始结果摘要哈希的短引用并立即推动阶段收敛。实时数据/API 读取永不进入该缓存。
 - Cache 可诊断：每轮 Provider 请求前持久化 Prompt Prefix Ledger 的哈希、长度、最长共同消息前缀、工具面变化和压缩原因，不保存 prompt 原文。
 - 推理隐私：DeepSeek 官方直连的 thinking 内容仅在当前 tool-call 循环内部回放；ModelPort 的 OpenAI→DeepSeek Anthropic 协议桥因无法无损回传 Anthropic thinking block 而关闭 thinking，本地 Qwen adapter 也不发送 DeepSeek 私有字段。所有路径都不把 hidden reasoning 写入数据库或推送前端；公共 assistant/终态事件也不包含 raw cause 或完整内部 messages。
 
@@ -33,19 +33,19 @@ Shop Gate 使用开源 `@earendil-works/pi-agent-core@0.82.1` 作为唯一 Agent
 | Generation Orchestration | `src/lib/commerce/generation-queue.ts`、`src/lib/services/pi-agent-generation-lease-*.ts`、`src/lib/services/pi-agent-worker-capacity.ts`、`src/lib/services/pi-agent-worker-registry.ts` | 用户排队/运行结构配额、按 actor 公平 claim、数据库全局 Worker 槽位、进程注册/心跳/集群配置一致性，以及跨进程串行化 planning/data-prefetch、Agent execution 与 manual validation |
 | Mission Graph | `src/lib/agent/mission/`、`src/lib/services/pi-agent-mission-*.ts` | 编译受信 MissionSpec、物化阶段节点、冻结 candidate version、验证证据并通过 CAS 事务提交产品完成态 |
 | Tools | `src/lib/agent/tools/` | 通用文件/结构化读取、版本化语义编辑、文件批量提交、结果提交和安全策略；业务 artifact handle、alias、字段优先级由 Domain Pack 注入 |
-| Skills | `src/lib/agent/skills/`、`config/pi-agent-skill-capsules.json` | registry/version/SHA-256 完整性校验；按 phase、附件、标的解析、模板和当前 typed tools 投影原子 runtime capsule，并精确注入所需 reference 片段；项目初始化只配置 workspace 参考镜像 |
+| Skills | `src/lib/agent/skills/`、`config/pi-agent-skill-capsules.json` | registry/version/SHA-256 完整性校验；按 phase、附件、实体解析、模板和当前 typed tools 投影原子 runtime capsule，并精确注入所需 reference 片段；项目初始化只配置 workspace 参考镜像 |
 | 产品接入 | `src/lib/services/cli/pi-agent.ts` | 历史上下文、消息持久化、实时事件、用户取消和执行阶段终态 |
-| HTTP 接入 | `src/app/api/chat/[project_id]/act/route.ts` | 请求合同、权限、幂等、附件、配额接纳和调度响应；不承载金融规划或 Agent 执行实现 |
-| 金融准备 | `src/lib/commerce/finance-act-preparation.ts`、`src/lib/commerce/chat-act-support.ts`、`src/lib/domains/finance/agent-tools/` | Query Rewrite、run plan、真实数据预取、受治理知识准备、Mission 创建，以及金融行情/看板/图片/JSON artifact typed tool 投影 |
-| 领域执行 | `src/lib/data-agent/generation-runtime.ts`、`src/lib/commerce/finance-generation-executor.ts` | 校验 schema v3 组合与 scope 信封，按 Profile ID 分派 handler；inline 与独立 Worker 共用同一执行实现 |
+| HTTP 接入 | `src/app/api/chat/[project_id]/act/route.ts` | 请求合同、权限、幂等、附件、配额接纳和调度响应；不承载领域规划或 Agent 执行实现 |
+| 领域准备 | `src/lib/commerce/retail-act-preparation.ts`、`src/lib/commerce/chat-act-support.ts`、`src/lib/domains/retail/agent-tools/` | Query Rewrite、run plan、真实数据预取、受治理知识准备、Mission 创建，以及零售数据/看板/图片/JSON artifact typed tool 投影 |
+| 领域执行 | `src/lib/data-agent/generation-runtime.ts`、`src/lib/commerce/retail-generation-executor.ts` | 校验 schema v3 组合与 scope 信封，按 Profile ID 分派 handler；inline 与独立 Worker 共用同一执行实现 |
 
 ## 一次运行
 
-1. HTTP 接入完成权限、幂等、附件和配额接纳后，把金融准备委托给领域应用服务。该服务先取得项目级 generation lease，再在共享文件系统资源锁内生成只读 run plan、预取真实量化数据和 evidence；同一 project 的另一 Web/worker 进程不能并发覆盖这些输入产物。
+1. HTTP 接入完成权限、幂等、附件和配额接纳后，把领域准备委托给领域应用服务。该服务先取得项目级 generation lease，再在共享文件系统资源锁内生成只读 run plan、预取真实零售数据和 evidence；同一 project 的另一 Web/worker 进程不能并发覆盖这些输入产物。
 2. 产品入口限制 instruction 为 256 KiB UTF-8、requestId 为最多 128 个白名单字符；接入层校验 project/workspace 绑定，为本次执行生成 UUID `runInstanceId`，并派生带 `pi_agent_` 前缀的 runtime `runId`，随后加载有限条历史聊天消息。
-3. 项目初始化阶段把通过 registry、版本与 SHA-256 完整性校验的 capability 完整 Skill 集合配置到 `.pi/skills` 参考镜像，安装集合不受单次执行 phase 裁剪。执行时，仓库 `.pi/skills` 或受校验 tgz 只提供可追溯的源材料；`config/pi-agent-skill-capsules.json` 按 phase、附件、标的解析状态、模板和当前 typed tools 选择可执行增量。编译结果分成稳定 system manifest 与动态 task capsule，reference 只注入命中的完整 Markdown section，不把整份 `SKILL.md` 交给模型，也不截断关键步骤。
+3. 项目初始化阶段把通过 registry、版本与 SHA-256 完整性校验的 capability 完整 Skill 集合配置到 `.pi/skills` 参考镜像，安装集合不受单次执行 phase 裁剪。执行时，仓库 `.pi/skills` 或受校验 tgz 只提供可追溯的源材料；`config/pi-agent-skill-capsules.json` 按 phase、附件、实体解析状态、模板和当前 typed tools 选择可执行增量。编译结果分成稳定 system manifest 与动态 task capsule，reference 只注入命中的完整 Markdown section，不把整份 `SKILL.md` 交给模型，也不截断关键步骤。
 4. 产品层在首次 Provider 请求前先取得共享文件系统资源锁，再审计旧 attempt，并以数据库事务原子取得 project/canonical-workspace 独占 lease、创建 AgentRun，记录 prompt/tool/skill/workspace 的 SHA-256 provenance；PostgreSQL 权威时钟计算租约，workspace token 与 per-run token 共同组成数据库写栅栏。启动临界区完成后释放资源锁，后续每次物理写入单独重新取得它。
-5. 平台先对 run plan、final data、sources 和 data quality 做语义就绪与 DashboardSpec 预检；空 `{}`、标的覆盖不足、模板不一致、数据 run identity 漂移或已知编译前置条件不满足都会留在 data-preparation/custom surface，不让模型先调用一个必败工具。受信 PhaseGraph 随后在接触模型前选择执行 lane：满足标准 renderer 前置条件时进入 `deterministic_standard`；明确布局、样式、组件或“不要卡片”等定制进入最多 8 个模型回合的 `model_custom`，其中两回合只用于一次工具 schema 纠错；验证修复进入最多 3 个模型回合的 `model_repair`；其他任务进入最多 8 个模型回合的 `model_data_preparation`。standard lane 只携带带 digest 的短 DashboardSpec receipt，并预编译 `apply_dashboard_spec -> submit_result` 两步工具计划；custom lane 才生成有界源码合同并进入 semantic-edit surface。每个 lane 在物理 run 启动时一次确定 typed-tool schema，后续只收紧执行权限而不改变 Provider 可见定义；prepared generation 不注册泛目录读取、行情 API、无附件图片工具和 `write_file`/`edit_file`/`apply_patch` 三套冗余 mutation schema。需要模型的 lane 在每轮请求前由 Context Manager 处理上下文，且只接受框架为具体工具注册的浅层 canonical receipt projector；第三方工具即使自带同名字段也不能把路径或错误码提升为可信系统状态。没有 projector 的工具只生成框架自有 outcome tombstone：保留 call/tool/effect/status 与参数、结果摘要哈希，不吸收第三方原文或其声称的 target。被覆盖历史的最近精确 tombstone 有固定上限，更旧事实进入带计数的 hash-chain rollup；详细 read/artifact receipt 仍按重取成本淘汰，写入立即使旧 read receipt 失效。这样副作用簇可以被原子替换，而不会因永久保留大段 raw tool output 挤爆上下文。产品历史只继承真实用户消息与标记为 final 的助手结论。
+5. 平台先对 run plan、final data、sources 和 data quality 做语义就绪与 DashboardSpec 预检；空 `{}`、实体覆盖不足、模板不一致、数据 run identity 漂移或已知编译前置条件不满足都会留在 data-preparation/custom surface，不让模型先调用一个必败工具。受信 PhaseGraph 随后在接触模型前选择执行 lane：满足标准 renderer 前置条件时进入 `deterministic_standard`；明确布局、样式、组件或“不要卡片”等定制进入最多 8 个模型回合的 `model_custom`，其中两回合只用于一次工具 schema 纠错；验证修复进入最多 3 个模型回合的 `model_repair`；其他任务进入最多 8 个模型回合的 `model_data_preparation`。standard lane 只携带带 digest 的短 DashboardSpec receipt，并预编译 `apply_dashboard_spec -> submit_result` 两步工具计划；custom lane 才生成有界源码合同并进入 semantic-edit surface。每个 lane 在物理 run 启动时一次确定 typed-tool schema，后续只收紧执行权限而不改变 Provider 可见定义；prepared generation 不注册泛目录读取、数据 API、无附件图片工具和 `write_file`/`edit_file`/`apply_patch` 三套冗余 mutation schema。需要模型的 lane 在每轮请求前由 Context Manager 处理上下文，且只接受框架为具体工具注册的浅层 canonical receipt projector；第三方工具即使自带同名字段也不能把路径或错误码提升为可信系统状态。没有 projector 的工具只生成框架自有 outcome tombstone：保留 call/tool/effect/status 与参数、结果摘要哈希，不吸收第三方原文或其声称的 target。被覆盖历史的最近精确 tombstone 有固定上限，更旧事实进入带计数的 hash-chain rollup；详细 read/artifact receipt 仍按重取成本淘汰，写入立即使旧 read receipt 失效。这样副作用簇可以被原子替换，而不会因永久保留大段 raw tool output 挤爆上下文。产品历史只继承真实用户消息与标记为 final 的助手结论。
 6. `deterministic_standard` 使用 Provider-compatible 的可信工具计划执行器，不发起网络或模型请求，并为每一步报告严格的零 Token usage；它仍经过同一个 Run Engine、operation ledger、workspace fencing、事件和 terminal gate，任一步失败都会停止并交给平台恢复。其余 lane 才请求项目选中的模型 Provider；两个网络 Provider 都对 response ID、choice、tool-call identity、终止顺序和 Token 算术执行严格状态校验。`total != input + output`、cache hit/miss 不闭合或 reasoning 超过 output 均作为协议错误；Provider 完全缺少 usage 时，运行时按本轮 prepared request 做保守 input/cache-miss 估算并标记 `usageSource=estimated`，不能以零绕过累计预算。模型 lane 将单请求 prepared、全 run 累计 prepared 与 Provider 回报后的 cache-miss 分成三个独立预算：单请求上限为 custom 24k、repair 20k、data-preparation 60k，累计图上限分别为 72k、60k、480k（data 默认再由 160k 累计输入上限收紧）。每轮剩余累计额度会反向收紧 Context Manager，连同 nonce envelope 一起放不下时不接触 Provider；cache-miss 上限不会误伤可复用的缓存前缀。
 7. reasoning 只保留在内存；durable projector 跳过高频 delta，assistant/tool 原文只保存长度与 SHA-256 审计信息，拒绝 hidden reasoning、raw cause、完整 messages 和凭据字段。
 8. 每个工具动作使用框架派生的 `operationId`。`tool_started` 在副作用前写 `prepared` ledger，只有新建 ledger 才授权执行；省略 `effect` 的工具（包括 terminal）保守视为 `external_write/reconcile_required`。单文件和 DashboardSpec 双文件写入共用批量 writer：先取得 `<workspace>/.pi-workspace.lock`，拒绝重复 canonical target，保存并 fsync `.pi-mutation-journal` 中的 staged 内容、pre-image、hash 与 manifest，再只消费一次数据库 `commit_authorized`；授权后复验全部 before hash，manifest 持久化为 `committing` 后才逐文件 rename 并 fsync 目标目录。进程内中途失败走同一全量预检回滚；进程崩溃留下的 prepared/commit-authorized workspace operation 会在下一次启动锁内恢复为原状态并确定性终结 ledger。若目标后来被用户改成未知 hash，恢复拒绝覆盖并继续阻断。UI/Message observer 失败不会反向中断已完成的工具动作。
@@ -100,7 +100,7 @@ Candidate receipt 与 accepted receipt 不是原始执行日志。数据库不�
 
 信封还固定本次准备阶段已经取得的 Personalization Recall 与 Governed Knowledge Preparation。Handler 只在实际执行时登记 exposure/usage，不会重新 query Memory 或知识库；因此 evidence、用户可见的准备状态和 Agent 实际收到的 capsule 属于同一份快照。信封解析会校验状态、计数和 prepared/capsule 不变量，持久数据异常时失败关闭。
 
-`.data-agent/generation-queue.json` 从 1.12 起只由 PostgreSQL job/outbox 重新物化，不再参与 claim、取消或完成判定。生产模式由独立 generation worker 轮询 `pending/retry_wait`、claim、续租并分派严格版本化的 Data Agent execution envelope；Finance 只是运行时注册表中的一个 handler。读取投影时会审计过期 dispatch：只有 generation lease、AgentRun lease 和 Mission verification lease 都不能证明仍有活 worker，才允许旧 attempt 进入指数退避的 `retry_wait`；达到最大 attempt 后才封存为 `interrupted/failed + replan_required`。本地开发可显式使用 `inline`，生产 readiness 会拒绝该模式。
+`.data-agent/generation-queue.json` 从 1.12 起只由 PostgreSQL job/outbox 重新物化，不再参与 claim、取消或完成判定。生产模式由独立 generation worker 轮询 `pending/retry_wait`、claim、续租并分派严格版本化的 Data Agent execution envelope；零售生成只是运行时注册表中的一个 handler。读取投影时会审计过期 dispatch：只有 generation lease、AgentRun lease 和 Mission verification lease 都不能证明仍有活 worker，才允许旧 attempt 进入指数退避的 `retry_wait`；达到最大 attempt 后才封存为 `interrupted/failed + replan_required`。本地开发可显式使用 `inline`，生产 readiness 会拒绝该模式。
 
 手工 `/commerce/validation` 也服从同一完成门：运行中、修复中或验收中的 Mission 返回 busy；已完成 Mission 只返回既有 acceptance snapshot，不重写权威报告；只有可恢复的 `candidate_complete` / `repair_required` 能在项目生成锁内封存恢复候选。显式 requestId 必须已经存在、属于当前项目且与当前 generation 一致，验证接口不能伪造新的 generation 身份。前端只依据 Mission-aware generation status 决定是否恢复预览，`validation passed` 或数据库中的裸 `Project.previewUrl` 都不能旁路 accepted receipt。
 
@@ -178,16 +178,16 @@ PI Agent typed writer 与 takeover 遵守同一锁顺序：共享文件系统资
 | --- | --- |
 | `list_files`、`read_file`、`read_file_range`、`search_files` | 非预取流程的通用只读工具；拒绝越界与逃逸 symlink。预取 generation 不注册这些工具 |
 | `inspect_dashboard_contract` | 固定检查 run plan、final/evidence、页面/样式/代理；在 6000 字符运行预算内优先保留组件/渲染行范围、根布局、CSS layout selector、卡片式 surface 整改目标，以及可直接传给 `query_text_file` 的分文件批量字面锚点，用于一次定向编辑，不代表验证通过；已有 `initial_dashboard_contract` 时禁止重复调用 |
-| `query_json` | 单次批量查询最多 16 个 RFC 6901 JSON Pointer；核心产物优先使用 `final_dashboard`、`sources_evidence` 等 artifact handle。明确的 `public/data/dashboard*.json` 或匹配当前标的的代码文件别名会安全纠正到 `data_file/final/dashboard-data.json`，标的不一致时失败关闭；其他缺失路径返回实际存在的权威 JSON 候选。缺失 pointer 降级为根 shape，常见点路径自动转成 pointer；大数组只返回头部与较新的尾部样本，并显式记录省略信息、shape 与 SHA-256 |
+| `query_json` | 单次批量查询最多 16 个 RFC 6901 JSON Pointer；核心产物优先使用 `final_dashboard`、`sources_evidence` 等 artifact handle。明确的 `public/data/dashboard*.json` 或匹配当前实体的代码文件别名会安全纠正到 `data_file/final/dashboard-data.json`，实体不一致时失败关闭；其他缺失路径返回实际存在的权威 JSON 候选。缺失 pointer 降级为根 shape，常见点路径自动转成 pointer；大数组只返回头部与较新的尾部样本，并显式记录省略信息、shape 与 SHA-256 |
 | `query_text_file` | 单次批量查询最多 16 个组件、函数或 CSS selector 字面锚点；多行/超长锚点会拆成可执行的短字面量，缺失锚点降级为有界文件头，而不是浪费一轮模型调用；公平返回有界行窗，替代完整源码和连续区间扫描 |
-| `apply_dashboard_spec` | 从只读 run plan 与 final data 编译平台持有的 TSX/CSS；template/variant 只能作断言。plan 状态、required flag、panel 集合、variant renderer capability 和真实数据前置条件全部匹配后才在一个 durable fence 内提交两个文件；个股综合指挥台和个股基本面快照均有受信 renderer，后者额外要求可归属的 0–100 财务质量评分、至少两期报表/趋势与明确公告数组；不支持项在写入前以稳定错误码返回 |
+| `apply_dashboard_spec` | 从只读 run plan 与 final data 编译平台持有的 TSX/CSS；template/variant 只能作断言。plan 状态、required flag、panel 集合、variant renderer capability 和真实数据前置条件全部匹配后才在一个 durable fence 内提交两个文件；四套零售多面板模板（catalog-structure、funnel-analysis、price-inventory、daily-brief）均有受信 renderer，不支持项在写入前以稳定错误码返回 |
 | `semantic_edit` | 使用 `query_text_file` 返回的 SHA-256 对单个 TS/TSX 顶层声明、唯一 CSS rule、精确行范围或有界 CSS override append 做版本化编辑；append 仅允许 `.css`、最多 16,000 字符/160 行，所有模式都在提交前重解析完整文件 |
 | `write_file`、`edit_file`、`apply_patch` | 仅在非预取数据准备或 failure-scoped repair 中按需开放；generation 只写 UI/源码 allowlist，拒绝 env、package、lockfile、scripts 和执行配置 |
-| `commerce_api_get` | 仅允许固定本地服务上的行情、研究、基本面、指标、事件、回测和健康检查只读端点；拒绝补数、探测及其他管理端点；单次运行最多 32 次请求 |
+| `commerce_api_get` | 仅允许固定本地服务 `/api/v1/` 上的零售数据只读端点（漏斗、类目、商品、库存风险、渠道、日度摘要）和健康检查；拒绝补数、探测及其他管理端点；单次运行最多 32 次请求 |
 | `commerce_extract_uploaded_image` | 校验工作空间图片、格式、尺寸、大小和 SHA-256；不伪造 OCR 结果 |
 | `submit_result` | 校验声明产物仍在工作空间内并返回 `candidate_complete`；成功后仅结束物理 AgentRun，不能声明 Mission 验证通过 |
 
-平台预取 generation 不再使用一个固定的宽工具面。PhaseGraph 为 standard lane 固定 `apply_dashboard_spec` 与 `submit_result` 两项 schema，并由可信确定性 Provider 依次调用，模型 Token 为零；custom lane 固定 `query_json`、`query_text_file`、`semantic_edit`、`submit_result` 四项 schema，最多请求模型 8 回合，其中新增额度只容纳一次失败工具调用后的参数纠正。两者都不注册平台 inspector、whole-file mutation、行情 API 或无附件图片工具。repair 最多请求模型 3 回合，平台把 failed check ID 编译成 `app/page.tsx`、`app/globals.css`、明确 final/evidence 目录或唯一 API route 的精确 allowlist；未知失败项不再退化为 `app/**`。失败报告缺失、陈旧或没有明确失败项时，模型调用前即失败关闭。lane 启动后的 schema 保持固定；首次写入、读取预算和 failure scope 只改变执行器授权，不能扩大能力。
+平台预取 generation 不再使用一个固定的宽工具面。PhaseGraph 为 standard lane 固定 `apply_dashboard_spec` 与 `submit_result` 两项 schema，并由可信确定性 Provider 依次调用，模型 Token 为零；custom lane 固定 `query_json`、`query_text_file`、`semantic_edit`、`submit_result` 四项 schema，最多请求模型 8 回合，其中新增额度只容纳一次失败工具调用后的参数纠正。两者都不注册平台 inspector、whole-file mutation、数据 API 或无附件图片工具。repair 最多请求模型 3 回合，平台把 failed check ID 编译成 `app/page.tsx`、`app/globals.css`、明确 final/evidence 目录或唯一 API route 的精确 allowlist；未知失败项不再退化为 `app/**`。失败报告缺失、陈旧或没有明确失败项时，模型调用前即失败关闭。lane 启动后的 schema 保持固定；首次写入、读取预算和 failure scope 只改变执行器授权，不能扩大能力。
 
 `list_files`、文件读取、`inspect_dashboard_contract`、`query_json` 与 `query_text_file` 使用工作区代际 observation cache。它不是跨请求缓存，也不是 completion cache：只在当前 run 内、且没有成功 workspace write 时复用完全相同的读取。`commerce_api_get` 等实时/外部读取明确不使用该机制。
 
@@ -237,16 +237,16 @@ PI_AGENT_TEST_DATABASE_URL='postgresql://...' npm run test:pi-agent:postgres
 
 ## 配置
 
-`config/llm.json` 是仓库级 LLM profile 事实源，固定 provider、model、Base URL、凭据环境变量名、Agent 开关和 Query Rewrite 默认策略。项目创建或下一次执行时，解析后的无密钥模型选择会同步到数据库 `Project.settings.llm`、`.data-agent/workspace.json.runtime` 和 `.data-agent/finance-run-plan.json.llm`。Shop Gate 本地只保存受限 `MODELPORT_API_KEY`；DeepSeek 上游 Key 只存在于 ModelPort。可选官方直连的 `DEEPSEEK_API_KEY` 仅作为部署/CI 进程 secret 注入，不写项目文件或本地默认配置。
+`config/llm.json` 是仓库级 LLM profile 事实源，固定 provider、model、Base URL、凭据环境变量名、Agent 开关和 Query Rewrite 默认策略。项目创建或下一次执行时，解析后的无密钥模型选择会同步到数据库 `Project.settings.llm`、`.data-agent/workspace.json.runtime` 和 `.data-agent/retail-run-plan.json.llm`。Shop Gate 本地只保存受限 `MODELPORT_API_KEY`；DeepSeek 上游 Key 只存在于 ModelPort。可选官方直连的 `DEEPSEEK_API_KEY` 仅作为部署/CI 进程 secret 注入，不写项目文件或本地默认配置。
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `MODELPORT_API_KEY` | 无 | 默认 Qwen 与日常 DeepSeek 共用的受限 ModelPort 客户端凭据 |
 | `DEEPSEEK_API_KEY` | 无 | 可选 DeepSeek 官方直连凭据；本地默认不配置 |
-| `SHOPGATE_LLM_AGENT_ENABLED` | `1` | 项目级 PI Agent 模型执行总开关；无密钥选择会写入 `.data-agent/workspace.json.runtime` 与 Finance Run Plan |
-| `SHOPGATE_LLM_QUERY_REWRITE_ENABLED` | `1` | Query Rewrite 总开关；关闭后量化规划失败关闭，不启用关键词改写 |
+| `SHOPGATE_LLM_AGENT_ENABLED` | `1` | 项目级 PI Agent 模型执行总开关；无密钥选择会写入 `.data-agent/workspace.json.runtime` 与 Retail Run Plan |
+| `SHOPGATE_LLM_QUERY_REWRITE_ENABLED` | `1` | Query Rewrite 总开关；关闭后语义规划失败关闭，不启用关键词改写 |
 | `SHOPGATE_QUERY_REWRITE_LLM_TIMEOUT_MS` | `15000` | Query Rewrite 语义调用硬超时，允许 500–15000ms |
-| `SHOPGATE_QUERY_REWRITE_LLM_INVALID_OUTPUT_RETRIES` | `2` | 本地量化 Qwen 的强制工具参数不符合 schema 时最多再请求两次；每次仍由 LLM 重写，绝不使用关键词/正则语义兜底 |
+| `SHOPGATE_QUERY_REWRITE_LLM_INVALID_OUTPUT_RETRIES` | `2` | 本地 Qwen 的强制工具参数不符合 schema 时最多再请求两次；每次仍由 LLM 重写，绝不使用关键词/正则语义兜底 |
 | `SHOPGATE_QUERY_REWRITE_LLM_MAX_RETRIES` | `0` | Query Rewrite Provider 瞬时错误重试次数，上限 1；最终失败会停止规划和预取 |
 | `PI_AGENT_MAX_REQUEST_BYTES` | `2000000` | 单次 Provider 请求体的 UTF-8 字节硬上限；超限时不发起网络请求 |
 | `PI_AGENT_PROVIDER_MAX_RETRIES` | `2` | 响应流开始前，网络错误与瞬时 HTTP 状态的最大重试次数 |

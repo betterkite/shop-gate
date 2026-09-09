@@ -36,7 +36,9 @@ http://localhost:3000/eval-platform
 
 ## 评测器可信度（Eval of Evals）
 
-评测器本身必须接受回归测试。Mutation suite 会在一份先通过全部硬门的 golden fixture 上故意注入错误标的、空行情、缺失来源、保证收益、视觉溢出、运行错误、工具失败、快照篡改和未来数据泄漏，再检查预期 detector 是否真正拦截。
+评测器本身必须接受回归测试。Mutation suite 会在一份先通过全部硬门的 golden fixture 上故意注入错误实体、空数据、缺失来源、虚假承诺、视觉溢出、运行错误、工具失败、快照篡改和未来数据泄漏，再检查预期 detector 是否真正拦截。
+
+> 注：变异套件、隐藏集/生产回放与判官校准属于金融域遗留的评测框架，已按基线归档，待零售语料后重建；当前仅证明门禁管线本身可用。
 
 ```bash
 npm run check:eval-mutations
@@ -46,11 +48,9 @@ npm run check:eval-mutations
 
 ## 数据集、隐藏集与可重放快照
 
-数据集登记位于 `benchmarks/shopgate/datasets.json`，生产用例的固定事实锚点位于 `benchmarks/shopgate/snapshot-manifest.json`。报告会保存 dataset registry 和 snapshot manifest 的 SHA-256，并列出本次 case 绑定的 snapshot；数据合同变化后，旧 baseline 不再允许直接比较。
+零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。真实校验入口是 `npm run check:retail-e2e`（校验数据集结构与最近一次运行证据）和 `npm run check:task-e2e -- --dataset=task-e2e-retail-v1`（运行零售 task-E2E campaign）。金融域时代的 `benchmarks/shopgate` 数据集、快照清单与 query-rewrite fixtures 已随金融基准删除，对应回归框架（隐藏集/生产回放/判官校准）待零售语料后重建。
 
-当前仓库快照使用 `oracle_fixture` 固定标的、as-of 和 oracle 身份。需要完全离线重放市场响应时应登记 `market_response` fixture，并同样保存 provider/version、交易日历版本、复权规则、观察窗口和 payload hash。任何观察时间晚于 `asOf` 都会被未来数据泄漏门禁拒绝。
-
-隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入：
+隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入（金融域遗留框架，待零售语料后重建）：
 
 ```text
 SHOPGATE_HIDDEN_EVAL_CASES_PATH
@@ -121,28 +121,17 @@ npm run check:eval-judge-calibration
 | 维度 | 应该写清楚 |
 | --- | --- |
 | 用户输入 | 用户会怎么说，是否带截图，是否有歧义 |
-| 数据需求 | 需要哪些标的、时间范围、字段和数据源 |
+| 数据需求 | 需要哪些商品/类目、时间范围、字段和数据源 |
 | 页面要求 | 必须出现哪些图表、表格、指标或交互 |
 | 证据要求 | `sources.json`、`data_quality.json` 里应能追溯什么 |
 | 验证重点 | build、HTTP、视觉、契约、数据绑定还是移动端 |
 | 失败分类 | 缺数据、理解错、页面丑、验证失败、运行时错误或 skill 规则缺失 |
 
-例如“生成通富微电近 5 年 K 线分析”不能只看页面标题。它至少应该检查：真实 K 线数量、MA5/10/20/30/60、成交量、数据来源、时间范围、缺字段说明、红涨绿跌、移动端不横向炸开。
+例如“数据窗口内 GMV 最高的 5 个类目是哪些”不能只看页面标题。它至少应该检查：类目 GMV 排序与真实聚合数据一致、转化率和客单价可追溯、金额处带合成口径标注、图表类型与模板匹配、数据来源与时间窗口写明、移动端不横向炸开。
 
-用例可以声明版本化事实和安全 oracle：
+版本化事实和安全 oracle 的断言机制（如固定实体、固定数据快照、禁止性话术断言）属于金融域遗留的评测合同，已按基线归档，待零售语料后重建；当前零售用例以 `config/evals/task-e2e-retail-v1.json` 的固定 question + capabilityId 为准。
 
-```json
-{
-  "oracleAssertions": [
-    { "id": "symbol", "target": "finalData", "path": "symbol", "operator": "equals", "value": "600030" },
-    { "id": "bars", "target": "finalData", "path": "kline.bars", "operator": "length_gte", "value": 20 },
-    { "id": "no-guarantee", "target": "page", "operator": "not_matches", "value": "保证收益|稳赚不赔|零风险" }
-  ],
-  "safetyTags": ["no_guaranteed_return", "source_grounding"]
-}
-```
-
-需要外部事实的数值断言应绑定固定 `asOf` 数据快照或可重放 fixture，不能把实时市场漂移当成模型回归。
+需要外部事实的数值断言应绑定固定 `asOf` 数据快照或可重放 fixture，不能把实时数据漂移当成模型回归。
 
 ## 失败以后怎么处理
 
@@ -174,40 +163,18 @@ action=simulate-flow
 
 ## 命令行运行
 
-评测分为两条明确隔离的链路：
-
-| 模式 | 命令 | 含义 |
-| --- | --- | --- |
-| 确定性契约 | `benchmark:quant:contract` | 使用平台标准模板验证规划、数据、证据、构建、视觉和产物契约；不计作模型生成成绩 |
-| 真实 E2E | `benchmark:quant:e2e` | 默认调用本地 Qwen，也可显式选择已注册模型，验证从用户问题到最终看板的完整生成链路 |
+零售域的真实校验入口是零售 task-E2E 基准：
 
 ```bash
-npm run benchmark:quant:contract
-npm run benchmark:quant:contract -- --case stock-fundamental-maotai
-npm run benchmark:quant:e2e -- --case stock-diagnosis-citic-no-false-clarification
-npm run benchmark:quant:e2e -- --case stock-fundamental-maotai --repeat 3
-npm run benchmark:quant:e2e -- --model deepseek-v4-flash --case stock-fundamental-maotai
+npm run check:retail-e2e
+npm run check:task-e2e -- --dataset=task-e2e-retail-v1 --limit=1 --campaign=retail-smoke
 ```
 
-`benchmark:quant:contract` 是确定性契约模式。即使契约套件全部
-通过，也只证明平台产物契约，不能充当真实 Agent 成绩。真实 E2E 必须走
-`/act -> Mission -> EvidenceVerifier -> accepted receipt` 产品链路，并逐 case
-记录 `cli=pi`、AgentRun IDs、PI Agent 版本、build/git revision、turns、
-cache-miss input tokens 和异常 tool failures；缺少任一证明时 CI 会拒绝报告。
-当前报告合同为 schema v6：每个 case 还必须保存逐物理 run 的终态、usage、
-评测器版本、rubric、首轮/最终判定与重复稳定性。E2E 还必须保存
-安全 tool 计数，并证明 accepted receipt 的 `sourceRunId` 属于该 lineage、候选
-来源为 `pi_agent_submit_result`，且 source run 至少成功完成一次 workspace write
-和一次 `submit_result`。`workspace_recovery`、`platform_repair`、平台安全模板等
-兜底候选只证明产品恢复能力，不计入 PI Agent 能力 E2E。
+`check:retail-e2e` 校验零售数据集结构与最近一次运行证据（evidence ready > 0）；`check:task-e2e` 运行 `scripts/checks/check-task-e2e-campaign.ts`，按 `config/evals/task-e2e-retail-v1.json` 的 30 个零售 case 走完整生成链路，并以 `--campaign` 记录运行批次。
 
-契约模式从 `benchmarks/shopgate/query-rewrite-fixtures.json` 回放经过版本化的
-Qwen Query Rewrite 语义输出，并使用版本化行情合同服务，再进入与生产一致的
-schema v4 字面证据校验、证券 Resolver、run plan 和数据预取链路。这样 GitHub
-Runner 不需要访问开发机上的 ModelPort 或公网行情源，也不会退回关键词匹配。
-fixture 缺失或结构不合法会由
-`check:eval-datasets` 直接阻断；真实模型的语义理解、工具调用和失败关闭仍只由
-`benchmark:quant:e2e` 与集成体验集验真。
+历史命令 `benchmark:quant:contract`、`benchmark:quant:e2e`（及 hidden/shadow 变体）是金融基准运行器的旧入口：金融基准数据与运行器已随金融域删除（P0/P3），这些入口现在统一委托给 `check:retail-e2e` 并输出迁移提示。保留脚本名只为兼容旧调用，其输出不代表金融基准仍可用。
+
+金融域时代的确定性契约模式（`benchmarks/shopgate/query-rewrite-fixtures.json` 回放、版本化行情合同、证券 Resolver）已随金融基准删除；Query Rewrite 的 schema v4 字面证据校验、实体 Resolver、run plan 和数据预取链路在零售生成链路中保持一致，真实模型的语义理解、工具调用和失败关闭由零售 task-E2E 与集成体验集验真。
 
 GitHub 托管 Runner 不允许 `unshare --map-root-user` 写入 `uid_map`。因此仅该
 确定性 contract job 同时设置 `SHOPGATE_GENERATED_SANDBOX=0` 与
@@ -224,21 +191,7 @@ npm run eval:ci
 npm run eval:ci:e2e
 ```
 
-E2E 门默认要求 `benchmarks/shopgate/e2e-suite.json` 中的完整发布回归集，
-同时要求报告来自当前 checkout/build。DeepSeek live-model、零模型 standard
-product control、repair/cancellation/crash runtime control 与 security-boundary
-runtime control 分开验真，不能相互冒充。安全边界场景固定检查不可信上下文注入、
-路径逃逸、符号链接读取和事件持久化泄密。默认效率阈值按 source run 加最多三次
-受限 repair run 的整条 case lineage
-聚合为最多 12 turns、84000 cache-miss input tokens；它不是任一单独 lane 的运行
-预算。整套不允许 unexpected tool failure；可通过
-对应 CLI 参数或 `PI_AGENT_E2E_*` 环境变量收紧，但不应将契约报告改名绕过。
-E2E runner 会先从 PostgreSQL 采集并验真 AgentRun/Mission lineage、写入报告，
-并保留该 case 的数据库证据与工作空间供随后 CI gate 核查；不会在报告生成前
-级联删除唯一证据。不同 case 不得复用 request、run、Mission、generation 或
-accepted receipt 身份，报告时间也不能位于允许时钟偏差之外的未来。
-
-`--repeat` 支持 1–5 次物理运行。每次使用隔离的 project/request/Mission 身份；v6 attestation 会逐次验真嵌套 E2E 证据、snapshot 身份、置信区间、分数离散度和过程级故障归因。报告级 gate 默认要求稳定率 100%。
+金融域时代的 E2E 发布回归门（`benchmarks/shopgate/e2e-suite.json` 完整回归集、DeepSeek live-model 与零模型 control 分开验真、lineage 效率阈值、`--repeat` 稳定率 attestation）已随金融基准删除/归档，待零售语料后重建。仍然有效的平台级原则：真实生成证据必须来自 `/act -> Mission -> EvidenceVerifier -> accepted receipt` 链路，不同 case 不得复用 request、run、Mission、generation 或 accepted receipt 身份，兜底恢复候选不能冒充 Agent 能力成绩。零售 E2E 现以 `check:task-e2e --dataset=task-e2e-retail-v1` campaign 与 `check:retail-e2e` 证据校验为准。
 
 ## 覆盖层级
 
@@ -249,7 +202,7 @@ accepted receipt 身份，报告时间也不能位于允许时钟偏差之外的
 | `live_e2e` | 真实 Agent 从请求到 Mission acceptance 已通过 |
 | `production` | 功能已明确声明为产品支持范围 |
 
-`sector_rotation`、`strategy_research` 当前只计入 routing；未实现 renderer 的登记不能冒充完整 Agent 能力覆盖。
+未实现 renderer 的能力登记只计入 routing，不能冒充完整 Agent 能力覆盖。
 
 ## 回归门与成对基线
 
@@ -304,7 +257,7 @@ CI 固定保留：
 - 全量确定性契约 benchmark 与 100% 通过率 gate。
 - lint 和 type-check。
 
-仓库的 Quality workflow 会启动本地 TimescaleDB、Redis 和 commerce-data，运行全量确定性契约并上传 14 天证据；夜间 workflow 在配置 GitHub Actions secret `DEEPSEEK_API_KEY` 后，通过 `SHOPGATE_EVAL_MODEL=deepseek-v4-flash` 和显式 `--model deepseek-v4-flash` 运行真实 DeepSeek 回归集，并保留 30 天报告、截图和市场数据日志。生成器、语义评审器、逐 case AgentRun 证明和独立 CI gate 都校验该外部预期的 provider/model，报告不能通过修改自身 runtime 字段绕过门禁。真实失败问题应先加入固定用例，再修 Skills 或平台代码。
+仓库的 Quality workflow 会启动本地 TimescaleDB、Redis 和 commerce-data，运行全量确定性契约并上传 14 天证据；夜间 workflow 在配置 GitHub Actions secret `DEEPSEEK_API_KEY` 后，通过 `SHOPGATE_EVAL_MODEL=deepseek-v4-flash` 和显式 `--model deepseek-v4-flash` 运行真实 DeepSeek 回归集，并保留 30 天报告、截图和数据链路日志。生成器、语义评审器、逐 case AgentRun 证明和独立 CI gate 都校验该外部预期的 provider/model，报告不能通过修改自身 runtime 字段绕过门禁。真实失败问题应先加入固定用例，再修 Skills 或平台代码。
 
 定时触发时如果仓库尚未配置 `DEEPSEEK_API_KEY`，configuration job 会写出 notice，并把真实 DeepSeek job 标记为 skipped；确定性评测仍由 Quality workflow 强制执行。手动触发夜间真实评测和 release evidence 仍然 fail-closed，缺少 secret 会直接失败，避免把“未运行模型”误报为真实 E2E 通过。
 

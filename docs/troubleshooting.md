@@ -7,7 +7,7 @@
 | 层 | 典型现象 | 第一入口 |
 | --- | --- | --- |
 | 环境层 | 端口打不开、CLI 找不到、数据库不可达 | `npm run doctor`、`/ops-platform` 基础环境 |
-| 数据层 | K 线为空、成交额缺失、补数很慢 | 策略平台补数弹窗、commerce-data 日志 |
+| 数据层 | 看板数据为空、日度指标缺失、导入很慢 | commerce-data 日志、数据导入任务记录 |
 | 生成层 | Agent 报错、达到最大轮数、页面没生成完 | 项目聊天页、生成链路观测 |
 | 契约层 | 产物缺失、验证失败、证据不完整 | 工作空间健康、`.data-agent/*.json` |
 | 视觉层 | 页面能打开但难看、溢出、图表空白 | Playwright 截图、视觉检查报告 |
@@ -113,11 +113,11 @@ curl http://127.0.0.1:8000/health
 
 ```bash
 cd services/commerce-data
-uv sync --extra baostock --extra akshare
+uv sync
 uv run shopgate-commerce-api
 ```
 
-如果只是浏览平台页面而不需要实时行情，可临时关闭市场数据后端探测：
+如果只是浏览平台页面而不需要真实数据，可临时关闭数据后端探测：
 
 ```bash
 SHOPGATE_MARKET_API_ENABLED=0 npm run doctor
@@ -182,19 +182,19 @@ npm run dev
 npm run check:models
 ```
 
-## 生成页面没有真实行情
+## 生成页面没有真实数据
 
 先确认后端可用：
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/quotes/realtime/600519"
+curl "http://127.0.0.1:8000/api/v1/commerce/meta"
 ```
 
 再检查生成项目中是否存在：
 
 ```text
 .pi/skills/
-.data-agent/finance-run-plan.json
+.data-agent/retail-run-plan.json
 .data-agent/generation-state.json
 .data-agent/generation-queue.json
 data_file/final/dashboard-data.json
@@ -202,7 +202,7 @@ evidence/sources.json
 evidence/data_quality.json
 ```
 
-如果这些文件都存在，但页面仍然没有真实行情，再看 `data_file/final/dashboard-data.json` 里是否真的有目标标的和足够样本。很多“页面问题”其实是 final data 只写了一天数据，或者字段名和页面绑定字段不一致。
+如果这些文件都存在，但页面仍然没有真实数据，再看 `data_file/final/dashboard-data.json` 里是否真的有目标商品/类目和足够样本。很多“页面问题”其实是 final data 只写了一天数据，或者字段名和页面绑定字段不一致。
 
 ## 可视化页面只有静态文案
 
@@ -290,15 +290,15 @@ PI Agent 启动恢复会处理一个严格子集：`owner.json` 必须是 schema
 
 当前自动调和只覆盖 PI Agent typed workspace writer 的同主机死亡 owner 与 v1 journal。删除锁本身不会清除数据库中的未决 ledger；远端实例、external/uncertain operation 仍是人工应急路径。在目标共享卷多主机断电验收和平台级 generation coordinator 完成前，不要让多个应用实例并发运行同一 project 的完整 generation pipeline。
 
-## 策略补数看起来卡住
+## 数据导入看起来卡住
 
-先确认它是“卡住”还是“正在低频推进”。补数任务会因为外部源限速、请求延迟和本地 preflight 跳过而显得慢。
+先确认它是“卡住”还是“正在低频推进”。导入/同步任务会因为数据源限速、请求延迟和本地 preflight 跳过而显得慢。
 
 优先看：
 
-- 策略平台补数弹窗里的心跳、当前标的、完成批次和预计完成时间。
+- 导入任务记录里的心跳、当前批次和预计完成时间。
 - commerce-data 后端日志中是否持续出现 ingestion job 更新。
-- `quant.market_data_ingestion_jobs` 里 parent job 的 `status`、`completed_symbols`、`rows_upserted` 和 `metadata.last_heartbeat_at`。
+- `commerce.market_data_ingestion_jobs` 里 parent job 的 `status`、`completed_symbols`、`rows_upserted` 和 `metadata.last_heartbeat_at`。
 
 如果本地已有完整数据，后端会返回 `skipped`，`skip_reason=local_coverage_ready`。这代表本地覆盖已满足目标，不需要再拉外部接口。
 

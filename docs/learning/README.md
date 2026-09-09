@@ -11,16 +11,16 @@
 | 0 | [项目学习地图](00-project-study-map.md) | 建立产品、数据、生成和质量四条主线的全局模型 |
 | 1 | [本地启动与健康检查](01-quick-start.md) | 拉起数据库、后端、前端，并确认页面可用 |
 | 2 | [AI 工作空间生成链路](02-ai-workspace-generation.md) | 理解用户问题如何变成可验证工作空间 |
-| 3 | [市场数据与策略平台](03-commerce-data-and-strategy-platform.md) | 理解股票池、ETF/指数池、K 线、估值、板块资金和缓存 |
+| 3 | [零售数据与商品运营](03-commerce-data-and-strategy-platform.md) | 理解商品池、类目池、行为事件、经营指标和缓存 |
 | 4 | [Skills 与可视化看板](04-skills-and-visual-dashboard.md) | 知道如何增强生成页面的审美、布局和自修复能力 |
 | 5 | [评测、运维与质量门](05-evaluation-and-operations.md) | 会跑评测、看工作空间健康、定位验证失败 |
 | 6 | [开发者协作手册](06-developer-playbook.md) | 知道代码该放哪里、怎么验证、哪些产物不要提交 |
 | 7 | [Skills 编写与迭代教程](07-skills-authoring.md) | 学会阅读、修改、发布、打包和验证核心 skills |
-| 8 | [初学者实战路线图（量化优先）](08-beginner-roadmap.md) | 按周执行的学习计划：把 00~07 串成六阶段路线，配动手任务、自检题和验收标准 |
+| 8 | [初学者实战路线图（Agent 主线 v2）](08-beginner-roadmap.md) | 按周执行的学习计划：把 00~07 串成六阶段路线，配动手任务、自检题和验收标准 |
 
 专题深入：
 
-- [策略平台使用与设计指南](../strategy-platform-guide.md)：股票池、ETF/指数池、补数、策略数据依赖和页面取舍。
+- [数据与运营页使用与设计指南](../strategy-platform-guide.md)：商品池、类目池、数据接入、经营数据依赖和页面取舍（该篇为金融遗留文档，零售化进行中）。
 - [运行治理中心使用与评分指南](../ops-platform-guide.md)：工作空间健康、评分口径、日志、降级模式和排障路径。
 
 ## 截图索引
@@ -30,11 +30,13 @@
 | 页面 | 截图 |
 | --- | --- |
 | 首页工作台 | [assets/home.png](assets/home.png) |
-| 策略平台 | [assets/strategy-platform.png](assets/strategy-platform.png) |
+| 商品运营 | 见下方说明；`/commerce-platform` 为现存零售页 |
 | Skills 管理 | [assets/skills.png](assets/skills.png) |
 | 评测平台 | [assets/eval-platform.png](assets/eval-platform.png) |
-| 量化业务知识中心 | [assets/business-knowledge.png](assets/business-knowledge.png) |
+| 经营业务知识中心 | [assets/business-knowledge.png](assets/business-knowledge.png) |
 | 运行治理中心 | [assets/ops-platform.png](assets/ops-platform.png) |
+
+> 说明：`assets/strategy-platform.png` 是金融遗留页面（`/strategy-platform`，已删除）的历史截图，仅作档案保留，对应零售页面为 `/commerce-platform`（商品运营）与 `/operations-briefing`（经营情报）。
 
 ## gpt-image2 教学配图
 
@@ -52,7 +54,7 @@
 
 - 先把 01 跑通，再读后续文档；没有可运行环境时，很多概念会变得抽象。
 - 生成页面相关问题优先看 02 和 04。
-- 数据缺失、K 线不完整、板块资金慢，优先看 03。
+- 数据缺失、经营趋势不完整、数据接入慢，优先看 03。
 - “看板验证未通过”“产物契约不通过”“截图里有错误页”，优先看 05。
 - 第一次参与项目建议先读 00，再读 [内部组件学习指南](../internal-components.md)。
 - 要改 skill 时先读 07，再读 [Skills 治理规范](../skills-governance.md)。

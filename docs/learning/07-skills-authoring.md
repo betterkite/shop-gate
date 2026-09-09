@@ -6,7 +6,7 @@
 
 本教程中的 `.pi/**` 指仓库根目录受 registry/lock、版本与 SHA-256 完整性校验的 Skill 权威源，也是当前 Agent 的 source-first 编译输入，目前没有密码学签名。项目初始化会把校验后的参考镜像配置到 `<workspace>/.pi/skills/`；Agent 执行阶段仍从仓库输入只读编译上下文，不从 workspace 镜像发现能力。
 
-如果说代码是平台的骨架，Skills 就像 Agent 的工作习惯。很多“生成页面不好看”“数据字段没用上”“多标的变成单股页”的问题，最后不是模型不会，而是我们没有把项目内的经验清楚写给它。
+如果说代码是平台的骨架，Skills 就像 Agent 的工作习惯。很多“生成页面不好看”“数据字段没用上”“多类目对比变成单商品页”的问题，最后不是模型不会，而是我们没有把项目内的经验清楚写给它。
 
 ![Skills 反馈迭代闭环](assets/skills-feedback-loop-gpt-image2.png)
 
@@ -22,7 +22,7 @@ Skill 可以理解成 Agent 的本地专业手册。模型本身有通用能力�
 
 | 问题 | 例子 |
 | --- | --- |
-| 什么时候使用 | 用户要生成金融看板时必须用 `dashboard-visualization` |
+| 什么时候使用 | 用户要生成经营看板时必须用 `dashboard-visualization` |
 | 输入是什么 | 当前工作空间、run plan、final data、evidence、用户问题 |
 | 输出是什么 | 修改页面文件、写入 data quality、生成验证修复计划 |
 | 不能做什么 | 不能 mock 数据、不能引用 CDN、不能把 token 写进页面 |
@@ -34,19 +34,21 @@ Skill 可以理解成 Agent 的本地专业手册。模型本身有通用能力�
 | `run-planner` | 如何把用户问题拆成 run plan、澄清问题和数据需求 |
 | `query-rewrite` | 如何消费 LLM-first 语义合同并保持失败关闭 |
 | `commerce-data-registry` | 如何选择主数据源、降级源和字段口径 |
-| `commerce-entity-resolver` | 如何解析股票、指数、ETF 名称和代码 |
-| `image-extraction` | 如何从截图提取持仓、表格和用户输入 |
-| `commerce-market-data` | 如何获取实时行情、K 线、指数 ETF 和批量行情 |
-| `commerce-master-data` | 如何处理财务、估值和公告事件 |
-| `commerce-metrics` | 如何计算趋势、风险、流动性和技术指标 |
-| `commerce-rule-review` | 如何描述策略参数、回测结果和限制 |
+| `commerce-entity-resolver` | 如何解析商品、类目、品牌名称和标准 id |
+| `image-extraction` | 如何从截图提取指标表格、图表和用户输入 |
+| `commerce-market-data` | 如何获取行为事件、经营趋势和增量导入书签 |
+| `commerce-master-data` | 如何处理商品主数据、类目结构与合成口径 |
+| `commerce-metrics` | 如何计算趋势、转化、库销比和经营风险指标 |
+| `commerce-rule-review` | 如何描述运营规则、规则验证结果和限制 |
 | `data-quality` | 如何记录来源、时效、缺失字段和异常 |
-| `dashboard-visualization` | 如何生成金融可视化页面并自动修复 |
+| `dashboard-visualization` | 如何生成经营可视化页面并自动修复 |
 | `platform-ui-product-design` | 如何约束 UI/UX、信息密度、布局和反模式 |
 
 短期不要轻易新增顶层 skill。大多数能力应放进现有 skill 的 `references/`、`scripts/` 或规则章节。
 
-一个经验判断：如果新规则只是让现有能力更稳定，比如 K 线图更清晰、选股页不要丢字段、缺数据要诚实提示，那它应该进入已有 skill。如果它有完全不同的输入输出、独立脚本和独立验证方式，才考虑新增核心 skill。
+> **如实的提醒**：`commerce-*` 这 6 个领域 skill 是由 `quant-*` 改名而来的，目前 `body/scripts` 里仍保留部分金融计算逻辑，功能级零售化还在进行中（见[零售域事实基线](../review/retail-facts-baseline.md)第 12 节）。学习时以上表理解它们**应当承担的零售职责**，以仓库内 skill 实际内容为准。
+
+一个经验判断：如果新规则只是让现有能力更稳定，比如漏斗图更清晰、商品池页不要丢字段、缺数据要诚实提示，那它应该进入已有 skill。如果它有完全不同的输入输出、独立脚本和独立验证方式，才考虑新增核心 skill。
 
 ## Skill 目录长什么样
 
@@ -78,7 +80,7 @@ Skill 可以理解成 Agent 的本地专业手册。模型本身有通用能力�
 
 ```markdown
 ---
-name: quant-example
+name: commerce-example
 description: Use this skill when ...
 ---
 
@@ -111,7 +113,7 @@ description: Use this skill when ...
 说明完成后如何检查。
 ```
 
-写 skill 时不要只写“要好看”“要专业”。要写可执行规则，例如“K 线主图必须有日期轴、价格轴、图例和成交量区域”，“多标的任务不能退化成单股模板”。
+写 skill 时不要只写“要好看”“要专业”。要写可执行规则，例如“漏斗主图必须有阶段标签、数值轴、图例和转化率标注”，“多类目任务不能退化成单商品模板”。
 
 越具体的规则，越容易被执行，也越容易被评测覆盖。含糊的形容词会让每次生成都靠运气。
 
@@ -171,35 +173,35 @@ npm run check:validation-repair
 npm run check:generated-artifacts
 ```
 
-## 例子：修复 K 线页面太窄
+## 例子：修复漏斗页面太窄
 
-假设用户反馈：“K 线图太窄，数字太小，底部日期和图形碰撞。”
+假设用户反馈：“漏斗图太窄，数字太小，底部日期和图形碰撞。”
 
 不要只在某个生成工作空间里手改 CSS。更好的做法是：
 
 1. 打开 `.pi/skills/dashboard-visualization/SKILL.md`。
-2. 找到金融看板、A 股行情看板、视觉验收相关章节。
+2. 找到经营看板、漏斗分析看板、视觉验收相关章节。
 3. 补充可执行规则：
-   - K 线主图必须占据主要宽度。
-   - 价格轴和日期轴字号要可读。
-   - 成交量区域和日期轴之间要留白。
+   - 漏斗主图必须占据主要宽度。
+   - 数值轴和日期轴字号要可读。
+   - 指标带和日期轴之间要留白。
    - 移动端减少刻度，避免碰撞。
 4. 如果 UI 规则更通用，同步更新 `platform-ui-product-design`。
 5. 更新版本和 changelog。
 6. 打包并运行 `npm run check:skills`。
-7. 用一个 K 线生成用例验证规则是否真的生效。
+7. 用一个漏斗生成用例验证规则是否真的生效。
 
 这就是把一次用户反馈沉淀成长期能力。
 
-## 例子：新增 DDE 大单策略知识
+## 例子：新增高库销比预警规则知识
 
-如果策略目录里出现“近 3 日 DDE 大单金额为正”这类规则，但本地还没有 DDE 字段，不应该让 skill 假装可回测。
+如果运营规则目录里出现“近 7 日库销比高于阈值需要预警”这类规则，但本地还没有相应字段口径，不应该让 skill 假装可以验证。
 
 正确做法：
 
-1. 在策略或数据 skill 中标记 DDE 是待补数据依赖。
-2. 在策略目录展示“需补数据”，而不是“可执行”。
-3. 在数据源知识库记录候选 provider 和字段口径。
+1. 在运营规则或数据 skill 中标记该指标是待补数据依赖。
+2. 在规则目录展示“需补数据”，而不是“可执行”。
+3. 在数据源知识库记录候选数据来源和字段口径。
 4. 后续数据入库后，再把规则改为可执行。
 
 Skill 的价值是让 Agent 诚实表达边界，而不是把缺失数据编成结论。
@@ -210,7 +212,7 @@ Skill 的价值是让 Agent 诚实表达边界，而不是把缺失数据编成�
 | --- | --- | --- |
 | 新需求就新增 skill | skill 数量膨胀，边界混乱 | 先扩展现有核心 skill |
 | 只写“页面要专业” | Agent 无法执行 | 写具体布局、字段和验证规则 |
-| 用 skill 要求伪造数据 | 破坏研究可信度 | 缺数据就展示缺口和补数建议 |
+| 用 skill 要求伪造数据 | 破坏经营分析可信度 | 缺数据就展示缺口和补数建议 |
 | 只改源码不打包 | 生成工作空间仍拿旧包 | 运行 `package:skills` 和 `check:skills` |
 | references 写太散 | Agent 难以找到关键规则 | SKILL.md 写入口，references 按场景组织 |
 | 脚本输出不稳定 | 难以复用和验证 | 统一 JSON 输入输出 |

@@ -8,7 +8,7 @@
 | 数据 | 权威位置 | 默认策略 |
 | --- | --- | --- |
 | 用户、权限、项目和任务 | PostgreSQL `public` | 保留；只通过应用 API 删除真实项目 |
-| 行情、证券、财务和时序数据 | PostgreSQL `quant` / TimescaleDB | 保留；按数据源补数/修复，不作为测试垃圾清理 |
+| 行为事件、商品主数据和日度指标 | PostgreSQL/TimescaleDB `commerce` schema | 保留；按数据源导入/修复，不作为测试垃圾清理 |
 | 生成 Workspace | `data/projects/<Project.id>` | 与 Project 同生命周期；创建先写 initializing 行并从隔离 staging 原子发布，删除前验证 canonical path，数据库删除成功后再清文件 |
 | 配额与用量账本 | PostgreSQL quota/usage 表 | 保留审计；项目删除后允许引用被置空，不能伪造回收额度 |
 | Memory/AKEP 使用回执 | PostgreSQL integration ledger | 按真实消费者审计保留；测试 Scope 随测试批次清理 |
@@ -45,7 +45,7 @@ npm run check:task-e2e -- --campaign=review01 --only=C01,C02 --cleanup
 
 ## 禁止事项
 
-- 不执行无筛选的 `TRUNCATE`，不删除 `quant` 行情表或 Timescale chunk。
+- 不执行无筛选的 `TRUNCATE`，不删除 `commerce` 数据表或 Timescale chunk。
 - 不在数据库事务成功前删除 Workspace；否则会产生不可恢复的“有记录、无文件”状态。
 - 不绕过配额结算删除 active reservation，不修改已结算 usage event。
 - 不把 Memory、AKEP 或 ModelPort 的测试清理扩大到其他 tenant/project/environment。

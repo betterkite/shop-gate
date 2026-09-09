@@ -7,8 +7,8 @@ Shop Gate 支持这些长期运行方式：
 - 推荐拓扑：默认 Qwen 经 ModelPort，日常 DeepSeek 也经 ModelPort。
 - 官方直连：某个项目直接调用 DeepSeek 官方 OpenAI-compatible API，不经过 ModelPort。
 - Qwen-only：只安装 ModelPort 的本地 Qwen provider，不配置任何 DeepSeek 上游凭据。
-- 不启用 Memory：保留模型、行情、生成和验证能力，但完全不请求 Evolvable User Memory。
-- 不启用受治理知识：保留模型、行情、生成和验证能力，但不请求 AKEP ContextPack。
+- 不启用 Memory：保留模型、数据读取、生成和验证能力，但完全不请求 Evolvable User Memory。
+- 不启用受治理知识：保留模型、数据读取、生成和验证能力，但不请求 AKEP ContextPack。
 - 离线降级：主动关闭可选外部探测，适合局部开发和故障排查，不等同于常规的“关闭 Memory”。
 
 模型、Memory 和 AKEP 知识是三条独立链路，可以自由组合。例如“DeepSeek 官方直连 + 不启用 Memory/AKEP”与“ModelPort Qwen + Memory + AKEP”都受支持。
@@ -165,7 +165,7 @@ SHOPGATE_QUERY_REWRITE_LLM_MAX_RETRIES=0
 SHOPGATE_QUERY_REWRITE_LLM_INVALID_OUTPUT_RETRIES=2
 ```
 
-正常运行时，Query Rewrite 总是调用项目当前选择的大模型进行语义改写，并保留“大位科技”一类原始实体，不用关键词匹配替代模型理解。设置 `SHOPGATE_LLM_QUERY_REWRITE_ENABLED=0` 会让量化规划明确失败关闭，不会启用旧的关键词 rewrite。
+正常运行时，Query Rewrite 总是调用项目当前选择的大模型进行语义改写，并保留用户输入中的商品、类目等原始实体，不用关键词匹配替代模型理解。设置 `SHOPGATE_LLM_QUERY_REWRITE_ENABLED=0` 会让语义规划明确失败关闭，不会启用旧的关键词 rewrite。
 
 设置 `SHOPGATE_LLM_AGENT_ENABLED=0` 会关闭模型执行能力，workspace 生成等需要 Agent 的任务不可用。它不代表切换 provider，也不是某个模型失败时的自动备用方案。
 
@@ -247,7 +247,7 @@ SHOPGATE_MEMORY_ENABLED=0
 - 不需要启动 `/home/tiammomo/projects/dev/evolvable-user-memory`；
 - 不需要 Memory URL、Bearer Token 或 Token Broker；
 - 聊天不会请求 discovery/recall/outcome，个性化状态为 `disabled`；
-- 模型调用、Query Rewrite、行情读取、workspace 生成、自动验证和预览不受影响；
+- 模型调用、Query Rewrite、数据读取、workspace 生成、自动验证和预览不受影响；
 - 账号记忆管理、偏好召回和“本轮使用了哪些偏好”的反馈能力不可用。
 
 如果 `.env` 已经写了 Memory URL 或 token，也无需删除；`ENABLED=0` 是总闸。密钥不再使用时仍建议从本地文件和 Secret Manager 中撤销，减少遗留风险。
@@ -258,7 +258,7 @@ SHOPGATE_MEMORY_ENABLED=0
 SHOPGATE_DEGRADATION_MODE=offline
 ```
 
-`offline` 会连带关闭或绕过市场 API、Memory、集中观测和 Redis 等可选外部依赖，适合前端/模板局部开发或故障隔离。正常使用模型和行情、只是不要个性化时，应保持 `auto` 或 `strict`，单独设置 `SHOPGATE_MEMORY_ENABLED=0`。
+`offline` 会连带关闭或绕过市场 API、Memory、集中观测和 Redis 等可选外部依赖，适合前端/模板局部开发或故障隔离。正常使用模型和数据、只是不要个性化时，应保持 `auto` 或 `strict`，单独设置 `SHOPGATE_MEMORY_ENABLED=0`。
 
 ## 可直接复制的组合
 
@@ -302,7 +302,7 @@ SHOPGATE_OBSERVABILITY_ENABLED=0
 SHOPGATE_REDIS_CACHE_ENABLED=0
 ```
 
-该组合不适合验收真实数据投研、Agent 生成或生产 readiness。
+该组合不适合验收真实数据链路、Agent 生成或生产 readiness。
 
 ## 其他配置分组
 
@@ -312,16 +312,16 @@ SHOPGATE_REDIS_CACHE_ENABLED=0
 | --- | --- | --- |
 | PostgreSQL/TimescaleDB | `DATABASE_URL`, `POSTGRES_*`, `TIMESCALEDB_IMAGE` | 应用状态、项目、消息、时序数据；Compose 与应用连接信息要同步 |
 | Redis | `REDIS_URL`, `REDIS_NAMESPACE`, `SHOPGATE_REDIS_*` | 缓存；`REQUIRED=0` 允许降级但不代表关闭 |
-| ClickHouse | `CLICKHOUSE_*`, `SHOPGATE_CLICKHOUSE_*` | 可选分析存储，默认关闭 |
+| ClickHouse | `CLICKHOUSE_*`, `SHOPGATE_CLICKHOUSE_*` | 金融域遗留配置组，默认关闭，未接入零售链路 |
 | Web/预览 | `PORT`, `WEB_PORT`, `NEXT_PUBLIC_APP_URL`, `PREVIEW_PORT_*` | 主站与生成 workspace 预览端口池 |
 | 认证 | `SHOPGATE_AUTH_*`, `BETTER_AUTH_URL` | 本地可关闭；生产必须强 secret、安全 Cookie、可信 Origin |
 | 管理接口 | `SHOPGATE_ADMIN_TOKEN`, `SHOPGATE_MARKET_ADMIN_TOKEN` | 保护 host 级写操作和 commerce-data 写接口 |
-| 市场数据 | `SHOPGATE_MARKET_*`, `SHOPGATE_SCREENER_*` | FastAPI 地址、启动与缓存超时 |
+| 零售数据 | `SHOPGATE_MARKET_*`, `SHOPGATE_SCREENER_*` | FastAPI 地址、启动与缓存超时 |
 | Model/Agent | `MODELPORT_API_KEY`, `DEEPSEEK_API_KEY`, `SHOPGATE_LLM_*`, `PI_AGENT_*` | Provider 凭据、运行预算、超时、lease 和上下文上限 |
 | Memory | `SHOPGATE_MEMORY_*` | 可选召回、broker、租户和有界上下文 |
 | 受治理知识 | `SHOPGATE_KNOWLEDGE_*` | AKEP ContextPack、Space、Purpose、Citation、Usage 与 Feedback |
 | 观测 | `LOKI_*`, `GRAFANA_*`, `GRAFANA_ALLOY_*` | 集中日志和本地兜底 |
-| 评测 | `SHOPGATE_EVAL_*`, `SHOPGATE_REQUIRE_*` | 隐藏集、replay、独立 judge 与发布门禁 |
+| 评测 | `SHOPGATE_EVAL_*`, `SHOPGATE_REQUIRE_*` | 隐藏集、replay、独立 judge 与发布门禁（金融域遗留框架，待零售语料重建） |
 | workspace 安全 | `SHOPGATE_GENERATED_SANDBOX`, `PI_AGENT_WORKSPACE_NAMESPACE` | 生成代码隔离和多实例共享资源边界 |
 
 PI Agent 的 Token、轮次、工具调用和 lease 默认值已经按完整 workspace 任务校准。除非有运行 trace 证明瓶颈，不要通过无限调大预算掩盖模型不收敛、工具契约错误或终态提交缺失。

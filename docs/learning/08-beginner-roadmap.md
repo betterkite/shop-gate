@@ -2,7 +2,7 @@
 
 目标：吃透 Shop Gate **作为一个 Agent 系统的设计思想**——它的每个关键机制解决什么问题、不做的代价是什么、为什么这样实现而不是那样——最终能自己设计并讲清一个同类项目。
 
-> **版本说明**：v1（量化优先）见 git 历史（`37e5d36` 之前）。按陪学共识，市场数据线已降级为**案例库**：它学到的所有事实（provider→ingestion→stock_bars→freshness）在新路线里作为"Agent 输出凭什么可信"的活体证据反复调用，不再是独立主线。
+> **版本说明**：v1（量化优先）见 git 历史（`37e5d36` 之前）；金融域已随项目 P3 阶段移除。按陪学共识，数据接入线已降级为**案例库**：它学到的所有事实（provider→ingestion→`commerce.*` 行为表→freshness）在新路线里作为"Agent 输出凭什么可信"的活体证据反复调用，不再是独立主线。
 
 读完本篇你应该知道：Agent 方向接下来 5~6 周每一场学什么、每个机制要产出什么取舍卡、毕业设计长什么样。
 
@@ -53,7 +53,7 @@
 
 ### 现象（先看到，再理解）
 
-在工作台输入一个研究问题（如「贵州茅台近一年走势如何」），几十秒后得到一个**可交互的数据页面**——这是后续所有课程的原材料。本阶段目标：亲手让这个现象发生一次。
+在工作台输入一个经营问题（如「数据窗口内 GMV 最高的 5 个类目表现如何」），几十秒后得到一个**可交互的数据页面**——这是后续所有课程的原材料。本阶段目标：亲手让这个现象发生一次。
 
 ### 动手清单
 
@@ -79,7 +79,7 @@
 
 - [ ] `npm run check:models` 通过；`npm run doctor` 中模型项不再告警
 - [ ] 工作台完成一次完整生成，页面能打开、数据能看
-- [ ] 能说出：这次生成消耗了什么（模型 Token、行情接口调用、数据库写入）？
+- [ ] 能说出：这次生成消耗了什么（模型 Token、commerce-data 接口调用、数据库写入）？
 
 ---
 
@@ -93,7 +93,7 @@
 
 ### 挖掘路径
 
-`src/lib/commerce/generation-*.ts`（队列/状态/执行器）→ `generation-validation.ts`（验证分类：代码验证/视觉检查/产物契约）→ `artifact-contracts.ts`（产物长什么样才合格）→ `src/lib/eval/`（评测平台怎么判分）。
+`src/lib/generation/generation-*.ts`（队列/状态/执行器）→ `src/lib/generation/generation-validation.ts`（验证分类：代码验证/视觉检查/产物契约）→ `src/lib/generation/artifact-contracts.ts`（产物长什么样才合格）→ `src/lib/eval/`（评测平台怎么判分）。
 
 ### 动手清单
 
@@ -155,13 +155,13 @@
 
 ### 挖掘路径
 
-`.pi/skills/`（12 个 skill 权威源：SKILL.md＋references＋scripts）→ `src/lib/agent/skills/compiler.ts`（编译进工作空间）→ registry/lock 与 SHA-256 完整性校验 → `src/lib/domains/finance/`（intent 解析、query-rewrite、symbol-aliases、mission-definition）。
+`.pi/skills/`（12 个 skill 权威源：SKILL.md＋references＋scripts）→ `src/lib/agent/skills/compiler.ts`（编译进工作空间）→ registry/lock 与 SHA-256 完整性校验 → `src/lib/domains/retail/`（intent 解析、query-rewrite、entity-aliases、mission-definition）。
 
 ### 动手清单
 
 1. 按 07 教程对某个 skill 做一次小改动，`npm run check:skills` 验证。
 2. 用同一个提问在改动前后各生成一次，**对比产物差异**并记录。
-3. 读 `query-rewrite.ts` 与 `symbol-aliases.ts`：自然语言"贵州茅台"如何变成标准代码 `600519.SH`（案例库复用！你查过这张表）。
+3. 读 `query-rewrite.ts` 与 `entity-aliases.ts`：自然语言里的商品、类目、品牌说法如何变成标准实体 id（案例库复用！你查过这张表）。
 
 ### 设计取舍卡（2 张）
 
@@ -177,11 +177,11 @@
 
 ## 阶段 4：数据契约与可信度（半周，案例库主场）
 
-对应教材：[03 市场数据与策略平台](03-commerce-data-and-strategy-platform.md)、`src/lib/commerce/artifact-contracts.ts`、`evidence.ts`。
+对应教材：[03 零售数据与商品运营](03-commerce-data-and-strategy-platform.md)、`src/lib/generation/artifact-contracts.ts`、`src/lib/generation/evidence.ts`。
 
 ### 现象
 
-生成的页面敢引用**真实行情**（你亲手灌的 3278 行），报告里附带 evidence 文件——**AI 幻觉横行的时代，它凭什么敢对外承诺数字？**
+生成的页面敢引用**真实行为数据**（天池淘宝 UserBehavior 公开切片，本地已灌入百万级行为事件），报告里附带 evidence 文件——**AI 幻觉横行的时代，它凭什么敢对外承诺数字？**
 
 ### 挖掘路径
 
@@ -220,11 +220,11 @@
 - **模型不通先查三件套**：`npm run check:models`、`npm run doctor`、`.env.local` 的 key 是否写对。默认 Qwen 走 ModelPort，本机没跑 ModelPort 就必须显式切官方直连。
 - **生成的页面打不开**：先看运行治理中心的工作空间健康与验证报告，再回到阶段 1 的生命周期图定位卡在哪一环。
 - **改了 skill 没生效**：检查是否通过 `check:skills`、lock 是否更新、工作空间是否需要重新生成。
-- **别在 offline 模式下做正式检查**：它会连带关闭行情/Memory/Redis 探测。
+- **别在 offline 模式下做正式检查**：它会连带关闭数据后端/Memory/Redis 探测。
 - **Python 版本与依赖**：一律 `uv run`/`uv sync`，不要手动 pip 装进系统 Python。
 
 ## 学完之后
 
 - 真想动手写 mini 实现：从「agent loop ＋ 一个 skill ＋ 一个验证器」骨架开始，把毕业设计文档当蓝图。
-- 深入评测体系：`scripts/evals/`、`benchmark:quant:contract`。
+- 深入评测体系：零售基准数据集 `config/evals/task-e2e-retail-v1.json`，跑 `npm run check:retail-e2e` 与 `npm run eval:ci`。
 - 参与真实开发：严格走 [06 开发者协作手册](06-developer-playbook.md)，提交前跑 `npm run release:check`。

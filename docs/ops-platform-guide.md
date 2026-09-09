@@ -28,7 +28,7 @@ http://localhost:3000/ops-platform
 
 运行总览还会并列展示项目健康、运行健康与策略健康三层画像。这样历史工作空间失败、可选日志组件降级和策略数据过期不会被混成一个笼统的“平台不可用”。
 
-如果你只想知道“页面为什么打不开”，先看基础环境。如果你想知道“某个生成工作空间为什么不可用”，先看工作空间健康。如果你想知道“为什么策略平台结果不可信”，先看策略健康和数据覆盖。
+如果你只想知道“页面为什么打不开”，先看基础环境。如果你想知道“某个生成工作空间为什么不可用”，先看工作空间健康。如果你想知道“为什么生成结果不可信”，先看数据健康和覆盖。
 
 ### Data Agent 执行池
 
@@ -83,7 +83,7 @@ http://localhost:3000/ops-platform
 
 第二层是健康画像，按权重聚合：
 
-| 画像 | 因子 | 权重 |
+| 画像 | 指标 | 权重 |
 | --- | --- | --- |
 | 运行健康 | 核心服务 | 40 |
 | 运行健康 | 工具链 | 20 |
@@ -149,8 +149,8 @@ SHOPGATE_REDIS_REQUIRED=0
 | 生成项目预览打不开 | 工作空间健康、预览端口 | 项目 `npm run build` 和预览进程 |
 | 聊天页报 Agent 错误 | 生成链路观测、日志搜索 requestId | CLI 配置、模型返回、最大轮数 |
 | 任务一直停在生成看板 | Data Agent 执行池的 Worker、队列和最久等待 | Worker 日志、dispatch lease、用户运行配额 |
-| 策略平台加载慢 | 策略健康、commerce-data 日志 | 股票池分页、Redis、SQL 查询 |
-| 补数任务不知道是否在跑 | 策略健康、补数 job 心跳 | `quant.market_data_ingestion_jobs` |
+| 商品运营加载慢 | 数据健康、commerce-data 日志 | 商品池分页、Redis、SQL 查询 |
+| 数据导入任务不知道是否在跑 | 数据健康、导入 job 心跳 | `commerce.market_data_ingestion_jobs` |
 | Loki 没日志 | 可观测性检查、Alloy 状态 | 本地日志兜底是否可读 |
 | 工作空间健康分低 | 产物列表和 next actions | validation、artifact contracts、visual validation |
 | 主平台正常但项目健康很低 | 工作空间交付分层 | 先归档历史失败项目，再处理待修复项目 |

@@ -17,7 +17,7 @@ npm run db:up
 npm run db:init
 npm run obs:up
 cd services/commerce-data
-uv sync --extra baostock --extra akshare
+uv sync
 uv run shopgate-commerce-api
 ```
 
@@ -35,7 +35,7 @@ curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/api/v1/foundation/status
 ```
 
-如果只想看页面结构，可以用降级模式；涉及真实行情、补数、策略平台时不要长期保持 offline：
+如果只想看页面结构，可以用降级模式；涉及真实零售数据、导入任务和生成链路时不要长期保持 offline：
 
 ```bash
 SHOPGATE_DEGRADATION_MODE=offline npm run dev
@@ -93,7 +93,7 @@ npm run check:task-e2e -- --campaign=20260719a --only=C18,C26,C27 --retry-failed
 6. `npm run check:triad-experience`，检查语义和组合体验，不以单次聊天主观判断兼容性。
 7. `curl http://127.0.0.1:3000/api/ready` 与 `npm run doctor`，确认 Shop Gate 自身数据库和本地归因表。
 
-如果数据预取已成功但没有生成看板，先检查项目 `.data-agent/finance-run-plan.json`：`queryRewrite.outputIntent` 应为 `dashboard`、`visualization.required` 应为 `true`，再核对 `templateId/variantId` 是否有受信 renderer。`queryRewrite.execution.llm.guardedFields` 出现 `outputIntent` 表示模型尝试无证据降级，平台已恢复默认看板；项目重新初始化不应出现“承接上一轮澄清”等前缀。
+如果数据预取已成功但没有生成看板，先检查项目 `.data-agent/retail-run-plan.json`：`queryRewrite.outputIntent` 应为 `dashboard`、`visualization.required` 应为 `true`，再核对 `templateId/variantId` 是否有受信 renderer。`queryRewrite.execution.llm.guardedFields` 出现 `outputIntent` 表示模型尝试无证据降级，平台已恢复默认看板；项目重新初始化不应出现“承接上一轮澄清”等前缀。
 
 四个仓库必须独立升级和回滚。Shop Gate 不能导入 ModelPort、Memory 或 AKEP 内部源码，外部服务不能共享 Shop Gate 数据库；跨仓兼容只以 `OpenAI-compatible HTTP`、`evolvable-memory-http/v1` 和 `AKEP v0.1 HTTP` 契约为准。
 
@@ -132,32 +132,32 @@ tail -n 80 tmp/runtime/market-api.log
 
 | 规则 | 说明 |
 | --- | --- |
-| 先查本地覆盖 | 本地已有完整数据时不调用外部源 |
-| 分批执行 | 大股票池补数不一次性打满全部标的 |
+| 先查本地覆盖 | 本地已有完整数据时不重复导入外部切片 |
+| 分批执行 | 大商品池导入和日聚合分批执行，不一次性打满 |
 | 可暂停可继续 | 暂停保存 offset、批次和统计 |
-| 停止不删事实 | 停止只终止任务，不删除已落库 K 线 |
+| 停止不删事实 | 停止只终止任务，不删除已落库行为事件和日聚合 |
 | 记录任务日志 | 任务状态、错误、入库行数和最近心跳必须可查 |
-| 限制并发 | 外部免费接口要低并发、带 delay 和失败重试 |
+| 限制并发 | 外部数据导入要低并发、带 delay 和失败重试 |
 
-## Baostock 历史字段补数
+## 零售数据导入与刷新
 
-用途：补 A 股日线增强字段，例如成交额、换手率、停牌/ST、涨跌停标记、振幅和涨跌额。
+用途：导入或重建零售事实库：天池淘宝 UserBehavior 行为切片（原始窗口 2017-11-25 ~ 2017-12-03）、合成主数据（价格/库存/品牌/店铺，合成口径）和商品/类目日聚合。
 
-### 启动单批补数
+入口是 `shopgate-commerce-import`（`services/commerce-data` 的 console 脚本）：
 
 ```bash
-curl -X POST 'http://127.0.0.1:8000/api/v1/ingestion/baostock/history' \
-  -H 'Content-Type: application/json' \
-  -d '{"symbols":["002156.SZ","002555.SZ"],"period":"daily","adjustment":"qfq","lookback_years":5,"limit":1260,"request_delay_seconds":0.2}'
+cd services/commerce-data
+uv run shopgate-commerce-import import-userbehavior --csv <path> --users 10000 --seed 20251203 --time-shift none
+uv run shopgate-commerce-import generate-synthetic-behavior
+uv run shopgate-commerce-import generate-synthetic-master
+uv run shopgate-commerce-import aggregate-daily
 ```
 
-### 启动分批或一键补数
+事件 CSV 契约：表头严格 5 列 `user_id,item_id,category_id,behavior_type,timestamp`（Unix 秒）。行为类型为 `pv`(曝光) / `fav`(收藏) / `cart`(加购) / `buy`(购买)。零售数据是固定窗口的公开切片，没有“每日收盘后入库”的需求；重新演示其他窗口时使用 `--time-shift last-week`。
 
-入口在策略平台补数弹窗；后端对应：
+导入任务的书签与状态落 `commerce.market_data_ingestion_jobs` / `commerce.market_data_sync_state`；长任务控制面对应：
 
 ```text
-POST /api/v1/ingestion/baostock/history/batch
-POST /api/v1/ingestion/baostock/history/autofill
 GET  /api/v1/ingestion/jobs
 POST /api/v1/ingestion/jobs/{job_id}/control
 ```
@@ -166,123 +166,62 @@ POST /api/v1/ingestion/jobs/{job_id}/control
 
 | 操作 | 语义 |
 | --- | --- |
-| `pause` | 当前安全点停住，保存 offset 和已完成标的 |
+| `pause` | 当前安全点停住，保存 offset 和已完成批次 |
 | `resume` | 从任务元数据和 offset 继续 |
 | `stop` | 终止任务，保留已入库数据和任务日志 |
 
-### 验证补数结果
+### 验证导入结果
 
-先运行新鲜度门禁。它会同时检查交易日历覆盖范围和 `daily/qfq` 最新日期，避免过期交易日历掩盖过期日线：
-
-```bash
-npm run check:market-freshness
-```
-
-该命令默认要求跟进最近一个已完成交易日（上海时间 18:00 后视为当日日线已就绪）。确需容忍上游延迟时，可直接运行脚本并显式设置允许落后的工作日数量：
+先用 `/meta` 核对数据窗口和用户规模：
 
 ```bash
-node scripts/checks/check-commerce-data-freshness.js --max-lag-sessions 1
+curl http://127.0.0.1:8000/api/v1/commerce/meta
 ```
 
-日常维护不再依赖人工打开策略平台。先用 dry-run 检查日期窗口和股票池，再执行交易日历刷新、Baostock `daily/qfq` autofill 和覆盖门禁。autofill 会先做本地覆盖预检，分批处理缺口，并提供任务心跳与停止语义；维护脚本重启时会观察同股票池的既有活动任务，不重复创建：
+期望：`first_event_ts=2017-11-25T00:00:00Z`、`last_event_ts=2017-12-03T16:00:06Z`、`user_count=10000`、`behavior_source=tianchi_userbehavior`。
 
-```bash
-npm run market:maintain:dry-run
-npm run market:maintain
-```
-
-生产环境由 `deploy/systemd/shopgate-market-maintenance.timer` 在工作日收盘后触发；服务失败必须通过 systemd/journal 监控进入值班告警。`SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS` 同时约束维护后的覆盖率，不能只用最新日期判断成功。
-
-快速 `doctor` 会把过期数据报告为 warning；上面的独立门禁会返回非零退出码，适合部署或定时任务。
+再抽查落库行数：
 
 ```bash
 npm run db:psql
 ```
 
 ```sql
-SELECT symbol, count(*) AS rows, min(ts), max(ts)
-FROM quant.stock_bars
-WHERE timeframe = 'daily' AND adjustment = 'qfq'
-GROUP BY symbol
-ORDER BY rows DESC
-LIMIT 20;
-
-SELECT
-  count(*) AS rows,
-  count(amount) AS amount_rows,
-  count(turnover) AS turnover_rows,
-  count(trade_status) AS trade_status_rows,
-  count(is_st) AS st_rows
-FROM quant.stock_bars
-WHERE timeframe = 'daily' AND adjustment = 'qfq';
+SELECT count(*) AS events FROM commerce.user_behavior_events;    -- 期望 1013367
+SELECT count(*) AS item_days FROM commerce.daily_item_metrics;   -- 期望 687562
+SELECT count(*) AS category_days FROM commerce.daily_category_metrics; -- 期望 30644
+SELECT count(*) AS items FROM commerce.items;                    -- 期望 412130
 ```
 
-如果 `amount` 或 `turnover` 仍大量为空，先看 `GET /api/v1/ingestion/jobs` 的失败原因，再看 commerce-data 日志。
+如果行数明显偏少，先看 `GET /api/v1/ingestion/jobs` 的失败原因，再看 commerce-data 日志。
 
-## 当日行情入库
+> 遗留标注：原 Baostock/东方财富 A 股日线补数链路已随金融域移除（P3）。`npm run market:maintain`、`npm run check:market-freshness` 与 `deploy/systemd/shopgate-market-maintenance.timer` 是金融遗留命名的脚本，不再作为零售数据刷新入口；零售数据刷新一律以上面的导入 CLI 为准。
 
-用途：收盘后把最新交易日写入本地库，避免 K 线页面只显示旧日期。
+## 商品池与观察池维护
 
-推荐流程：
+- 商品/类目/品牌/店铺主数据为合成口径，由 `generate-synthetic-master` 生成；调整规模时用导入 CLI 重新生成，不要手改单行。
+- 观察池目前是 `/operations-briefing` 页面的经营情报能力（经营日报/类目经营榜/观察池）；独立池管理接口待补充。
+- 渠道分层为 standard/premium/flagship 三档，聚合数据通过 `GET /api/v1/commerce/channels` 读取。
 
-1. 确认今天是否交易日。
-2. 优先用东方财富实时快照补最新日。
-3. 再用 Baostock/AKShare 补增强字段。
-4. 查询 `quant.stock_bars` 确认最新日和历史日都存在。
-
-不要为了补当天数据而把查询范围改成只查当天；前端 K 线应按窗口读取历史数据，最新日只是追加点。
-
-## 股票池和 ETF/指数池维护
-
-拆分规则：
-
-- A 股股票池只放 `asset_type=stock`。
-- ETF/指数池放 `asset_type=etf` 或 `asset_type=index`。
-- 拆分只修改 `quant.security_universe_members`，不删除 `quant.stock_bars`。
-- 默认研究入口只扫描 active 成员。无最新交易日数据、退市或数据源不再返回的成员应标记为 `role='inactive'` 和 `securities.status='inactive'`，保留历史 K 线和成员关系。
-
-检查：
+检查主数据规模：
 
 ```sql
-SELECT asset_type, count(*)
-FROM quant.securities
-GROUP BY asset_type
-ORDER BY count(*) DESC;
-
-SELECT universe_id, count(*)
-FROM quant.security_universe_members
-GROUP BY universe_id
-ORDER BY count(*) DESC;
+SELECT 'items' AS entity, count(*) FROM commerce.items
+UNION ALL SELECT 'categories', count(*) FROM commerce.categories
+UNION ALL SELECT 'brands', count(*) FROM commerce.brands
+UNION ALL SELECT 'shops', count(*) FROM commerce.shops;
 ```
 
-清洗 A 股当前可交易池：
+期望：items 412,130、categories 5,922、brands 200、shops 500。
 
-```bash
-curl -X POST 'http://127.0.0.1:8000/api/v1/research/universes/a-share-sample-research-pool/hygiene?dry_run=true'
-curl -X POST 'http://127.0.0.1:8000/api/v1/research/universes/a-share-sample-research-pool/hygiene?dry_run=false'
-```
-
-如果页面股票池加载慢，优先确认是否服务端分页和 Redis 缓存可用，不要把前端改回全量加载。
-
-## 板块资金慢查询
-
-板块资金目前适合 Redis 短 TTL 缓存，因为它需要聚合股票池、板块标签、最新行情和窗口统计。
-
-排查顺序：
-
-1. `curl http://127.0.0.1:8000/api/v1/research/sector-capital-flow`
-2. `npm run redis:cli` 后执行 `KEYS shopgate:*sector*`
-3. 检查 commerce-data 日志是否全量扫描 5000+ 标的。
-4. 缩小日期窗口或增加摘要缓存。
-
-指标口径要谨慎：当前成交额和涨跌代理不能直接叫真实主力净流入；真实 DDE/大单资金需要单独数据源。
+如果页面商品池加载慢，优先确认服务端分页（`GET /api/v1/commerce/items` 的 `page`/`page_size`，`page_size` ≤ 100）和 Redis 缓存可用，不要把前端改回全量加载。
 
 ## 生成工作空间验证失败
 
 排查顺序：
 
 ```text
-.data-agent/finance-run-plan.json
+.data-agent/retail-run-plan.json
 .data-agent/generation-state.json
 .data-agent/events.jsonl
 data_file/final/dashboard-data.json
@@ -300,7 +239,7 @@ evidence/data_quality.json
 | --- | --- |
 | build 失败 | 修当前工作空间代码，不改平台源码 |
 | final data 存在但页面没消费 | 修页面数据绑定和模板选择 |
-| 多股票被单股模板展示 | 更新 `dashboard-visualization` 或模板匹配规则 |
+| 多商品被单商品模板展示 | 更新 `dashboard-visualization` 或模板匹配规则 |
 | 页面只有验证失败页 | 先看 validation，再触发自动修复 |
 | 出现 mock/static 样例 | 清理页面假数据，引用真实 final data |
 
@@ -319,20 +258,26 @@ npm run package:skills
 npm run check:validation-repair
 npm run check:project-visual
 npm run check:platform-visuals
-npm run benchmark:quant:contract -- --case <case-id>
+npm run check:retail-e2e
+```
+
+涉及零售端到端任务链路时，用零售基准数据集跑指定 campaign：
+
+```bash
+npm run check:task-e2e -- --dataset=task-e2e-retail-v1 --campaign=<id> --limit=1
 ```
 
 失败案例应优先沉淀成规则，而不是只修某个生成工作空间。
 
 ## 提交前质量门
 
-日常改动先运行确定性质量门。它不依赖已启动的数据库、行情服务或 Loki，会统一检查文档链接、模块边界、契约、前后端 lint/测试、类型和生产构建：
+日常改动先运行确定性质量门。它不依赖已启动的数据库、数据服务或 Loki，会统一检查文档链接、模块边界、契约、前后端 lint/测试、类型和生产构建：
 
 ```bash
 npm run release:check
 ```
 
-正式发布再运行完整质量门。它额外使用 npm 官方 registry 审计全部直接/传递依赖，并执行运行态 `doctor:full`；因此数据库、行情服务和 strict 模式要求的组件必须可用：
+正式发布再运行完整质量门。它额外使用 npm 官方 registry 审计全部直接/传递依赖，并执行运行态 `doctor:full`；因此数据库、数据服务和 strict 模式要求的组件必须可用：
 
 ```bash
 npm run release:check:full
@@ -367,9 +312,9 @@ npm run check:benchmark-coverage
 
 | 组件 | 触发条件 |
 | --- | --- |
-| 对象存储 | 截图、回测报告、原始行情文件和大 JSON 明显膨胀 |
-| 独立 Worker | 补数、因子计算、回测任务需要脱离 Next.js/uvicorn 进程 |
-| ClickHouse | tick、盘口快照或超大研究查询进入主线 |
+| 对象存储 | 截图、规则验证报告、原始 CSV 切片和大 JSON 明显膨胀 |
+| 独立 Worker | 导入、日聚合、批量指标任务需要脱离 Next.js/uvicorn 进程 |
+| 列式分析引擎 | 超大行为事件扫描或跨窗口聚合进入主线时再评估（ClickHouse 链路已随金融域移除） |
 | 消息队列 | 任务需要跨机器分发和可靠重试 |
 
 短期优先把 PostgreSQL/TimescaleDB + Redis + Loki 这套用扎实。

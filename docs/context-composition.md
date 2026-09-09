@@ -76,7 +76,7 @@ Shop Gate 在 Agent 真正收到上下文前写入 `evidence/context-uses/<reque
 
 ## 故障语义
 
-- Memory/Knowledge 的 `REQUIRED=0` 只控制外部准备失败是否允许核心 Quant 任务降级；不得伪造空 receipt。
+- Memory/Knowledge 的 `REQUIRED=0` 只控制外部准备失败是否允许核心生成任务降级；不得伪造空 receipt。
 - 已选择外部上下文后，如果本地联合曝光清单不能持久化，Agent 调用失败关闭，防止出现不可审计的上下文使用。
 - Mission 已经提交 accepted receipt 后，外部结果证据或本地最终投影失败会保留日志和平台侧既有 receipt，供同一幂等键重试；不会回滚已验收的工作空间。
 - 删除、抑制和保留仍由各平台自己的治理 API 执行。删除 Memory 不会删除 AKEP 知识；撤回知识也不会改变用户偏好。
@@ -108,7 +108,7 @@ AKEP 的验收记录位于隔离 Space `https://knowledge.local/spaces/shopgate-
 
 ## 50 题持久闭环验收
 
-当目标不是检查各组件“能连通”，而是确认每一个 case 都同时进入 Memory 和知识库并被模型实际使用时，运行独立的 50 题验收。数据集覆盖 10 个标的，每个标的包含趋势、财务、估值、公告和风险 5 类问题；知识正文只保存分析方法、风险边界与数据质量规则，不把测试时点的行情或模型猜测发布成事实。
+当目标不是检查各组件“能连通”，而是确认每一个 case 都同时进入 Memory 和知识库并被模型实际使用时，运行独立的 50 题持久闭环验收（固定数据集 `shopgate-memory-knowledge-acceptance-50-v1`）；知识正文只保存分析方法、风险边界与数据质量规则，不把测试时点的数据或模型猜测发布成事实。
 
 先在 Agent Knowledge Platform 发布 50 条受治理知识并生成清单：
 

@@ -23,7 +23,7 @@ export const QUESTION_COMPOSER_COPY = {
   modelRewriteTitle: '提交后由所选大模型解析',
   modelRewriteHelper: '输入阶段不做关键词预判',
   literalTarget: '标的原文保真',
-  resolverVerification: 'Resolver 校验证券代码',
+  resolverVerification: 'Resolver 校验商品/类目实体',
   advancedSettings: '高级',
   advancedSettingsDescription: '执行引擎与模型设置',
 } as const;

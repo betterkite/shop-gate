@@ -865,7 +865,7 @@ export default function HomePage() {
                   <div aria-live="polite" className="mx-auto mt-2.5 flex max-w-[70rem] flex-wrap items-center justify-center gap-1.5 text-[11px]">
                     <span className="mr-1 inline-flex items-center gap-1 font-semibold text-muted-foreground"><Sparkles className="h-3 w-3 text-primary" />提交后由所选大模型解析</span>
                     <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">标的原文保真</span>
-                    <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">Resolver 校验证券代码</span>
+                    <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">Resolver 校验商品/类目实体</span>
                     <span className="inline-flex min-h-7 items-center gap-1 rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">{outputMode === "act" ? <LayoutDashboard className="h-3 w-3 text-primary" /> : <MessageSquare className="h-3 w-3 text-primary" />}{questionOutputLabel(outputMode)}</span>
                   </div>
                 ) : null}

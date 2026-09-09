@@ -1,21 +1,21 @@
 # Shop Gate
 
-Shop Gate 是建立在通用 Data Agent 与开源 [PI Agent](https://github.com/earendil-works/pi) 执行内核之上的金融量化应用。用户用自然语言提出研究问题，Finance Domain Pack 会组合证券解析、真实数据、Skills、工具、Mission 和可视化规则，生成可运行工作空间，并通过自动验证、视觉检查、产物契约和评测链路把结果收敛到“好看、可用、可追溯”。同一套框架可以继续接入零售、运营、制造等业务 Domain Pack，而不把业务规则写回 Agent 内核。
+Shop Gate 是建立在通用 Data Agent 与开源 [PI Agent](https://github.com/earendil-works/pi) 执行内核之上的零售电商经营分析应用。用户用自然语言提出经营问题，Retail Domain Pack 会组合商品/类目实体解析、真实行为数据、Skills、工具、Mission 和可视化规则，生成可运行工作空间，并通过自动验证、视觉检查、产物契约和评测链路把结果收敛到“好看、可用、可追溯”。同一套框架可以继续接入其他业务 Domain Pack，而不把业务规则写回 Agent 内核。
 
-生成内容仅用于研究、复盘和辅助决策，不构成投资建议、收益承诺或即时交易指令。
+生成内容仅用于经营复盘和辅助决策；金额为合成口径，不构成采购、定价或交易指令。
 
 如果你是第一次打开这个项目，先选择模型与 Memory 运行方式，再把本地环境跑起来。核心链路是：真实数据进入本地库，Agent 基于 skills 生成工作空间，平台再用验证和评测把结果收紧。
 
 ## 核心能力
 
-- 通用 Data Agent：使用版本化 Task、Dataset、Connector、Domain Pack、Agent Profile、Delivery Pack 和 Execution Plan 合同组合业务能力；`DataAgentApplicationCatalog` 让 Profile Adapter 负责 workspace 初始化，项目和任务同时持久化 Profile/Domain/Delivery/capability 版本锁与 SHA-256。当前金融实现是 `finance.quant`，通用 Next.js 交付实现是 `workspace.next-dashboard`。完整边界与新业务接入流程见 [Data Agent 平台与 Domain Pack 架构](docs/data-agent-architecture.md)。
+- 通用 Data Agent：使用版本化 Task、Dataset、Connector、Domain Pack、Agent Profile、Delivery Pack 和 Execution Plan 合同组合业务能力；`DataAgentApplicationCatalog` 让 Profile Adapter 负责 workspace 初始化，项目和任务同时持久化 Profile/Domain/Delivery/capability 版本锁与 SHA-256。当前零售实现是 `retail.core`（Profile `shopgate.retail-ops`），通用 Next.js 交付实现是 `workspace.next-dashboard`。完整边界与新业务接入流程见 [Data Agent 平台与 Domain Pack 架构](docs/data-agent-architecture.md)。
 - AI 工作台：任务入口、项目聊天、工作空间预览、任务记录和自动修复链路。
-- 量化数据底座：PostgreSQL + TimescaleDB + Redis，承载应用状态、时序行情、估值因子、缓存和补数任务状态。
-- 市场数据服务：Python/FastAPI 后端，提供行情、K 线、财务、公告、指标、补数、基础组件和策略平台接口。
-- 策略平台：股票池、ETF/指数池、策略目录、板块资金、基础组件、金融知识和后续回测入口。
-- 投研情报中心：围绕观察池生成证据型日报，沉淀结构化报告、主题洞察、运行历史和推送回执。
-- LLM-first Query Rewrite：`preview` 与正式执行都由项目选中的模型生成 schema v4 语义合同，时间范围、宽域范围和 answer-only 意图必须有原文字面证据；证券 Resolver 独立确认代码。模型不可用时停止规划和预取，不以关键词结果冒充成功。
-- PI Agent 执行内核 + Shop Gate 治理层：`@earendil-works/pi-agent-core` 负责完整多轮 Agent loop，默认通过 ModelPort 使用本地 Qwen，日常 DeepSeek 经 ModelPort 的 Anthropic 上游 provider，也可为项目显式选择官方 OpenAI-compatible 直连并完全绕过 ModelPort；Shop Gate 保留上下文治理、信息增益 Observation Ledger、受信副作用工具的人工批准/编辑/拒绝、PostgreSQL generation job/事务 outbox、独立 Worker registry、数据库全局 Worker 槽位、按用户公平 claim、用户排队/运行双层结构配额、项目编排/AgentRun/Mission 分层 lease 与 fencing、共享文件系统资源锁、durable run/approval/operation ledger、预算、取消和显式结果提交。审批等待会把 AgentRun 原子切到 `waiting` 并写公开 checkpoint，决策通过后才允许 prepare/execute；Worker 丢失则关闭旧 attempt 并重新规划，不复用已批准的旧调用。Worker 启动时会持久注册进程身份与心跳，并拒绝加入全局容量配置不一致的存活集群；运行治理中心直接展示进程、槽位和队列事实。HTTP 入口只负责接收与调度，金融规划/取数由独立应用服务完成；生产 Worker 与本地 inline 模式都使用 schema v3 execution envelope，按 Profile handler 执行并核对项目、request、workspace、跨平台 scope 和组合哈希。Memory Recall 与受治理知识准备快照随任务固化，避免排队后重复检索导致 evidence 与实际输入漂移。`PiAgent*` 类型和结构化 JSON 合同由通用治理层定义，Domain Pack 只注入领域能力；内核不内置证券、量化工具、dashboard 路径或金融 Mission。版本与边界见 [PI Agent 采用与治理边界](docs/pi-agent-migration.md)。
+- 经营数据底座：PostgreSQL + TimescaleDB + Redis，承载应用状态、行为事件、商品/类目日聚合、合成主数据和导入任务状态。
+- 数据服务：Python/FastAPI 后端，提供经营摘要、行为漏斗、类目经营榜、商品池、库存风险、渠道口径、实体解析与数据导入接口。
+- 商品运营：商品池、品类池、渠道口径、价格带与库存风险、观察池和商品/类目实体解析。
+- 经营情报中心：围绕观察池生成证据型经营日报，沉淀类目经营榜、异动摘要、运行历史和推送回执（推送回执待通知渠道配置）。
+- LLM-first Query Rewrite：`preview` 与正式执行都由项目选中的模型生成 schema v4 语义合同，时间范围、宽域范围和 answer-only 意图必须有原文字面证据；实体 Resolver 独立确认商品/类目。模型不可用时停止规划和预取，不以关键词结果冒充成功。
+- PI Agent 执行内核 + Shop Gate 治理层：`@earendil-works/pi-agent-core` 负责完整多轮 Agent loop，默认通过 ModelPort 使用本地 Qwen，日常 DeepSeek 经 ModelPort 的 Anthropic 上游 provider，也可为项目显式选择官方 OpenAI-compatible 直连并完全绕过 ModelPort；Shop Gate 保留上下文治理、信息增益 Observation Ledger、受信副作用工具的人工批准/编辑/拒绝、PostgreSQL generation job/事务 outbox、独立 Worker registry、数据库全局 Worker 槽位、按用户公平 claim、用户排队/运行双层结构配额、项目编排/AgentRun/Mission 分层 lease 与 fencing、共享文件系统资源锁、durable run/approval/operation ledger、预算、取消和显式结果提交。审批等待会把 AgentRun 原子切到 `waiting` 并写公开 checkpoint，决策通过后才允许 prepare/execute；Worker 丢失则关闭旧 attempt 并重新规划，不复用已批准的旧调用。Worker 启动时会持久注册进程身份与心跳，并拒绝加入全局容量配置不一致的存活集群；运行治理中心直接展示进程、槽位和队列事实。HTTP 入口只负责接收与调度，金融规划/取数由独立应用服务完成；生产 Worker 与本地 inline 模式都使用 schema v3 execution envelope，按 Profile handler 执行并核对项目、request、workspace、跨平台 scope 和组合哈希。Memory Recall 与受治理知识准备快照随任务固化，避免排队后重复检索导致 evidence 与实际输入漂移。`PiAgent*` 类型和结构化 JSON 合同由通用治理层定义，Domain Pack 只注入领域能力；内核不内置零售工具、dashboard 路径或业务 Mission。版本与边界见 [PI Agent 采用与治理边界](docs/pi-agent-migration.md)。
 - Skills 能力层：仓库 `.pi/**` 是唯一权威源，通过 registry/lock、版本与 SHA-256 完整性校验；项目初始化把参考镜像配置到 workspace `.pi/skills`，Agent 执行按 source-first/package-fallback 规则只读编译有界上下文，不从 workspace 镜像发现能力，也不解析旧 Skill ID。
 - 业务与治理：业务知识中心、评测平台和运行治理中心共同覆盖能力知识、交付契约、生成质量、工作空间健康、运行 trace 和集中日志。
 - 受治理上下文接入：通过独立 HTTP 契约组合 Memory Usage Receipt 与 AKEP ContextPack，Agent 前落无正文联合清单，Mission 验收后记录 AKEP Usage，用户明确评价后再分别回传 Memory Outcome 与 AKEP Feedback；不共享数据库或源码。
@@ -75,8 +75,8 @@ npm run dev
 | 入口 | 地址 | 说明 |
 | --- | --- | --- |
 | AI 工作台 | `http://localhost:3000` | 创建任务、进入项目聊天和预览 |
-| 策略平台 | `http://localhost:3000/strategy-platform` | 股票池、ETF/指数池、板块资金、策略目录、基础组件和金融知识 |
-| 投研情报中心 | `http://localhost:3000/research-reports` | 管理观察池、研究证据、报告库、主题洞察和自动化交付 |
+| 商品运营 | `http://localhost:3000/commerce-platform` | 商品池（分页/排序）、品类池、渠道口径与价格带库存风险 |
+| 经营情报 | `http://localhost:3000/operations-briefing` | 经营日报、类目经营榜、观察池与日报生成/持久化 |
 | Skills 管理 | `http://localhost:3000/skills` | 编辑、发布、回滚和导入核心 skills |
 | 量化业务知识中心 | `http://localhost:3000/business-knowledge` | 查看业务能力、典型场景、交付规范和执行依赖 |
 | 运行治理中心 | `http://localhost:3000/ops-platform` | 统一查看 Worker/队列、服务依赖、工作空间交付、生成链路和运行日志 |
@@ -97,7 +97,7 @@ npm run dev
 | 数据库检查 | `npm run db:doctor` |
 | 本地单次消费 generation job | `PI_AGENT_DISPATCH_MODE=worker npm run worker:generation:once` |
 | 刷新交易日历、日线并校验覆盖 | `npm run market:maintain` |
-| 只检查行情维护参数 | `npm run market:maintain:dry-run` |
+| 只检查数据新鲜度 | `npm run market:maintain:dry-run`（金融遗留脚本，零售数据用 check:retail-e2e） |
 | 初始化/维护登录管理员 | `npm run auth:bootstrap` |
 | 验证完整用户生命周期 | `npm run auth:verify` |
 | 清理过期认证数据与配额预留 | `npm run auth:cleanup` |
@@ -134,8 +134,8 @@ npm run dev
 | 想系统学习项目 | [教学路径](docs/learning/README.md) |
 | 想参与开发或判断代码放哪 | [项目结构与分层边界](docs/project-structure.md) / [模块边界](docs/module-boundaries.md) |
 | 想理解或扩展 Agent 框架 | [PI Agent 采用与治理边界](docs/pi-agent-migration.md) / [PI Agent 架构](docs/pi-agent.md) |
-| 想查接口、字段或数据源口径 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) / [行情数据源知识库](docs/commerce-data-source-knowledge.md) |
-| 想做每日投研报告和推送 | [投研情报中心与日报自动化指南](docs/research-automation-guide.md) |
+| 想查接口、字段或数据源口径 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) / [零售数据接入](docs/commerce-data-ingestion.md) |
+| 想做经营日报和触达 | [经营情报](docs/architecture.md)（金融投研日报指南已归档：docs/research-automation-guide.md） |
 | 想排障或做发布前检查 | [运行手册](docs/operations-runbook.md) / [故障排查](docs/troubleshooting.md) |
 | 想启用登录或配置权限/用量配额 | [用户、权限、配额与会话管理](docs/authentication.md) |
 | 想接入、使用或排查用户记忆 | [用户记忆服务接入、使用与效果验证](docs/user-memory-integration.md) |
@@ -154,7 +154,7 @@ npm run dev
 | 再跑通本地环境 | [本地启动与健康检查](docs/learning/01-quick-start.md) | 拉起数据库、后端、前端和可选观测组件 |
 | 理解内部组件 | [内部组件学习指南](docs/internal-components.md) | 把页面、服务、数据、Skills、验证和运维串起来 |
 | 学会生成链路 | [AI 工作空间生成链路](docs/learning/02-ai-workspace-generation.md) | 理解 run plan、data、evidence、validation 和 repair plan |
-| 学会数据与策略 | [市场数据与策略平台](docs/learning/03-commerce-data-and-strategy-platform.md) | 理解股票池、K 线、补数、因子和基础组件 |
+| 学会数据与商品运营 | [数据与商品运营](docs/learning/03-commerce-data-and-strategy-platform.md) | 理解行为事件、商品池、渠道口径和合成主数据 |
 | 学会查接口和字段 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) | 知道页面读哪个接口、字段来自哪里 |
 | 学会 Skills | [Skills 编写与迭代教程](docs/learning/07-skills-authoring.md) | 知道如何修改、发布、打包和验证 skill |
 | 看后续优先级 | [持续完善路线图](docs/ROADMAP.md) | 知道哪些事该先做，哪些事暂时不该做 |

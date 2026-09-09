@@ -21,7 +21,7 @@ README 可以短一些，负责让人快速启动和找到入口。`docs/learnin
 | --- | --- | --- |
 | “本模块用于实现若干能力。” | 太空，没有告诉读者为什么要关心 | “这个模块负责把用户问题变成可验证工作空间。排查生成失败时，先从这里看。” |
 | “执行以下命令。” | 只给动作，不给判断标准 | “先执行命令，再看是否出现 HTTP 200；如果失败，通常是后端没启动或端口被占用。” |
-| “支持 X、Y、Z。” | 像功能广告 | “当你需要看 K 线、补数进度或数据质量时，策略平台会用到这些能力。” |
+| “支持 X、Y、Z。” | 像功能广告 | “当你需要看经营趋势、数据导入进度或数据质量时，商品运营页面会用到这些能力。” |
 | “请参考相关文档。” | 读者不知道点哪一个 | “如果是数据字段缺失，先看 `docs/learning/03...`；如果是生成页面失败，先看 `docs/learning/02...`。” |
 | 大段名词堆叠 | 读起来像接口列表 | 先用一句话讲人话，再放表格 |
 
@@ -49,7 +49,7 @@ README 可以短一些，负责让人快速启动和找到入口。`docs/learnin
 
 ## 写教程时要多讲一点基础知识
 
-`docs/learning/` 的读者不一定已经懂 TimescaleDB、复权、run plan、evidence、skill、Loki 或评测。教程里可以用更朴素的解释：
+`docs/learning/` 的读者不一定已经懂 TimescaleDB、聚合口径、run plan、evidence、skill、Loki 或评测。教程里可以用更朴素的解释：
 
 - TimescaleDB 是带时序能力的 PostgreSQL，不是另一种连接协议。
 - evidence 是数据证据，不是装饰文件。
@@ -107,7 +107,7 @@ The image should teach structure, not replace the documentation text.
 | 新页面、新平台入口 | README、`docs/README.md`、对应 learning 文档 |
 | 新组件、新端口、新环境变量 | `docs/infrastructure.md`、`docs/troubleshooting.md`、`.env.example` |
 | 新表、新字段、新 SQL | `sqls/README.md`、相关数据文档 |
-| 新行情源或字段口径 | `docs/commerce-data-source-knowledge.md` |
+| 新数据源或字段口径 | `docs/commerce-data-source-knowledge.md` |
 | 生成工作空间契约变化 | `docs/generated-workspace-contract.md` |
 | skill 边界或发布流程变化 | `docs/skills-governance.md`、`docs/learning/07-skills-authoring.md` |
 | 新评测规则 | `docs/evals-guide.md`、`docs/learning/05-evaluation-and-operations.md` |

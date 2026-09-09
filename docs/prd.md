@@ -13,7 +13,7 @@
 
 Shop Gate 是一个**零售电商领域的 Data Agent 工作台**：运营者/分析师用自然语言提出经营问题，Agent 组合零售领域知识（商品/类目/流量/转化/库存）、真实行为数据与 Skills，生成**可运行、可追溯、好看的**经营 dashboard。它复用 QuantPilot 的平台内核（PI Agent 治理层、Data Agent 合同、生成与预览链路），但领域内核**只装零售**：`finance.quant` 领域包已规划移除（P3），默认 Profile 指向零售。
 
-一句话：**把"问股票"换成"问生意"**——数据从行情/K线换成流量/转化/GMV/库存，dashboard 从投研视图换成经营视图，平台治理与生成质量能力保持原水准。
+一句话：**用自然语言"问生意"**——数据来自真实行为流与商品主数据（流量/转化/GMV/库存），dashboard 直接呈现经营视图，平台治理与生成质量能力保持原水准。
 
 ## 2. 用户与典型场景
 
@@ -26,7 +26,7 @@ Shop Gate 是一个**零售电商领域的 Data Agent 工作台**：运营者/�
 
 ## 3. v1 能力范围（4 个 Capability，Q24a）
 
-Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`（替代 `shopgate.finance-research`，P3 生效）。
+Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`。
 
 ### 3.1 流量与转化漏斗（`retail.traffic-funnel`）
 
@@ -100,35 +100,28 @@ Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`（替
 | `commerce.user_behavior_events` | 真实行为流（source=tianchi_userbehavior，event_ts 转换自 Unix 秒） |
 | `commerce.items` / `commerce.categories` / `commerce.brands` / `commerce.shops` | 合成主数据（synthetic 标注列） |
 | `commerce.daily_item_metrics` / `commerce.daily_category_metrics` | 导入后 SQL 生成的日聚合（pv/fav/cart/buy/gmv/conversion） |
-| 保留平台表 | `platform_jobs`、`market_data_sync_state`、`market_data_ingestion_jobs`、`data_quality_scans`（原 `quant.*` 下 4 张平台表迁入 `commerce.*` schema，命名随 P2 评审微调） |
-| 删除 | 12 张金融表（stock_bars/securities/factors/backtest 等）随 P2 schema 重写移除 |
+| 平台表 | `platform_jobs`、`market_data_sync_state`、`market_data_ingestion_jobs`、`data_quality_scans` |
 
-### 5.5 prisma 领域模型映射（P2/P3，追加式 migration）
+### 5.5 经营情报相关领域模型（Prisma）
 
-| 原（金融） | 新（零售） |
+| 模型 | 用途 |
 | --- | --- |
-| `ResearchWatchlist` | `BriefWatchPool`（观察池：重点商品/类目） |
-| `ResearchReport` | `OperationBrief`（经营日报/简报） |
-| `ResearchReportRun` | `OperationBriefRun` |
-| `StrategyScanRun` / `StrategyScanJob` | v1 移除（对应选品/策略扫描为二期） |
+| `BriefWatchPool` | 观察池：重点商品/类目 |
+| `OperationBrief` | 经营日报/简报 |
+| `OperationBriefRun` | 日报生成运行记录 |
 
 ## 6. 信息架构与页面映射（前端布局改造依据，Q13a/Q14a）
 
-路由更名在 P4 执行（`/strategy-platform` → `/commerce-platform`，`/research-reports` → `/operations-briefing`），同步 `PlatformSwitcher`、检查脚本与文档链接。
+路由：`/commerce-platform`（商品运营）与 `/operations-briefing`（经营情报），同步 `PlatformSwitcher`、检查脚本与文档链接。
 
-| 原（金融） | 新（零售） | 改造内容 | 阶段 |
-| --- | --- | --- | --- |
-| 首页 AI 工作台（硬编码茅台/宁德/沪深300 示例） | 经营工作台 | 3 个零售示例 prompt（§6.1） | P4 |
-| `strategy-platform/UniverseView`（股票池） | 商品池（SKU 搜索/筛选/标签） | 内容重建，布局骨架保留 | P6 |
-| `strategy-platform/StockKlineDetail`（个股K线） | 商品详情（日销/流量/转化时序） | 同上 | P6 |
-| `strategy-platform/SectorCapitalFlow`（板块资金） | 类目流量与转化 | 同上 | P6 |
-| `strategy-platform/FactorCatalogView`（因子目录） | 零售指标目录 | 同上 | P6 |
-| `strategy-platform/FinancialKnowledgeView` | 零售业务知识 | 同上 | P6 |
-| `strategy-platform/FoundationView`（基础组件） | 基础组件（日历/类目树/口径） | 同上 | P6 |
-| `research-reports/*`（投研情报中心） | 经营情报中心（日报） | ViewModel 接零售数据，骨架保留 | P7 |
-| `PlatformSwitcher` 标签（研究工作台/策略实验室/投研情报） | 经营工作台/商品运营/经营情报 | 文案 | P4 |
-| `ToolResultItem`（金融结果渲染） | 零售结果渲染（含合成口径徽标） | 组件改造 | P4 |
-| `api/commerce/` 5 条路由（P0 已改名） | 零售语义（含 entity resolve：SKU/类目解析） | 内容重写 | P3/P4 |
+| 页面（零售） | 内容 | 阶段 |
+| --- | --- | --- |
+| 首页经营工作台 | 3 个零售示例 prompt（§6.1） | P4 |
+| 商品运营（`/commerce-platform`） | 商品池（SKU 搜索/筛选/标签）、商品详情（日销/流量/转化时序）、类目流量与转化、零售指标目录、零售业务知识、基础组件（数据窗口/类目树/口径） | P6 |
+| 经营情报（`/operations-briefing`） | 经营情报中心（日报） | P7 |
+| `PlatformSwitcher` 标签 | 经营工作台/商品运营/经营情报 | P4 |
+| `ToolResultItem` | 零售结果渲染（含合成口径徽标） | P4 |
+| `api/commerce/` 5 条路由（P0 已改名） | 零售语义（含 entity resolve：SKU/类目解析） | P3/P4 |
 
 ### 6.1 首页示例 prompt（待确认项 B）
 
@@ -142,12 +135,12 @@ Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`（替
 
 ## 7. Agent 行为与领域包（P3）
 
-- **注册**：`src/lib/domains/retail/` 按 `docs/data-agent-architecture.md` 七步法建设；Registry + ApplicationCatalog 注册后，`DEFAULT_DATA_AGENT_PROFILE_ID` 切至 `shopgate.retail-ops`；`finance.quant` 包与其 Profile 同步删除（Q12a）。
+- **注册**：`src/lib/domains/retail/` 按 `docs/data-agent-architecture.md` 七步法建设；Registry + ApplicationCatalog 注册后，`DEFAULT_DATA_AGENT_PROFILE_ID` 指向 `shopgate.retail-ops`。
 - **query-rewrite 领域约束**：沿用 schema v4 语义合同——时间范围、商品/类目范围、answer-only 意图必须有原文字面证据；实体解析（SKU/类目）独立确认，模型不可用时停止规划，不以关键词结果冒充成功。
 - **实体 Resolver**：商品（item_id/标题模糊）与类目（category_id/合成类目名）两级解析。
 - **工具**：`commerce_api_get`（P0 已改名）+ commerce-data 领域接口；capsules `requiresTools` 已同步。
-- **高危点**：`src/lib/services/pi-agent-prompts.ts` 系统提示词的金融文案在 P3 一并零售化（有测试对照）。
-- **module-boundaries**：登记 `retail-domain` 模块（`src/lib/domains/retail/**`）与跨域禁令，删除 finance-domain 模块。
+- **高危点**：`src/lib/services/pi-agent-prompts.ts` 系统提示词保持零售文案（有测试对照）。
+- **module-boundaries**：登记 `retail-domain` 模块（`src/lib/domains/retail/**`）与跨域禁令。
 
 ## 8. 验收标准
 
@@ -155,13 +148,13 @@ Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`（替
 
 1. `npm run db:up && npm run db:init` 成功，`commerce.*` 表就绪；
 2. 导入脚本完成：抽样行为流（~100 万事件）+ 合成主数据入库，日聚合物化；
-3. `npm run dev` 启动，首页为经营工作台（零售示例 prompt，无金融文案）；
+3. `npm run dev` 启动，首页为经营工作台（零售示例 prompt）；
 4. AI 工作台提出 §6.1 中任一自然语言问题 → Agent 生成零售 dashboard（预览可用，金额处带合成口径徽标）；
 5. `docs/prd.md` 之外的门：`type-check`、vitest（≤基线+已归因）、后端 ruff/pytest、`check:skills`、模块边界检查全绿。
 
 ### 8.2 文案归零门（P4/P6 各自执行）
 
-首页与商品运营平台页面源码中 `股票|证券|行情|K线|投研|策略平台` 计数为 0（`grep -riE`，排除注释）。
+首页与商品运营平台页面源码中历史遗留的非零售文案计数为 0（`grep -riE` 词表检查，排除注释），金额处均带合成口径标注。
 
 ## 9. 风险与开放问题
 
@@ -180,15 +173,14 @@ Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`（替
 | A. 抽样规模 | 10,000 用户全量行为（~100 万事件） | 1,000 用户（更快）/ 50,000 用户（更重） |
 | B. 首页示例 prompt | §6.1 三条 | 用户自拟 |
 | C. 指标目录 v1 | §6.2 十项 | 增删由用户圈定 |
-| D. 路由更名 | `/commerce-platform`、`/operations-briefing`（P4 一次到位） | 保留原路由名只换内容（链接/文档改动最小） |
-| E. `StrategyScan*` prisma 模型 | v1 移除 | 保留待二期复用 |
+| D. 路由命名 | `/commerce-platform`、`/operations-briefing`（P4 一次到位） | 保留原路由名只换内容（链接/文档改动最小） |
 
 ## 11. 里程碑映射
 
 | 阶段 | 本文档依据 | 验收 |
 | --- | --- | --- |
 | P2 数据切片 | §5 全部 | 导入成功 + 接口 curl + 日聚合物化 |
-| P3 领域包 | §3、§7 | 默认 Profile 切换 + finance 包删除 + 门绿 |
-| P4 前端切片 | §6（首页/导航/ToolResultItem/商品池最小页/情报占位/路由更名） | dev 可用 + §8.2 归零门 |
+| P3 领域包 | §3、§7 | 默认 Profile 指向 `shopgate.retail-ops` + 门绿 |
+| P4 前端切片 | §6（首页/导航/ToolResultItem/商品池最小页/情报占位/路由） | dev 可用 + §8.2 归零门 |
 | P5 闭环验收 | §8.1 | 用户验收 |
 | P6/P7/P8/P9/P10 | §3.1–3.4 全量、§6 映射表余项、skills、评测、docs | 各自阶段门 |

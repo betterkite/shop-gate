@@ -15,8 +15,8 @@ Shop Gate 生成的不是一张静态截图，而是一个独立 Next.js 工作�
 | 概念 | 含义 |
 | --- | --- |
 | 工作空间 | `data/projects/project-*` 下的一份生成项目源码和产物 |
-| query rewrite | 所选 LLM 生成的 schema v4 语义合同；标的由 Resolver 复核，失败时停止下游执行 |
-| run plan | 平台基于 query rewrite 形成的任务计划，包括标准代码、页面类型、需要哪些数据和验证重点 |
+| query rewrite | 所选 LLM 生成的 schema v4 语义合同；商品/类目等实体由 Resolver 复核，失败时停止下游执行 |
+| run plan | 平台基于 query rewrite 形成的任务计划，包括时间窗口、能力（capabilityId）、可视化模板、需要哪些数据和验证重点 |
 | data file | 最终页面消费的数据文件，通常是 `data_file/final/dashboard-data.json` |
 | evidence | 数据来源、质量、限制和可追溯材料，避免页面只展示结果却没有依据 |
 | validation | 自动检查构建、HTTP 预览、数据文件、证据文件和契约是否满足要求 |
@@ -28,10 +28,10 @@ Shop Gate 生成的不是一张静态截图，而是一个独立 Next.js 工作�
 
 ```mermaid
 flowchart LR
-  A[用户问题 / 图片] --> B[金融分析入口与模型选择]
+  A[用户问题 / 图片] --> B[经营分析入口与模型选择]
   B --> Q[LLM 生成 query_rewrite v4]
   Q -->|模型/证据无效| X[停止并提示重试]
-  Q --> R[Resolver 核验证券标的]
+  Q --> R[Resolver 核验商品/类目实体]
   R --> C[平台生成 run_plan]
   C --> D[平台按 run_plan 预取真实数据]
   D --> E[写入 data_file 与 evidence]
@@ -43,7 +43,7 @@ flowchart LR
   J --> G
 ```
 
-首页默认使用统一的“金融分析”入口，不要求用户先判断自己属于个股诊断、选股、持仓还是回测场景；平台会根据问题、股票标的、时间范围和动词意图自动匹配能力模板。
+首页默认使用统一的“经营分析”入口，不要求用户先判断自己属于流量漏斗、商品结构、价格库存还是经营日报场景；平台会根据问题、类目/商品实体、时间窗口和动词意图自动匹配能力模板（`traffic_funnel`、`catalog_structure`、`price_inventory`、`daily_brief` 四种能力）。
 
 ## 关键产物
 
@@ -51,8 +51,8 @@ flowchart LR
 
 | 文件 | 用途 |
 | --- | --- |
-| `.data-agent/finance-query-rewrite.json` | LLM-first 语义、Resolver 结果、执行策略、安全状态和问题码 |
-| `.data-agent/finance-run-plan.json` | 任务计划、数据需求、预期页面类型 |
+| `.data-agent/retail-query-rewrite.json` | LLM-first 语义、Resolver 结果、执行策略、安全状态和问题码 |
+| `.data-agent/retail-run-plan.json` | 任务计划、数据需求、预期页面类型 |
 | `.data-agent/events.jsonl` | 生成过程事件流 |
 | `.data-agent/generation-state.json` | 当前生成状态 |
 | `.data-agent/validation.json` | build、HTTP、数据和证据验证结果 |
@@ -66,14 +66,14 @@ flowchart LR
 
 ## 为什么要拆 data 和 evidence
 
-在量化场景里，一个漂亮页面如果没有数据来源和字段口径，基本没有研究价值。Shop Gate 把最终数据和证据拆开，是为了让页面和验证器分别回答两个问题：
+在零售经营分析场景里，一个漂亮页面如果没有数据来源和字段口径，基本没有经营决策价值。Shop Gate 把最终数据和证据拆开，是为了让页面和验证器分别回答两个问题：
 
 - `data_file/final/dashboard-data.json`：页面要画什么、表格展示什么、指标怎么算。
 - `evidence/*.json`：这些数据从哪里来、什么时候获取、缺哪些字段、哪些结论不能过度解释。
 
-信源端点、技术文件路径和逐渠道明细属于后台审计信息，默认不在用户看板中单独渲染。看板只呈现研究所需的数据更新时间、报告期、样本口径和质量/缺失提示；验证器仍必须检查 `evidence/sources.json` 与 `evidence/data_quality.json`，因此隐藏展示不会削弱可追溯性。
+信源端点、技术文件路径和逐数据源明细属于后台审计信息，默认不在用户看板中单独渲染。看板只呈现经营分析所需的数据窗口、样本口径和质量/缺失提示；验证器仍必须检查 `evidence/sources.json` 与 `evidence/data_quality.json`，因此隐藏展示不会削弱可追溯性。
 
-例如一个股票诊断页可以展示 MA5、MA20、换手率和成交额，但 evidence 需要说明这些字段来自本地 `quant.stock_bars`、Baostock 补数或东方财富实时接口。如果换手率缺失，页面应该提示“该字段缺失”，而不是用 `0` 或 `-` 伪装成真实值。
+例如一个类目经营页可以展示曝光、收藏、加购、购买和 GMV，但 evidence 需要说明这些行为事件来自本地 `commerce.user_behavior_events`（天池淘宝 UserBehavior 公开切片，窗口 2017-11-25 ~ 2017-12-03），价格、库存、品牌、店铺为合成主数据，`gmv = buy 事件数 × 合成价格`。如果某个指标缺失，页面应该提示“该字段缺失”，而不是用 `0` 或 `-` 伪装成真实值。
 
 ## 生成页面的核心原则
 
@@ -102,18 +102,18 @@ flowchart LR
 
 | 任务类型 | 推荐页面结构 |
 | --- | --- |
-| 单股诊断 | 顶部摘要、K 线主图、技术指标、财务与事件、风险提示 |
-| 多股对比 | 股票矩阵、收益/回撤/波动对比、估值对比、行业和事件差异 |
-| 策略回测 | 参数区、净值曲线、回撤、交易列表、风险指标和限制 |
-| 板块资金 | 市场资金概览、板块排行、资金趋势、个股贡献和异动说明 |
+| 商品结构分析 | 顶部摘要、价格带分布、库销比与库存风险、top 商品列表、口径提示 |
+| 流量漏斗分析 | 曝光→收藏→加购→购买漏斗主图、分日转化、类目对比、口径提示 |
+| 价格与库存 | 参数区、价格带分布、库销比排行、库存风险清单和限制说明 |
+| 经营日报 | 平台概览（GMV/曝光/购买/转化/客单价）、类目经营榜、观察池和异动说明 |
 | 数据质量 | 覆盖率、缺失字段、来源分布、异常点和补数建议 |
 
 ## 阅读一次生成链路
 
 排查一个真实工作空间时，建议按这个顺序看：
 
-1. `.data-agent/finance-query-rewrite.json`：确认模型是否应用、标的是否由 Resolver 核验、是否需要重试或澄清。
-2. `.data-agent/finance-run-plan.json`：确认平台是否忠实消费标的、周期、能力和输出意图。
+1. `.data-agent/retail-query-rewrite.json`：确认模型是否应用、商品/类目实体是否由 Resolver 核验、是否需要重试或澄清。
+2. `.data-agent/retail-run-plan.json`：确认平台是否忠实消费实体、时间窗口、能力和输出意图。
 3. `evidence/sources.json`：确认数据源是否真实、是否走了降级。
 4. `data_file/final/dashboard-data.json`：确认页面能用的数据是否完整。
 5. `.data-agent/validation.json`：确认失败项是代码、数据还是契约。

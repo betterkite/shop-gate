@@ -6,11 +6,24 @@
 
 | 层 | 存储 | 典型表/目录 | 说明 |
 | --- | --- | --- | --- |
-| 主业务状态 | PostgreSQL public schema | Prisma models | 项目、消息、设置、token、评测、策略扫描状态、投研日报 |
-| 量化事实库 | PostgreSQL/TimescaleDB `quant` schema | `stock_bars`、`stock_factors`、`securities` | 行情、因子、股票池、补数、回测 |
-| 短期缓存 | Redis | `shopgate:*` | 板块资金、行情摘要、接口短 TTL，不作为事实库 |
+| 主业务状态 | PostgreSQL public schema | Prisma models | 项目、消息、设置、token、评测、观察池与经营日报 |
+| 零售事实库 | PostgreSQL/TimescaleDB `commerce` schema | `user_behavior_events`、`items`、`daily_item_metrics` 等 | 行为事件、商品/类目主数据、日聚合、导入任务与质量扫描 |
+| 短期缓存 | Redis | `shopgate:*` | 经营摘要等接口短 TTL 缓存，不作为事实库 |
 | 生成原件 | 文件系统 | `data/projects/` | 生成工作空间源码、数据文件、证据和验证报告 |
 | 临时报表 | 文件系统 / Loki | `tmp/`、Loki | 评测报告、运行日志、视觉截图和队列日志 |
+
+## 零售事实库总览
+
+唯一事实库是 `commerce.*`（PostgreSQL/TimescaleDB :5432/shopgate）。数据来自天池淘宝 UserBehavior（dataset 649）公开镜像切片，保留原始窗口 **2017-11-25 ~ 2017-12-03**（`--time-shift none`）：
+
+- `user_behavior_events`：1,013,367 事件 / 10,000 用户 / `source='tianchi_userbehavior'`
+- `items` 412,130、`categories` 5,922、`brands` 200、`shops` 500（tier: standard/premium/flagship）
+- `daily_item_metrics` 687,562、`daily_category_metrics` 30,644
+- 平台表：`platform_jobs`、`market_data_ingestion_jobs`、`market_data_sync_state`、`data_quality_scans`
+
+行为类型只有四种：`pv`(曝光) / `fav`(收藏) / `cart`(加购) / `buy`(购买)。
+
+**合成口径**：价格/库存/品牌/店铺为合成主数据；`gmv = buy 事件数 × 合成价格`；金额处必须带"合成口径"标注。
 
 ## Prisma 主业务表
 
@@ -37,11 +50,9 @@
 | `project_service_connections` | `ProjectServiceConnection` | GitHub/Vercel/Supabase 项目连接 |
 | `commits` | `Commit` | 项目关联 commit 元数据 |
 | `platform_settings` | `PlatformSetting` | 平台级设置 |
-| `strategy_scan_runs` | `StrategyScanRun` | 策略扫描运行结果 |
-| `strategy_scan_jobs` | `StrategyScanJob` | 策略扫描单标的任务 |
-| `research_watchlists` | `ResearchWatchlist` | 投研日报观察池、市场范围、计划和关联推送通道 |
-| `research_report_runs` | `ResearchReportRun` | 日报生成运行记录、状态、错误和证据元信息 |
-| `research_reports` | `ResearchReport` | Markdown/JSON 日报、评分、建议、风险等级和 evidence |
+| `brief_watch_pools` | `BriefWatchPool` | 经营情报观察池、市场范围、日报计划和关联推送通道 |
+| `operation_brief_runs` | `OperationBriefRun` | 经营日报生成运行记录、状态、错误和证据元信息 |
+| `operation_briefs` | `OperationBrief` | Markdown/JSON 经营日报、评分、建议、风险等级和 evidence |
 | `notification_channels` | `NotificationChannel` | 企业微信、飞书、钉钉、Telegram、Discord、邮件等推送通道配置 |
 | `notification_deliveries` | `NotificationDelivery` | 推送或 dry-run 推送记录 |
 | `eval_runs` | `EvalRun` | 评测报告索引和摘要 |
@@ -65,7 +76,7 @@
 | `quota_reservations` | `QuotaReservation` | 执行前资源预留及其策略快照、TTL、结算/释放状态和幂等键 |
 | `usage_events` | `UsageEvent` | 实际用量/调整的幂等事实账本，关联 actor、project、reservation、bucket 和业务 source |
 
-Prisma 表只管理平台状态，不承载大体量 K 线和生成源码。工作空间原件仍在 `data/projects/`。
+Prisma 表只管理平台状态，不承载大体量行为事件和生成源码。工作空间原件仍在 `data/projects/`。
 
 认证授权以 `projects.owner_id` 和 `project_memberships` 为项目归属事实源。owner 同时保留一条 owner membership，便于列表和审计；服务端判定时 `projects.owner_id` 优先。`auth_users.banned` 表示账号停用，`must_change_password` 会将账号限制在账户安全和退出相关入口，`password_changed_at` 与 `last_login_at` 用于管理员判断账号生命周期。`auth_sessions.token`、`auth_accounts.password` 属于敏感认证数据，任何列表 API、审计 metadata、日志和 Skills 都不得返回或记录原值。
 
@@ -92,204 +103,122 @@ reservation 创建时先把数量原子加入 `usage_buckets.reserved`；settlem
 
 PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、完整 messages、system prompt、raw provider payload、凭据和 raw cause。工具原始参数/结果只以 SHA-256、UTF-8 字节数和受控计数进入 `agent_events`/`agent_tool_executions`；`agent_tool_approvals.public_input` 与 `edited_input` 只能包含受信工具主动投影、再次通过凭据字段拒绝策略的公开 JSON。文件内容仍以工作空间为事实源。`agent_runs.workspace_key` 与 `agent_workspace_leases.workspace_key` 都是 deployment namespace 与 canonical realpath 的 `sha256:<64 hex>` 身份，不保存宿主绝对路径，也不等同于会随内容变化的 `workspace_hash`。`agent_runs.workspace_key` 没有数据库默认值，调用方必须显式提供；数据库 check constraint 和启动 readiness 会拒绝格式漂移。
 
-## 量化时序表
+## 零售行为与日聚合表
 
-### `quant.stock_bars`
+### `commerce.user_behavior_events`
 
-股票、ETF、指数 K 线事实表。唯一口径是：
-
-```text
-symbol + timeframe + adjustment + ts
-```
+真实用户行为事件流（天池 UserBehavior 抽样导入）。口径是事件级流水：某用户在某时刻对某商品发生某类行为。
 
 | 字段 | 类型/口径 | 来源 | 使用位置 |
 | --- | --- | --- | --- |
-| `symbol` | 规范代码，如 `002156.SZ` | 证券主数据/解析器 | 股票池、K 线、回测 |
-| `ts` | 交易时间，日线通常是交易日 | provider | K 线图、回测窗口 |
-| `timeframe` | `daily`、`weekly`、`monthly` | 请求参数/聚合 | 日/周/月切换 |
-| `adjustment` | `qfq`、`hfq`、`none` | 请求参数 | 复权口径隔离 |
-| `open/high/low/close` | OHLC 价格 | 东方财富/Baostock/AKShare | K 线、MA、回测 |
-| `previous_close` | 前收盘 | Baostock/腾讯/推导 | 涨跌幅、涨跌停 |
-| `volume` | 成交量 | provider | 成交量柱、流动性 |
-| `amount` | 成交额，CNY | 东方财富 f57、Baostock/AKShare | 流动性、资金代理 |
-| `amplitude` | 振幅，% | 东方财富 f58、AKShare | 波动判断 |
-| `change_percent` | 涨跌幅，% | 东方财富 f59、AKShare/Baostock | 涨跌、涨跌停 |
-| `change_amount` | 涨跌额 | 东方财富 f60、AKShare | 行情摘要 |
-| `turnover` | 换手率，% | 东方财富 f61、Baostock/AKShare | 流动性、活跃度 |
-| `trade_status` | 交易状态 | Baostock | 停牌过滤 |
-| `is_st` | 是否 ST | Baostock | 风险过滤、涨跌停规则 |
-| `limit_up/limit_down` | 涨停/跌停标记 | 由涨跌幅和板块规则推导 | K 线标记、短线策略 |
-| `provider` | 入库来源 | provider | 数据质量和溯源 |
-| `metadata` | 原始字段和扩展字段 | provider | 口径追溯、兜底 |
+| `event_id` | 自增主键 | 导入 | 溯源 |
+| `user_id` | 用户 ID（真实行为流） | 数据集 | 漏斗、去重用户数 |
+| `item_id` | 商品 ID（真实行为流） | 数据集 | 商品池、单商品趋势 |
+| `category_id` | 类目 ID（真实行为流） | 数据集 | 类目榜、类目漏斗 |
+| `behavior_type` | 只允许 `pv`/`fav`/`cart`/`buy` | 数据集 | 漏斗、转化、日聚合 |
+| `event_ts` | 事件时间（Unix 秒导入为 TIMESTAMPTZ） | 数据集 | 窗口过滤、趋势 |
+| `source` | 固定 `tianchi_userbehavior` | 导入 | 数据溯源 |
+| `imported_at` | 导入时间 | 导入 | 排查 |
 
-不要用空值或 0 假装字段已采集。缺失时应在页面和 `data_quality` 中说明缺口。
+本表仅存行为事实，不含金额；金额口径见 `commerce.items` 与日聚合表。不要用空值或 0 假装字段已采集，缺失时应在页面和 `data_quality_scans` 中说明缺口。
 
-### `quant.stock_factors`
+### `commerce.daily_item_metrics`
 
-因子值事实表，保存某个 symbol 某天某个因子的值。
+商品×日聚合（导入后由 `aggregate-daily` 生成）。
 
 | 字段 | 口径 |
 | --- | --- |
-| `symbol` | 规范证券代码 |
-| `ts` | 因子生效日期或交易日 |
-| `factor_key` | 因子键，如 `ma5`、`ret_20d`、`pb_mrq` |
-| `factor_value` | 数值型结果 |
-| `provider` | `shopgate`、`baostock`、`eastmoney` 等 |
-| `metadata` | 行业中性化、窗口、原始字段等扩展 |
+| `stat_date` + `item_id` | 联合主键 |
+| `category_id` | 商品所属类目 |
+| `pv`/`fav`/`cart`/`buy` | 当日四类行为事件计数 |
+| `gmv` | 当日成交额 = `buy` 事件数 × 当日 `items.price`（合成静态价格） |
 
-因子解释不放在这里，放在 `quant.factor_definitions`。
+`gmv` 依赖合成价格，展示必须带"合成口径"标注。
 
-### `quant.strategy_signals`
+### `commerce.daily_category_metrics`
 
-策略信号表，保存策略在某个标的某个时间点输出的信号。
+类目×日聚合。
 
 | 字段 | 口径 |
 | --- | --- |
-| `strategy_id` | 策略唯一键 |
-| `symbol` | 标的 |
-| `ts` | 信号时间 |
-| `signal` | `buy`、`sell`、`hold`、`watch` 等 |
-| `strength` | 信号强度 |
-| `price` | 参考价格 |
-| `metadata` | 触发因子、阈值、排除原因 |
+| `stat_date` + `category_id` | 联合主键 |
+| `pv`/`fav`/`cart`/`buy` | 当日四类行为事件计数 |
+| `buyers` | 当日去重购买用户数（人均口径基础） |
+| `gmv` | 当日类目成交额（合成口径） |
 
-信号不等于投资建议，页面必须展示风控和限制说明。
+客单价口径 = `gmv / buy`（件单价）。
 
-### `quant.portfolio_snapshots`
+## 商品主数据
 
-组合净值快照。
+### `commerce.items`
 
-| 字段 | 口径 |
-| --- | --- |
-| `portfolio_id` | 组合 ID |
-| `ts` | 快照时间 |
-| `total_value` | 总资产 |
-| `cash` | 现金 |
-| `exposure` | 风险暴露 |
-| `drawdown` | 回撤 |
-| `metadata` | 持仓、费用、滑点等 |
-
-## 证券主数据与股票池
-
-### `quant.securities`
-
-证券主数据。
+商品（SKU）主数据。`item_id`/`category_id` 继承真实行为流；档案字段为合成主数据（`synthetic_master=true`）。
 
 | 字段 | 口径 | 说明 |
 | --- | --- | --- |
-| `symbol` | `002156.SZ` | 主键 |
-| `code` | `002156` | 原始代码 |
-| `name` | 通富微电 | 页面主显示 |
-| `exchange` | `SZ`、`SH` 等 | 交易所 |
-| `asset_type` | `stock`、`etf`、`index` | 股票池拆分关键字段 |
-| `currency` | `CNY` | 币种 |
-| `timezone` | `Asia/Shanghai` | 时区 |
-| `secid` | 东方财富 secid | 实时/历史接口 |
-| `provider` | 主数据来源 | 默认 `eastmoney` |
-| `listed_at` | 上市日期 | 样本覆盖判断 |
-| `status` | `active` 等 | 可交易性过滤 |
-| `metadata` | 行业、地区、概念、板块标签 | 股票池展示和筛选 |
+| `item_id` | 真实商品 ID | 主键 |
+| `category_id` | 真实类目 ID | 类目结构分析 |
+| `title` | 合成商品标题 | 页面主显示 |
+| `brand_id` / `shop_id` | 合成品牌/店铺引用 | 品牌与渠道维度 |
+| `price` | 合成价格（≥ 0） | GMV 口径输入 |
+| `stock` | 合成库存（≥ 0） | 库存风险 |
+| `listed_at` | 上架时间（合成） | 商品结构 |
+| `synthetic_master` | 固定 `true` | 合成口径标注 |
 
-所属板块优先从 `metadata` 中稳定字段读取，例如行业、概念、地区和交易所板块。
+### `commerce.categories` / `commerce.brands` / `commerce.shops`
 
-### `quant.security_universes`
+- `categories`：`category_id` 为真实行为流中的类目 ID；`name` 为合成映射（`synthetic_name=true`）；`parent_id` 支持层级。
+- `brands`：合成品牌池（约 200），`synthetic=true`。
+- `shops`：合成店铺池（约 500），`tier` 分 `standard`/`premium`/`flagship`，对应渠道三档聚合。
 
-股票池/ETF 池定义表。
+品牌/店铺归属仅用于演示分析，不代表真实品牌。商品池/品类池页面不设独立"池定义表"：商品池和类目榜由 commerce-data 的 `/items`、`/categories/top` 端点实时分页聚合（见 [API 总览](api-reference.md)）；经营情报的观察池是平台状态（Prisma `brief_watch_pools`），不属于事实库。
 
-| 字段 | 口径 |
-| --- | --- |
-| `id` | 池 ID，如 `a-share-stocks`、`etf-index-pool` |
-| `name` | 页面显示名 |
-| `description` | 用途说明 |
-| `status` | `active`、`archived` |
-| `source` | `eastmoney`、`manual`、`shopgate` |
-| `tags` | 分组标签 |
-| `metadata` | 池规则、统计摘要 |
-
-### `quant.security_universe_members`
-
-池成员关系表。拆分股票池和 ETF/指数池时只改这张表的成员关系，不删除 `stock_bars` 历史。当前可交易研究池以 `role <> 'inactive'` 且 `quant.securities.status` 不是 `inactive`/`delisted` 为默认边界。
-
-| 字段 | 口径 |
-| --- | --- |
-| `universe_id` | 股票池 ID |
-| `symbol` | 证券代码 |
-| `role` | `member`、`benchmark`、`inactive` 等；`inactive` 表示保留历史但默认业务入口不再扫描 |
-| `weight` | 可选权重 |
-| `metadata` | 加入原因、来源；自动清洗会写入 `metadata.hygiene`，记录原因、目标交易日、原 role/status 和新状态 |
-| `added_at` | 加入时间 |
-
-## 补数、覆盖和回测表
+## 数据导入与平台任务表
 
 | 表/视图 | 责任 |
 | --- | --- |
-| `quant.market_data_ingestion_jobs` | 市场数据补数任务，记录 provider、范围、状态、进度、错误和统计 |
-| `quant.market_data_sync_state` | 单标的同步水位，记录 first/last ts、行数、最近成功和错误；在线覆盖接口优先读取这张表 |
-| `quant.market_data_coverage` | 基于 `stock_bars` 聚合的数据覆盖视图，适合离线核对，不作为页面首屏默认读模型 |
-| `quant.backtest_runs` | 回测任务和指标摘要 |
-| `quant.backtest_orders` | 回测成交明细 |
+| `commerce.market_data_ingestion_jobs` | 数据导入任务，记录 provider、范围、状态、进度、错误和统计 |
+| `commerce.market_data_sync_state` | 数据源同步水位，记录 first/last ts、行数、最近成功和错误 |
+| `commerce.data_quality_scans` | 数据质量扫描摘要和 issue |
+| `commerce.platform_jobs` | 通用平台任务表，后续承载独立 worker |
 
-补数任务状态建议使用：
+导入通过 `shopgate-commerce-import` CLI 驱动（`import-userbehavior`、`generate-synthetic-behavior`、`generate-synthetic-master`、`aggregate-daily`，见 [commerce-data 数据接入](commerce-data-ingestion.md)），provider 书签写入 `market_data_ingestion_jobs` / `market_data_sync_state`。任务失败或停止不删除已入库事实数据。
 
-```text
-queued -> running -> completed
-queued/running -> paused
-queued/running -> stopped
-running -> failed
-```
-
-`paused` 和 `stopped` 都不删除已入库事实数据。
+原金融域的回测表（`backtest_runs`/`backtest_orders`）已随金融域删除；零售域的"规则验证"由生成管线内的自动验证承接（build/HTTP 200/数据文件/evidence/产物契约/图表/entity-scope/视觉），结果写入生成工作空间的 `.data-agent/validation.json`，不设独立回测表。
 
 ## 基础组件表
 
 | 表 | 责任 | 页面 |
 | --- | --- | --- |
-| `quant.trading_calendars` | 交易日历、预期样本、补数跳过和回测窗口 | 策略平台基础组件 |
-| `quant.factor_definitions` | 因子公式、依赖、解释和状态 | 策略平台因子目录 |
-| `quant.data_quality_scans` | 数据质量扫描摘要和 issue | 策略平台基础组件 |
-| `quant.platform_jobs` | 通用平台任务表，后续承载独立 worker | 运维/策略任务 |
+| `commerce.data_quality_scans` | 数据质量扫描摘要和 issue | 运行治理 |
+| `commerce.platform_jobs` | 通用平台任务表，后续承载独立 worker | 运行治理/平台任务 |
 
-## 当前高价值因子
+## 当前核心经营指标
 
-### 财务与基本面 API 字段
-
-| 字段 | 位置 | 单位/口径 | 缺失处理 |
+| 指标 | 口径 | 主要来源 | 说明 |
 | --- | --- | --- | --- |
-| `operating_cash_flow_per_share` | `financials.reports[]`、`fundamentalIndicators.points[]` | 每股经营活动现金流净额；东方财富原始字段 `MGJYXJJE` | 不得以 0 补缺；兼容读取 raw 时需保留来源 |
-| `operating_cash_flow_per_share_yoy` | `fundamentalIndicators.points[]` | 同一月日、上一会计年度报告期的同比，百分点值，如 `8.71` 表示 `8.71%` | 上期缺失或为 0 时返回 `null`，不猜测 |
-| `latest_operating_cash_flow_per_share` | `fundamentalIndicators.summary` | 最新报告期每股经营活动现金流净额 | 没有有效报告时为 `null` |
-| `latest_operating_cash_flow_per_share_yoy` | `fundamentalIndicators.summary` | 最新报告期每股经营活动现金流同比 | 没有可比上期时为 `null` |
+| `pv`/`fav`/`cart`/`buy` | 四类行为事件计数 | `user_behavior_events`、`daily_*_metrics` | 零售"行情"的基础 |
+| `gmv` | `buy` 事件数 × 合成价格 | `daily_item_metrics.gmv`、`daily_category_metrics.gmv` | 金额必须带"合成口径"标注 |
+| 转化率 | `buy / pv` | `/api/v1/commerce/summary` | 示例：2017-12-03 为 2.21% |
+| 客单价 | `gmv / buy`（件单价） | `daily_category_metrics`、`/summary` | 示例：¥488.61（2017-12-03） |
+| `price`/`stock` | 商品合成主数据 | `commerce.items` | 展示必须带合成口径标注 |
+| 库存/售罄风险 | 价格、库存与近期销量对比 | `/api/v1/commerce/inventory-risk` | 合成字段：`price`、`stock` |
 
-经营现金流增速与净利润增速比较必须使用同一报告期。结论属于确定性派生结果，应同时保存两个输入值、报告期、来源和缺失说明。
-
-| 因子 | 类型 | 数据依赖 | 状态 |
-| --- | --- | --- | --- |
-| `ma5/ma10/ma20/ma30/ma60` | 技术趋势 | `stock_bars.close` | 可计算 |
-| `ret_20d/ret_60d` | 相对强弱 | `stock_bars.close` | 可计算 |
-| `ma_stack_score` | 均线多头质量 | MA 族 | 可计算 |
-| `amount_ratio_20d` | 成交额放大倍数 | `stock_bars.amount` | 字段完整后可计算 |
-| `realized_vol_20d` | 实现波动 | 日收益率 | 可计算 |
-| `max_drawdown_60d` | 60 日最大回撤 | `stock_bars.close` | 可计算 |
-| `pe_ttm/pb_mrq/ps_ttm/pcf_ncf_ttm` | 估值 | `stock_factors` 或 provider | 部分可用 |
-| `value_composite` | 复合估值 | 估值族 | 依赖覆盖 |
-| `profitability_quality` | 盈利质量 | 财报质量字段 | 待补财报 |
-| `growth_acceleration` | 成长加速度 | 财报同比字段 | 待补财报 |
-| `sector_flow_heat` | 板块资金热度 | 板块资金/成交额代理 | 部分可用 |
+指标解释不散落在代码里；口径变更必须回到本文件与 `sqls/` 同步。
 
 ## 数据质量口径
 
 | 检查 | 判定 |
 | --- | --- |
-| K 线覆盖 | first/last ts、row_count 与交易日历期望对齐 |
-| 字段完整 | `amount`、`turnover`、`change_percent`、`previous_close` 等关键字段非空率 |
-| 复权隔离 | `qfq`、`hfq`、`none` 不互相覆盖 |
-| 股票池边界 | `stock` 不混 ETF/指数，ETF/指数不参与默认个股策略 |
-| 涨跌停/ST | `is_st`、`limit_up`、`limit_down` 不能粗暴全按 10% |
-| 估值因子 | ETF/指数为空正常，普通个股缺失需记录缺口 |
+| 事件窗口 | first/last event ts 与原始窗口 2017-11-25 ~ 2017-12-03 对齐（`--time-shift none`） |
+| 行为枚举 | `behavior_type` 只允许 `pv/fav/cart/buy`，其他取值视为脏数据 |
+| 字段完整 | 聚合表 `pv/fav/cart/buy/gmv` 非空且不为负 |
+| 合成口径 | `price/stock/brand/shop` 与金额展示必须带"合成口径"标注，`gmv = buy × 合成价格` |
+| 主数据一致 | `items.category_id` 必须能解析到 `categories`；孤儿引用视为导入缺陷 |
 
 ## 维护规则
 
 - 新增 SQL 表或字段后，同步更新本文件和 `sqls/README.md`。
-- 新增 provider 字段后，同步更新 `docs/commerce-data-source-knowledge.md`。
+- 新增数据接入契约或导入命令后，同步更新 `docs/commerce-data-ingestion.md`。
 - 页面新增指标时，必须能在本文件找到来源和口径。
-- 缓存字段不能作为长期事实；会影响回测或选股的结果必须落库或写入 evidence。
+- 缓存字段不能作为长期事实；会影响经营结论或看板生成的结果必须落库或写入 evidence。

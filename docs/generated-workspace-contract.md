@@ -1,12 +1,12 @@
 # 生成工作空间契约
 
-生成工作空间是 Data Agent 输出的可运行交付物；Shop Gate 当前的 Delivery Pack 是 Next.js 金融看板。平台不只看页面是否能打开，还会检查通用任务身份、领域计划、数据、证据、事件、队列、验证、视觉呈现和产物契约。
+生成工作空间是 Data Agent 输出的可运行交付物；Shop Gate 当前的 Delivery Pack 是 Next.js 经营看板。平台不只看页面是否能打开，还会检查通用任务身份、领域计划、数据、证据、事件、队列、验证、视觉呈现和产物契约。
 
 这份契约的存在，是为了避免“看起来生成成功了，但没人知道数据从哪来、哪里失败过、修复过什么”。只要产物稳定，运行治理中心、评测平台和后续自动修复就都能读同一套事实。
 
 ## 基础模板
 
-新建 workspace 会自动带上金融看板基础模板：
+新建 workspace 会自动带上经营看板基础模板：
 
 ```text
 app/page.tsx
@@ -25,8 +25,8 @@ app/api/market/[...path]/route.ts
 .data-agent/profile.json
 .data-agent/task.json
 .data-agent/plan.json
-.data-agent/finance-run-plan.json
-.data-agent/finance-query-rewrite.json
+.data-agent/retail-run-plan.json
+.data-agent/retail-query-rewrite.json
 .data-agent/events.jsonl
 .data-agent/generation-state.json
 .data-agent/generation-queue.json
@@ -48,8 +48,8 @@ evidence/data_quality.json
 | `.data-agent/profile.json` | 当前 Agent Profile、Domain Pack、Delivery Pack、capability 选择和同一组合锁 |
 | `.data-agent/task.json` | 跨业务通用的目标、实体、指标、维度、筛选、时间范围和输出合同 |
 | `.data-agent/plan.json` | 跨业务通用的执行计划、带版本的 Profile/Domain/Delivery 引用、组合 SHA-256、领域计划引用、预期产物和验证规则 |
-| `.data-agent/finance-query-rewrite.json` | schema v4 LLM 语义、Resolver 标的、安全决策与失败关闭状态 |
-| `.data-agent/finance-run-plan.json` | 消费 Query Rewrite 后形成的任务规划、标准代码、能力域、预期数据和可视化模板 |
+| `.data-agent/retail-query-rewrite.json` | schema v4 LLM 语义、Resolver 实体、安全决策与失败关闭状态 |
+| `.data-agent/retail-run-plan.json` | 消费 Query Rewrite 后形成的任务规划、标准代码、能力域、预期数据和可视化模板 |
 | `.data-agent/attachments.json` | 当前请求的附件清单；`attachments[].path` 必须是严格 `assets/<filename>` 工作空间相对路径，不接受绝对路径、内联 base64 或多层子路径 |
 | `.data-agent/events.jsonl` | 生成链路事件审计 |
 | `.data-agent/generation-state.json` | 当前请求的阶段状态、错误、修复次数和元信息 |
@@ -69,15 +69,15 @@ evidence/data_quality.json
 | 层 | 文件 | 作用 |
 | --- | --- | --- |
 | 组合层 | `.data-agent/workspace.json`、`.data-agent/profile.json` | 说明工作空间身份、运行时、Agent、业务包和交付方式 |
-| 语义层 | `.data-agent/task.json`、`finance-query-rewrite.json` | 前者提供通用任务，后者保留金融 schema v4 细节和实体核验结果 |
-| 规划层 | `.data-agent/plan.json`、`finance-run-plan.json` | 前者提供通用编排引用，后者说明金融取数和看板计划 |
+| 语义层 | `.data-agent/task.json`、`retail-query-rewrite.json` | 前者提供通用任务，后者保留零售 schema v4 细节和实体核验结果 |
+| 规划层 | `.data-agent/plan.json`、`retail-run-plan.json` | 前者提供通用编排引用，后者说明零售取数和看板计划 |
 | 数据层 | `dashboard-data.json`、`sources.json`、`data_quality.json` | 页面绑定数据和证据来源 |
 | 运行层 | `events.jsonl`、`generation-state.json`、`generation-queue.json` | 记录生成过程、队列和当前状态 |
 | 质量层 | `validation.json`、`validation-repair-plan.json`、`artifact-contracts.json`、`visual-validation.json` | 判断能否交付，并给出修复方向 |
 
 排障时不要只盯 `app/page.tsx`。页面只是最后一层表现；如果规划、数据或质量层已经坏了，单独改页面很容易变成临时补丁。
 
-`.data-agent/**` 是唯一的跨业务控制目录；通用合同和 Finance Domain Pack 扩展都在其中按稳定文件名区分。Agent 工具只读，平台编排器负责写入。完整设计见 [Data Agent 平台与 Domain Pack 架构](data-agent-architecture.md)。
+`.data-agent/**` 是唯一的跨业务控制目录；通用合同和 Retail Domain Pack 扩展都在其中按稳定文件名区分。Agent 工具只读，平台编排器负责写入。完整设计见 [Data Agent 平台与 Domain Pack 架构](data-agent-architecture.md)。
 
 平台写控制 JSON 时使用同目录临时文件和原子 rename，并拒绝通过 nested symlink 写出 workspace。项目目录只允许是 `PROJECTS_DIR/<projectId>`；已有目标不会被初始化流程覆盖。
 
@@ -89,8 +89,8 @@ evidence/data_quality.json
 - 不引用外部 CDN、远程脚本、远程样式、远程字体。
 - 不把 token、api key、cookie、authorization 写入生成项目。
 - 浏览器取数只能读取 `data_file/final/dashboard-data.json` 或同源 `/api/market/**`。
-- 金融图表应包含真实数据驱动的 K 线、成交量、指标、财务趋势、对比或风险组件。
-- A 股视觉习惯使用红涨绿跌。
+- 看板图表应包含真实数据驱动的漏斗、趋势、结构占比、对比或风险组件。
+- 金额处必须带“合成口径”标注。
 - 数据缺失时展示限制、warning 和人工确认项，不编造结论。
 - 可视化应匹配具体分析场景，避免套用单一通用页面。
 
@@ -113,7 +113,7 @@ Agent 执行完成后，平台会自动验证生成项目。验证项包括：
 - `data_file/final/dashboard-data.json` 存在且包含真实数据。
 - `evidence/sources.json` 和 `evidence/data_quality.json` 存在。
 - 页面绑定真实数据或同源 `/api/market` 代理。
-- 页面包含金融图表。
+- 页面包含经营图表。
 - 生成项目没有外部 CDN、mock 数据或明文密钥。
 - run plan、final data、证据、生成状态和视觉报告符合产物契约。
 - Workspace、Profile、Task 与通用 Plan 存在，且在验证期间未发生身份漂移。

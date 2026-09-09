@@ -9,13 +9,13 @@
 | 服务 | 默认地址 | 代码位置 | 责任 |
 | --- | --- | --- | --- |
 | Next.js 主应用 API | `http://localhost:3000/api/*` | `src/app/api/` | 项目、聊天、设置、评测、skills、运维和页面聚合数据 |
-| 市场数据服务 | `http://127.0.0.1:8000/api/v1/*` | `services/commerce-data/src/shopgate_commerce_data/api.py` | 行情、K 线、财务、公告、补数、基础组件、股票池和回测 |
+| commerce-data 数据服务 | `http://127.0.0.1:8000/api/v1/*` | `services/commerce-data/src/shopgate_commerce_data/api.py` | 零售行为漏斗、商品/类目指标、库存风险、渠道聚合与经营汇总 |
 | 用户记忆服务 | `http://127.0.0.1:38089/*` | 独立 `evolvable-user-memory` 仓库 | 偏好证据、不可变修订、召回 Trace、上下文投影和可归因 Outcome |
 | 预览工作空间 | `http://localhost:4100+` | `data/projects/project-*` | AI 生成项目的 Next.js 预览，不承载平台状态 |
 
 页面原则：
 
-- 页面不直接访问外部行情网站；外部源通过市场数据服务采集。
+- 页面不直接读取原始数据集；零售数据由 `shopgate-commerce-import` CLI 导入 commerce 事实库，经 commerce-data 服务统一读出。
 - Next.js API route 只做请求解析、权限/参数校验、聚合和服务调用。
 - 长期事实数据最终写入 PostgreSQL/TimescaleDB；Redis 只做短期缓存。
 - 生成工作空间里的数据必须从 `data_file/final/` 和 `evidence/` 读取，不把平台 API 当作隐藏 mock。
@@ -43,7 +43,7 @@
 | --- | --- | --- | --- |
 | `/api/chat/[project_id]/messages` | `GET/POST` | 项目聊天页 | 消息读取和持久化 |
 | `/api/chat/[project_id]/stream` | `GET` | 项目聊天页 | SSE 消息流 |
-| `/api/chat/[project_id]/act` | `POST` | 项目聊天页 | 启动 Agent 执行、量化预取数、验证和修复链路 |
+| `/api/chat/[project_id]/act` | `POST` | 项目聊天页 | 启动 Agent 执行、零售数据预取、验证和修复链路 |
 | `/api/chat/[project_id]/pause` | `POST` | 项目聊天页 | 暂停当前执行 |
 | `/api/projects/[project_id]/agent/approvals` | `GET` | 项目聊天页、运行治理中心 | 按项目、run 和状态列出 bounded public tool approvals |
 | `/api/projects/[project_id]/agent/approvals/[approval_id]` | `POST` | 项目聊天页、运行治理中心 | 对 pending mutating tool 提交 `approve`、`edit` 或 `reject`；决策人只来自认证会话 |
@@ -55,46 +55,47 @@
 - `act` 请求是严格 camelCase 合同；未知字段直接返回 `400 INVALID_ACT_REQUEST`，不再接受 snake_case、`cliPreference`、内联 base64 或宿主绝对路径。
 - 运行状态只来自 `UserRequest / AgentRun / Mission / GenerationJob`；不再提供旧 CLI Session API 或平行状态表。
 - 工具审批仅适用于受信应用显式标记的 mutating tool；原始参数不进入 API。`edit` 请求体为 `{ "decision": "edit", "editedInput": { ... } }`，批准/拒绝只传 `{ "decision": "approve|reject" }`。决策要求 `project.update`，列表与时间线要求 `project.read`。
-- 投资建议类问题必须保持研究/辅助决策口径，不输出确定性买卖承诺。
-- 如果是宽域选股问题，不应因为缺少明确标的而反复澄清，应走本地股票池筛选。
+- 经营结论必须保持辅助决策口径，不输出确定性销量承诺；"保证销量"类请求会在问题改写阶段直接拒绝。
+- 如果是宽域商品/类目筛选问题，不应因为缺少明确商品而反复澄清，应走本地商品池（`/items`）筛选。
 
 `POST /api/chat/[project_id]/act` 当前请求体如下：
 
 ```json
 {
-  "instruction": "分析大位科技最近 60 个交易日，并生成看板",
-  "displayInstruction": "分析大位科技最近 60 个交易日，并生成看板",
+  "instruction": "分析最近的类目流量与转化漏斗，并生成看板",
+  "displayInstruction": "分析最近的类目流量与转化漏斗，并生成看板",
   "conversationId": "optional-conversation-id",
   "requestId": "optional-idempotent-request-id",
-  "selectedModel": "local_qwen:qwen3.5-9b-q5km",
+  "selectedModel": "deepseek-v4-flash",
   "images": [
     {
-      "name": "持仓截图",
-      "path": "assets/holding.png",
+      "name": "经营数据截图",
+      "path": "assets/ops-screenshot.png",
       "mimeType": "image/png"
     }
   ],
   "isInitialPrompt": false,
-  "capabilityId": "stock_diagnosis",
+  "capabilityId": "traffic_funnel",
   "capabilitySelectionSource": "manual"
 }
 ```
 
-`instruction`、`displayInstruction` 和 `images` 至少有一项非空；`images` 最多 8 张。`capabilityId` 和 `capabilitySelectionSource` 是通用 Data Agent 合同，由当前 Agent Profile 解析，不携带金融前缀。图片必须先通过 `/api/assets/[project_id]/upload` 上传，随后只提交服务端返回的 `assets/<filename>` 相对路径。上传响应使用 `originalFilename`、`publicPath`、`publicUrl`，不返回重复 snake_case 字段。服务端会校验真实文件、图片签名、单图/总大小和 canonical project root，再由 Data Agent 通用层写 manifest；金融持仓字段和量化提取要求由 Finance Domain Adapter 注入。
+`instruction`、`displayInstruction` 和 `images` 至少有一项非空；`images` 最多 8 张。`capabilityId` 和 `capabilitySelectionSource` 是通用 Data Agent 合同，由当前 Agent Profile 解析；零售可选能力为 `traffic_funnel`、`catalog_structure`、`price_inventory`、`daily_brief`。图片必须先通过 `/api/assets/[project_id]/upload` 上传，随后只提交服务端返回的 `assets/<filename>` 相对路径。上传响应使用 `originalFilename`、`publicPath`、`publicUrl`，不返回重复 snake_case 字段。服务端会校验真实文件、图片签名、单图/总大小和 canonical project root，再由 Data Agent 通用层写 manifest；零售领域字段和取数要求由 Retail Domain Pack（`src/lib/domains/retail`）注入。
 
 `POST /api/chat/[project_id]/messages` 同样只接受 `content`、`role`、`messageType`、`conversationId`、`cliSource`；`DELETE` 只接受 `conversationId` 查询参数。消息、SSE 和 WebSocket 输出均使用 camelCase。客户端如果仍发送 `request_id`、`selected_model`、`quantCapabilityId`、`quantCapabilitySource`、`base64_data`、`public_url` 或 `conversation_id`，应修复调用方，而不是给服务端增加兼容分支。
 
-`POST /api/projects` 只接受 `projectId`、`name`、`initialPrompt`、`selectedModel`、`description`、`agentProfileId`、通用 `capabilityId` 和 `capabilitySelectionSource`。Profile Catalog 负责解析 capability 并调用对应 workspace adapter，项目 API 不直接读取金融能力目录。项目模型偏好通过 `PUT /api/projects/[project_id]` 的 `selectedModel` 更新；旧 `/api/chat/[project_id]/cli-preference` 平行入口已删除。
+`POST /api/projects` 只接受 `projectId`、`name`、`initialPrompt`、`selectedModel`、`description`、`agentProfileId`、通用 `capabilityId` 和 `capabilitySelectionSource`。Profile Catalog 负责解析 capability 并调用对应 workspace adapter，项目 API 不直接读取能力目录。项目模型偏好通过 `PUT /api/projects/[project_id]` 的 `selectedModel` 更新；旧 `/api/chat/[project_id]/cli-preference` 平行入口已删除。
 
-### 量化控制台
+### 零售控制台
 
 | 路由 | 方法 | 调用方 | 责任 |
 | --- | --- | --- | --- |
-| `/api/commerce/strategies` | `GET/POST` | 策略平台 | 策略平台聚合数据、扫描、补数和因子目录 |
-| `/api/commerce/query/rewrite` | `POST` | 聊天页、运行规划器 | schema v4 LLM-first 问题改写；所有 purpose 均由所选 LLM 解析语义，并在取数前执行安全决策 |
-| `/api/commerce/capabilities` | `GET` | 业务知识中心 | 业务能力和执行依赖摘要 |
-| `/api/commerce/capability-center` | `GET` | 业务知识中心 | 业务能力、场景知识、交付契约和支撑资源 |
-| `/api/research/reports` | `GET/POST` | 投研情报中心 | 观察池、证据型日报、主题洞察、运行历史和推送记录；`POST` 支持 `run-daily-report` 和 `send-latest-report` |
+| `/api/commerce/query/rewrite` | `POST` | 聊天页、运行规划器 | LLM-first 经营问题改写；所有 purpose 均由所选 LLM 解析语义，并在取数前执行安全决策 |
+| `/api/commerce/symbols/resolve` | `GET` | 聊天页 | 商品/类目实体解析代理，转发 commerce-data `/api/v1/commerce/resolve` |
+| `/api/commerce/capabilities` | `GET` | 业务知识中心（/business-knowledge） | 零售能力和执行依赖摘要 |
+| `/api/commerce/capability-center` | `GET` | 业务知识中心（/business-knowledge） | 能力、场景知识、交付契约和支撑资源 |
+| `/api/commerce/briefing/daily` | `GET/POST` | 经营情报页（/operations-briefing） | 经营日报生成与查询 |
+| `/api/research/reports` | `GET/POST` | 经营情报自动化 | 观察池、证据型经营日报、运行历史和推送记录；`POST` 支持 `run-daily-report` 和 `send-latest-report` |
 | `/api/evals` | `GET/POST` | 评测平台 | 用例、评测集、运行队列、模拟链路和定时任务 |
 | `/api/evals/runs/[runId]` | `GET` | 评测平台 | 单次评测报告详情 |
 | `/api/ops/platform` | `GET` | 运行治理中心 | Worker registry/槽位/队列、基础环境、日志、健康和降级状态 |
@@ -104,10 +105,11 @@
 `POST /api/commerce/query/rewrite` 接收 `query`、可选 `requestedCapabilityId`、`model` 和
 `purpose=preview|execution`，未传时默认 `execution`；两种 purpose 都会调用用户选定的 LLM，
 因此 `preview` 不再是无模型的关键词预判。聊天输入框不会在用户输入期间频繁调用 preview，正式提交后才执行改写。
-LLM 通过 Tool Schema 解析标的原文、时间范围、分析重点和输出意图；时间、宽域范围和 answer-only 意图必须携带原文字面证据。模型只允许返回用户原文中的候选标的文本，
-标准代码仍由 `/api/v1/symbols/resolve` 确认。LLM 超时、未配置、网络失败或 Schema/证据不合法时返回
-`llm_unavailable` 与 `QUERY_REWRITE_LLM_UNAVAILABLE`，规划和预取随即停止，不会改用关键词或正则结果继续执行。确定性涨停、必赚或保证收益请求返回
-`status=refused` 与 `safety.code=GUARANTEED_RETURN_REQUEST`，不会进入取数或 Agent 执行。
+LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输出意图，实体候选必须携带原文字面证据；
+标准实体仍由实体解析确认（Next.js 代理 `/api/commerce/symbols/resolve` → commerce-data `/api/v1/commerce/resolve`，
+支持 `item:<id>`/`cat:<id>` 显式形式与类目名/商品标题模糊匹配）。LLM 超时、未配置、网络失败或 Schema/证据不合法时返回
+`llm_unavailable` 与 `QUERY_REWRITE_LLM_UNAVAILABLE`，规划和预取随即停止，不会改用关键词或正则结果继续执行。确定性"保证销量"类请求返回
+`status=refused` 与 `safety.code=GUARANTEED_SALES_REQUEST`，不会进入取数或 Agent 执行。
 
 ### Skills、设置和集成
 
@@ -161,118 +163,50 @@ LLM 通过 Tool Schema 解析标的原文、时间范围、分析重点和输出
 
 启用认证时，聊天入口把当前用户写入 `user_requests.actor_user_id`，物理 Agent run 继承为 `agent_runs.actor_user_id`，后续用量事件关联 actor、project 和 source。相同 request ID 不能跨用户或跨项目复用。LLM 问题改写的确定性 `preview` 不消费 `query_rewrite.llm.daily`；只有 execution 实际进入模型链路时才计该指标和模型 Token。
 
-## 市场数据服务 API
+## commerce-data 数据服务 API
 
-### 健康、注册表和基础组件
+该服务自 P2 起只挂载零售 commerce 路由 + `/health` + `/ready`；金融域的行情、K 线、回测与东方财富/Baostock/ClickHouse 采集端点已随金融域删除。
+
+### 健康与零售数据端点
 
 | 路由 | 方法 | 责任 |
 | --- | --- | --- |
 | `/health` | `GET` | 进程存活检查，不探测下游依赖 |
 | `/ready` | `GET` | 数据库与 Redis 就绪检查；required 依赖失败返回 503 |
-| `/api/v1/registry` | `GET` | 数据源注册表和字段契约 |
-| `/api/v1/provider-candidates` | `GET` | 候选免费信源池 |
-| `/api/v1/provider-candidates/probe` | `GET` | 探测候选信源可达性 |
-| `/api/v1/foundation/status` | `GET` | 基础组件状态 |
-| `/api/v1/foundation/factors` | `GET` | 因子定义 |
-| `/api/v1/foundation/trading-calendar` | `GET` | 交易日历 |
-| `/api/v1/foundation/trading-calendar/refresh` | `POST` | 管理员从 Baostock 刷新 CN-A 开市与休市日，默认近 5 年至今天 |
-| `/api/v1/foundation/data-quality/scan` | `POST` | 数据质量扫描 |
+| `/api/v1/commerce/meta` | `GET` | 数据集口径：窗口、规模与真实/合成来源计数 |
+| `/api/v1/commerce/resolve` | `GET` | 实体解析：`item:<id>`/`cat:<id>` 显式形式 + 类目名/商品标题模糊匹配，`limit` ≤50 |
+| `/api/v1/commerce/capabilities` | `GET` | 零售能力发现信息（domain_pack=`retail.core`，含 synthetic_fields 清单） |
+| `/api/v1/commerce/funnel` | `GET` | 流量漏斗（pv/fav/cart/buy），支持 `start`/`end`/`category_id` |
+| `/api/v1/commerce/funnel/daily` | `GET` | 按日漏斗趋势，参数同 `/funnel` |
+| `/api/v1/commerce/categories/top` | `GET` | 类目经营榜：`metric`（默认 gmv）+ `limit`（≤100） |
+| `/api/v1/commerce/items` | `GET` | 商品池分页：`page`/`page_size`（≤100）/`category_id`/`sort`（gmv\|pv\|buy\|price） |
+| `/api/v1/commerce/items/{item_id}/daily` | `GET` | 单商品日粒度行为与 GMV |
+| `/api/v1/commerce/inventory-risk` | `GET` | 库存风险（`limit` ≤200；合成字段 price/stock） |
+| `/api/v1/commerce/channels` | `GET` | 店铺 tier 三档（standard/premium/flagship）聚合，gmv_share ≈ 0.35/0.34/0.32 |
+| `/api/v1/commerce/summary` | `GET` | 单日经营汇总，`date` 参数 |
 
-`POST /api/v1/foundation/trading-calendar/refresh` 的请求体可选传入 ISO 日期
-`start`、`end`；两者均省略时刷新上海时区今天往前 5 年的日历，`end` 不允许晚于今天。
-服务复用 Baostock 共享会话调用 `query_trade_dates`，将每个自然日按
-`CN-A / regular / baostock` 幂等写入 `quant.trading_calendars`。响应会分别返回
-`requested_days`、`received_days`、`inserted_days`、`updated_days`、
-`unchanged_days`、`written_days`、`open_days`、`closed_days` 以及实际首尾日期。该接口属于写接口，
-遵循市场数据管理员令牌校验。
+关键数据：
 
-### 股票池、ETF/指数池和本地研究数据
+- `/meta`：first_event_ts=2017-11-25T00:00:00Z、last_event_ts=2017-12-03T16:00:06Z、user_count=10000、behavior_source=tianchi_userbehavior
+- `/items`：total=412,130
+- `/summary?date=2017-12-03`：GMV ¥1,198,069.97、曝光 110,710、购买 2,452、转化 2.21%、客单价 ¥488.61
 
-| 路由 | 方法 | 责任 |
-| --- | --- | --- |
-| `/api/v1/research/universes` | `GET` | 股票池、ETF/指数池列表 |
-| `/api/v1/research/universes/summary` | `GET` | 股票池摘要，适合页面首屏 |
-| `/api/v1/research/universes/a-share/import` | `POST` | 导入 A 股股票池成员 |
-| `/api/v1/research/universes/etf/import` | `POST` | 导入 ETF/指数池成员 |
-| `/api/v1/research/universes/{universe_id}/members` | `GET` | 服务端分页查询成员，默认只返回 active；排查历史成员可加 `include_inactive=true` |
-| `/api/v1/research/universes/{universe_id}/members` | `POST` | 添加单个证券到池 |
-| `/api/v1/research/universes/{universe_id}/hygiene` | `POST` | 可逆清洗股票池成员；默认 `dry_run=true`，正式执行后把无最新交易日数据的成员标记为 inactive |
-| `/api/v1/research/data-coverage` | `GET` | K 线覆盖摘要和分页明细，支持 `universe_id`、`page`、`page_size`、`include_inactive` |
-| `/api/v1/research/bars/{symbol}` | `GET` | 本地 TimescaleDB K 线，支持日/周/月 |
-| `/api/v1/research/screener/a-share-short-term` | `GET` | 本地 A 股短线候选筛选 |
-| `/api/v1/research/sector-capital-flow` | `GET` | 板块资金和市场资金概览 |
-
-股票池和覆盖明细页面应优先走服务端分页，避免一次加载 5000+ 标的。K 线详情只在点击行后按 symbol 请求。覆盖明细首屏使用 `page_size=100`，摘要来自 `quant.market_data_sync_state`，不要在线聚合全量 `stock_bars`。默认股票池、覆盖率、筛选器和 ClickHouse 同步只处理 active 成员；诊断全量历史池时显式传 `include_inactive=true`。
-
-### 外部行情和补数
-
-| 路由 | 方法 | 责任 |
-| --- | --- | --- |
-| `/api/v1/analysis/context/{symbol}` | `GET` | Skills 单标的聚合取数合同；共享依赖并隔离实时、历史、技术、财务、基本面和公告的部分失败 |
-| `/api/v1/symbols/resolve` | `GET` | 代码/名称解析 |
-| `/api/v1/quotes/realtime/{symbol}` | `GET` | 单标的实时行情 |
-| `/api/v1/quotes/realtime` | `POST` | 批量实时行情 |
-| `/api/v1/quotes/history/{symbol}` | `GET` | 外部源历史 K 线 |
-| `/api/v1/ingestion/eastmoney/history` | `POST` | 东方财富历史 K 线入库 |
-| `/api/v1/ingestion/akshare/history` | `POST` | AKShare 补充入库 |
-| `/api/v1/ingestion/baostock/history` | `POST` | Baostock 单批历史增强字段补数 |
-| `/api/v1/ingestion/baostock/history/batch` | `POST` | Baostock 分批补数 |
-| `/api/v1/ingestion/baostock/history/autofill` | `POST` | 低频自动补数任务 |
-| `/api/v1/ingestion/eastmoney/realtime-snapshot` | `POST` | 实时快照入库 |
-| `/api/v1/ingestion/jobs` | `GET` | 补数任务和日志摘要 |
-| `/api/v1/ingestion/jobs/{job_id}/control` | `POST` | 暂停、继续、停止补数任务 |
-
-补数规则：
-
-- 不因为近 5 年补数删除更早历史。
-- 本地字段完整时应跳过外部请求。
-- Baostock/AKShare 只补缺失字段，不覆盖已有非空增强字段。
-- 估值因子默认不参与日常增量补数，需要单独显式启用。
-
-`/api/v1/analysis/context/{symbol}` 的 `include` 接受逗号分隔的数据区块：
-`quote,history,technical,financials,fundamental,announcements`。响应固定包含
-`schema_version=1`、顶层 `ready/partial/unavailable` 状态，以及每个区块独立的
-`status`、`duration_ms`、`data_quality` 和类型化 `error`。其中 technical 复用 history，
-fundamental 复用 financials；单个上游故障不会丢弃其他成功区块。
-
-### 指标、回测和事件
-
-| 路由 | 方法 | 责任 |
-| --- | --- | --- |
-| `/api/v1/indicators/technical/{symbol}` | `GET` | MA5/10/20/30/60、收益、回撤、波动等 |
-| `/api/v1/backtests/ma-crossover/{symbol}` | `GET` | 均线交叉回测 |
-| `/api/v1/backtests/strategies/{strategy_id}/{symbol}` | `GET` | 策略模板回测 |
-| `/api/v1/fundamentals/financials/{symbol}` | `GET` | 财务报表摘要 |
-| `/api/v1/indicators/fundamental/{symbol}` | `GET` | 财务衍生指标 |
-| `/api/v1/events/announcements/{symbol}` | `GET` | 公告事件 |
-| `/api/v1/events/dividends/{symbol}` | `GET` | 分红除权事件 |
-
-财务现金流字段使用稳定合同，不要求 Skills 读取 provider 私有 `raw`：
-
-| 响应位置 | 字段 | 口径 |
-| --- | --- | --- |
-| `financials.reports[]` | `operating_cash_flow_per_share` | 每股经营活动现金流净额；东方财富源映射自 `MGJYXJJE` |
-| `fundamental.points[]` | `operating_cash_flow_per_share` | 与同报告期财务记录一致的每股经营活动现金流净额 |
-| `fundamental.points[]` | `operating_cash_flow_per_share_yoy` | 与上年同月同日报告期比较的同比增速，单位 `%`；上期为 0 或缺失时返回 `null` |
-| `fundamental.summary` | `latest_operating_cash_flow_per_share` / `latest_operating_cash_flow_per_share_yoy` | 最新报告期的上述两个稳定字段 |
-
-跨期比较必须按 `report_date` 和 `data_type` 对齐，不得把季度累计值与年度值混算。兼容代码可以临时读取 `raw.MGJYXJJE`，但新 Skill 和页面应优先使用正式字段。
-财务响应字段升级使用版本化缓存 namespace；新合同不会把旧缓存中缺失的字段静默解析为 `null`。
+窗口约定：日期参数缺省时后端默认 `end=今天`、`start=end 往前 8 天`；实际取数应由调用方显式传入数据窗口（生成管线的预取窗口动态取自 `/meta`）。`start` 晚于 `end` 返回 400。
 
 ## 常见排查路径
 
 | 现象 | 先查 API | 再查数据 |
 | --- | --- | --- |
-| 股票池首屏慢 | `/api/v1/research/universes/{id}/members` | Redis 是否可用、是否服务端分页 |
-| K 线只剩一天 | `/api/v1/research/bars/{symbol}` | `quant.stock_bars` 是否只查了最新日，前端是否误用 `limit=1` |
-| 成交额/换手率为空 | `/api/v1/ingestion/baostock/history` | `quant.stock_bars.amount`、`turnover` |
-| 板块资金慢 | `/api/v1/research/sector-capital-flow` | Redis TTL、后端是否全量扫描 |
-| 生成页面验证失败 | `/api/chat/[project_id]/act` | `.data-agent/validation.json`、`data_file/final/dashboard-data.json` |
+| 商品池首屏慢 | `/api/v1/commerce/items` | 是否服务端分页、`page_size` 是否超限（≤100） |
+| 漏斗数字为 0 | `/api/v1/commerce/funnel` | `commerce.user_behavior_events` 是否已导入，窗口是否落在 2017-11-25 ~ 2017-12-03 |
+| 单商品无日趋势 | `/api/v1/commerce/items/{item_id}/daily` | `commerce.daily_item_metrics` 是否已跑 `aggregate-daily` |
+| 金额对不上 | `/api/v1/commerce/summary` | `gmv = buy × 合成价格`，确认合成口径与 `items.price` |
+| 生成页面验证失败 | `/api/chat/[project_id]/act` | `.data-agent/retail-query-rewrite.json`、`.data-agent/retail-run-plan.json`、`.data-agent/validation.json`、`data_file/final/dashboard-data.json` |
 | 评测队列卡住 | `/api/evals` | `eval_queue_items`、`tmp/shopgate-eval-queue/` |
 
 ## 维护规则
 
 - 新增页面入口时，同步补充本文件中的调用方和责任。
-- 新增市场数据端点时，同步更新 `services/commerce-data/README.md` 和 `docs/commerce-data-source-knowledge.md`。
+- 新增 commerce-data 端点时，同步更新 `services/commerce-data/README.md`。
 - 改变字段口径时，同步更新 [数据字典](data-dictionary.md)。
-- 新增长任务时，必须说明是否写 `quant.platform_jobs` 或专用任务表，以及暂停、继续、停止语义。
+- 新增长任务时，必须说明是否写 `commerce.platform_jobs` 或专用任务表，以及暂停、继续、停止语义。

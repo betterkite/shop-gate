@@ -7,7 +7,7 @@
 - 启动 Memory 服务并确认它公布了 Shop Gate 需要的版本化契约。
 - 配置 Shop Gate、部署本地归因表并让 readiness 变绿。
 - 写入一条全局或项目级偏好，在下一轮聊天中验证 `prepared → 实际归因 → Outcome` 效果。
-- 理解“记住偏好”和“改变系统规则”的边界，避免把行情、权限或交易指令写成记忆。
+- 理解“记住偏好”和“改变系统规则”的边界，避免把业务数据、权限或操作指令写成记忆。
 
 ## 当前接入形态
 
@@ -29,7 +29,7 @@ Shop Gate 当前把 Memory 作为可选外部服务使用。聊天执行、项�
 
 ## 可以不启用 Memory
 
-Memory 是可选组件，不是模型调用、行情读取或 workspace 生成的前置条件。如果当前不需要个性化、还没有部署 Memory，或希望先独立验收 Shop Gate 与 ModelPort，只需设置：
+Memory 是可选组件，不是模型调用、数据读取或 workspace 生成的前置条件。如果当前不需要个性化、还没有部署 Memory，或希望先独立验收 Shop Gate 与 ModelPort，只需设置：
 
 ```dotenv
 SHOPGATE_MEMORY_ENABLED=0
@@ -74,7 +74,7 @@ SHOPGATE_DEGRADATION_MODE=offline
 
 `prepared` 只表示生成了候选 capsule，不证明 Agent 已使用。Shop Gate 仅在把 capsule 交给 PI Agent 前请求 Memory `/v1/usages`；Memory 从不可变 Trace 重建相同算法和预算的投影，核对源摘要及 revision 子集后签发 `usageId`。Shop Gate 随后保存本地归因与[联合上下文清单](context-composition.md)。澄清、拒绝、平台直接生成或用户临时关闭个性化时不会写“已暴露”记录。已验证完成的回复只有查到这份归因后，才显示“本轮实际使用了 N 条个人偏好”及反馈按钮。
 
-PI Agent 收到的是受限 JSON 偏好数据，不是更高优先级指令。可以预期生成结果更倾向于“先结论、再风险和证据”，但当前用户请求、真实金融数据、安全规则和验证合同仍然优先。
+PI Agent 收到的是受限 JSON 偏好数据，不是更高优先级指令。可以预期生成结果更倾向于“先结论、再风险和证据”，但当前用户请求、真实业务数据、安全规则和验证合同仍然优先。
 
 | 场景 | 可观察结果 |
 | --- | --- |
@@ -126,7 +126,7 @@ sequenceDiagram
 - Memory 拥有 Evidence、Belief、RecallTrace、Outcome 和检索策略状态；Shop Gate 拥有用户、项目、聊天和授权入口。
 - tenant 和 subject 由 Shop Gate 服务端生成。生产环境不能把浏览器请求体中的 tenant/subject 当作授权证明。
 - 原始记忆正文不写入 Shop Gate 聊天 metadata；本地只保留归因所需的不透明 ID 和哈希。
-- 记忆 capsule 是不可信偏好数据，不能覆盖当前请求、金融事实、权限、安全策略、工具合同、验证或风险控制。
+- 记忆 capsule 是不可信偏好数据，不能覆盖当前请求、真实业务事实、权限、安全策略、工具合同、验证或风险控制。
 - `PersonalMemoryControl` 只是 Shop Gate 的产品使用围栏，不是法律处理依据，也不代替 Memory 的 ProcessingGrant、抑制与删除编排。治理级删除必须由可信角色通过版本化契约执行，普通账号页面不能借此越权。
 
 ## 第一步：启动 Evolvable User Memory
@@ -305,11 +305,11 @@ console.log(created);
 
 当前只允许以下个性化键：
 
-- `analysis.*`：分析关注点，例如 `analysis.risk_focus=max_drawdown`。
+- `analysis.*`：分析关注点，例如 `analysis.focus=conversion_rate`。
 - `output.*`：表达与展示，例如 `output.answer_style` 或 `output.table_density`。
-- `research.*`：研究工作流，例如默认比较周期或证据偏好。
+- `research.*`：分析工作流，例如默认比较周期或证据偏好。
 
-禁止写入 `authorization.*`、`credential.*`、`order.*`、`security.*` 和 `trading.execution.*`。行情、持仓、回测结果、实时风险限额等会变化的业务事实也不应写成用户偏好。
+禁止写入 `authorization.*`、`credential.*`、`order.*`、`security.*` 和 `trading.execution.*`。库存、订单状态、渠道指标等会变化的业务事实也不应写成用户偏好。
 
 `scope=global` 对该用户的全部 Shop Gate 项目生效；`scope=project` 会自动加上当前 `project_id`，只允许同一项目召回。
 
@@ -439,8 +439,8 @@ console.table(revisions.data);
 - broker 接收 Basic client authentication 和 `{audience, tenant_id, subject_id, purpose, requested_role:"subject_self"}`，只应在自身策略确认 Shop Gate 可代表该 subject 后签发 token；不能无条件相信请求字段。
 - broker 返回 `{access_token, token_type:"Bearer", expires_in}`；Shop Gate 只接受 60–3600 秒有效期。Memory token 的 `memory_access` 必须使用显式 tenant、subject 和 purpose，禁止 `*`。
 - 使用 HTTPS，限制 CORS 和网络入口；浏览器不应持有 Shop Gate 的 Memory 服务 token。
-- 不记录凭据、身份证件、原始持仓明细、订单指令或其他敏感业务事实。
-- Memory 不可用时的降级不能绕过项目授权、交易限制或安全策略。
+- 不记录凭据、身份证件、原始订单明细、操作指令或其他敏感业务事实。
+- Memory 不可用时的降级不能绕过项目授权、权限限制或安全策略。
 - 隐私删除、权限治理、删除证明和完整生产运维完成前，不应把该集成声明为生产就绪。
 
 ## Qwen、ModelPort 与 Memory 的三方长期验收
@@ -475,7 +475,7 @@ npm run check:integrations -- \
 验收成功必须同时满足：
 
 - ModelPort 公布限定 Qwen 与 DeepSeek ID，错误凭据被拒绝，两个模型的工具流和续写都完整；DeepSeek 上游使用 Anthropic 协议。
-- Query Rewrite 状态是 `llm-applied`，目标保持“大位科技”。
+- Query Rewrite 状态是 `llm-applied`，目标保持用户输入的原文实体。
 - Memory discovery 契约兼容且 `/readyz` 就绪。
 - 本地长期联调至少满足 PostgreSQL 权威存储和持久授权审计，验收输出为 `localDurabilityBaseline=passed`。
 - 写模式的偏好与 Outcome 重放幂等，同项目为 `applied`，另一个项目为 `empty`。

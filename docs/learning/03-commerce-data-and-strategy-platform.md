@@ -1,195 +1,113 @@
-# 03. 市场数据与策略平台
+# 03. 市场数据（commerce-data）与商品运营页
 
-目标：理解 Shop Gate 如何管理股票池、ETF/指数池、K 线、估值因子、板块资金、基础组件和缓存。
+目标：理解 Shop Gate 如何用 commerce-data 后端管理零售行为数据与商品主数据，以及商品运营页、经营情报页如何消费这些数据，生成看板和经营日报。
 
-![策略平台](assets/strategy-platform.png)
-
-如果已经跑通页面，想看更偏实操和设计取舍的说明，可以继续读 [策略平台使用与设计指南](../strategy-platform-guide.md)。
+历史金融"策略平台"（行情/因子/选股/回测）的设计取舍已归档，见 [策略平台使用与设计指南（已归档）](../strategy-platform-guide.md)；本文只讲零售现状。
 
 ## 数据底座
 
 | 组件 | 责任 |
 | --- | --- |
-| PostgreSQL | 项目、工作空间、设置、评测、队列、策略元数据 |
-| TimescaleDB | `quant.stock_bars`、`quant.stock_factors`、信号和组合快照 |
-| Redis | 跨进程短期缓存，优先加速板块资金、行情摘要和后续任务进度 |
-| 基础组件表 | 交易日历、因子定义、数据质量扫描和通用平台任务 |
-| 文件系统 | 生成工作空间源码、截图、证据文件和大 JSON |
+| PostgreSQL/TimescaleDB | `commerce.*` 事实库：行为事件、商品/类目主数据、日聚合、导入任务与质量扫描 |
+| Redis | 跨进程短期缓存，只做加速，不作为事实库 |
+| 文件系统 | 生成工作空间源码、数据文件、证据文件和大 JSON |
 
 TimescaleDB 是 PostgreSQL 的时序扩展镜像，所以连接方式仍然是 PostgreSQL；镜像名称不同，是因为它预装了 TimescaleDB 扩展。
 
-## 金融数据基础
+## 零售数据长什么样
 
-策略平台最常用的是日频 K 线，也就是每个交易日一条记录。基础字段可以按下面理解：
+数据源是天池淘宝 UserBehavior（dataset 649）公开镜像切片，保留原始窗口 **2017-11-25 ~ 2017-12-03**（`--time-shift none`）。行为类型只有四种：
 
-| 字段 | 基础含义 | 对策略的意义 |
+| 行为 | 含义 | 在漏斗里的角色 |
 | --- | --- | --- |
-| 开盘价 `open` | 当日第一笔或开盘集合竞价价格 | 判断高开、低开、跳空和入场条件 |
-| 最高价 `high` | 当日最高成交价 | 判断压力位、突破和区间高点 |
-| 最低价 `low` | 当日最低成交价 | 判断支撑位、止损和区间低点 |
-| 收盘价 `close` | 当日最后成交价或收盘价 | 大多数均线、收益率和回测净值的基础 |
-| 成交量 `volume` | 当日成交股数或手数 | 判断活跃度，但不同源单位可能不同 |
-| 成交额 `amount` | 当日成交金额 | 衡量流动性，比单纯成交量更适合跨股票比较 |
-| 换手率 `turnover` | 成交量相对流通股本比例 | 判断筹码交换强度和资金参与程度 |
+| `pv` | 曝光 | 漏斗顶：商品被看到 |
+| `fav` | 收藏 | 兴趣信号 |
+| `cart` | 加购 | 购买意向 |
+| `buy` | 购买 | 漏斗底：成交 |
 
-复权用于处理分红、送转、拆股等价格不连续问题。策略平台默认使用前复权 `qfq`，因为它更适合从历史到现在观察趋势；如果研究真实成交价格或持仓成本，需要明确说明使用不复权或后复权。
+可以把这四类行为计数理解为零售域的"行情"：经营趋势都从它们聚合而来，替代金融时代的 K 线/均线。
 
-均线 MA 是最近 N 个交易日收盘价的平均值。MA5、MA10、MA20、MA30、MA60 分别大致对应一周、两周、一个月、一个半月和一个季度的趋势。均线多头排列通常指短周期均线在长周期均线上方，例如 `MA5 > MA10 > MA20 > MA30 > MA60`，它表示短期价格强于中长期趋势，但不等于一定上涨。
+另一个必须理解的口径是**合成主数据**：`price`/`stock`/`brand`/`shop` 为导入脚本确定性生成的合成档案（同一种子可复现），`gmv = buy 事件数 × 合成价格`。因此所有金额展示必须带"合成口径"标注——这是本项目的硬规则。
 
-股票池不是“收藏夹”。在 Shop Gate 里，股票池是一组可分页、可检索、可计算覆盖率的证券集合。A 股股票池和 ETF/指数池拆开，是为了避免个股策略误把 ETF 或指数当成可买卖个股处理。
+规模速览：`user_behavior_events` 1,013,367 事件 / 10,000 用户；`items` 412,130、`categories` 5,922、`brands` 200、`shops` 500；`daily_item_metrics` 687,562、`daily_category_metrics` 30,644。字段级口径见 [数据字典](../data-dictionary.md)。
 
-## 数据源策略
+## 数据怎么进来
 
-当前建议采用多源策略：
+数据导入统一走 `shopgate-commerce-import` CLI（services/commerce-data）：
 
-1. 东方财富直连：实时行情、分红、公告、证券解析和可达时的历史 K 线。
-2. Baostock：A 股历史日线增强字段补数，包括成交额、换手率、停牌、ST 和涨跌停；估值因子默认不混入日常增量补数，需要时单独打开。
-3. AKShare：作为聚合补充层，用于验证和补充可得字段。
-4. Yahoo Finance：只用于海外市场，不作为 A 股主源。
-5. 商业源：Wind、Choice、iFinD 等作为未来授权数据源，不混用网页非正式接口。
+```bash
+shopgate-commerce-import import-userbehavior --csv <path> --users 10000 --seed 20251203 --time-shift none
+```
 
-字段口径和补数规则见 [行情数据源采集知识库](../commerce-data-source-knowledge.md)。
+配套子命令：`generate-synthetic-behavior`、`generate-synthetic-master`、`aggregate-daily`（生成日聚合）。
 
-多源策略的关键不是“谁能调通就用谁”，而是明确主备关系和字段覆盖：
+事件 CSV 契约很严格：表头必须是 5 列 `user_id,item_id,category_id,behavior_type,timestamp`（Unix 秒）。导入进度与水位记录在 provider 书签表 `commerce.market_data_ingestion_jobs` / `commerce.market_data_sync_state`。
 
-- 实时行情、分红和公告更依赖东方财富，因为当前可达性和字段更适合页面展示。
-- 历史日线适合先读本地库；缺字段时再用 Baostock 或 AKShare 补。
-- yfinance 不适合作为 A 股主源，但适合海外市场方向。
-- 所有外部源都只是采集入口，最终研究和回测应尽量读取本地 TimescaleDB。
+完整命令与故障排查见 [commerce-data 数据接入](../commerce-data-ingestion.md)。
 
-## 策略平台当前页面
+## 数据怎么读出去（commerce-data API）
+
+commerce-data 服务（:8000）是零售域唯一取数后端，端点前缀 `GET /api/v1/commerce/`：
+
+| 端点 | 用途 |
+| --- | --- |
+| `/meta` | 数据集口径：窗口、规模、真实/合成来源计数；生成管线的预取窗口动态取自这里 |
+| `/resolve` | 实体解析：`item:<id>`/`cat:<id>` 显式形式 + 类目名/商品标题模糊匹配 |
+| `/capabilities` | 四个零售能力的发现信息（domain_pack=`retail.core`） |
+| `/funnel`、`/funnel/daily` | 全窗口/按日流量漏斗（pv→fav→cart→buy） |
+| `/categories/top` | 类目经营榜（`metric` 默认 gmv，`limit` ≤100） |
+| `/items` | 商品池分页：`page`/`page_size`(≤100)/`category_id`/`sort`(gmv\|pv\|buy\|price) |
+| `/items/{id}/daily` | 单商品日粒度行为与 GMV |
+| `/inventory-risk` | 库存风险（合成字段 price/stock） |
+| `/channels` | 渠道聚合：standard/premium/flagship 三档，gmv_share ≈ 0.35/0.34/0.32 |
+| `/summary?date=` | 单日经营汇总 |
+
+`/summary?date=2017-12-03` 的参考值：GMV ¥1,198,069.97、曝光 110,710、购买 2,452、转化 2.21%、客单价 ¥488.61。核对自己环境的数据时可以用这组数字对照。
+
+页面原则：页面不直接读原始数据集，也不把平台 API 当隐藏 mock；服务端预取结果写入生成工作空间，再由看板消费。完整清单见 [API 总览](../api-reference.md)。
+
+## 商品运营页（/commerce-platform）
+
+商品运营页围绕"商品/类目/渠道"三类对象组织数据：
 
 | 区域 | 用途 |
 | --- | --- |
-| A 股股票池 | 展示股票名称、代码、板块、行情、强弱、趋势、流动性、估值和状态 |
-| ETF/指数池 | 从股票池拆出 ETF 和指数，避免与个股混淆 |
-| K 线详情 | 点击股票后展开日线、周线、月线，可查看 MA5/10/20/30/60 和动态指标 |
-| 策略目录 | 承载策略模板、后续参数配置和回测入口 |
-| 因子目录 | 记录动量、趋势、低波、流动性、估值、质量、成长、资金流和综合排序因子 |
-| 板块资金 | 展示市场资金概览、板块资金排行、趋势和详情 |
-| 基础组件 | 查看交易日历、因子口径、数据质量扫描和平台任务底座 |
-| 金融知识 | 沉淀字段解释、数据源说明和投资研究口径 |
+| 商品池 | 商品分页列表，支持按 gmv/pv/buy/price 排序与类目过滤 |
+| 品类池 | 类目经营榜 top-100 |
+| 渠道 | 店铺 tier 三档（standard/premium/flagship）聚合对比 |
 
-## 基础组件
+性能取舍：列表必须服务端分页（`page_size` 上限 100），不把 41 万商品一次性塞给前端；单商品趋势（`/items/{id}/daily`）按需加载。
 
-策略平台的基础组件页对应后端这些接口：
+## 经营情报页（/operations-briefing）
 
-| 接口 | 用途 |
+| 区域 | 用途 |
 | --- | --- |
-| `GET /api/v1/foundation/status` | 汇总交易日历、因子定义、数据质量扫描和平台任务状态 |
-| `GET /api/v1/foundation/factors` | 返回因子和指标口径，例如 MA5/10/20/30/60、换手率、成交额、涨跌停标记 |
-| `GET /api/v1/foundation/trading-calendar` | 返回交易日历，用于补数范围、回测窗口和预期样本数 |
-| `POST /api/v1/foundation/data-quality/scan` | 扫描缺 K、字段缺失、最新交易日、成交额、换手率、停牌/ST 和涨跌停覆盖 |
+| 经营日报 | 证据型日报（Markdown + 结构化数据 + evidence） |
+| 类目经营榜 | 当日类目经营排行 |
+| 观察池 | 关注的商品/类目集合，驱动日报生成 |
 
-这些对象由 `sqls/007-quant-foundation-components.sql` 初始化，已有数据库可重复运行 `npm run db:init` 补齐。
+日报链路：数据层 `retail-briefing.ts`（/summary + /categories/top + /items）→ `retail-daily-report.ts` 持久化为 OperationBriefRun(completed) + OperationBrief → 路由 `GET/POST /api/commerce/briefing/daily`。页面提供"生成今日日报"按钮和最近生成日报列表。
 
-基础组件的价值在于让策略不再只依赖散落代码里的隐式规则：
+如实标注：日报推送回执待通知渠道配置，尚未接通。
 
-- 交易日历告诉系统哪些日期应该有数据，哪些日期本来就不开市。
-- 因子定义记录指标口径，避免同一个 MA 或换手率在不同页面里解释不一致。
-- 数据质量扫描把“缺字段、缺日期、最新日不一致”变成可检查结果。
-- 平台任务表为后续独立 Worker、暂停/继续/停止和进度恢复打底。
+## 从问题到看板（速览生成管线）
 
-## 补数字段
-
-`quant.stock_bars` 的高价值字段：
-
-| 字段 | 价值 |
-| --- | --- |
-| `open/high/low/close` | K 线、趋势、收益和回测基础 |
-| `volume` | 成交活跃度 |
-| `amount` | 成交额和流动性评分 |
-| `turnover` | 换手率 |
-| `amplitude` | 当日波动强度 |
-| `change_percent/change_amount` | 涨跌幅和涨跌额 |
-| `previous_close` | 涨跌停和振幅推导 |
-| `trade_status` | 停牌过滤 |
-| `is_st` | ST 风险和涨跌停阈值 |
-| `limit_up/limit_down` | 涨停/跌停标记 |
-
-`quant.stock_factors` 的高价值字段：
-
-| 字段 | 价值 |
-| --- | --- |
-| `pe_ttm` | 市盈率 |
-| `pb_mrq` | 市净率 |
-| `ps_ttm` | 市销率 |
-| `pcf_ncf_ttm` | 现金流估值 |
-
-## 因子目录怎么读
-
-策略平台里的“因子目录”是研究层，“基础组件”里的 `factor_definitions` 是数据库口径层。两者要配合使用：
-
-Shop Gate 的策略研究流程应固定为：
+自然语言问题进入生成管线后：
 
 ```text
-先基于数据思考因子，再基于因子思考策略。
+Query Rewrite（DeepSeek，selectedModel=deepseek-v4-flash 裸模型名）
+→ Run Plan（.data-agent/retail-run-plan.json：window / capabilityId / visualization.templateId）
+→ Data Prefetch（retail-data-prefetch.ts 调 commerce-data API，窗口取自 /meta）
+→ 标准看板生成（writeRetailDashboardTemplate 按能力分发，多面板 SVG）
+→ 自动验证 → 证据验收 → receipt → 持久预览
 ```
 
-| 层级 | 作用 |
-| --- | --- |
-| 因子目录 | 告诉你这个因子为什么有价值、怎么用、缺什么数据、适合哪些策略 |
-| `quant.factor_definitions` | 告诉系统因子 key、公式、依赖字段、频率、状态和 provider |
-| `quant.stock_factors` | 保存某个股票在某个日期的具体因子值 |
+四个零售能力：`traffic_funnel`（流量漏斗）、`catalog_structure`（类目结构）、`price_inventory`（价格库存）、`daily_brief`（经营日报）。注意工作区文件是 `retail-run-plan.json` / `retail-query-rewrite.json`。
 
-进入因子目录后，先看“数据 -> 因子 -> 策略”研究协议：
+深入生成与验证看 [02. AI 工作区生成](02-ai-workspace-generation.md) 和 [04. Skills 与可视化看板](04-skills-and-visual-dashboard.md)。
 
-1. 数据盘点：确认现有表、字段、覆盖时间、复权口径和缺口。
-2. 因子设计：只基于可验证数据设计公式、方向、质量状态和落地动作。
-3. 策略组合：把多个因子组合为策略蓝图，再通过回测和风控约束决定是否进入策略目录。
+## 练习
 
-当前最适合先落地的是日频衍生因子：20/60 日强弱、均线多头质量、成交额放大倍数、20 日实现波动率和 60 日最大回撤。这些都可以从 `quant.stock_bars` 直接计算，不需要等待财报或真实资金流。
-
-估值和基本面因子要分开看：PE/PB/PS/PCF 可以从 Baostock 补到 `quant.stock_factors`；ROE、毛利率、净利率、营收同比、净利润同比需要后续补 `quant.financial_statements` 和 `quant.financial_indicators`。资金流因子也要谨慎，当前板块资金是成交额和涨跌代理，不能直接当作真实主力净流入。
-
-## 批量补数
-
-低频小批次推进，避免一次性打满 5857 只股票：
-
-```bash
-curl -X POST 'http://127.0.0.1:8000/api/v1/ingestion/baostock/history/batch' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "universe_id": "a-share-sample-research-pool",
-    "offset": 0,
-    "batch_size": 25,
-    "period": "daily",
-    "adjustment": "qfq",
-    "lookback_years": 5,
-    "limit": 1260,
-    "request_delay_seconds": 0.2
-  }'
-```
-
-补数规则：只更新同一天同口径记录，不删除已有更早历史；稀疏源不能把已有非空增强字段覆盖成空。本地已有完整数据时应跳过，不重复拉取外部接口。
-
-前端补数入口位于股票池顶部的“补数”按钮。弹窗支持增量、近 5 年和自定义日期范围，显示完成标的、入库行数、预计剩余时间、预计完成时间、最近批次和任务控制。运行中任务可以暂停、继续或停止。
-
-补数要避免两个极端：
-
-- 每次都全量重刷，会浪费外部接口额度，也容易被限流。
-- 只拉最新一天，会导致新字段永远缺历史覆盖，回测没有意义。
-
-当前更合理的方式是：默认增量补最近缺口；第一次建库或补字段时可选近 5 年；研究特定历史窗口时使用自定义日期范围。本地已有完整记录时跳过外部请求，只补真正缺失或字段不完整的日期。
-
-## 如何判断数据是否足够做策略
-
-不是股票池里有 5857 只股票就代表可以回测。至少要看：
-
-| 判断项 | 推荐标准 |
-| --- | --- |
-| 覆盖时间 | 日线至少覆盖目标策略窗口，常见是 3 到 5 年 |
-| 样本连续性 | 交易日缺口应可解释，例如停牌或非交易日 |
-| 字段完整性 | 开高低收、成交量、成交额、换手率、涨跌幅、停牌/ST、涨跌停字段尽量齐全 |
-| 复权口径 | 同一策略内不要混用 `qfq`、`hfq` 和不复权 |
-| 股票池边界 | 剔除北交所、科创板、ST、ETF 或指数时要有明确规则 |
-
-如果策略依赖 DDE 大单资金、盘口或分时数据，但本地库里没有这些字段，就应在策略目录标记为“需补数据”，不能假装可执行。
-
-## 性能优化方向
-
-- 列表必须服务端分页，不把全部股票一次性塞给前端。
-- 股票池摘要、板块资金和市场资金概览优先走 Redis 短期缓存。
-- K 线详情按需加载，点击某只股票再请求明细。
-- 资金流详情按板块和时间窗口分层缓存。
-- 批量补数任务需要进度页和日志，而不是长时间阻塞一个请求。
+1. 启动 commerce-data 后访问 `GET /api/v1/commerce/meta`，核对窗口是否为 2017-11-25 ~ 2017-12-03。
+2. 用 `/items?sort=gmv&page=1&page_size=20` 找到 GMV 最高商品，再用 `/items/{id}/daily` 看它的日趋势。
+3. 在 /operations-briefing 生成一次今日日报，检查生成运行与日报记录是否落库。

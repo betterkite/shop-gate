@@ -17,11 +17,11 @@ Shop Gate 可以理解成四条主线叠在一起：
 | 主线 | 解决什么问题 | 关键入口 |
 | --- | --- | --- |
 | 产品主线 | 用户在哪里提问、看项目、管理平台能力 | `src/app/page.tsx`、`src/app/*/*Client.tsx` |
-| 数据主线 | 行情、K 线、因子、股票池和补数如何进入本地库 | `services/commerce-data/`、`sqls/` |
-| 生成主线 | 用户问题如何变成工作空间、页面和证据文件 | `src/lib/agent/`、仓库 Skill 权威源 `.pi/skills/`、`src/lib/commerce/validation.ts` |
+| 数据主线 | 商品、类目、行为事件、经营指标如何进入本地库 | `services/commerce-data/`、`sqls/` |
+| 生成主线 | 用户问题如何变成工作空间、页面和证据文件 | `src/lib/agent/`、仓库 Skill 权威源 `.pi/skills/`、`src/lib/commerce/retail-validation.ts` |
 | 质量主线 | 如何判断页面真的可用，失败后如何修复 | `docs/evals-guide.md`、`src/lib/eval/index.ts`、`src/lib/ops/` |
 
-学习时不要一开始就陷进某个组件。先判断当前任务属于哪条主线，再顺着链路阅读。很多问题看起来是页面问题，真正原因可能是数据缺字段；也有些看起来像数据问题，最后发现是 skill 把多标的任务生成成了单股模板。
+学习时不要一开始就陷进某个组件。先判断当前任务属于哪条主线，再顺着链路阅读。很多问题看起来是页面问题，真正原因可能是数据缺字段；也有些看起来像数据问题，最后发现是 skill 把多类目任务生成成了单商品模板。
 
 ## 一小时学习路线
 
@@ -41,13 +41,13 @@ Shop Gate 可以理解成四条主线叠在一起：
 
 | 练习 | 要做什么 | 会学到什么 |
 | --- | --- | --- |
-| 打开策略平台并点一只股票 | 看股票池、K 线详情、补数入口和基础组件页 | 股票池、K 线、因子、补数和数据质量 |
+| 打开商品运营页并点一个类目 | 看商品池（分页/排序）、品类池 top-100、渠道三档聚合 | 商品池、类目经营指标、库销比/库存风险和数据质量 |
 | 打开一个生成工作空间 | 看 `.data-agent`、`data_file`、`evidence` 和验证报告 | run plan、final data、证据和验证 |
 | 打开 Skills 管理 | 看核心 skill、版本、文件数和发布流程 | skill 边界、打包、lock 和 changelog |
 
 每个练习都建议同时打开页面和代码。页面建立直觉，代码确认真实实现。
 
-别只读文档。这个项目很多能力是“页面、后端、SQL、skill、验证”连在一起的，光看其中一段很容易误解。比如股票池里的一个字段，可能同时涉及 SQL 列、Python 映射、TypeScript 类型和前端展示。
+别只读文档。这个项目很多能力是“页面、后端、SQL、skill、验证”连在一起的，光看其中一段很容易误解。比如商品池里的一个字段，可能同时涉及 SQL 列、Python 映射、TypeScript 类型和前端展示。
 
 ## 一周学习路线
 
@@ -56,7 +56,7 @@ Shop Gate 可以理解成四条主线叠在一起：
 | 天数 | 学习重点 | 推荐文档 |
 | --- | --- | --- |
 | 第 1 天 | 本地启动、项目结构、基础设施 | `01`、[基础设施配置](../infrastructure.md) |
-| 第 2 天 | 市场数据、股票池、补数和策略平台 | `03`、[行情数据源采集知识库](../commerce-data-source-knowledge.md) |
+| 第 2 天 | 零售数据、商品池、数据接入和商品运营页 | `03`、[零售数据接入知识库](../commerce-data-source-knowledge.md) |
 | 第 3 天 | AI 工作空间生成链路 | `02`、[生成工作空间契约](../generated-workspace-contract.md) |
 | 第 4 天 | Skills 和可视化页面质量 | `04`、`07`、[Skills 治理规范](../skills-governance.md) |
 | 第 5 天 | 评测、运维、日志和质量门 | `05`、[Agent 评测指南](../evals-guide.md) |
@@ -70,11 +70,11 @@ Shop Gate 可以理解成四条主线叠在一起：
 | 想理解 | 从这里开始 | 然后看 |
 | --- | --- | --- |
 | 首页任务怎么创建 | `src/app/page.tsx` | `src/components/task/`、`src/lib/services/project.ts` |
-| 项目聊天怎么运行 Agent | `src/app/[project_id]/chat/` | `src/lib/services/cli/`、`src/lib/domains/finance/workspace.ts` |
-| 策略平台怎么取数据 | `src/app/strategy-platform/StrategyPlatformClient.tsx` | `src/lib/commerce/strategies.ts`、`services/commerce-data/` |
-| 市场数据怎么入库 | `services/commerce-data/src/shopgate_commerce_data/services/` | `repositories/`、`database_core.py`、`providers/`、`sqls/` |
+| 项目聊天怎么运行 Agent | `src/app/[project_id]/chat/` | `src/lib/services/cli/`、`src/lib/domains/retail/workspace.ts` |
+| 商品运营页怎么取数据 | `src/app/commerce-platform/page.tsx` | `src/lib/commerce/commerce-platform.ts`、`services/commerce-data/` |
+| 零售数据怎么入库 | `services/commerce-data/src/shopgate_commerce_data/services/` | `repositories/`、`database_core.py`、`providers/`、`sqls/` |
 | Skills 怎么配置到工作空间 | `src/lib/agent/skills/compiler.ts`、`src/lib/services/project.ts` | 仓库 registry/lock 与 SHA-256 完整性校验、workspace `.pi/skills/`；Agent 执行阶段只读编译 |
-| 验证怎么判断失败 | `src/lib/commerce/validation.ts` | `artifact-contracts.ts`、`visual-validation.ts` |
+| 验证怎么判断失败 | `src/lib/commerce/retail-validation.ts` | `artifact-contracts.ts`、`visual-validation.ts` |
 | 运行治理中心怎么聚合健康 | `src/app/ops-platform/` | `src/lib/ops/`、`src/lib/commerce/workspace-health.ts` |
 
 ## 学习时的判断口诀
@@ -90,7 +90,7 @@ Shop Gate 可以理解成四条主线叠在一起：
 最常见的迷路方式，是同时打开太多文件，然后每个文件都像“可能有关”。这时候先停一下，问三个问题：
 
 1. 用户看到的问题发生在哪个页面？
-2. 这个页面的数据来自本地状态、市场数据后端，还是生成工作空间文件？
+2. 这个页面的数据来自本地状态、数据后端（commerce-data），还是生成工作空间文件？
 3. 如果这是系统性问题，应该沉淀到代码、SQL、skill、评测还是文档？
 
 回答完这三个问题，基本就能把搜索范围缩小一半。

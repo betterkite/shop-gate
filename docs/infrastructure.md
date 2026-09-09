@@ -1,6 +1,6 @@
 # 基础设施配置
 
-Shop Gate 本地开发默认使用 PostgreSQL + TimescaleDB + Redis，并提供 Loki + Grafana + Alloy 作为本地可观测性组件。PostgreSQL 承载工作空间、项目、评测、配置、generation job/outbox、运行事实和数据库权威租约；TimescaleDB 承载股票 K 线、因子、策略信号和组合净值等时序数据；Redis 只承载可丢失的短期缓存，后续可扩展为 dispatcher 唤醒与进度投影，但不作为锁、任务事实或完成态权威；Loki 承载集中日志查询。可选的 Evolvable User Memory 独立部署在 `38089`，通过版本化 HTTP 契约为聊天提供用户级偏好召回，不与 Shop Gate 共用数据库。环境文件优先级、ModelPort/官方直连与关闭 Memory 的完整方式见[配置指南](configuration.md)。
+Shop Gate 本地开发默认使用 PostgreSQL + TimescaleDB + Redis，并提供 Loki + Grafana + Alloy 作为本地可观测性组件。PostgreSQL 承载工作空间、项目、评测、配置、generation job/outbox、运行事实和数据库权威租约；TimescaleDB 承载用户行为事件流水与商品/类目日度指标等时序数据；Redis 只承载可丢失的短期缓存，后续可扩展为 dispatcher 唤醒与进度投影，但不作为锁、任务事实或完成态权威；Loki 承载集中日志查询。可选的 Evolvable User Memory 独立部署在 `38089`，通过版本化 HTTP 契约为聊天提供用户级偏好召回，不与 Shop Gate 共用数据库。环境文件优先级、ModelPort/官方直连与关闭 Memory 的完整方式见[配置指南](configuration.md)。
 
 ## 本地启动
 
@@ -16,7 +16,7 @@ npm run obs:up
 
 ```bash
 cd services/commerce-data
-uv sync --extra baostock --extra akshare
+uv sync
 uv run shopgate-commerce-api
 ```
 
@@ -76,16 +76,15 @@ SHOPGATE_MARKET_ADMIN_TOKEN=""
 | 组件 | 用途 |
 | --- | --- |
 | PostgreSQL | 主业务库，承载 Prisma 管理的应用表 |
-| TimescaleDB | 股票时序数据、因子、信号、组合快照 |
-| Redis | 短期缓存，优先加速策略平台板块资金；后续用于 dispatcher 唤醒和可丢失的进度投影，不保存锁或完成态权威 |
+| TimescaleDB | 用户行为事件流水、商品/类目日度指标等时序数据 |
+| Redis | 短期缓存，优先加速商品运营和看板聚合查询；后续用于 dispatcher 唤醒和可丢失的进度投影，不保存锁或完成态权威 |
 | Loki | 集中存储本地运行日志、容器日志和评测队列日志 |
 | Grafana | 查询 Loki、排查运行问题和后续接指标面板 |
 | Grafana Alloy | 采集 Docker 日志与本地 `tmp/`、`.next/` 日志并写入 Loki |
-| commerce-data | FastAPI 市场数据服务，默认 `http://127.0.0.1:8000` |
+| commerce-data | FastAPI 零售数据服务，默认 `http://127.0.0.1:8000` |
 | Evolvable User Memory | 可选用户偏好、上下文召回和可归因 Outcome 服务，默认 `http://127.0.0.1:38089`；独立部署、独立存储 |
 | Next.js 主前端 | 产品入口和 API 聚合层，默认 `http://localhost:3000` |
-| 对象存储 | 后续用于原始行情文件、回测产物和大报告 |
-| ClickHouse | 后续用于超大量 tick、盘口快照和研究分析面板 |
+| 对象存储 | 后续用于原始数据文件、生成的看板产物和大报告 |
 
 ## 服务目录和轻量发现
 
@@ -164,21 +163,21 @@ Loki 宿主机端口默认使用 `33100`，生成项目预览端口池从 `4100`
 | `SHOPGATE_OBSERVABILITY_ENABLED` | `1` | 是否探测 Loki/Grafana/Alloy。关闭后运行治理中心只读本地文件日志。 |
 | `SHOPGATE_OBSERVABILITY_REQUIRED` | `0` | Loki/Grafana/Alloy 不可用时是否失败。 |
 | `SHOPGATE_REDIS_CACHE_ENABLED` | `1` | 是否启用 Redis 缓存；Redis 不可用时后端会自动直读/文件缓存兜底。 |
-| `SHOPGATE_SCREENER_CACHE_TTL_SECONDS` | `60` | A 股选股筛选接口的短 TTL；skills/首页重复调用同一日期和模式时优先返回缓存结果。 |
+| `SHOPGATE_SCREENER_CACHE_TTL_SECONDS` | `60` | commerce-data 数据筛选接口的短 TTL；skills/首页重复调用同一日期和模式时优先返回缓存结果。 |
 | `SHOPGATE_REDIS_REQUIRED` | `0` | Redis 不可用时是否作为健康失败。 |
 | `SHOPGATE_ADMIN_TOKEN` | 空 | Skills 发布、评测启动等宿主写接口令牌；生产/strict 模式必须配置。 |
 | `SHOPGATE_MARKET_ADMIN_TOKEN` | 空 | 补数、同步、质量扫描等 commerce-data 写接口令牌；非 loopback 或 strict 模式必须配置。 |
-| `SHOPGATE_MARKET_MAINTENANCE_ENABLED` | `0` | 是否已部署每日行情维护调度；生产门禁要求为 `1`。实际 timer 模板位于 `deploy/systemd/shopgate-market-maintenance.timer`。 |
-| `SHOPGATE_MARKET_MAINTENANCE_UNIVERSE_ID` | `a-share-sample-research-pool` | 每日同步的权威股票池。 |
-| `SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS` | `250` | 最新交易日必须覆盖的最少标的数，避免单一标的更新掩盖全市场过期。 |
+| `SHOPGATE_MARKET_MAINTENANCE_ENABLED` | `0` | 是否已部署每日数据维护调度；生产门禁要求为 `1`。实际 timer 模板位于 `deploy/systemd/shopgate-market-maintenance.timer`。 |
+| `SHOPGATE_MARKET_MAINTENANCE_UNIVERSE_ID` | `a-share-sample-research-pool` | 每日同步使用的数据池标识。 |
+| `SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS` | `250` | 最新数据日必须覆盖的最少商品数，避免单一商品更新掩盖整体数据过期。 |
 | `SHOPGATE_ALLOW_SKILLS_REGISTRY_FALLBACK` | `0` | 是否允许 Skills registry 损坏时使用内置降级表；默认 fail closed，生产不得开启。 |
 | `SHOPGATE_WEB_HOST` | `127.0.0.1` | 主前端开发服务监听地址；本地默认仅回环可访问，需要受控局域网访问时再显式覆盖。 |
 
 推荐本地开发保持 `auto`，只在 CI、演示环境或生产巡检中切到 `strict`。完全离线看页面结构、Skills、日志文件时可切到 `offline`。
 
-Docker 暴露的 PostgreSQL、Redis、ClickHouse、Loki、Grafana 和 Alloy 端口默认只绑定 `127.0.0.1`。生产部署不要通过修改 Compose 端口直接公开数据库或管理接口，应通过受控网络、认证网关和最小权限令牌接入。
+Docker 暴露的 PostgreSQL、Redis、Loki、Grafana 和 Alloy 端口默认只绑定 `127.0.0.1`。生产部署不要通过修改 Compose 端口直接公开数据库或管理接口，应通过受控网络、认证网关和最小权限令牌接入。
 
-PI Agent loop 在主应用或独立 Worker 进程内运行，不启动 Agent CLI 子进程，也不提供通用 Shell。模型只能调用 Shop Gate 注册并包装的类型化工具：文件工具受工作空间 realpath、symlink 和写入 allowlist 约束，量化 API 工具只允许访问本机 commerce-data API；数据库、GitHub 和云服务令牌不会作为工具输入暴露给模型。
+PI Agent loop 在主应用或独立 Worker 进程内运行，不启动 Agent CLI 子进程，也不提供通用 Shell。模型只能调用 Shop Gate 注册并包装的类型化工具：文件工具受工作空间 realpath、symlink 和写入 allowlist 约束，数据 API 工具只允许访问本机 commerce-data API；数据库、GitHub 和云服务令牌不会作为工具输入暴露给模型。
 
 每个 PI Agent 物理执行会通过 Shop Gate 治理层在共享文件系统资源锁内审计旧 attempt，并在 PostgreSQL 原子取得 project/canonical-workspace lease、创建 durable run；独立 heartbeat 同步续租 workspace 与 run 两层 lease，租约判断使用数据库权威时钟。事件写入与 heartbeat 共用 CAS 串行队列，旧 fencing token 不能继续提交。工具副作用前先写 `prepared` ledger；文件写入从临时文件创建前开始持有 `<workspace>/.pi-workspace.lock`，数据库短事务消费一次性 `commit_authorized` 后，资源锁继续覆盖目标复验和最终 rename；mutating outcome 不明时当前 run 立即停止并禁止后续写。孤儿资源锁不会自动强拆，owner metadata 会记录 instance/host/pid 和可用的 project/request/run/operation 身份，必须按排障 runbook 调和后移除。Checkpoint 只表示 `replan_required`，不包含 Provider session、prompt、messages 或 reasoning。该协调只覆盖 Shop Gate typed workspace-write 工具与 run takeover，不覆盖外层数据预取、scaffold、build、preview 或验证编排；生产多实例不得并发运行同一 project 的完整 generation pipeline。共享卷还必须支持跨客户端原子 mkdir/rename/fsync，并在目标 NFS/CSI 上完成多进程、多主机故障验收。开发与生产都通过 `prisma/migrations/` 中的版本化迁移升级；统一运行 `npm run prisma:deploy`。已有数据库必须先按 `prisma/migrations/README.md` 完成备份、基线识别和 schema readiness 校验。
 
@@ -218,16 +217,13 @@ npm run db:init
 
 当前 SQL 入口详见 [sqls/README.md](../sqls/README.md)，字段口径详见 [数据字典](data-dictionary.md)。核心包括：
 
-- `quant.stock_bars`
-- `quant.stock_bars` 内的高价值 K 线字段包括 `amount`、`amplitude`、`change_percent`、`change_amount` 和 `turnover`，字段来源与补数策略见 `docs/commerce-data-source-knowledge.md`。
-- `quant.stock_factors`
-- `quant.strategy_signals`
-- `quant.portfolio_snapshots`
-- `quant.security_universes`、`quant.security_universe_members` 和 A 股股票池 / ETF 指数池成员关系。
-- `quant.ingestion_jobs`、`quant.ingestion_watermarks` 和补数进度。
-- `quant.trading_calendars`、`quant.factor_definitions`、`quant.data_quality_scans` 和 `quant.platform_jobs`。
+- `commerce.user_behavior_events`：天池 UserBehavior 真实用户行为事件流（pv/fav/cart/buy）。
+- `commerce.items`、`commerce.categories`、`commerce.brands`、`commerce.shops`：商品、类目、品牌与店铺主数据（价格/库存/品牌/店铺为合成口径）。
+- `commerce.daily_item_metrics`、`commerce.daily_category_metrics`：商品/类目日度指标聚合。
+- `commerce.market_data_ingestion_jobs`、`commerce.market_data_sync_state`：数据导入任务与 provider 同步水位。
+- `commerce.data_quality_scans`、`commerce.platform_jobs`：数据质量扫描和通用平台任务表。
 
-K 线、因子、信号和组合快照使用 TimescaleDB hypertable，以时间字段 `ts` 做分区。Prisma 继续管理主业务表，量化时序和策略研究数据通过 SQL 初始化和市场数据后端写入。
+行为事件与日度指标等时序表按时间字段建索引。Prisma 继续管理主业务表，零售时序数据通过 SQL 初始化和 commerce-data 后端写入。
 
 ## 推荐组件路线
 
@@ -237,7 +233,6 @@ K 线、因子、信号和组合快照使用 TimescaleDB hypertable，以时间�
 | --- | --- | --- |
 | Redis | 已接入基础组件 | 跨进程短期缓存，后续承载独立 worker 的 dispatcher 唤醒和进度投影；任务 claim/outbox 已落 PostgreSQL |
 | Loki + Grafana + Alloy | 已接入基础组件 | 集中日志、容器日志采集、运行治理中心日志入口 |
-| 对象存储 | 产物规模上来后 | 截图、回测报告、原始行情文件和大 JSON |
-| ClickHouse | 数据规模明显放大后 | 超大量 tick、盘口快照和交互式研究分析 |
+| 对象存储 | 产物规模上来后 | 截图、生成的看板报告、原始数据文件和大 JSON |
 
-短期继续以 PostgreSQL + TimescaleDB 作为核心数据底座即可。Redis 已作为轻量缓存层接入，适合缓存板块资金、行情摘要、评测队列快照和任务进度；真正长期保存的行情、回测和评测结果仍应写回 PostgreSQL/TimescaleDB。
+短期继续以 PostgreSQL + TimescaleDB 作为核心数据底座即可。Redis 已作为轻量缓存层接入，适合缓存商品列表、看板摘要、评测队列快照和任务进度；真正长期保存的行为明细、日度指标和评测结果仍应写回 PostgreSQL/TimescaleDB。

@@ -14,7 +14,7 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 4. 修改 skill 必须同步更新版本、changelog、打包产物和 lock。
 5. 能用 Python 脚本稳定计算的内容，不要只写成提示词规则。
 6. `SKILL.md` 保持短而硬，复杂模板、字段说明和场景矩阵放到 `references/`。
-7. Skill ID 按能力 scope 命名：只有量化域能力使用 `quant-`，平台 UI 使用 `platform-`，通用工作流、图片、证据和可视化能力不使用 Shop Gate 或 quant 前缀。
+7. Skill ID 按能力 scope 命名：领域 skill 使用 `commerce-`，平台 UI 使用 `platform-`，通用工作流、图片、证据和可视化能力不使用 Shop Gate 或领域前缀。
 8. `SKILL.md` 是完整源材料，不直接进入模型上下文。PI Agent 只加载与当前 phase、信号和 typed tools 兼容的原子 capsule；必需 section 超出预算时失败关闭，不截断工作流。
 9. 每个源码 Skill 都必须是完整技能包：`SKILL.md`、`references/`、`scripts/`、`agents/openai.yaml` 缺一不可；`assets/` 仅在确有输出模板或素材时加入。
 10. 每个 reference 和 script 都必须由 `SKILL.md` 直接导航并说明使用时机；不允许孤儿资源，也不在 Skill 包中放 README、CHANGELOG 或安装指南。
@@ -39,12 +39,12 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 | `run-planner` | 意图澄清、澄清承接、任务规划和 run plan |
 | `query-rewrite` | 消费平台 LLM-first 语义合同，守住 Resolver 和失败关闭边界 |
 | `commerce-data-registry` | 数据源选择、主备源和降级说明 |
-| `commerce-entity-resolver` | 股票、指数、ETF 标的解析 |
-| `image-extraction` | 持仓截图、表格截图和用户上传图片的结构化提取 |
-| `commerce-market-data` | 实时行情、历史 K 线、指数 ETF、批量行情 |
-| `commerce-master-data` | 财务报表、财务指标、公告和估值情景 |
-| `commerce-metrics` | 技术指标、风险、相关性、流动性和趋势模板 |
-| `commerce-rule-review` | 策略参数、回测执行、交易明细和限制说明 |
+| `commerce-entity-resolver` | 商品、类目实体解析 |
+| `image-extraction` | 用户上传图片和表格截图的结构化提取 |
+| `commerce-market-data` | 零售数据查询：漏斗、类目排行、商品列表、库存风险、渠道与日度摘要 |
+| `commerce-master-data` | 商品主数据：价格、库存、品牌、店铺与类目信息 |
+| `commerce-metrics` | 经营指标：转化、环比、占比、结构与经营趋势模板 |
+| `commerce-rule-review` | 规则校验、口径核对与限制说明 |
 | `data-quality` | 来源、时效、缺失字段、异常值和证据文件 |
 | `platform-ui-product-design` | 主平台 UI、控制台、组件状态和响应式体验 |
 | `dashboard-visualization` | 基于已验证数据生成可视化看板 |
@@ -57,12 +57,13 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 
 | Scope | 命名规则 | 例子 |
 | --- | --- | --- |
-| `quant` | 必须使用 `quant-` 前缀 | `commerce-market-data`、`commerce-rule-review` |
+| `commerce` | 必须使用 `commerce-` 前缀 | `commerce-market-data`、`commerce-rule-review` |
 | `platform` | 必须使用 `platform-` 前缀 | `platform-ui-product-design` |
-| `workflow` | 不使用 `quant-` 或 `platform-` | `run-planner` |
-| `input` | 不使用 `quant-` 或 `platform-` | `image-extraction` |
-| `evidence` | 不使用 `quant-` 或 `platform-` | `data-quality` |
-| `visualization` | 不使用 `quant-` 或 `platform-` | `dashboard-visualization` |
+| `quant` | 保留 scope，必须使用 `quant-` 前缀；当前无核心 skill 使用 | 无 |
+| `workflow` | 不使用 `commerce-` 或 `platform-` | `run-planner` |
+| `input` | 不使用 `commerce-` 或 `platform-` | `image-extraction` |
+| `evidence` | 不使用 `commerce-` 或 `platform-` | `data-quality` |
+| `visualization` | 不使用 `commerce-` 或 `platform-` | `dashboard-visualization` |
 
 旧 ID 不再接受。重命名 Skill 属于 major 变更，调用方、registry、capsule、lock 和 capability 必须在同一版本提交中原子更新。`npm run check:skills` 会拒绝 `legacyAliases` 字段和未登记源码目录。
 
@@ -80,8 +81,8 @@ Shop Gate 的 skills 采用“少量规范 Skill ID + tgz 包发布 + PI Agent r
 
 每个源码 Skill 必须配套至少一个确定性脚本，但脚本属于平台能力，不代表 PI Agent 获得 Python 或 Shell 工具。只有显式注册为 typed tool 或由平台阶段调用的脚本才能执行：
 
-- 适合脚本：意图槽位检测、字段映射、收益/回撤/波动计算、数据质量扫描、信源探针、schema 校验。
-- 不适合脚本：长篇分析结论、投资建议措辞、页面审美判断。
+- 适合脚本：意图槽位检测、字段映射、转化/环比/占比计算、数据质量扫描、信源探针、schema 校验。
+- 不适合脚本：长篇分析结论、经营建议措辞、页面审美判断。
 - 脚本默认只读或输出 JSON 到 stdout；写文件时必须写到生成项目内的约定目录。
 - 脚本输入输出必须有稳定 JSON 契约，便于 Agent 和平台复用。
 - 脚本必须支持 `--help`，使用非零退出码表达合同失败，并由对应 reference 记录输入输出示例。
@@ -207,7 +208,7 @@ npm run package:skills -- <skill-id>
 2. 编译器优先读取仓库根目录 `.pi/skills/<skill-id>` 并校验 source hash 与文件数。
 3. 只有 source 不存在时，才回退读取 `.pi/skill-packages/<skill-id>.tgz`；除 package hash 外，还会拒绝链接/特殊条目和超限内容，并验证包内 `path + content` 树与 source lock 完全一致。
 4. 创建项目时，编译器把 capability 的完整受检 Skill 集合及显式附加 Skill 安装为 `<workspace>/.pi/skills/` 参考镜像；安装集合不受单次执行 phase 裁剪。创建服务只以安装成功或抛错作为结果，不把 receipt 注入 Agent。
-5. 每次 Agent 执行重新按第 1～3 步验证受信输入，再按 phase、附件、标的解析、template/variant 和当前 typed-tool 名称选择 capsule。
+5. 每次 Agent 执行重新按第 1～3 步验证受信输入，再按 phase、附件、实体解析、template/variant 和当前 typed-tool 名称选择 capsule。
 6. 稳定 Kernel 只接收 skill manifest；动态 user task 依次接收 Task Packet、完整的原子 Skill Capsules 和标为 untrusted data 的 initial dashboard contract。reference 由编译器按 Markdown 二级标题精确注入，模型不再读取相对 reference 路径。
 
 ## 产物策略
@@ -218,7 +219,7 @@ npm run package:skills -- <skill-id>
 - 浏览器取数只能读取 `data_file/final/dashboard-data.json` 或同源 `/api/market/**`。
 - 不得留下 `MOCK_DATA`、`SAMPLE_DATA`、`STATIC_QUOTES`、示例数据、模拟数据或占位数据。
 - 不得把 token、api key、cookie、authorization 等敏感信息写入生成项目。
-- 必须保留 `.data-agent/finance-run-plan.json`、`data_file/final/dashboard-data.json`、`evidence/sources.json` 和 `evidence/data_quality.json`。
+- 必须保留 `.data-agent/retail-run-plan.json`、`data_file/final/dashboard-data.json`、`evidence/sources.json` 和 `evidence/data_quality.json`。
 
 这些规则会进入 `.data-agent/validation.json`，失败后会作为修复指令反馈给 Agent。
 

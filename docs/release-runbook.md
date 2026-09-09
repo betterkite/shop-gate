@@ -57,7 +57,7 @@
 - 代码、静态资源、模板和版本化 Skills 随不可变发布产物交付。
 - 数据库结构只通过 `prisma migrate deploy` 增量升级；禁止用本地数据库覆盖生产库。
 - 权限、配额模板和目录等少量治理数据，只运行经过审查的幂等 bootstrap/seed，并记录新增、更新和跳过数量。
-- `data/projects`、上传文件、行情/财务数据、Memory/AKEP 记录、审计与评测轨迹保持在生产持久卷和服务中，不随代码包同步。
+- `data/projects`、上传文件、零售数据、Memory/AKEP 记录、审计与评测轨迹保持在生产持久卷和服务中，不随代码包同步。
 - 业务数据修复或补数必须单独给出精确作用域、dry-run 数量、幂等策略、备份与回滚；灾难恢复才允许执行全量 restore。
 
 仓库级运维 Skill 位于 `.agents/skills/shopgate-production-release`。发布前以当前线上 commit 为基线运行其中的分类脚本；它只生成计划，不修改数据：
@@ -114,7 +114,7 @@ npm run db:restore:release -- \
 - `shopgate-web.service`：启动经过 production preflight 的 standalone Web；
 - `shopgate-commerce-data.service`：按锁文件启动 commerce-data API；
 - `shopgate-generation-worker.service`：消费 PostgreSQL generation job，执行领域 handler、自动验证和失败重试；
-- `shopgate-market-maintenance.timer`：工作日收盘后刷新交易日历、执行可恢复的 Baostock `daily/qfq` autofill，并运行新鲜度与标的覆盖门禁；
+- `shopgate-market-maintenance.timer`：每日定时执行可恢复的数据同步与维护（`npm run market:maintain`），并运行新鲜度与数据覆盖门禁；
 - `shopgate-auth-cleanup.timer`：每日清理过期会话、验证记录，并执行审计保留策略；
 - `shopgate-backup.timer`：每 6 小时生成一次带校验清单的备份。
 
@@ -123,8 +123,8 @@ npm run db:restore:release -- \
 ## GA 签字清单
 
 - 产品负责人确认核心问题集、空状态、错误恢复和移动端流程。
-- 数据负责人确认行情来源许可、延迟口径、复权/交易日/停牌字段和免责声明。
+- 数据负责人确认数据来源许可、更新频率、口径说明（金额处必须带“合成口径”标注）和免责声明。
 - 安全负责人确认 HTTPS、secret rotation、最小权限、备份加密、依赖审计和生成代码网络隔离。
-- 法务/隐私负责人确认服务条款、隐私政策、Cookie/日志/审计保留、第三方模型与行情数据处理说明。
+- 法务/隐私负责人确认服务条款、隐私政策、Cookie/日志/审计保留、第三方模型与数据处理说明。
 - 运维负责人确认 SLO、告警联系人、容量、RPO/RTO、回滚和恢复演练。
 - 发布负责人保存 commit SHA、CI 链接、评测报告、备份 manifest 和上线验收记录。

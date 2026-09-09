@@ -97,8 +97,8 @@ npm run auth:bootstrap
 
 | 模板 | 默认用途 | 主要能力边界 |
 | --- | --- | --- |
-| `member-default` | 新建普通成员的默认模板 | 项目生命周期、源码、项目密钥与服务、Agent、量化读取/问题改写/策略运行、报告读取与生成；仍受项目角色约束，不含平台治理、策略管理和真实报告推送 |
-| `readonly-default` | 审阅、演示或外部协作账号 | 只允许读取已授权项目和源码、量化数据与研究报告，不允许创建项目、运行 Agent 或修改资源 |
+| `member-default` | 新建普通成员的默认模板 | 项目生命周期、源码、项目密钥与服务、Agent、数据读取/问题改写/任务运行、日报读取与生成；仍受项目角色约束，不含平台治理、策略管理和真实日报推送 |
+| `readonly-default` | 审阅、演示或外部协作账号 | 只允许读取已授权项目和源码、零售数据与经营日报，不允许创建项目、运行 Agent 或修改资源 |
 
 用户级 `allow/deny` 覆盖可设置到期时间；有效的显式 `deny` 优先于模板和其他 `allow`。未知 capability、无法加载策略或模板未授予都按拒绝处理。能力目录及其 `account/project/platform` scope 由 [`config/access-control.json`](../config/access-control.json) 统一声明，数据库模板只保存目录 key，不允许 API 写入未知 key。
 
@@ -124,9 +124,9 @@ npm run auth:bootstrap
 | `agent.requests.daily` | 100 | `hard` / `day` | 每日 Agent 请求数 |
 | `llm.total_tokens.monthly` | 2,000,000 | `warn` / `month` | Agent 与其他已接入模型链路的实际总 Token；结果结算后提示超额 |
 | `query_rewrite.llm.daily` | 200 | `hard` / `day` | 每日进入 LLM 问题改写的次数；纯确定性 preview 不计此项 |
-| `quant.data_units.daily` | 2,000 | `warn` / `day` | 量化取数/策略任务的标准化数据工作量；结果结算后提示超额 |
-| `research.report_runs.daily` | 20 | `hard` / `day` | 每日研究报告生成任务数 |
-| `research.report_sends.daily` | 10 | `hard` / `day` | 每日真实研究报告推送数；dry-run 不计此项 |
+| `quant.data_units.daily` | 2,000 | `warn` / `day` | 数据取数/生成任务的标准化数据工作量；结果结算后提示超额 |
+| `research.report_runs.daily` | 20 | `hard` / `day` | 每日日报生成任务数 |
+| `research.report_sends.daily` | 10 | `hard` / `day` | 每日真实日报推送数；dry-run 不计此项 |
 
 次数、Token、数据单元等计量指标使用带 TTL 的 reservation，成功后 settlement，失败或取消则 release。`agent.pending` 和 `agent.concurrent` 不使用会过期的 reservation：入口在锁住 `auth_users` actor 行后统计待执行请求，Worker claim 在同一 actor 锁下统计 running Job；任务状态本身就是配额事实源，因此长时间排队和 Worker 崩溃不会留下假并发。预留、结算和直接记账仍要求唯一幂等键，用不同 actor、metric、项目或数量复用同一键返回 `409 QUOTA_IDEMPOTENCY_CONFLICT`。
 
@@ -167,7 +167,7 @@ npm run auth:cleanup
 | `BETTER_AUTH_URL` | 自动推断 | 生产环境建议显式设置认证服务根地址。 |
 | `SHOPGATE_AUTH_SECURE_COOKIES` | 生产为 `1` | HTTPS 环境必须启用 Secure Cookie。 |
 | `SHOPGATE_AUTH_TRUSTED_ORIGINS` | 空 | 逗号分隔的可信 HTTPS 来源；localhost 可使用 HTTP。 |
-| `SHOPGATE_AUTH_ALLOW_SIGNUP` | `0` | 是否开放自助注册；共享投研环境建议保持关闭。 |
+| `SHOPGATE_AUTH_ALLOW_SIGNUP` | `0` | 是否开放自助注册；共享部署环境建议保持关闭。 |
 | `SHOPGATE_AUTH_SESSION_EXPIRES_SECONDS` | `43200` | 数据库会话绝对有效期。 |
 | `SHOPGATE_AUTH_SESSION_UPDATE_AGE_SECONDS` | `300` | 会话刷新间隔。 |
 | `SHOPGATE_AUTH_SESSION_FRESH_AGE_SECONDS` | `1800` | 敏感操作可使用的“新鲜会话”窗口。 |

@@ -1,6 +1,6 @@
 # 01. 本地启动与健康检查
 
-目标：把 Shop Gate 在本地完整跑起来，并确认首页、策略平台、Skills、评测、量化业务知识中心和运行治理中心都能打开。
+目标：把 Shop Gate 在本地完整跑起来，并确认首页、商品运营、经营情报、Skills、评测、经营业务知识中心和运行治理中心都能打开。
 
 ![首页工作台](assets/home.png)
 
@@ -18,15 +18,15 @@
 
 | 组件 | 可以理解成 | 负责什么 |
 | --- | --- | --- |
-| Next.js 主前端 | 产品入口和控制台 | 首页、项目聊天、策略平台、量化业务知识中心、运行治理中心和评测平台 |
-| 市场数据后端 | 量化数据 API | 行情、K 线、财务、公告、补数、交易日历和质量扫描 |
-| TimescaleDB / PostgreSQL | 事实库 | 保存项目索引、应用状态、股票时序数据、因子、补数任务和策略数据 |
-| Redis | 短期缓存 | 缓存行情摘要、板块资金和后续任务进度，不作为长期事实库 |
+| Next.js 主前端 | 产品入口和控制台 | 首页、项目聊天、商品运营、经营情报、经营业务知识中心、运行治理中心和评测平台 |
+| 数据后端（commerce-data） | 零售数据 API | 漏斗、类目排行、商品明细、库存风险、渠道聚合、经营摘要和质量扫描 |
+| TimescaleDB / PostgreSQL | 事实库 | 保存项目索引、应用状态、商品与行为事件时序数据、导入任务和质量扫描状态 |
+| Redis | 短期缓存 | 缓存经营摘要和后续任务进度，不作为长期事实库 |
 | Loki / Grafana / Alloy | 可观测性组件 | 收集日志，帮助排查前端、后端、容器和生成链路问题 |
 
 TimescaleDB 不是另一种连接协议，它是预装 TimescaleDB 扩展的 PostgreSQL 镜像。应用仍然通过 `postgresql://...` 连接数据库，只是某些大规模时序表会使用 hypertable 获得更好的写入和查询能力。
 
-Shop Gate 支持降级模式：没有启动市场数据后端或 Loki 时，页面不应该直接崩掉，而是展示内置注册表、本地文件日志或有限兜底数据。本地开发默认使用 `auto`，缺少可选组件只会给 warning。
+Shop Gate 支持降级模式：没有启动数据后端或 Loki 时，页面不应该直接崩掉，而是展示内置注册表、本地文件日志或有限兜底数据。本地开发默认使用 `auto`，缺少可选组件只会给 warning。
 
 ## 1. 安装前端依赖
 
@@ -45,7 +45,7 @@ npm run db:init
 npm run db:doctor
 ```
 
-`db:up` 会拉起 TimescaleDB 和 Redis。TimescaleDB 本质上是带时序扩展的 PostgreSQL 镜像，用来同时承载普通关系表和量化时序表。
+`db:up` 会拉起 TimescaleDB 和 Redis。TimescaleDB 本质上是带时序扩展的 PostgreSQL 镜像，用来同时承载普通关系表和经营行为时序表（如逐日商品/类目指标）。
 
 如果需要在运行治理中心查看集中日志，可继续启动 Loki、Grafana 和 Alloy：
 
@@ -64,11 +64,11 @@ npm run doctor
 
 `db:doctor` 关注数据库对象是否齐全；`doctor` 关注整个项目运行环境，包括前端、后端、Agent CLI、Skills、评测和降级配置。
 
-## 3. 启动市场数据后端
+## 3. 启动数据后端
 
 ```bash
 cd services/commerce-data
-uv sync --extra baostock --extra akshare
+uv sync
 uv run shopgate-commerce-api
 ```
 
@@ -76,8 +76,11 @@ uv run shopgate-commerce-api
 
 ```bash
 curl http://127.0.0.1:8000/health
-curl "http://127.0.0.1:8000/api/v1/quotes/realtime/600519"
+curl "http://127.0.0.1:8000/api/v1/commerce/meta"
+curl "http://127.0.0.1:8000/api/v1/commerce/summary?date=2017-12-03"
 ```
+
+`/meta` 返回当前数据窗口与用户数（首末事件时间、`user_count`、行为来源），`/summary` 返回指定日期的经营摘要（GMV、曝光、购买、转化率、客单价，金额为合成口径）。更多端点见 [零售数据接入文档](../commerce-data-ingestion.md)。
 
 ## 4. 启动主前端
 
@@ -123,9 +126,10 @@ setsid bash -c 'exec npm run dev -- --port 3000' > tmp/runtime/web.log 2>&1 < /d
 | 页面 | 地址 |
 | --- | --- |
 | 首页工作台 | `http://localhost:3000` |
-| 策略平台 | `http://localhost:3000/strategy-platform` |
+| 商品运营 | `http://localhost:3000/commerce-platform` |
+| 经营情报 | `http://localhost:3000/operations-briefing` |
 | Skills 管理 | `http://localhost:3000/skills` |
-| 量化业务知识中心 | `http://localhost:3000/business-knowledge` |
+| 经营业务知识中心 | `http://localhost:3000/business-knowledge` |
 | 运行治理中心 | `http://localhost:3000/ops-platform` |
 | 评测平台 | `http://localhost:3000/eval-platform` |
 

@@ -23,7 +23,7 @@
 └──────────────────────┬───────────────────────────────┘
                        │ 治理约束施加于每一次执行
 ┌─ 生成闭环（阶段 1）───▼───────────────────────────────┐
-│ 提问 → 查询改写+标的解析 → 任务合同 → 数据预取          │
+│ 提问 → 查询改写+实体解析 → 任务合同 → 数据预取          │
 │      → Agent 执行 → 三类验证 → 受限修复(≤3)            │
 │      → 交付 / 拒收(未投影)                             │
 └───────────────────────────────────────────────────────┘
@@ -43,7 +43,7 @@
 ### 原则 2：数据由管道进，不由模型自由发挥
 
 - **一句原则**：模型上岗前，数据已经抓好、洗净、贴好出处——它想编数字都没有素材。
-- **现场证据**：数据预取 `prefetchQuantDataForRunPlan`（`data-prefetch.ts:1804`）跑在状态机第 3 站；raw/intermediate/final 三层产物；每份交付带 `sources.json`＋`data_quality.json`；拉取严格按任务合同白名单触发（`:1708`、`:1720`）。
+- **现场证据**：数据预取 `prefetchRetailDataForRunPlan`（`retail-data-prefetch.ts`）跑在状态机第 3 站；raw/intermediate/final 三层产物；每份交付带 `sources.json`＋`data_quality.json`；拉取严格按任务合同白名单触发。
 - **专业坐标**：medallion 架构（bronze/silver/gold）；provenance（数据溯源）。
 - **带走的话**：防幻觉不是靠提示词哀求，是从管道上断粮。
 
@@ -64,7 +64,7 @@
 ### 原则 5：不可信代码按敌隔离，权限最小化
 
 - **一句原则**：AI 生成的代码是潜在敌对输入——沙箱执行、最小读取面、专用通道、凭据剥离。
-- **现场证据**：动态检查要求 Linux namespace 沙箱，macOS 无此能力即拒跑（fail-closed，逃生门自带警告文案）；页面只许吃 `final`、行情只许走 `/api/market` 代理；审批卡片剥凭据后再给人看；任务信封拒收一切 `key/token/secret` 字段（`dispatch-store.ts:23、116`）。
+- **现场证据**：动态检查要求 Linux namespace 沙箱，macOS 无此能力即拒跑（fail-closed，逃生门自带警告文案）；页面只许吃 `final`、经营数据只许走平台预取好的 data_file（commerce-data API 只由平台调用，不交给生成页面直连）；审批卡片剥凭据后再给人看；任务信封拒收一切 `key/token/secret` 字段。
 - **专业坐标**：sandboxing；least privilege。
 - **带走的话**：全链路问一遍"它最少需要碰什么？"——每多给一分权限，都要有理由。
 
@@ -94,7 +94,7 @@
 - **一句原则**：知识是可版本化、可审计的文档资产——改知识≠发版代码；手册管判断，代码管执行。
 - **现场证据**：12 个 skill 住在 `.pi/skills/`（SKILL.md 主手册＋references 参考书＋scripts 平台验货脚本＋agents 厂商声明）；`skills.lock.json` 双指纹封存（sourceSha256 源码树＋packageSha256 打包产物）；实验实证：往 SKILL.md 追加一行注释，安检当场咬住——`source hash mismatch … run npm run package:skills`，**报错自带修复指令**；恢复原样即复绿——门咬的是"改动未走流程"，不是"改动"本身。
 - **专业坐标**：docs-as-code；content governance；integrity hashing。
-- **带走的话**：领域知识的迭代速度与代码发版速度解耦；"茅台→600519"这类知识不住在代码里（代码里只有测试夹具），住在 `symbol-resolution-contract.md` 里。
+- **带走的话**：领域知识的迭代速度与代码发版速度解耦；"商品名→标准商品 id"这类实体解析知识不住在代码里（代码里只有测试夹具），住在 `commerce-entity-resolver` 的 `references/symbol-resolution-contract.md` 里。
 
 ### 原则 10：知识分发用规则路由，语义理解才请模型
 
@@ -106,9 +106,9 @@
 ### 原则 11：语义翻译分层——查表先行，模型补剩余，解不动就问人
 
 - **一句原则**：能查表的绝不请模型；模型只补语义剩余；fail-closed 的终点是"问人"，不是"猜"。
-- **现场证据**："帮我看看茅台"四层落地：能力目录匹配意图 → 标的解析查表（知识在 commerce-entity-resolver 技能，`rank_candidates.py` 由平台跑——模型没有 shell）→ `query-rewrite` 模型补时间窗与口径 → 模型缺席即暂停（`query-rewrite.ts:770`"大模型未配置，任务已暂停"＝ws-B 那次暂停的产房，`:777` needs_clarification；`:819-821` 还有 partial 档，确定性层已解析的标的不丢弃）。
+- **现场证据**："帮我看看这个窗口卖得最好的类目"四层落地：能力目录匹配意图 → 实体解析查表（知识在 commerce-entity-resolver 技能，`rank_candidates.py` 由平台跑——模型没有 shell）→ `query-rewrite` 模型补时间窗与口径 → 模型缺席即暂停（`query-rewrite.ts:770`"大模型未配置，任务已暂停"＝ws-B 那次暂停的产房，`:777` needs_clarification；`:819-821` 还有 partial 档，确定性层已解析的实体不丢弃）。
 - **专业坐标**：intent resolution；deterministic-first pipeline；human-in-the-loop fallback。
-- **带走的话**：猜错的代价（给错误标的生成一本正经的错误诊断）远高于多问一句的成本；已有进展不丢弃。
+- **带走的话**：猜错的代价（给错误实体生成一本正经的错误经营诊断）远高于多问一句的成本；已有进展不丢弃。
 
 **阶段 3 取舍卡三张**：①知识为何是文档不是代码——迭代与发版解耦＋审计有据；②lock 为何用指纹不用签名——内部受信源以可追溯为足，拒绝密钥分发复杂度；③规则路由 vs 向量检索——见原则 10 的决策信号。
 
@@ -116,7 +116,7 @@
 
 ## 四、评测：怎么证明在变好
 
-- **考试与查卷分离**：`benchmark:quant:contract`（贵，真跑流水线，产出带防伪签名的成绩单）与 `eval:ci`（便宜，重算哈希＋验门槛）分离——验证者必须廉价且独立。
+- **考试与查卷分离**：真跑生成流水线的零售端到端评测（`check-task-e2e-campaign.ts --dataset=task-e2e-retail-v1`，贵，逐 case 生成并验收）与 `eval:ci`（便宜，重算哈希＋验门槛）分离——验证者必须廉价且独立。
 - **防作弊五件套**：题库分级（public/hidden/shadow）防押题；prompt-hash 防换题；oracle 断言防"感觉判分"；LLM judge 带校准防放水；receipt/报告哈希防伪造；回归逐题阻断防"改好一处坏三处"。
 - **指标语言**：`firstPass`（健康度）与 `repair`（脆性）分开统计；`stability/scoreStdDevMax=0`（确定性车道免费送的可复现性）；`ci95`（对自身不确定性保持诚实）；`durationP95`（用尾部不用平均）。
 - **可复现性一句话**：仓库存考纲，不存考卷——你不需要相信历史报告，你只需要相信历史可以被重演。

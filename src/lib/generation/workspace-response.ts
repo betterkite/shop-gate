@@ -57,10 +57,7 @@ function hasExplicitTime(question: string): boolean {
 function inferGranularity(runPlan: RetailRunPlan, capabilityId: string): string {
   const source = `${runPlan.timeRange ?? ''} ${runPlan.dataRequirements.join(' ')}`;
   if (/(?:分钟|分时|小时)/.test(source)) return '分钟/分时';
-  if (/(?:报告期|季度|财务|基本面)/.test(source) || capabilityId === 'fundamental_analysis') {
-    return '报告期';
-  }
-  if (/(?:交易日|日线|K\s*线|行情|走势|回测|年|月|周)/i.test(source)) return '日';
+  if (/(?:日报|分日|按天|日|周|月|季度|年)/.test(source)) return '日';
   return '不适用';
 }
 
@@ -76,8 +73,8 @@ function recognitionTable(runPlan: RetailRunPlan): string {
   const question = stripOperationalSuffix(runPlan.question);
   const object = runPlan.entities.length > 0
     ? runPlan.entities.join('、')
-    : runPlan.visualization.templateId === 'stock-selection'
-      ? 'A 股观察池'
+    : ['catalog-structure', 'price-inventory'].includes(runPlan.visualization.templateId ?? '')
+      ? '商品与类目池'
       : '待从问题或附件确认';
   const timeRange = runPlan.timeRange ?? '未指定';
   const timeStatus = runPlan.timeRange
@@ -91,7 +88,7 @@ function recognitionTable(runPlan: RetailRunPlan): string {
 
   const rows = [
     ['业务场景', capability.name, '明确'],
-    ['分析对象', object, runPlan.entities.length > 0 || runPlan.visualization.templateId === 'stock-selection' ? '明确' : '待确认'],
+    ['分析对象', object, runPlan.entities.length > 0 || ['catalog-structure', 'price-inventory'].includes(runPlan.visualization.templateId ?? '') ? '明确' : '待确认'],
     ['时间范围', timeRange, timeStatus],
     ['时间粒度', granularity, granularity === '不适用' ? '不适用' : '明确'],
     ['核心数据/指标', listSummary(runPlan.dataRequirements, '按任务合同核验'), '明确'],

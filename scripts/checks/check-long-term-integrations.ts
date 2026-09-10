@@ -425,7 +425,7 @@ async function checkMemoryClosedLoop(params: {
       recall: 'applied',
       exposedMemoryCount: recalled.exposedMemoryCount,
       projectIsolation,
-      quantPromptToQwen: 'passed',
+      queryRewriteToQwen: 'passed',
       qwenContinuation: combinedRoundTrip.continuationCharacters > 0 ? 'passed' : 'failed',
       outcomeIdempotency: 'passed',
     };

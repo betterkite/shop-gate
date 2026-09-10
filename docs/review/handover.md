@@ -147,7 +147,7 @@ cd services/commerce-data && .venv/bin/ruff check src && .venv/bin/python -m pyt
 仍需单独 PR 的范围：
 
 - `ISSUE-P13`：已在专用分支完成 `commerce-data` 旧金融后端物理清理；删除候选引用图、保留边界和验证命令见 `docs/review/p13-backend-cleanup.md`。本地仓库无 remote，待用户审阅后按 RepoSteward 流程发起 PR。
-- `ISSUE-P14`：generation、eval、scaffold 中的 `Quant*` 类型与金融模板/语料，需要按公共 API、workspace artifact 和测试契约分阶段改名/重写。
+- `ISSUE-P14`：已完成 generation、eval、scaffold 中的 `Quant*` 类型清理、旧金融脚手架删除、零售评测夹具收敛和电商视觉语义验收；技能 body/scripts 的金融计算逻辑仍按 `ISSUE-P8/P9` 的功能级重写计划推进。
 - `ISSUE-P16`：视觉回归需要登录态运行环境，catalog 基准仍有 token-budget 偶发失败，不能仅靠静态检查宣称完成。
 
 RepoSteward 备注：本地仓库未配置 remote，因此本轮没有创建远端 GitHub Issue/PR；上述条目已写入 `ISSUES.md` 作为后续 PR 的 reviewed work items。当前改动仍在专用分支，未合入 `main`。
@@ -159,7 +159,7 @@ RepoSteward 备注：本地仓库未配置 remote，因此本轮没有创建远�
 - 已移除：股票行情/回测/财务/指标/provider/ClickHouse 代码、旧 router/service/repository/model/security、旧金融测试、旧维护/新鲜度脚本、金融依赖和 ClickHouse Compose/环境配置；`commercepilot` 旧部署路径同步改为 `/var/lib/shopgate`。
 - 主应用配套：基础设施健康检查从 `quant` schema 改为 `commerce` schema；服务目录、systemd、runbook 和环境模板同步收敛。
 - 验证：`uv run ruff check ...`、`uv run pytest`（13 passed）、实际 FastAPI 路由枚举、`npm run type-check`、`check:backend-architecture`、`check:service-catalog`、`check:module-boundaries`、`check:docs` 全部通过。
-- 未混入：用户此前已删除的 `docs/learning/**` 保持未暂存，不属于 P13 commit；generation/eval/scaffold 历史语义留给 `ISSUE-P14`。
+- 未混入：用户此前已删除的 `docs/learning/**` 保持未暂存，不属于 P13 commit；技能功能级零售化仍归 `ISSUE-P8/P9`，不与本次 P14 清理重复混入。
 
 ## 4. 迭代进化路线
 

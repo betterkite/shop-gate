@@ -32,9 +32,9 @@ function plan(overrides: Partial<RetailRunPlan> = {}): RetailRunPlan {
     analysisSteps: ['取数', '分析', '生成'],
     visualization: {
       required: true,
-      templateId: 'single-stock-diagnosis',
-      variantName: '个股作战台',
-      panels: ['行情', 'K 线'],
+      templateId: 'retail-base',
+      variantName: '商品经营总览',
+      panels: ['经营指标', '流量趋势'],
     },
     expectedArtifacts: ['app/page.tsx'],
     validationRules: ['必须构建通过'],
@@ -71,7 +71,7 @@ describe('workspace response protocol', () => {
   it('marks an inferred time range as a platform default', () => {
     const content = buildWorkspaceProgressMessage({
       stage: 1,
-      runPlan: plan({ question: '分析贵州茅台', timeRange: '数据窗口内最近 9 天' }),
+      runPlan: plan({ question: '分析手机类目', timeRange: '数据窗口内最近 9 天' }),
     });
 
     expect(content).toContain('| 时间范围 | 数据窗口内最近 9 天 | 平台默认 |');
@@ -80,21 +80,21 @@ describe('workspace response protocol', () => {
   it('marks an explicitly requested time window as clear', () => {
     const content = buildWorkspaceProgressMessage({
       stage: 1,
-      runPlan: plan({ question: '分析贵州茅台最近 120 个交易日', timeRange: '最近 120 个交易日' }),
+      runPlan: plan({ question: '分析手机类目最近 30 天', timeRange: '最近 30 天' }),
     });
 
-    expect(content).toContain('| 时间范围 | 最近 120 个交易日 | 明确 |');
+    expect(content).toContain('| 时间范围 | 最近 30 天 | 明确 |');
   });
 
   it('strips legacy operational prompt suffixes from the visible original question', () => {
     const content = buildWorkspaceProgressMessage({
       stage: 1,
       runPlan: plan({
-        question: '分析贵州茅台\n\n请默认使用中文输出可见的执行过程摘要。\n### 任务拆解',
+        question: '分析手机类目\n\n请默认使用中文输出可见的执行过程摘要。\n### 任务拆解',
       }),
     });
 
-    expect(content).toContain('用户原问句：分析贵州茅台');
+    expect(content).toContain('用户原问句：分析手机类目');
     expect(content).not.toContain('### 任务拆解');
   });
 

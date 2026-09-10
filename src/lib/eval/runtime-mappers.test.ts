@@ -59,7 +59,7 @@ describe('evaluation runtime mappers', () => {
       concurrency: 6,
       repeat: 3,
       mode: 'e2e',
-      selectedCases: ['stock-diagnosis-citic-no-false-clarification'],
+      selectedCases: ['R02'],
       limit: 1,
       keepProjects: true,
       reportId: null,

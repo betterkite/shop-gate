@@ -401,12 +401,12 @@
       },
       {
         "path": "src/app/api/chat/[project_id]/act/route.ts",
-        "pattern": "body\\.(request_id|selected_model|cliPreference|quantCapabilityId|quantCapabilitySource|quant_capability_id|quant_capability_source|is_initial_prompt)|base64_data",
+        "pattern": "body\\.(request_id|selected_model|cliPreference|commerceCapabilityId|commerceCapabilitySource|commerce_capability_id|commerce_capability_source|is_initial_prompt)|base64_data",
         "reason": "Act ingress 只接受 chat-act-contract.ts 定义的通用 Data Agent camelCase 当前契约。"
       },
       {
         "path": "src/app/api/projects/route.ts",
-        "pattern": "body\\.(project_id|initial_prompt|selected_model|quantCapabilityId|quantCapabilitySource|quant_capability_id|quant_capability_source|capability_source)",
+        "pattern": "body\\.(project_id|initial_prompt|selected_model|commerceCapabilityId|commerceCapabilitySource|commerce_capability_id|commerce_capability_source|capability_source)",
         "reason": "项目创建只接受通用 capabilityId/capabilitySelectionSource 当前合同。"
       },
       {
@@ -433,21 +433,9 @@
     "largeFileBudgets": [
       {
         "path": "src/lib/utils/scaffold.ts",
-        "maxLines": 720,
-        "targetLines": 650,
-        "nextAction": "保持 workspace writer 和模板选择职责；基础/专用模板必须留在独立模板模块，不再回填大段字符串。"
-      },
-      {
-        "path": "src/lib/utils/scaffold-base-templates.ts",
-        "maxLines": 2600,
-        "targetLines": 2300,
-        "nextAction": "继续提取模板内共享数据读取与格式化 helper，所有改动必须通过 check:scaffold-templates。"
-      },
-      {
-        "path": "src/lib/utils/scaffold-dashboard-templates.ts",
-        "maxLines": 2575,
-        "targetLines": 2300,
-        "nextAction": "压缩 comparison/selection/holding 模板重复 helper，同时保持每类模板独立构建。"
+        "maxLines": 600,
+        "targetLines": 500,
+        "nextAction": "保持 workspace writer 与零售模板选择职责；运行时脚本和零售页面模板继续独立维护。"
       },
       {
         "path": "src/app/[project_id]/chat/page.tsx",
@@ -459,7 +447,7 @@
         "path": "src/app/api/chat/[project_id]/act/route.ts",
         "maxLines": 900,
         "targetLines": 800,
-        "nextAction": "保持 route 只承担 HTTP 接纳和 dispatch；金融规划、取数、Mission 与执行逻辑必须留在应用服务和 Domain handler。"
+        "nextAction": "保持 route 只承担 HTTP 接纳和 dispatch；零售规划、取数、Mission 与执行逻辑必须留在应用服务和 Domain handler。"
       },
       {
         "path": "src/components/chat/ChatLog.tsx",

@@ -20,7 +20,7 @@ import { validateDataAgentArtifactContracts } from '@/lib/generation/artifact-co
 import { validateRetailVisualPresentation } from '@/lib/commerce/visual-validation';
 import {
   generatedBuildScriptContents,
-  restoreQuantDashboardTemplate,
+  restoreRetailDashboardTemplate,
   scaffoldBasicNextApp,
 } from '@/lib/utils/scaffold';
 import {
@@ -135,7 +135,7 @@ export interface RetailDashboardTemplateRestoreResult {
   failedCheckIds: string[];
 }
 
-interface ValidateQuantProjectParams {
+interface ValidateRetailProjectParams {
   projectId: string;
   projectPath: string;
   requestId?: string | null;
@@ -1420,7 +1420,7 @@ async function readRunPlan(projectPath: string): Promise<Record<string, unknown>
   }
 }
 
-async function readCurrentQuantRunId(projectPath: string): Promise<string | null> {
+async function readCurrentRetailRunId(projectPath: string): Promise<string | null> {
   const generationStateRaw = await readTextFile(
     path.join(projectPath, '.data-agent', 'generation-state.json'),
   );
@@ -1970,14 +1970,6 @@ async function checkDashboardBinding(
           /转化率|客单价|数据质量|合成口径|数据窗口|更新时间/,
         ],
       },
-      'strategy-research': {
-        label: '策略研究模板',
-        patterns: [
-          /策略假设|可证伪|hypothesis|未回测/,
-          /信号规则|筛选规则|候选|comparison|assets/,
-          /数据限制|失效风险|风险声明|样本参数/,
-        ],
-      },
       'funnel-analysis': {
         label: '行为漏斗模板',
         patterns: [/漏斗|funnel|曝光|收藏|加购|购买|转化率/, /分日|趋势|数据质量|数据窗口|更新时间/],
@@ -1985,18 +1977,6 @@ async function checkDashboardBinding(
       'daily-brief': {
         label: '经营日报模板',
         patterns: [/日报|经营摘要|GMV|转化|客单价|summary/, /环比|异动|类目|数据质量|数据窗口|更新时间/],
-      },
-      'fundamental-research': {
-        label: '基本面研究模板',
-        patterns: [/财务|基本面|营收|净利润|roe|毛利率/, /报告期|现金流|公告|估值/],
-      },
-      'backtest-review': {
-        label: '回测复盘模板',
-        patterns: [/回测|净值|策略|胜率|交易/, /参数|回撤|样本|限制/],
-      },
-      'sector-rotation': {
-        label: '板块轮动模板',
-        patterns: [/板块|行业|指数|etf|轮动|相对强弱/, /收益|回撤|流动性|排名/],
       },
     };
     const templateCheck = templateChecks[plannedTemplateId];
@@ -2020,14 +2000,14 @@ async function checkDashboardBinding(
 	      const oversizedHeroSignals = [
 	        /hero-band/,
 	        /risk-card/,
-	        /holding-analysis\s*持仓分析模板/i,
-	        /持仓问题快速诊断/,
+	        /portfolio[_-]?risk/i,
+	        /holding-analysis/i,
 	      ];
 	      if (oversizedHeroSignals.some((signal) => signal.test(page))) {
 	        return {
 	          status: 'failed',
 	          summary: '持仓分析页面仍使用过重的顶部 hero 结构。',
-          details: '持仓、调仓和截图账户类看板应直接从账户摘要、持仓矩阵或核心风险指标开始；VaR、样本口径和声明应放入连续指标带、风险分区或底部说明，不要占据首屏顶部。',
+          details: '价格库存看板应直接从价格带、库存健康度和商品风险指标开始，不要用无关的大型顶部区域占据首屏。',
 	        };
 	      }
 	    }
@@ -2043,8 +2023,8 @@ async function checkDashboardBinding(
 	      if (holdingOnlySignals.some((signal) => signal.test(page))) {
 	        return {
 	          status: 'failed',
-	          summary: '页面仍残留持仓分析模板，不符合选股/多股对比任务。',
-	          details: 'stock-selection 页面应展示候选覆盖、排名依据、财务质量、收益/波动/回撤对比、数据口径和更新时间；信源证据由后台文件验收。',
+          summary: '页面仍残留组合分析模板，不符合类目/商品结构任务。',
+          details: '类目结构页面应展示类目覆盖、成交总额、转化率、客单价和集中度；数据口径和更新时间由后台文件验收。',
 	        };
 	      }
 	    }
@@ -2324,7 +2304,7 @@ function actionsForFailedCheck(check: RetailValidationCheck): string[] {
       return [
         '只查看 .data-agent/visual-validation.json 指向的失败 viewport、截图与指标。',
         '修复桌面/移动端布局：首屏不能空白，不能横向溢出，文本不能互相遮挡。',
-        '把独立白色圆角卡片网格合并为连续金融工作台：主画布共用背景，以细分区线、连续指标带、主图、矩阵和表格建立层级；移除重复圆角、阴影和 card 套 card。',
+        '把独立白色圆角卡片网格合并为连续电商经营画布：主画布共用背景，以细分区线、连续指标带、主图、矩阵和表格建立层级；移除重复圆角、阴影和 card 套 card。',
         '指标带按实际数量均衡分栏；移除桌面端 N+1 孤项和大片空白，避免金额、价格和百分比拆行或竖排。',
         '移动端 390x844 首屏必须露出一个可用的核心图表、矩阵或表格；如果摘要区过高，压缩或下移次要指标和免责声明，并移除用户可见的渠道证据、模板名称与组件契约说明。',
       ];
@@ -2656,7 +2636,7 @@ export function isRetailDashboardTemplateRecoveryEligible(
  * check is presentation related; data, evidence, contract, policy, or proxy
  * failures must be repaired without overwriting the page.
  */
-export async function restoreQuantDashboardTemplateAfterRepairExhaustion(params: {
+export async function restoreRetailDashboardTemplateAfterRepairExhaustion(params: {
   projectPath: string;
   report: RetailValidationReport;
 }): Promise<RetailDashboardTemplateRestoreResult> {
@@ -2715,7 +2695,7 @@ export async function restoreQuantDashboardTemplateAfterRepairExhaustion(params:
 
   let restoreFailure: string | null = null;
   try {
-    await restoreQuantDashboardTemplate(projectPath);
+    await restoreRetailDashboardTemplate(projectPath);
   } catch (error) {
     restoreFailure = error instanceof Error ? error.message : String(error);
   }
@@ -2822,7 +2802,7 @@ ${completionConditions || '- 报告未提供失败 ID；仅提交已能由失败
 }
 
 async function publishValidationSummary(
-  params: ValidateQuantProjectParams,
+  params: ValidateRetailProjectParams,
   report: RetailValidationReport
 ) {
   const content = buildValidationSummary(report);
@@ -2858,11 +2838,11 @@ async function publishValidationSummary(
       }),
     });
   } catch (error) {
-    console.error('[QuantValidation] Failed to persist validation summary:', error);
+    console.error('[RetailValidation] Failed to persist validation summary:', error);
   }
 }
 
-export async function validateRetailProject(params: ValidateQuantProjectParams): Promise<RetailValidationReport> {
+export async function validateRetailProject(params: ValidateRetailProjectParams): Promise<RetailValidationReport> {
   return withProjectValidationLock(params.projectId, () => validateRetailProjectUnlocked(params));
 }
 
@@ -2909,13 +2889,13 @@ async function withProjectValidationLock<T>(
   }
 }
 
-async function validateRetailProjectUnlocked(params: ValidateQuantProjectParams): Promise<RetailValidationReport> {
+async function validateRetailProjectUnlocked(params: ValidateRetailProjectParams): Promise<RetailValidationReport> {
   const projectPath = await prepareRetailProjectForValidation(params);
   const now = new Date().toISOString();
 
   await stopPreviewForValidation(params.projectId).catch((error) => {
     console.warn(
-      '[QuantValidation] Failed to stop preview before validation build:',
+      '[RetailValidation] Failed to stop preview before validation build:',
       error
     );
   });
@@ -2982,7 +2962,7 @@ async function validateRetailProjectUnlocked(params: ValidateQuantProjectParams)
   } finally {
     await stopPreviewForValidation(params.projectId).catch((error) => {
       console.warn(
-        '[QuantValidation] Failed to stop temporary preview after validation:',
+      '[RetailValidation] Failed to stop temporary preview after validation:',
         error
       );
     });
@@ -2990,7 +2970,7 @@ async function validateRetailProjectUnlocked(params: ValidateQuantProjectParams)
 
   const passed = checks.every((check) => check.status !== 'failed');
   const updatedAt = new Date().toISOString();
-  const reportRunId = params.requestId ?? await readCurrentQuantRunId(projectPath);
+  const reportRunId = params.requestId ?? await readCurrentRetailRunId(projectPath);
   const report: RetailValidationReport = {
     schemaVersion: 1,
     runId: reportRunId ?? undefined,
@@ -3064,7 +3044,7 @@ export async function readRetailValidationReport(projectPath: string): Promise<R
             : null;
         }),
       ),
-      readCurrentQuantRunId(resolvedProjectPath),
+      readCurrentRetailRunId(resolvedProjectPath),
     ]);
     if (reportStat) {
       const freshness = assessRetailValidationReportFreshness({

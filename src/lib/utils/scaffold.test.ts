@@ -2,15 +2,15 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { restoreQuantDashboardTemplate, scaffoldBasicNextApp } from './scaffold';
+import { restoreRetailDashboardTemplate, scaffoldBasicNextApp } from './scaffold';
 import {
-  comparisonCss,
-  comparisonPageTemplate,
-  holdingAnalysisCss,
-  holdingAnalysisPageTemplate,
-  stockSelectionCss,
-  stockSelectionPageTemplate,
-} from './scaffold-dashboard-templates';
+  retailBaseDashboardCssTemplate,
+  retailBaseDashboardPageTemplate,
+  retailCatalogPageTemplate,
+  retailDailyBriefPageTemplate,
+  retailFunnelPageTemplate,
+  retailPriceInventoryPageTemplate,
+} from './retail-scaffold-templates';
 
 const temporaryProjects: string[] = [];
 
@@ -31,29 +31,38 @@ afterEach(async () => {
   );
 });
 
-describe('restoreQuantDashboardTemplate', () => {
-  it('keeps platform scenario templates as continuous workbenches without hero or duplicate card grids', () => {
+describe('restoreRetailDashboardTemplate', () => {
+  it('keeps retail scenario templates as continuous workbenches with readable metrics and charts', () => {
     const templates = [
       {
-        name: 'comparison',
-        page: comparisonPageTemplate(),
-        css: comparisonCss(),
-        required: ['comparison-header', 'comparison-metrics', '指标矩阵', 'chart-grid'],
-        forbidden: ['comparison-hero', 'leader-card', 'leader-grid'],
+        name: 'retail-base',
+        page: retailBaseDashboardPageTemplate(),
+        css: retailBaseDashboardCssTemplate(),
+        required: ['data-visual-language="retail-workbench"', '零售经营看板', '数据集覆盖'],
       },
       {
-        name: 'stock-selection',
-        page: stockSelectionPageTemplate(),
-        css: stockSelectionCss(),
-        required: ['selection-header', 'selection-metrics', '多标的指标矩阵', 'core-chart-panel'],
-        forbidden: ['selection-hero', 'summary-grid', 'asset-grid', 'asset-card', 'AssetCards', 'function Sparkline('],
+        name: 'retail-funnel',
+        page: retailFunnelPageTemplate(),
+        css: retailBaseDashboardCssTemplate(),
+        required: ['流量与转化漏斗', '行为漏斗', '页面浏览量（PV）'],
       },
       {
-        name: 'holding-analysis',
-        page: holdingAnalysisPageTemplate(),
-        css: holdingAnalysisCss(),
-        required: ['holding-header', 'portfolio-metrics', 'risk-strip', '持仓明细', 'portfolio-chart-panel'],
-        forbidden: ['holding-hero', 'hero-summary', 'holding-grid', 'holding-card', 'HoldingCards', 'function Sparkline(', 'risk-grid'],
+        name: 'retail-catalog',
+        page: retailCatalogPageTemplate(),
+        css: retailBaseDashboardCssTemplate(),
+        required: ['类目与商品结构', '成交总额（GMV）排名', '高浏览低购买类目'],
+      },
+      {
+        name: 'retail-price-inventory',
+        page: retailPriceInventoryPageTemplate(),
+        css: retailBaseDashboardCssTemplate(),
+        required: ['电商经营 BI 看板', '价格区间分布（商品价格）', '库存健康度'],
+      },
+      {
+        name: 'retail-daily-brief',
+        page: retailDailyBriefPageTemplate(),
+        css: retailBaseDashboardCssTemplate(),
+        required: ['经营日报（当日观察）', '成交总额（GMV）', '分日流量与转化'],
       },
     ];
 
@@ -62,28 +71,19 @@ describe('restoreQuantDashboardTemplate', () => {
       for (const signal of template.required) {
         expect(template.page, `${template.name}: ${signal}`).toContain(signal);
       }
-      for (const legacyStructure of template.forbidden) {
-        expect(template.page, `${template.name} page: ${legacyStructure}`).not.toContain(legacyStructure);
-        expect(template.css, `${template.name} css: ${legacyStructure}`).not.toContain(legacyStructure);
-      }
       for (const hiddenEvidenceDetail of ['数据信源渠道', '技术证据', '行情源：', 'evidence/sources.json', '场景模板', '必备组件']) {
         expect(template.page, `${template.name}: ${hiddenEvidenceDetail}`).not.toContain(hiddenEvidenceDetail);
       }
     }
-    expect(holdingAnalysisPageTemplate()).toContain('数据信源：已记录');
   });
 
-  it('contains long ETF names and wide comparison content on mobile workbenches', () => {
-    for (const [name, css] of [
-      ['comparison', comparisonCss()],
-      ['stock-selection', stockSelectionCss()],
-    ] as const) {
-      expect(css, name).toContain('max-width: 100%');
-      expect(css, name).toContain('min-width: 0');
-      expect(css, name).toContain('overflow-wrap: anywhere');
-      expect(css, name).toContain('white-space: normal');
-      expect(css, name).not.toContain('width: 100vw');
-    }
+  it('keeps the retail stylesheet responsive and free of floating card-grid drift', () => {
+    const css = retailBaseDashboardCssTemplate();
+    expect(css).toContain('data-visual-language="retail-workbench"');
+    expect(css).toContain('max-width: 100%');
+    expect(css).toContain('min-width: 0');
+    expect(css).toContain('overflow-wrap: anywhere');
+    expect(css).not.toContain('width: 100vw');
   });
 
   it('replaces an invalid Agent page with the platform technical dashboard', async () => {
@@ -114,7 +114,7 @@ describe('restoreQuantDashboardTemplate', () => {
       fs.writeFile(path.join(projectPath, 'app', 'globals.css'), 'body{}\n'),
     ]);
 
-    await restoreQuantDashboardTemplate(projectPath);
+    await restoreRetailDashboardTemplate(projectPath);
 
     const [page, css] = await Promise.all([
       fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8'),
@@ -131,7 +131,7 @@ describe('restoreQuantDashboardTemplate', () => {
     expect(css).toContain('border-radius: 999px');
   });
 
-  it('scaffolds a continuous financial workbench instead of a card-grid default', async () => {
+  it('scaffolds a continuous retail workbench instead of a card-grid default', async () => {
     const projectPath = await createProject();
 
     await scaffoldBasicNextApp(projectPath, 'continuous-workbench-project');

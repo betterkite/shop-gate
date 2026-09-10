@@ -25,7 +25,7 @@ export interface RetailVisualViewportResult {
     firstViewportTextLength: number;
     firstViewportGraphicCount: number;
     firstViewportTableCount: number;
-    firstViewportHasMarketLanguage: boolean;
+    firstViewportHasCommerceLanguage: boolean;
     firstViewportHasCoreVisual: boolean;
     largeChartCount: number;
     firstViewportLargeChartCount: number;
@@ -42,7 +42,7 @@ export interface RetailVisualViewportResult {
     oversizedHeroLike: boolean;
     horizontalOverflow: boolean;
     blankLike: boolean;
-    hasMarketLanguage: boolean;
+    hasCommerceLanguage: boolean;
     hasDataFreshnessLanguage: boolean;
   };
 }
@@ -241,10 +241,10 @@ async function validateViewport(params: {
           height: rect.height,
           top: rect.top,
           area: rect.width * rect.height,
-          hasMarketContext: /K\s*线|K线|成交量|均线|MA5|MA10|MA20|收益|回撤|波动|对比|矩阵|强弱|排名|经营|趋势|流量|转化|GMV|PV|UV|渠道|类目|库销比|库存|动销|成交/i.test(text),
+          hasCommerceContext: /商品|类目|库存|浏览|购买|加购|转化|成交总额|GMV|PV|UV|渠道|库销比|动销|趋势|流量|排名|对比|矩阵/i.test(text),
         };
       });
-      const largeCharts = charts.filter((chart) => chart.visible && chart.width >= 280 && chart.height >= 140 && chart.hasMarketContext);
+      const largeCharts = charts.filter((chart) => chart.visible && chart.width >= 280 && chart.height >= 140 && chart.hasCommerceContext);
       const tinyCharts = charts.filter((chart) => chart.visible && chart.width < 260 && chart.height < 140);
       const visibleGraphicCount = rects.filter((element) => {
         const rect = element.getBoundingClientRect();
@@ -284,7 +284,7 @@ async function validateViewport(params: {
         return rect.height > Math.max(34, lineHeight * 2.2) && rect.width < 72;
       }).length;
       const orphanedMetricRowCount = Array.from(document.querySelectorAll(
-        'main .metric-strip, main .comparison-metrics, main .selection-metrics, main .portfolio-metrics, main .risk-strip'
+        'main .metric-strip, main .bi-kpi-strip, main .insight-strip, main .action-strip'
       )).filter((container) => {
         const containerRect = container.getBoundingClientRect();
         const containerStyle = window.getComputedStyle(container);
@@ -381,7 +381,7 @@ async function validateViewport(params: {
         firstViewportTextLength: firstViewportText.length,
         firstViewportGraphicCount,
         firstViewportTableCount,
-        firstViewportHasMarketLanguage: /最新价|实时|价格|price|K\s*线|成交量|均线|财务|回撤|波动|净值|持仓|收益|风险/i.test(firstViewportText),
+        firstViewportHasCommerceLanguage: /商品|类目|库存|浏览|购买|加购|转化|成交总额|GMV|PV|UV|渠道|价格|风险/i.test(firstViewportText),
         firstViewportHasCoreVisual: largeCharts.some((chart) => chart.top < viewportHeight) || firstViewportTableCount > 0,
         largeChartCount: largeCharts.length,
         firstViewportLargeChartCount: largeCharts.filter((chart) => chart.top < viewportHeight).length,
@@ -398,7 +398,7 @@ async function validateViewport(params: {
         oversizedHeroLike: oversizedHeading && firstViewportGraphicCount === 0 && firstViewportTableCount === 0,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         blankLike: bodyText.trim().length < 80 && rects.length < 8,
-        hasMarketLanguage: /最新价|实时|价格|price|K\s*线|成交量|均线|财务|回撤|波动|净值|持仓|收益|风险/i.test(bodyText),
+        hasCommerceLanguage: /商品|类目|库存|购买|浏览|加购|转化|成交总额|GMV|客单价|价格|风险/i.test(bodyText),
         hasDataFreshnessLanguage: /更新时间|更新：|数据截至|数据时间|行情时间|报告期|样本区间|样本窗口/i.test(bodyText),
       };
     });
@@ -410,17 +410,17 @@ async function validateViewport(params: {
       failures.push('页面存在横向溢出。');
     }
     // 零售工作台使用 `data-visual-language="retail-workbench"` 标记，不应被强制要求
-    // 金融语义词（行情/K线/财务/风险/持仓…）。有该标记时放宽金融语义收紧项，但
+    // 领域语义词。有该标记时放宽领域语义收紧项，但
     // 内容/首屏/核心图表校验仍保留，确保 retail 页面不是空白营销页。
     const isRetailWorkbench = metrics.hasRetailWorkbenchMarker;
-    if (!metrics.hasMarketLanguage && !isRetailWorkbench) {
-      failures.push('页面缺少行情、K 线、财务、风险或持仓等金融语义。');
+    if (!metrics.hasCommerceLanguage && !isRetailWorkbench) {
+      failures.push('页面缺少商品、库存、浏览、购买、转化或成交总额等电商经营语义。');
     }
-    if ((!metrics.firstViewportHasMarketLanguage || metrics.firstViewportTextLength < 80) && !isRetailWorkbench) {
-      failures.push('首屏缺少真实金融数据、行情指标或可用分析内容。');
+    if ((!metrics.firstViewportHasCommerceLanguage || metrics.firstViewportTextLength < 80) && !isRetailWorkbench) {
+      failures.push('首屏缺少真实商品经营数据、关键指标或可用分析内容。');
     }
     if (metrics.oversizedHeroLike) {
-      failures.push('首屏疑似营销式大标题或空 hero，占用了核心金融内容位置。');
+      failures.push('首屏疑似营销式大标题或空 hero，占用了核心经营内容位置。');
     }
     if (params.viewport.id === 'desktop' && metrics.firstViewportGraphicCount + metrics.firstViewportTableCount === 0) {
       warnings.push('桌面首屏没有图表或表格，可能需要把核心可视化上移。');
@@ -429,7 +429,7 @@ async function validateViewport(params: {
       failures.push('首屏没有可用的核心图表、矩阵或表格；迷你 sparkline/装饰图不能替代主图。');
     }
     if (metrics.largeChartCount === 0 && metrics.firstViewportTableCount === 0) {
-      failures.push('页面没有检测到足够尺寸的金融主图或数据矩阵。');
+      failures.push('页面没有检测到足够尺寸的电商经营主图或数据矩阵。');
     }
     if (metrics.tinyChartCount >= 3 && metrics.largeChartCount === 0) {
       failures.push('页面主要由迷你图组成，缺少带坐标/刻度/上下文的主图。');

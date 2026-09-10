@@ -46,7 +46,7 @@ describe('PI Agent typed filesystem tools', () => {
     await fs.mkdir(path.join(workspace, '.data-agent'), { recursive: true });
     await fs.writeFile(path.join(workspace, 'app', 'page.tsx'), [
       'export default function Page() {',
-      '  return <main>Quant dashboard</main>;',
+      '  return <main>Commerce dashboard</main>;',
       '}',
       '',
     ].join('\n'));
@@ -69,7 +69,7 @@ describe('PI Agent typed filesystem tools', () => {
 
     const read = await invoke(createReadFileTool(options), { path: 'app/page.tsx' });
     expect(read).toMatchObject({ ok: true });
-    if (read.ok) expect(read.content).toContain('Quant dashboard');
+    if (read.ok) expect(read.content).toContain('Commerce dashboard');
 
     const range = await invoke(createReadFileRangeTool(options), {
       path: 'app/page.tsx',
@@ -77,11 +77,11 @@ describe('PI Agent typed filesystem tools', () => {
       endLine: 2,
     });
     expect(range).toMatchObject({ ok: true });
-    if (range.ok) expect(range.content).toBe('2:   return <main>Quant dashboard</main>;');
+    if (range.ok) expect(range.content).toBe('2:   return <main>Commerce dashboard</main>;');
 
     const search = await invoke(createSearchFilesTool(options), {
       path: '.',
-      query: 'quant DASHBOARD',
+      query: 'commerce DASHBOARD',
       fileGlob: '**/*.tsx',
     });
     expect(search).toMatchObject({ ok: true });

@@ -823,16 +823,16 @@ describe('PI Agent terminal ownership', () => {
       status: 'planned',
       requestedCapabilityId: 'traffic_funnel',
       visualization: {
-        templateId: 'single-stock-diagnosis',
-        variantId: 'single-stock-command-center',
-        panels: ['行情快照', 'K线主图'],
+        templateId: 'funnel-analysis',
+        variantId: 'retail-funnel',
+        panels: ['经营漏斗', '分日趋势'],
       },
     });
 
     await executePiAgent(
       'project-test',
       workspace,
-      '生成贵州茅台个股诊断看板',
+      '生成商品流量转化漏斗看板',
       'deepseek-v4-flash',
       'request-prepared-standard',
     );
@@ -878,15 +878,15 @@ describe('PI Agent terminal ownership', () => {
       status: 'planned',
       requestedCapabilityId: 'traffic_funnel',
       visualization: {
-        templateId: 'single-stock-diagnosis',
-        variantId: 'single-stock-command-center',
+        templateId: 'funnel-analysis',
+        variantId: 'retail-funnel',
       },
     });
 
     await expect(executePiAgent(
       'project-test',
       workspace,
-      '生成标准个股诊断看板',
+      '生成标准商品漏斗看板',
       'deepseek-v4-flash',
       'request-zero-model',
     )).resolves.toBeDefined();

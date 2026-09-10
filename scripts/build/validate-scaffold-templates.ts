@@ -13,17 +13,13 @@ import path from 'path';
 import os from 'os';
 import { execFileSync } from 'child_process';
 import {
-  baseDashboardCssTemplate,
-  baseDashboardPageTemplate,
-} from '../../src/lib/utils/scaffold-base-templates';
-import {
-  comparisonCss,
-  comparisonPageTemplate,
-  holdingAnalysisCss,
-  holdingAnalysisPageTemplate,
-  stockSelectionCss,
-  stockSelectionPageTemplate,
-} from '../../src/lib/utils/scaffold-dashboard-templates';
+  retailBaseDashboardCssTemplate,
+  retailBaseDashboardPageTemplate,
+  retailCatalogPageTemplate,
+  retailDailyBriefPageTemplate,
+  retailFunnelPageTemplate,
+  retailPriceInventoryPageTemplate,
+} from '../../src/lib/utils/retail-scaffold-templates';
 
 const ROOT = process.cwd();
 
@@ -36,24 +32,29 @@ interface TemplateEntry {
 function extractTemplates(): TemplateEntry[] {
   return [
     {
-      name: 'marketDashboard',
-      pageContent: baseDashboardPageTemplate(),
-      cssContent: baseDashboardCssTemplate(),
+      name: 'retailBaseDashboard',
+      pageContent: retailBaseDashboardPageTemplate(),
+      cssContent: retailBaseDashboardCssTemplate(),
     },
     {
-      name: 'holdingAnalysis',
-      pageContent: holdingAnalysisPageTemplate(),
-      cssContent: holdingAnalysisCss(),
+      name: 'retailFunnel',
+      pageContent: retailFunnelPageTemplate(),
+      cssContent: retailBaseDashboardCssTemplate(),
     },
     {
-      name: 'comparison',
-      pageContent: comparisonPageTemplate(),
-      cssContent: comparisonCss(),
+      name: 'retailCatalog',
+      pageContent: retailCatalogPageTemplate(),
+      cssContent: retailBaseDashboardCssTemplate(),
     },
     {
-      name: 'stockSelection',
-      pageContent: stockSelectionPageTemplate(),
-      cssContent: stockSelectionCss(),
+      name: 'retailPriceInventory',
+      pageContent: retailPriceInventoryPageTemplate(),
+      cssContent: retailBaseDashboardCssTemplate(),
+    },
+    {
+      name: 'retailDailyBrief',
+      pageContent: retailDailyBriefPageTemplate(),
+      cssContent: retailBaseDashboardCssTemplate(),
     },
   ];
 }
@@ -178,7 +179,7 @@ async function main() {
   const entries = extractTemplates();
   console.log(`Found ${entries.length} templates to validate: ${entries.map((e) => e.name).join(', ')}`);
 
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'qp-template-check-'));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'shopgate-template-check-'));
   console.log(`Working in ${tmpDir}`);
 
   let failed = 0;

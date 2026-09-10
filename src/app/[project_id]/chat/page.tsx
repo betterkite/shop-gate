@@ -89,9 +89,9 @@ const hexToFilter = (hex: string): string => {
 
 type Entry = { path: string; type: 'file'|'dir'; size?: number };
 type ProjectStatus = 'initializing' | 'active' | 'failed';
-type QuantValidationState = 'unknown' | 'running' | 'passed' | 'failed';
+type RetailValidationState = 'unknown' | 'running' | 'passed' | 'failed';
 
-type QuantValidationRepairPlan = {
+type RetailValidationRepairPlan = {
   status: 'needed';
   repairPlanPath?: string;
   steps?: Array<{
@@ -348,9 +348,9 @@ export default function ChatPage() {
   const previewAutoRecoverySuppressedRef = useRef(false);
   const previewTerminalFailureRef = useRef(false);
   const [previewInitializationMessage, setPreviewInitializationMessage] = useState('正在启动预览服务...');
-  const [quantValidationState, setQuantValidationState] = useState<QuantValidationState>('unknown');
-  const [quantValidationMessage, setQuantValidationMessage] = useState<string | null>(null);
-  const [quantRepairPlan, setQuantRepairPlan] = useState<QuantValidationRepairPlan | null>(null);
+  const [retailValidationState, setRetailValidationState] = useState<RetailValidationState>('unknown');
+  const [retailValidationMessage, setRetailValidationMessage] = useState<string | null>(null);
+  const [retailRepairPlan, setRetailRepairPlan] = useState<RetailValidationRepairPlan | null>(null);
   const [cliStatuses, setCliStatuses] = useState<Record<string, CliStatusSnapshot>>({});
   const [conversationId, setConversationId] = useState<string>(() => {
     if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
@@ -923,7 +923,7 @@ const persistProjectPreferences = useCallback(
     }
   }, [projectId, startDeploymentPolling]);
 
-  const readQuantValidationStatus = useCallback(async (): Promise<QuantValidationState> => {
+  const readRetailValidationStatus = useCallback(async (): Promise<RetailValidationState> => {
     try {
       const response = await fetch(`${API_BASE}/api/projects/${projectId}/commerce/validation`, {
         method: 'GET',
@@ -951,9 +951,9 @@ const persistProjectPreferences = useCallback(
           : ['completed', 'failed'].includes(String(generationState?.status ?? ''));
 
       if (!validationMatchesGeneration) {
-        setQuantValidationState('running');
-        setQuantValidationMessage('正在等待当前生成任务的自动验证结果。');
-        setQuantRepairPlan(null);
+        setRetailValidationState('running');
+        setRetailValidationMessage('正在等待当前生成任务的自动验证结果。');
+        setRetailRepairPlan(null);
         return 'running';
       }
 
@@ -961,15 +961,15 @@ const persistProjectPreferences = useCallback(
         ? report.checks.some((check: any) => check?.id === 'validation_report_stale')
         : false;
       if (staleReport && generationIsActive) {
-        setQuantValidationState('running');
-        setQuantValidationMessage('当前产物仍在更新，正在等待本轮自动验证。');
-        setQuantRepairPlan(null);
+        setRetailValidationState('running');
+        setRetailValidationMessage('当前产物仍在更新，正在等待本轮自动验证。');
+        setRetailRepairPlan(null);
         return 'running';
       }
       if (staleReport && !isVisualCheck && !generationIsActive) {
-        setQuantValidationState('running');
-        setQuantValidationMessage('生成产物已更新，正在重新执行自动验证。');
-        setQuantRepairPlan(null);
+        setRetailValidationState('running');
+        setRetailValidationMessage('生成产物已更新，正在重新执行自动验证。');
+        setRetailRepairPlan(null);
         const rerunResponse = await fetch(`${API_BASE}/api/projects/${projectId}/commerce/validation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -983,15 +983,15 @@ const persistProjectPreferences = useCallback(
         }
       }
       if (report?.passed === true || report?.status === 'passed') {
-        setQuantValidationState('passed');
-        setQuantValidationMessage('自动验证通过。');
-        setQuantRepairPlan(null);
+        setRetailValidationState('passed');
+        setRetailValidationMessage('自动验证通过。');
+        setRetailRepairPlan(null);
         return 'passed';
       }
       if (report?.passed === false || report?.status === 'failed') {
         const repairPlan =
           payload?.repairPlan && payload.repairPlan.status === 'needed'
-            ? (payload.repairPlan as QuantValidationRepairPlan)
+            ? (payload.repairPlan as RetailValidationRepairPlan)
             : null;
         const failedChecks = Array.isArray(report?.checks)
           ? report.checks
@@ -999,9 +999,9 @@ const persistProjectPreferences = useCallback(
               .map((check: any) => check?.summary || check?.name || check?.id)
               .filter(Boolean)
           : [];
-        setQuantValidationState('failed');
-        setQuantRepairPlan(repairPlan);
-        setQuantValidationMessage(
+        setRetailValidationState('failed');
+        setRetailRepairPlan(repairPlan);
+        setRetailValidationMessage(
           failedChecks.length
             ? `自动验证未通过：${failedChecks.join('；')}`
             : '自动验证未通过，请查看验证摘要。'
@@ -1009,7 +1009,7 @@ const persistProjectPreferences = useCallback(
         return 'failed';
       }
     } catch (error) {
-      console.warn('[Preview] failed to read quant validation report:', error);
+      console.warn('[Preview] failed to read retail validation report:', error);
     }
     return 'unknown';
   }, [isVisualCheck, projectId]);
@@ -1176,8 +1176,8 @@ const persistProjectPreferences = useCallback(
         setIsStartingPreview(false);
         setIsRunning(true);
         setAgentWorkComplete(false);
-        setQuantValidationState('running');
-        setQuantValidationMessage('自动检查已完成，正在等待 PI Agent 证据验收。');
+        setRetailValidationState('running');
+        setRetailValidationMessage('自动检查已完成，正在等待 PI Agent 证据验收。');
         setPreviewInitializationMessage('证据验收通过后才会展示最终看板。');
         return;
       }
@@ -1185,8 +1185,8 @@ const persistProjectPreferences = useCallback(
       if (previewPlan.action === 'ready') {
         previewAutoRecoverySuppressedRef.current = false;
         previewTerminalFailureRef.current = false;
-        setQuantValidationState('passed');
-        setQuantValidationMessage('自动验证通过，看板预览已就绪。');
+        setRetailValidationState('passed');
+        setRetailValidationMessage('自动验证通过，看板预览已就绪。');
         setAgentWorkComplete(true);
         localStorage.setItem(`project_${projectId}_taskComplete`, 'true');
         if (previewPlan.shouldAdoptUrl) {
@@ -1208,8 +1208,8 @@ const persistProjectPreferences = useCallback(
           setPreviewInitializationMessage('已验收看板当前没有运行中的预览。');
           return;
         }
-        setQuantValidationState('passed');
-        setQuantValidationMessage('自动验证通过，正在恢复持久看板预览。');
+        setRetailValidationState('passed');
+        setRetailValidationMessage('自动验证通过，正在恢复持久看板预览。');
         setShowPreview(true);
         setMobileWorkspaceView('preview');
         if (
@@ -1235,8 +1235,8 @@ const persistProjectPreferences = useCallback(
       if (snapshot.status === 'needs_revalidation') {
         setIsRunning(false);
         setAgentWorkComplete(false);
-        setQuantValidationState('failed');
-        setQuantValidationMessage('看板文件已在任务完成后更新，需要发起新一轮验收。');
+        setRetailValidationState('failed');
+        setRetailValidationMessage('看板文件已在任务完成后更新，需要发起新一轮验收。');
         previewUrlRef.current = null;
         setPreviewUrl(null);
         setIsStartingPreview(false);
@@ -1247,13 +1247,13 @@ const persistProjectPreferences = useCallback(
       if (snapshot.status === 'running') {
         setIsRunning(true);
         setAgentWorkComplete(false);
-        setQuantValidationState('running');
-        setQuantValidationMessage('当前生成任务尚未完成，正在等待验证和预览终态。');
+        setRetailValidationState('running');
+        setRetailValidationMessage('当前生成任务尚未完成，正在等待验证和预览终态。');
         if (snapshot.validationStatus === 'pending') {
           previewUrlRef.current = null;
           setPreviewUrl(null);
           if (!hasActiveRequests) {
-            void readQuantValidationStatus();
+            void readRetailValidationStatus();
           }
         }
         if (!previewUrlRef.current) {
@@ -1264,8 +1264,8 @@ const persistProjectPreferences = useCallback(
 
       if (snapshot.status === 'failed') {
         setIsRunning(false);
-        setQuantValidationState('failed');
-        setQuantValidationMessage(
+        setRetailValidationState('failed');
+        setRetailValidationMessage(
           snapshot.errorMessage || '生成或自动验证最终失败，请查看执行摘要。',
         );
         previewUrlRef.current = null;
@@ -1293,7 +1293,7 @@ const persistProjectPreferences = useCallback(
     isVisualCheck,
     projectId,
     readGenerationTerminalSnapshot,
-    readQuantValidationStatus,
+    readRetailValidationStatus,
     start,
   ]);
 
@@ -2558,9 +2558,9 @@ const persistProjectPreferences = useCallback(
 
     if (status === 'validation_running') {
       setIsRunning(true);
-      setQuantValidationState('running');
-      setQuantValidationMessage(message ?? '正在执行自动验证。');
-      setQuantRepairPlan(null);
+      setRetailValidationState('running');
+      setRetailValidationMessage(message ?? '正在执行自动验证。');
+      setRetailRepairPlan(null);
       setPreviewInitializationMessage(message ?? '正在执行自动验证，验证通过后展示看板。');
       return;
     }
@@ -2568,8 +2568,8 @@ const persistProjectPreferences = useCallback(
     if (status === 'agent_execution_completed' || status === 'agent_execution_failed') {
       setIsRunning(true);
       setAgentWorkComplete(false);
-      setQuantValidationState('running');
-      setQuantValidationMessage(
+      setRetailValidationState('running');
+      setRetailValidationMessage(
         status === 'agent_execution_failed'
           ? 'Agent 执行异常结束，正在验证已生成产物并尝试自动修复。'
           : 'Agent 代码执行完成，正在进行自动验证。',
@@ -2584,16 +2584,16 @@ const persistProjectPreferences = useCallback(
 
     if (status === 'validation_repairing' || status === 'validation_repair_failed') {
       setIsRunning(true);
-      setQuantValidationState('running');
-      setQuantValidationMessage(message ?? '自动验证未通过，正在修复看板产物。');
+      setRetailValidationState('running');
+      setRetailValidationMessage(message ?? '自动验证未通过，正在修复看板产物。');
       setPreviewInitializationMessage(message ?? '正在自动修复并重新验证看板...');
       return;
     }
 
     if (status === 'preview_starting') {
       setIsRunning(true);
-      setQuantValidationState('passed');
-      setQuantValidationMessage('自动验证通过，正在确认持久看板预览。');
+      setRetailValidationState('passed');
+      setRetailValidationMessage('自动验证通过，正在确认持久看板预览。');
       setPreviewInitializationMessage(message ?? '正在启动并确认持久看板预览...');
       setShowPreview(true);
       setMobileWorkspaceView('preview');
@@ -2612,8 +2612,8 @@ const persistProjectPreferences = useCallback(
       const terminalFailure = metadata?.terminalFailure === true;
       previewStartInFlightRef.current = null;
       previewUrlRef.current = null;
-      setQuantValidationState('failed');
-      setQuantValidationMessage(
+      setRetailValidationState('failed');
+      setRetailValidationMessage(
         message ??
           (terminalFailure
             ? '自动验证最终未通过，请查看验证摘要。'
@@ -2635,8 +2635,8 @@ const persistProjectPreferences = useCallback(
       previewStartInFlightRef.current = null;
       previewTerminalFailureRef.current = true;
       previewUrlRef.current = null;
-      setQuantValidationState('passed');
-      setQuantValidationMessage(
+      setRetailValidationState('passed');
+      setRetailValidationMessage(
         message ?? '自动验证已通过，但持久看板预览启动失败。',
       );
       setPreviewUrl(null);
@@ -2653,11 +2653,11 @@ const persistProjectPreferences = useCallback(
         typeof metadata?.previewUrl === 'string' && metadata.previewUrl.trim().length > 0
           ? metadata.previewUrl.trim()
           : null;
-      setQuantValidationState('running');
-      setQuantValidationMessage(
+      setRetailValidationState('running');
+      setRetailValidationMessage(
         message ?? (readyPreviewUrl ? '正在确认看板验收终态。' : '自动检查已通过，正在等待证据验收。'),
       );
-      setQuantRepairPlan(null);
+      setRetailRepairPlan(null);
       if (readyPreviewUrl) {
         setShowPreview(true);
         setMobileWorkspaceView('preview');
@@ -3665,28 +3665,28 @@ const persistProjectPreferences = useCallback(
                             </div>
 
                             <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                              {quantValidationState === 'failed' ? '看板验证未通过' : '看板待生成'}
+                              {retailValidationState === 'failed' ? '看板验证未通过' : '看板待生成'}
                             </h3>
 
                             <p className="text-slate-600 max-w-lg mx-auto">
-                              {quantValidationState === 'failed'
-                                ? quantValidationMessage ?? '自动验证未通过，暂不展示可视化看板。'
-                                : quantValidationState === 'running'
+                              {retailValidationState === 'failed'
+                                ? retailValidationMessage ?? '自动验证未通过，暂不展示可视化看板。'
+                                : retailValidationState === 'running'
                                 ? '正在执行自动验证，验证通过后会自动展示最终可视化结果'
                                 : '数据获取、页面生成和验证完成后会自动展示最终可视化结果'}
                             </p>
-                            {quantValidationState === 'failed' && quantRepairPlan?.steps?.length ? (
+                            {retailValidationState === 'failed' && retailRepairPlan?.steps?.length ? (
                               <div className="mt-5 w-full max-w-2xl rounded-lg border border-red-100 bg-red-50/70 p-4 text-left shadow-sm">
                                 <div className="flex items-center justify-between gap-3">
                                   <p className="text-sm font-semibold text-red-900">自动修复计划</p>
-                                  {quantRepairPlan.repairPlanPath ? (
+                                  {retailRepairPlan.repairPlanPath ? (
                                     <code className="rounded bg-white/80 px-2 py-1 text-xs text-red-700">
-                                      {quantRepairPlan.repairPlanPath}
+                                      {retailRepairPlan.repairPlanPath}
                                     </code>
                                   ) : null}
                                 </div>
                                 <div className="mt-3 space-y-3">
-                                  {quantRepairPlan.steps.slice(0, 3).map((step, index) => (
+                                  {retailRepairPlan.steps.slice(0, 3).map((step, index) => (
                                     <div key={`${step.checkId ?? step.checkName ?? index}-${index}`} className="rounded-md bg-white/80 p-3">
                                       <div className="flex items-start gap-2">
                                         <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-semibold text-red-700">

@@ -1,15 +1,15 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-export type QuantSkillStatus = 'stable' | 'planned' | 'deprecated';
-export type QuantSkillScope = 'workflow' | 'quant' | 'input' | 'evidence' | 'platform' | 'visualization';
+export type CommerceSkillStatus = 'stable' | 'planned' | 'deprecated';
+export type CommerceSkillScope = 'workflow' | 'commerce' | 'input' | 'evidence' | 'platform' | 'visualization';
 
-export interface QuantCoreSkill {
+export interface CommerceCoreSkill {
   id: string;
   name: string;
   version: string;
-  status: QuantSkillStatus;
-  scope?: QuantSkillScope;
+  status: CommerceSkillStatus;
+  scope?: CommerceSkillScope;
   boundary: string;
   inputs?: string[];
   outputs?: string[];
@@ -19,7 +19,7 @@ export interface QuantCoreSkill {
   validation?: string[];
 }
 
-export interface QuantSkillsRegistry {
+export interface CommerceSkillsRegistry {
   schemaVersion: 1;
   policy: {
     targetCoreSkillCount: number;
@@ -27,12 +27,12 @@ export interface QuantSkillsRegistry {
     packageDir?: string;
     description: string;
   };
-  coreSkills: QuantCoreSkill[];
+  coreSkills: CommerceCoreSkill[];
 }
 
 const REGISTRY_PATH = path.join(process.cwd(), '.pi', 'skills.registry.json');
 
-const FALLBACK_CORE_SKILLS: QuantCoreSkill[] = [
+const FALLBACK_CORE_SKILLS: CommerceCoreSkill[] = [
   {
     id: 'query-rewrite',
     name: '问题改写',
@@ -51,27 +51,27 @@ const FALLBACK_CORE_SKILLS: QuantCoreSkill[] = [
   },
   {
     id: 'commerce-data-registry',
-    name: '数据注册与信源选择',
+    name: '商品数据注册与信源选择',
     version: '0.1.0',
     status: 'stable',
-    scope: 'quant',
-    boundary: '查询后端数据能力和信源选择。',
+    scope: 'commerce',
+    boundary: '查询商品、流量、订单和库存数据能力与信源选择。',
   },
   {
     id: 'commerce-entity-resolver',
-    name: '标的解析',
+    name: '商品解析',
     version: '0.1.0',
     status: 'stable',
-    scope: 'quant',
-    boundary: '把名称和代码解析为标准证券标识。',
+    scope: 'commerce',
+    boundary: '把商品名称、SKU 或商品编码解析为标准商品标识。',
   },
   {
     id: 'commerce-market-data',
-    name: '行情数据',
+    name: '经营数据',
     version: '0.1.0',
     status: 'stable',
-    scope: 'quant',
-    boundary: '实时行情、K 线和指数/ETF 数据。',
+    scope: 'commerce',
+    boundary: '商品浏览、加购、购买、库存和 GMV 等经营数据。',
   },
   {
     id: 'data-quality',
@@ -91,7 +91,7 @@ const FALLBACK_CORE_SKILLS: QuantCoreSkill[] = [
   },
 ];
 
-const FALLBACK_REGISTRY: QuantSkillsRegistry = {
+const FALLBACK_REGISTRY: CommerceSkillsRegistry = {
   schemaVersion: 1,
   policy: {
     targetCoreSkillCount: 11,
@@ -102,14 +102,14 @@ const FALLBACK_REGISTRY: QuantSkillsRegistry = {
   coreSkills: FALLBACK_CORE_SKILLS,
 };
 
-let cachedRegistry: { mtimeMs: number; value: QuantSkillsRegistry } | null = null;
+let cachedRegistry: { mtimeMs: number; value: CommerceSkillsRegistry } | null = null;
 
-function asRegistry(value: unknown): QuantSkillsRegistry | null {
+function asRegistry(value: unknown): CommerceSkillsRegistry | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
 
-  const registry = value as QuantSkillsRegistry;
+  const registry = value as CommerceSkillsRegistry;
   if (registry.schemaVersion !== 1 || !Array.isArray(registry.coreSkills)) {
     return null;
   }
@@ -117,7 +117,7 @@ function asRegistry(value: unknown): QuantSkillsRegistry | null {
   return registry;
 }
 
-export async function readQuantSkillsRegistry(): Promise<QuantSkillsRegistry> {
+export async function readCommerceSkillsRegistry(): Promise<CommerceSkillsRegistry> {
   try {
     const stat = await fs.stat(REGISTRY_PATH);
     if (cachedRegistry?.mtimeMs === stat.mtimeMs) {
@@ -140,22 +140,22 @@ export async function readQuantSkillsRegistry(): Promise<QuantSkillsRegistry> {
   }
 }
 
-export function getCoreQuantSkillIds(registry: QuantSkillsRegistry): string[] {
+export function getCoreCommerceSkillIds(registry: CommerceSkillsRegistry): string[] {
   return registry.coreSkills.map((skill) => skill.id);
 }
 
-export function getDefaultQuantSkillIds(registry: QuantSkillsRegistry): string[] {
+export function getDefaultCommerceSkillIds(registry: CommerceSkillsRegistry): string[] {
   return registry.coreSkills
     .filter((skill) => skill.status === 'stable')
     .map((skill) => skill.id);
 }
 
-export function getQuantSkillPackagePath(registry: QuantSkillsRegistry, skillId: string): string {
+export function getCommerceSkillPackagePath(registry: CommerceSkillsRegistry, skillId: string): string {
   const packageDir = registry.policy.packageDir ?? '.pi/skill-packages';
   return path.join(process.cwd(), packageDir, `${skillId}.tgz`);
 }
 
-export function describeQuantSkillsForPrompt(registry: QuantSkillsRegistry): string {
+export function describeCommerceSkillsForPrompt(registry: CommerceSkillsRegistry): string {
   const coreLines = registry.coreSkills.map((skill) => {
     const scriptText = skill.scripts?.length ? `；脚本：${skill.scripts.join(', ')}` : '';
     const referenceText = skill.references?.length ? `；参考：${skill.references.join(', ')}` : '';

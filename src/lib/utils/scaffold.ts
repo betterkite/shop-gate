@@ -1,18 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import {
-  comparisonPageTemplate,
-  stockSelectionPageTemplate,
-  comparisonCss,
-  stockSelectionCss,
-  holdingAnalysisPageTemplate,
-  holdingAnalysisCss,
-} from './scaffold-dashboard-templates';
-import {
-  baseDashboardPageTemplate,
-  baseDashboardCssTemplate,
-  generatedDevScriptContents,
-} from './scaffold-base-templates';
+import { generatedDevScriptContents } from './scaffold-runtime-scripts';
 import {
   retailBaseDashboardPageTemplate,
   retailBaseDashboardCssTemplate,
@@ -25,17 +13,17 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
   const trimmed = existing.trim();
 
   if (normalizedPath.endsWith('/app/page.tsx')) {
-    const hasQuantDataBinding =
+    const hasDataBinding =
       existing.includes('dashboard-data.json') ||
       existing.includes('data_file/final') ||
       existing.includes('/api/market/');
-    const hasStandardQuantDashboard =
+    const hasStandardDataDashboard =
       existing.includes('data-source-file={DATA_FILE}') &&
       existing.includes('function getBars(') &&
       existing.includes('TrendChart') &&
       existing.includes('K 线与量价结构');
     const hasLegacySvgTitleHydrationRisk =
-      hasStandardQuantDashboard &&
+      hasStandardDataDashboard &&
       (
         existing.includes('<title>{String(bar.date') ||
         existing.includes('<title>{String(bar.date ??')
@@ -46,18 +34,18 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
       existing.includes('app/page.tsx') ||
       existing.includes('next/font/google') ||
       existing.includes('https://vercel.com/templates');
-    const hasUnstableQuantDashboard =
-      hasQuantDataBinding &&
+    const hasUnstableDataDashboard =
+      hasDataBinding &&
       (
         existing.includes('0 条样本') ||
-        (existing.includes('最新价</span>') && !hasStandardQuantDashboard) ||
-        (existing.includes('Shop Gate 看板') && !hasStandardQuantDashboard) ||
+        (existing.includes('最新价</span>') && !hasStandardDataDashboard) ||
+        (existing.includes('Shop Gate 看板') && !hasStandardDataDashboard) ||
         existing.includes('SAMPLE_DATA') ||
         existing.includes('MOCK_DATA') ||
         existing.includes('STATIC_QUOTES')
       );
 
-    return (isDefaultNextPage && !hasQuantDataBinding) || hasUnstableQuantDashboard || hasLegacySvgTitleHydrationRisk;
+    return (isDefaultNextPage && !hasDataBinding) || hasUnstableDataDashboard || hasLegacySvgTitleHydrationRisk;
   }
 
   if (normalizedPath.endsWith('/app/globals.css')) {
@@ -68,12 +56,12 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
   }
 
   if (normalizedPath.endsWith('/app/api/market/[...path]/route.ts')) {
-    const targetsQuantBackend =
+    const targetsDataBackend =
       existing.includes('127.0.0.1:8000/api/v1') ||
       existing.includes('SHOPGATE_MARKET_API') ||
       existing.includes('/api/v1/');
 
-    return !targetsQuantBackend && trimmed.length < 1_200;
+    return !targetsDataBackend && trimmed.length < 1_200;
   }
 
   if (normalizedPath.endsWith('/scripts/run-dev.js')) {
@@ -399,155 +387,6 @@ async function ensureSharedNodeModules(projectPath: string) {
   await fs.symlink(relativeTarget || sharedNodeModules, projectNodeModules, 'dir');
 }
 
-async function readJsonRecord(filePath: string): Promise<Record<string, unknown> | null> {
-  try {
-    const parsed = JSON.parse(await fs.readFile(filePath, 'utf8'));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function readRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-async function upsertGeneratedCssBlock(cssPath: string, marker: string, block: string) {
-  const start = `/* shopgate-${marker}:start */`;
-  const end = `/* shopgate-${marker}:end */`;
-  const raw = await fs.readFile(cssPath, 'utf8').catch(() => '');
-  const normalizedBlock = `${start}\n${block.trim()}\n${end}`;
-  const blockWithNewline = `${normalizedBlock}\n`;
-
-  if (raw.includes(start) && raw.includes(end)) {
-    const pattern = new RegExp(`${start.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?${end.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
-    const next = raw.replace(pattern, normalizedBlock);
-    if (next !== raw) {
-      await fs.writeFile(cssPath, next.endsWith('\n') ? next : `${next}\n`, 'utf8');
-    }
-    return;
-  }
-
-  await fs.writeFile(cssPath, `${raw.trimEnd()}\n${blockWithNewline}`, 'utf8');
-}
-
-async function scrubLegacyTradingPlanCss(cssPath: string) {
-  const raw = await fs.readFile(cssPath, 'utf8').catch(() => '');
-  if (!raw) return;
-
-  const patterns = [
-    /\.trading-plan-grid\s*\{[\s\S]*?\}\n?/g,
-    /\.trading-plan-panel\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-card\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-title\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-title\s+strong,\s*\.trade-title\s+small,\s*\.trade-title\s+em\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-title\s+small\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-title\s+em\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-card\s+dl\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-card\s+dt\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-card\s+dd\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-card\s+dl\s+div:nth-child\(2\),\s*\.trade-card\s+dl\s+div:nth-child\(4\)\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-rationale,\s*\.trade-abandon\s*\{[\s\S]*?\}\n?/g,
-    /\.trade-abandon\s+strong\s*\{[\s\S]*?\}\n?/g,
-  ];
-  const next = patterns.reduce((content, pattern) => content.replace(pattern, ''), raw);
-  if (next !== raw) {
-    await fs.writeFile(cssPath, `${next.trimEnd()}\n`, 'utf8');
-  }
-}
-
-async function ensureComparisonDashboardTemplate(projectPath: string) {
-  const finalData = await readJsonRecord(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'));
-  const runPlan = await readJsonRecord(path.join(projectPath, '.data-agent', 'retail-run-plan.json'));
-  const runPlanVisualization = readRecord(runPlan?.visualization);
-  const plannedTemplateId =
-    typeof runPlanVisualization?.templateId === 'string'
-      ? runPlanVisualization.templateId
-      : typeof runPlanVisualization?.template_id === 'string'
-        ? runPlanVisualization.template_id
-        : null;
-  const dashboardKind = typeof finalData?.dashboardKind === 'string' ? finalData.dashboardKind : null;
-  const visualization = readRecord(finalData?.visualization);
-  const templateId =
-    typeof visualization?.template_id === 'string'
-      ? visualization.template_id
-      : typeof visualization?.templateId === 'string'
-        ? visualization.templateId
-        : null;
-  const effectiveTemplateId = plannedTemplateId ?? templateId;
-
-  const isHolding = dashboardKind === 'portfolio_rebalance' || dashboardKind === 'portfolio_risk' || effectiveTemplateId === 'holding-analysis';
-  if (isHolding) {
-    const assets = Array.isArray(finalData?.assets) ? finalData.assets : [];
-    if (assets.length < 2) {
-      return;
-    }
-    const pagePath = path.join(projectPath, 'app', 'page.tsx');
-    const page = await fs.readFile(pagePath, 'utf8').catch(() => '');
-    if (/data-template="holding-analysis"|持仓明细|仓位集中度|组合风险估算|浮动盈亏/.test(page)) {
-      return;
-    }
-    await fs.writeFile(pagePath, holdingAnalysisPageTemplate(), 'utf8');
-    const cssPath = path.join(projectPath, 'app', 'globals.css');
-    const css = await fs.readFile(cssPath, 'utf8').catch(() => '');
-    if (!css.includes('.holding-shell')) {
-      await fs.writeFile(cssPath, `${css.trimEnd()}\n${holdingAnalysisCss()}`, 'utf8');
-    }
-    return;
-  }
-
-  if (effectiveTemplateId && effectiveTemplateId !== 'stock-selection' && effectiveTemplateId !== 'sector-rotation') {
-    return;
-  }
-  const assets = Array.isArray(finalData?.assets) ? finalData.assets : [];
-  if (assets.length < 2 && effectiveTemplateId !== 'stock-selection') {
-    return;
-  }
-
-  const pagePath = path.join(projectPath, 'app', 'page.tsx');
-  const page = await fs.readFile(pagePath, 'utf8').catch(() => '');
-  const hasLegacySelectionPage =
-    /TradingPlanPanel|getTradingPlanRows|tradingRows|短线交易计划|买入区间|止损|目标价|仓位上限/.test(page) ||
-    /Shop Gate 选股分析|<strong>stock-selection<\/strong>|模板组件：|候选数量|候选视图|120 日收益|<dt>120 日<\/dt>/.test(page);
-  const hasReadableSelectionPage =
-    /data-template="stock-selection"/.test(page) &&
-    /多标的指标矩阵|指标矩阵|ComparisonTable|comparison\.rows/.test(page) &&
-    /收益对比主图|回撤对比主图|波动对比主图|selection-main-chart|chart-label|主图/.test(page);
-  if (effectiveTemplateId === 'stock-selection' && hasReadableSelectionPage && !hasLegacySelectionPage) {
-    const cssPath = path.join(projectPath, 'app', 'globals.css');
-    await upsertGeneratedCssBlock(cssPath, 'comparison-dashboard', comparisonCss());
-    await upsertGeneratedCssBlock(cssPath, 'stock-selection-dashboard', stockSelectionCss());
-    await scrubLegacyTradingPlanCss(cssPath);
-    return;
-  }
-  if (
-    effectiveTemplateId !== 'stock-selection' &&
-    /多标的相对强弱看板|指标矩阵|收益对比|回撤对比|波动率对比|流动性与可交易性/.test(page) &&
-    /comparison-bars|chart-label|主图|矩阵/.test(page)
-  ) {
-    const cssPath = path.join(projectPath, 'app', 'globals.css');
-    await upsertGeneratedCssBlock(cssPath, 'comparison-dashboard', comparisonCss());
-    return;
-  }
-
-  await fs.writeFile(
-    pagePath,
-    effectiveTemplateId === 'stock-selection' ? stockSelectionPageTemplate() : comparisonPageTemplate(),
-    'utf8'
-  );
-
-  const cssPath = path.join(projectPath, 'app', 'globals.css');
-  await upsertGeneratedCssBlock(cssPath, 'comparison-dashboard', comparisonCss());
-  if (effectiveTemplateId === 'stock-selection') {
-    await upsertGeneratedCssBlock(cssPath, 'stock-selection-dashboard', stockSelectionCss());
-    await scrubLegacyTradingPlanCss(cssPath);
-  }
-}
-
 export async function ensureRetailDashboardTemplate(projectPath: string) {
   await scaffoldBasicNextApp(projectPath, path.basename(projectPath));
   await writeRetailDashboardTemplate(projectPath);
@@ -558,7 +397,7 @@ export async function ensureRetailDashboardTemplate(projectPath: string) {
  * This is intentionally separate from normal scaffolding so Agent enhancements are
  * preserved unless automatic validation proves that the generated page is broken.
  */
-export async function restoreQuantDashboardTemplate(projectPath: string) {
+export async function restoreRetailDashboardTemplate(projectPath: string) {
   await scaffoldBasicNextApp(projectPath, path.basename(projectPath));
   await fs.writeFile(
     path.join(projectPath, 'app', 'page.tsx'),

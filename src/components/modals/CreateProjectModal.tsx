@@ -519,7 +519,7 @@ export default function CreateProjectModal({ open, onClose, onCreated, onOpenGlo
 
           </div>
 
-          {/* Quant Capability */}
+          {/* Commerce capability */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               经营分析能力

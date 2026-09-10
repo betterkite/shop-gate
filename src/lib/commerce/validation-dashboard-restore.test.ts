@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   isRetailDashboardTemplateRecoveryEligible,
-  restoreQuantDashboardTemplateAfterRepairExhaustion,
+  restoreRetailDashboardTemplateAfterRepairExhaustion,
   type RetailValidationCheck,
   type RetailValidationReport,
 } from './retail-validation';
@@ -99,7 +99,7 @@ describe('dashboard template restore fallback', () => {
 
   it('restores the platform page for presentation-only failures and preserves final/evidence', async () => {
     const { projectPath, protectedContents } = await createGeneratedProject();
-    const result = await restoreQuantDashboardTemplateAfterRepairExhaustion({
+    const result = await restoreRetailDashboardTemplateAfterRepairExhaustion({
       projectPath,
       report: failedReport([
         'next_build',
@@ -140,7 +140,7 @@ describe('dashboard template restore fallback', () => {
   it('refuses a mixed page/data failure without overwriting the generated page', async () => {
     const { projectPath, protectedContents } = await createGeneratedProject();
     const originalPage = await fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8');
-    const result = await restoreQuantDashboardTemplateAfterRepairExhaustion({
+    const result = await restoreRetailDashboardTemplateAfterRepairExhaustion({
       projectPath,
       report: failedReport(['chart_presence', 'final_data_file']),
     });

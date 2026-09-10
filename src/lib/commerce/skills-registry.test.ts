@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getDefaultQuantSkillIds, type QuantSkillsRegistry } from './skills-registry';
+import { getDefaultCommerceSkillIds, type CommerceSkillsRegistry } from './skills-registry';
 
 describe('skills registry defaults', () => {
   it('installs only stable core skills unless a capability explicitly requests more', () => {
-    const registry: QuantSkillsRegistry = {
+    const registry: CommerceSkillsRegistry = {
       schemaVersion: 1,
       policy: {
         targetCoreSkillCount: 2,
@@ -15,6 +15,6 @@ describe('skills registry defaults', () => {
       ],
     };
 
-    expect(getDefaultQuantSkillIds(registry)).toEqual(['stable-skill']);
+    expect(getDefaultCommerceSkillIds(registry)).toEqual(['stable-skill']);
   });
 });

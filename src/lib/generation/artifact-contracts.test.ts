@@ -25,10 +25,10 @@ async function writeWorkspace(
     platform: 'Shop Gate',
     composition: {
       schemaVersion: 1,
-      profile: { id: 'shopgate.finance', version: '1.0.0' },
-      domainPacks: [{ id: 'finance.research', version: '1.0.0' }],
+      profile: { id: 'shopgate.retail-ops', version: '1.0.0' },
+      domainPacks: [{ id: 'retail.core', version: '1.0.0' }],
       deliveryPack: { id: 'workspace.next-dashboard', version: '1.0.0' },
-      capability: { id: 'stock_diagnosis' },
+      capability: { id: 'traffic_funnel' },
       sha256: `sha256:${'a'.repeat(64)}`,
     },
     runtime: {

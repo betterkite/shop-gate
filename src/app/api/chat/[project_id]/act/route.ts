@@ -73,10 +73,10 @@ import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-
 import { refreshPiAgentCandidateWorkspace } from "@/lib/services/pi-agent-candidate";
 import type { PiAgentCandidateSubmission } from "@/lib/agent/mission";
 import {
-  claimQuantPiAgentMissionVerification,
+  claimRetailPiAgentMissionVerification,
   refreshPiAgentMissionContext,
-  sealQuantPiAgentMissionCandidate,
-  verifyAndRecordQuantPiAgentMission,
+  sealRetailPiAgentMissionCandidate,
+  verifyAndRecordRetailPiAgentMission,
   type PiAgentMissionContext,
 } from "@/lib/services/pi-agent-mission-control";
 import {

@@ -24,7 +24,7 @@ Shop Gate 的主平台、零售数据后端、评测平台、商品运营和基�
 | --- | --- | --- | --- |
 | 文档入口 | `README.md`、`docs/README.md` | 容易重复导航 | 根 README 保留启动入口，docs README 同时承担角色导读和完整索引 |
 | 文档路线 | 各专题文档里的“后续建议” | 后续事项散落，读者不知道优先级 | 集中到本文，专题文档只保留本主题强相关下一步 |
-| 生成脚手架 | `scaffold.ts`、`scaffold-base-templates.ts`、`scaffold-dashboard-templates.ts` | 基础模板和三类专用看板模板均已迁出并加入真实 Next build 门禁，writer 主文件从 5715 行降至约 685 行 | 继续拆 workspace writer、dependency planner、repair adapter，并压缩模板内部重复 helper |
+| 生成脚手架 | `scaffold.ts`、`retail-scaffold-templates.ts`、`scaffold-runtime-scripts.ts` | 已移除未引用的金融基础/比较/持仓模板，保留零售漏斗、商品结构、价格库存、经营日报模板，并加入真实 Next build 门禁 | 继续拆 workspace writer、dependency planner、repair adapter |
 | 聊天页面 | `src/app/[project_id]/chat/page.tsx`、`src/components/chat/ChatLog.tsx` | 页面状态、消息渲染、运行时控制和附件交互耦合 | 拆 hooks、message timeline、runtime controls、files panel |
 | 验证链路 | `src/lib/commerce/retail-validation.ts` | build、HTTP、数据、证据、截图和 stale report 检查混杂 | 拆 validators、report writer、repair summary |
 | 商品运营 | `src/app/commerce-platform/page.tsx`、`src/lib/commerce/commerce-platform.ts` | 商品池、品类池、渠道视图已在同一页面链路，数据组装和页面交互仍集中 | 继续拆数据 service、hooks 和视图组件 |

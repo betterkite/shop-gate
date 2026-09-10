@@ -74,7 +74,7 @@ export async function createRetailPiAgentMission(input: {
       compositionSha256: input.runPlan.composition.sha256,
     },
     entities: (input.runPlan.entities ?? input.runPlan.entities ?? []).map((symbol) => ({
-      entityType: 'finance.security',
+      entityType: 'retail.product',
       canonicalId: symbol,
     })),
     maxRepairAttempts: input.maxRepairAttempts,
@@ -146,7 +146,7 @@ export async function capturePlatformMissionCandidate(input: {
   });
 }
 
-export async function sealQuantPiAgentMissionCandidate(input: {
+export async function sealRetailPiAgentMissionCandidate(input: {
   mission: PiAgentMissionContext;
   candidate: PiAgentCandidateSubmission;
 }): Promise<{
@@ -169,7 +169,7 @@ export async function sealQuantPiAgentMissionCandidate(input: {
  * manual validation request from validating the same mutable workspace in
  * parallel.
  */
-export async function claimQuantPiAgentMissionVerification(
+export async function claimRetailPiAgentMissionVerification(
   mission: PiAgentMissionContext,
 ): Promise<PiAgentMissionContext> {
   const session = await PiAgentMissionVerificationSession.claim(missionRef(mission));
@@ -185,7 +185,7 @@ export async function claimQuantPiAgentMissionVerification(
  * workspace's physical resource lock is held. The acceptance receipt and
  * Mission completion are committed before the lock is released.
  */
-export async function verifyAndRecordQuantPiAgentMission(input: {
+export async function verifyAndRecordRetailPiAgentMission(input: {
   mission: PiAgentMissionContext;
   preview: { url: string; port: number };
   signal?: AbortSignal;

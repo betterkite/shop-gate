@@ -60,28 +60,19 @@ vi.mock("@/lib/services/stream", () => ({
 }));
 
 vi.mock("@/lib/commerce/retail-validation", () => ({
-  prepareQuantProjectForValidation: mocks.prepareValidation,
   prepareRetailProjectForValidation: mocks.prepareValidation,
-  validateQuantProject: mocks.validateProject,
   validateRetailProject: mocks.validateProject,
-  readQuantValidationReport: mocks.readReport,
   readRetailValidationReport: mocks.readReport,
-  readQuantValidationRepairPlan: mocks.readRepairPlan,
   readRetailValidationRepairPlan: mocks.readRepairPlan,
   checkRetailArtifactPolicy: vi.fn().mockResolvedValue({ id: 'artifact_policy', name: 'artifact_policy', status: 'passed', durationMs: 0 }),
 }));
 
 vi.mock("@/lib/services/pi-agent-mission-control", () => ({
   capturePlatformMissionCandidate: mocks.captureCandidate,
-  sealQuantPiAgentMissionCandidate: mocks.sealCandidate,
   sealRetailPiAgentMissionCandidate: mocks.sealCandidate,
-  claimQuantPiAgentMissionVerification: mocks.claimVerification,
   claimRetailPiAgentMissionVerification: mocks.claimVerification,
-  verifyAndRecordQuantPiAgentMission: mocks.verifyEvidence,
   verifyAndRecordRetailPiAgentMission: mocks.verifyEvidence,
-  createQuantPiAgentMission: mocks.createMission,
   createRetailPiAgentMission: mocks.createMission,
-  markQuantPiAgentMissionNode: mocks.markNode,
   markRetailPiAgentMissionNode: mocks.markNode,
 }));
 

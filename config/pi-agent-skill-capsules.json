@@ -191,7 +191,7 @@
         ["query_json", "query_text_file", "semantic_edit"],
         ["inspect_dashboard_contract", "edit_file"]
       ],
-      "objective": "把权威 run plan、final 数据和 evidence 转成可验证的 Next.js 金融工作台。",
+      "objective": "把权威 run plan、final 数据和 evidence 转成可验证的 Next.js 电商经营看板。",
       "invariants": [
         "严格保持 template、variant、标的集合和真实数据绑定。",
         "可信编译器直接读取冻结的 final_dashboard（data_file/final/dashboard-data.json）；语义编辑路径只通过 query_json 的 final_dashboard artifact 读取数据，绝不推断 public/data 路径或按证券代码拼接 JSON 文件名。",

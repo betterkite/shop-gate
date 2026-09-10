@@ -2,11 +2,11 @@ import type { PiAgentCandidateSubmission } from '@/lib/agent/mission';
 import { refreshPiAgentCandidateWorkspace } from '@/lib/services/pi-agent-candidate';
 import {
   capturePlatformMissionCandidate,
-  claimQuantPiAgentMissionVerification,
+  claimRetailPiAgentMissionVerification,
   markRetailPiAgentMissionNode,
   refreshPiAgentMissionContext,
-  sealQuantPiAgentMissionCandidate,
-  verifyAndRecordQuantPiAgentMission,
+  sealRetailPiAgentMissionCandidate,
+  verifyAndRecordRetailPiAgentMission,
   type PiAgentMissionContext,
 } from '@/lib/services/pi-agent-mission-control';
 import {
@@ -49,7 +49,7 @@ import { createMessage } from '@/lib/services/message';
 import { streamManager } from '@/lib/services/stream';
 import { serializeMessage } from '@/lib/serializers/chat';
 
-async function loadQuantValidation() {
+async function loadRetailValidation() {
   return import('@/lib/commerce/retail-validation');
 }
 
@@ -214,12 +214,12 @@ export function runValidationAfterExecution(params: {
     return true;
   };
   const sealCandidate = async (candidate: PiAgentCandidateSubmission) => {
-    const sealed = await sealQuantPiAgentMissionCandidate({
+    const sealed = await sealRetailPiAgentMissionCandidate({
       mission: activeMission,
       candidate,
     });
     activeMission = sealed.mission;
-    activeMission = await claimQuantPiAgentMissionVerification(activeMission);
+    activeMission = await claimRetailPiAgentMissionVerification(activeMission);
     if (!activeMission.verificationSession) {
       throw new Error(
         "Mission verification claim did not return a live lease session.",
@@ -274,11 +274,11 @@ export function runValidationAfterExecution(params: {
       },
     });
     let verified: Awaited<
-      ReturnType<typeof verifyAndRecordQuantPiAgentMission>
+      ReturnType<typeof verifyAndRecordRetailPiAgentMission>
     >;
     const verificationSession = activeVerificationSession;
     try {
-      verified = await verifyAndRecordQuantPiAgentMission({
+      verified = await verifyAndRecordRetailPiAgentMission({
         mission: activeMission,
         preview: preview
           ? { url: preview.url, port: preview.port }
@@ -436,8 +436,8 @@ export function runValidationAfterExecution(params: {
     }
 
     await params.publishWorkspaceProgress({ stage: 4 });
-    const quantValidation = await loadQuantValidation();
-    await quantValidation.prepareRetailProjectForValidation({
+    const retailValidation = await loadRetailValidation();
+    await retailValidation.prepareRetailProjectForValidation({
       projectId: params.projectId,
       projectPath: params.projectPath,
     });
@@ -463,7 +463,7 @@ export function runValidationAfterExecution(params: {
       status: "running",
       summary: "开始自动验证生成产物。",
     });
-    const firstReport = await quantValidation.validateRetailProject({
+    const firstReport = await retailValidation.validateRetailProject({
       projectId: params.projectId,
       projectPath: params.projectPath,
       requestId: params.requestId,
@@ -762,7 +762,7 @@ export function runValidationAfterExecution(params: {
       );
       await beginRepair();
       const platformRepair =
-        await quantValidation.repairRetailPlatformOwnedArtifacts({
+        await retailValidation.repairRetailPlatformOwnedArtifacts({
           projectPath: params.projectPath,
           requestId: params.requestId,
           originalInstruction: params.instruction,
@@ -770,7 +770,7 @@ export function runValidationAfterExecution(params: {
           selectedModel: params.selectedModel,
         });
       if (platformRepair.runPlanRebuilt) {
-        await quantValidation.prepareRetailProjectForValidation({
+        await retailValidation.prepareRetailProjectForValidation({
           projectId: params.projectId,
           projectPath: params.projectPath,
         });
@@ -778,7 +778,7 @@ export function runValidationAfterExecution(params: {
           "platform_repair",
           "平台重建只读规划产物后封存新的验证候选。",
         );
-        latestReport = await quantValidation.validateRetailProject({
+        latestReport = await retailValidation.validateRetailProject({
           projectId: params.projectId,
           projectPath: params.projectPath,
           requestId: params.requestId,
@@ -813,7 +813,7 @@ export function runValidationAfterExecution(params: {
         await beginRepair();
       }
       const repairInstruction =
-        quantValidation.buildRetailValidationRepairInstruction(latestReport, {
+        retailValidation.buildRetailValidationRepairInstruction(latestReport, {
           originalInstruction: params.instruction,
         });
 
@@ -991,7 +991,7 @@ export function runValidationAfterExecution(params: {
         return;
       }
 
-      await quantValidation.prepareRetailProjectForValidation({
+      await retailValidation.prepareRetailProjectForValidation({
         projectId: params.projectId,
         projectPath: params.projectPath,
       });
@@ -1031,7 +1031,7 @@ export function runValidationAfterExecution(params: {
         status: "running",
         summary: `开始第 ${repairAttempt}/${maxRepairAttempts} 次修复后自动验证。`,
       });
-      const finalReport = await quantValidation.validateRetailProject({
+      const finalReport = await retailValidation.validateRetailProject({
         projectId: params.projectId,
         projectPath: params.projectPath,
         requestId: params.requestId,
@@ -1127,7 +1127,7 @@ export function runValidationAfterExecution(params: {
       });
       const earlyTemplateRecovery =
         stalledRepair &&
-        quantValidation.isRetailDashboardTemplateRecoveryEligible(latestReport);
+        retailValidation.isRetailDashboardTemplateRecoveryEligible(latestReport);
       if (repairAttempt < maxRepairAttempts && !earlyTemplateRecovery) {
         await markUserRequestAsFailed(
           params.projectId,
@@ -1159,7 +1159,7 @@ export function runValidationAfterExecution(params: {
 
       await beginRepair();
       const templateRecovery =
-        await quantValidation.restoreQuantDashboardTemplateAfterRepairExhaustion(
+        await retailValidation.restoreRetailDashboardTemplateAfterRepairExhaustion(
           {
             projectPath: params.projectPath,
             report: latestReport,
@@ -1196,7 +1196,7 @@ export function runValidationAfterExecution(params: {
           },
         });
 
-        await quantValidation.prepareRetailProjectForValidation({
+        await retailValidation.prepareRetailProjectForValidation({
           projectId: params.projectId,
           projectPath: params.projectPath,
         });
@@ -1206,7 +1206,7 @@ export function runValidationAfterExecution(params: {
           repairRequestId,
         );
 
-        const recoveredReport = await quantValidation.validateRetailProject({
+        const recoveredReport = await retailValidation.validateRetailProject({
           projectId: params.projectId,
           projectPath: params.projectPath,
           requestId: params.requestId,

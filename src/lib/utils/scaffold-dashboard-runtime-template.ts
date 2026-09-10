@@ -1,4 +1,4 @@
-/** Shared source fragments embedded into every generated quantitative dashboard page. */
+/** Shared source fragments embedded into every generated commerce dashboard page. */
 export const DASHBOARD_PAGE_RUNTIME_PRELUDE = `import fs from 'fs/promises';
 import path from 'path';
 

@@ -14,9 +14,9 @@ import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-
 import { streamManager } from "@/lib/services/stream";
 import {
   capturePlatformMissionCandidate,
-  claimQuantPiAgentMissionVerification,
-  sealQuantPiAgentMissionCandidate,
-  verifyAndRecordQuantPiAgentMission,
+  claimRetailPiAgentMissionVerification,
+  sealRetailPiAgentMissionCandidate,
+  verifyAndRecordRetailPiAgentMission,
   type PiAgentMissionContext,
 } from "@/lib/services/pi-agent-mission-control";
 import {
@@ -122,7 +122,7 @@ function busyMissionResponse(mission: PiAgentMissionContext) {
 }
 
 function committedAcceptance(
-  evidence: Awaited<ReturnType<typeof verifyAndRecordQuantPiAgentMission>>,
+  evidence: Awaited<ReturnType<typeof verifyAndRecordRetailPiAgentMission>>,
 ): boolean {
   return (
     evidence.decision.verdict === "accepted" &&
@@ -134,7 +134,7 @@ function committedAcceptance(
 }
 
 function acceptanceProjection(
-  evidence: Awaited<ReturnType<typeof verifyAndRecordQuantPiAgentMission>>,
+  evidence: Awaited<ReturnType<typeof verifyAndRecordRetailPiAgentMission>>,
   satisfied: boolean,
 ) {
   return {
@@ -169,10 +169,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
 
     const projectPath = resolveProjectPath(project_id, project.repoPath);
-    const quantValidation = await loadRetailValidation();
+    const retailValidation = await loadRetailValidation();
     const [report, repairPlan, generationState] = await Promise.all([
-      quantValidation.readRetailValidationReport(projectPath),
-      quantValidation.readRetailValidationRepairPlan(projectPath),
+      retailValidation.readRetailValidationReport(projectPath),
+      retailValidation.readRetailValidationRepairPlan(projectPath),
       readGenerationState(projectPath),
     ]);
     const acceptance = generationState?.requestId
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           // hash, so recovery never validates a workspace that changed after
           // the original candidate receipt.
           activeMission =
-            await claimQuantPiAgentMissionVerification(activeMission);
+            await claimRetailPiAgentMissionVerification(activeMission);
           verificationSessionHolder.current =
             activeMission.verificationSession ?? null;
           if (!verificationSessionHolder.current) {
@@ -345,10 +345,10 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           activeMission = missionContext(releasedMission, projectPath);
         }
 
-        const quantValidation = await loadRetailValidation();
+        const retailValidation = await loadRetailValidation();
         let candidateReceipt:
           | Awaited<
-              ReturnType<typeof sealQuantPiAgentMissionCandidate>
+              ReturnType<typeof sealRetailPiAgentMissionCandidate>
             >["receipt"]
           | null = null;
         if (
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             activeMission.status,
           )
         ) {
-          await quantValidation.prepareRetailProjectForValidation({
+          await retailValidation.prepareRetailProjectForValidation({
             projectId: project_id,
             projectPath,
           });
@@ -376,13 +376,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             source: "workspace_recovery",
             summary: "手动验证前，平台基于可信准备后的当前工作区封存恢复候选。",
           });
-          const sealed = await sealQuantPiAgentMissionCandidate({
+          const sealed = await sealRetailPiAgentMissionCandidate({
             mission: activeMission,
             candidate,
           });
           activeMission = sealed.mission;
           activeMission =
-            await claimQuantPiAgentMissionVerification(activeMission);
+            await claimRetailPiAgentMissionVerification(activeMission);
           verificationSessionHolder.current =
             activeMission.verificationSession ?? null;
           if (!verificationSessionHolder.current) {
@@ -415,7 +415,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
               : {}),
           });
         }
-        const report = await quantValidation.validateRetailProject({
+        const report = await retailValidation.validateRetailProject({
           projectId: project_id,
           projectPath,
           requestId,
@@ -423,7 +423,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           cliSource: "validator",
         });
         const repairPlan =
-          await quantValidation.readRetailValidationRepairPlan(projectPath);
+          await retailValidation.readRetailValidationRepairPlan(projectPath);
         const failedChecks = report.checks.filter(
           (check) => check.status === "failed",
         );
@@ -559,10 +559,10 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         });
 
         let evidence: Awaited<
-          ReturnType<typeof verifyAndRecordQuantPiAgentMission>
+          ReturnType<typeof verifyAndRecordRetailPiAgentMission>
         >;
         try {
-          evidence = await verifyAndRecordQuantPiAgentMission({
+        evidence = await verifyAndRecordRetailPiAgentMission({
             mission: activeMission,
             preview: provisionalPreview
               ? { url: provisionalPreview.url, port: provisionalPreview.port }

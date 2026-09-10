@@ -265,10 +265,10 @@ if (
   queryRewriteAdapter.includes('deterministicDraft') ||
   queryRewriteAdapter.includes('input.deterministic') ||
   queryRewriteRoute.includes('allowLlm') ||
-  queryRewriteRuntime.includes('extractQuantQueryTargetCandidates') ||
+  queryRewriteRuntime.includes('extractQueryTargetCandidates') ||
   queryRewriteRuntime.includes('deterministic_fallback') ||
-  queryRewriteWorkspace.includes('inferQuantSymbolsFromText') ||
-  queryRewritePrefetch.includes('inferQuantSymbolsFromText(plan.question)')
+  queryRewriteWorkspace.includes('inferSymbolsFromText') ||
+  queryRewritePrefetch.includes('inferSymbolsFromText(plan.question)')
 ) {
   fail('正常 Query Rewrite 模型路径不得注入或依赖关键词/正则草稿');
 } else if (

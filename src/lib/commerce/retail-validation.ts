@@ -767,24 +767,23 @@ const workspaceRoot = process.env.SHOPGATE_WORKSPACE_ROOT
 }
 
 async function checkPreviewHttp(
-  projectId: string
+  previewUrl: string | null,
+  previewStartError: string | null = null
 ): Promise<Omit<RetailValidationCheck, 'id' | 'name' | 'durationMs'>> {
-  const preview = await startPreviewForValidation(projectId);
-  if (!preview.url) {
+  if (!previewUrl) {
     return {
       status: 'failed',
       summary: '预览服务未返回可访问 URL。',
-      metadata: { preview },
+      details: previewStartError ?? undefined,
     };
   }
 
-  const response = await waitForHttpOk(preview.url, PREVIEW_HTTP_TIMEOUT_MS);
+  const response = await waitForHttpOk(previewUrl, PREVIEW_HTTP_TIMEOUT_MS);
   return {
     status: 'passed',
     summary: `预览首页 HTTP ${response.status}。`,
     metadata: {
-      url: preview.url,
-      port: preview.port,
+      url: previewUrl,
       responsePreview: response.text.slice(0, 400),
     },
   };
@@ -793,10 +792,10 @@ async function checkPreviewHttp(
 async function checkVisualPresentation(
   projectPath: string,
   projectId: string,
-  requestId?: string | null
+  previewUrl: string | null,
+  requestId?: string | null,
 ): Promise<Omit<RetailValidationCheck, 'id' | 'name' | 'durationMs'>> {
-  const preview = await startPreviewForValidation(projectId);
-  if (!preview.url) {
+  if (!previewUrl) {
     return {
       status: 'failed',
       summary: '无法执行视觉验收，因为预览 URL 不存在。',
@@ -805,7 +804,7 @@ async function checkVisualPresentation(
   const report = await validateQuantVisualPresentation({
     projectPath,
     projectId,
-    previewUrl: preview.url,
+    previewUrl,
     requestId,
   });
   if (!report.passed) {
@@ -2186,7 +2185,7 @@ async function checkChartPresence(
 
 async function checkEntityScope(
   projectPath: string,
-  projectId: string
+  previewUrl: string | null
 ): Promise<Omit<RetailValidationCheck, 'id' | 'name' | 'durationMs'>> {
   const marketDir = path.join(projectPath, 'app', 'api', 'market');
   const marketEntries = await fs.readdir(marketDir).catch(() => []);
@@ -2218,8 +2217,7 @@ async function checkEntityScope(
     };
   }
 
-  const preview = await startPreviewForValidation(projectId);
-  if (!preview.url) {
+  if (!previewUrl) {
     return {
       status: 'failed',
       summary: '无法检查 /api/market 代理，因为预览 URL 不存在。',
@@ -2227,7 +2225,7 @@ async function checkEntityScope(
     };
   }
 
-  const probeUrl = new URL('/api/market/commerce/meta', preview.url).toString();
+  const probeUrl = new URL('/api/market/commerce/meta', previewUrl).toString();
   const response = await fetchWithTimeout(probeUrl, { method: 'GET' }, 8_000);
   const responseText = await response.text().catch(() => '');
   if (!response.ok) {
@@ -2940,6 +2938,8 @@ async function validateRetailProjectUnlocked(params: ValidateQuantProjectParams)
   });
 
   const checks: RetailValidationCheck[] = [];
+  let validationPreviewUrl: string | null = null;
+  let validationPreviewError: string | null = null;
   try {
     const artifactPolicy = await safeRunCheck(
       'artifact_policy',
@@ -2949,8 +2949,14 @@ async function validateRetailProjectUnlocked(params: ValidateQuantProjectParams)
     checks.push(artifactPolicy);
     if (artifactPolicy.status !== 'failed') {
       checks.push(await safeRunCheck('next_build', 'Next.js build', () => checkBuild(projectPath)));
-      checks.push(await safeRunCheck('preview_http_200', '预览 HTTP 200', () => checkPreviewHttp(params.projectId)));
-      checks.push(await safeRunCheck('visual_presentation', '视觉验收', () => checkVisualPresentation(projectPath, params.projectId, params.requestId)));
+      try {
+        const preview = await startPreviewForValidation(params.projectId);
+        validationPreviewUrl = preview.url;
+      } catch (error) {
+        validationPreviewError = error instanceof Error ? error.message : String(error);
+      }
+      checks.push(await safeRunCheck('preview_http_200', '预览 HTTP 200', () => checkPreviewHttp(validationPreviewUrl, validationPreviewError)));
+      checks.push(await safeRunCheck('visual_presentation', '视觉验收', () => checkVisualPresentation(projectPath, params.projectId, validationPreviewUrl, params.requestId)));
     } else {
       for (const [id, name] of [
         ['next_build', 'Next.js build'],
@@ -2972,7 +2978,7 @@ async function validateRetailProjectUnlocked(params: ValidateQuantProjectParams)
     checks.push(await safeRunCheck('artifact_contracts', '产物 Schema 契约', () => checkArtifactContracts(projectPath, params.projectId, params.requestId)));
     checks.push(await safeRunCheck('dashboard_data_binding', '页面数据绑定', () => checkDashboardBinding(projectPath)));
     checks.push(await safeRunCheck('chart_presence', '金融图表存在性', () => checkChartPresence(projectPath)));
-    checks.push(await safeRunCheck('entity_scope', '实体范围与数据桥', () => checkEntityScope(projectPath, params.projectId)));
+    checks.push(await safeRunCheck('entity_scope', '实体范围与数据桥', () => checkEntityScope(projectPath, validationPreviewUrl)));
   } finally {
     await stopPreviewForValidation(params.projectId).catch((error) => {
       console.warn(

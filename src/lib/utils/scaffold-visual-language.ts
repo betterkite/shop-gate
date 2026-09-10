@@ -1,14 +1,14 @@
 /**
  * Shared visual language for generated Shop Gate dashboards.
  *
- * Financial workbenches should read as one continuous analytical surface. The
+ * Retail workbenches should read as one continuous analytical surface. The
  * selectors deliberately have more specificity than the legacy template CSS so
  * restored and scenario-specific dashboards cannot drift back to floating card
  * grids merely because their older component class names still contain `card`.
  */
 export function baseDashboardWorkbenchCss(): string {
   return `
-/* ==================== FINANCIAL WORKBENCH CANVAS ==================== */
+/* ==================== RETAIL WORKBENCH CANVAS ==================== */
 
 .dashboard-shell[data-visual-language="retail-workbench"] {
   width: min(1440px, 100vw);

@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { getOperationsBriefingData, type OperationsBriefingView } from '@/lib/commerce/retail-briefing';
-import {
-  displayNumber,
-  displayMoney,
-  displayPercent,
-} from '@/lib/commerce/commerce-platform';
+import { displayNumber, displayMoney, displayPercent } from '@/lib/commerce/commerce-platform';
+import { RetailPageShell } from '@/components/layout/RetailPageShell';
 import { GenerateDailyBriefButton } from './GenerateDailyBriefButton';
 
 export const metadata: Metadata = {
@@ -24,15 +21,19 @@ const VIEW_LABELS: Record<OperationsBriefingView, string> = {
 };
 
 function SyntheticBadge() {
-  return (
-    <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-      合成口径
-    </span>
-  );
+  return <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">合成口径</span>;
 }
 
-function Cell({ value, className }: { value: string; className?: string }) {
-  return <td className={`px-3 py-2 text-sm ${className ?? ''}`}>{value}</td>;
+function Cell({ value, className = '' }: { value: string; className?: string }) {
+  return <td className={`whitespace-nowrap px-3 py-3 text-sm ${className}`}>{value}</td>;
+}
+
+function DataTable({ children }: { children: ReactNode }) {
+  return <div className="overflow-x-auto rounded-2xl border border-border/70 bg-card shadow-sm"><table className="min-w-[720px] divide-y divide-border/70">{children}</table></div>;
+}
+
+function Metric({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return <article className="rounded-2xl border border-border/70 bg-card/85 p-4 shadow-sm"><p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p><p className="mt-1 text-xs text-muted-foreground">{hint}</p></article>;
 }
 
 export default async function OperationsBriefingPage({ searchParams }: Props) {
@@ -41,164 +42,50 @@ export default async function OperationsBriefingPage({ searchParams }: Props) {
   const { view } = data;
   const totals = data.daily?.totals as Record<string, unknown> | undefined;
   const dayOverDay = data.daily?.day_over_day as Record<string, unknown> | undefined;
+  const topCategory = data.categories[0];
+  const topWatch = data.watch[0];
+  const tabs = (Object.keys(VIEW_LABELS) as OperationsBriefingView[]).map((key) => ({
+    href: `/operations-briefing?view=${key}`,
+    label: VIEW_LABELS[key],
+    active: view === key,
+  }));
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">经营情报</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          窗口 {data.window.start} ~ {data.window.end}；行为流来源{' '}
-          <span className="font-mono">{data.behaviorSource}</span>
-          {data.behaviorSource === 'synthetic' ? '（合成演示数据）' : '（真实行为流）'}
-        </p>
-        <div className="mt-2">{<SyntheticBadge />}</div>
-      </header>
-
-      <nav className="mb-6 flex gap-2 border-b border-slate-200 pb-2 dark:border-slate-700">
-        {(Object.keys(VIEW_LABELS) as OperationsBriefingView[]).map((key) => (
-          <Link
-            key={key}
-            href={`/operations-briefing?view=${key}`}
-            prefetch={false}
-            className={`rounded-md px-3 py-2 text-sm font-medium ${
-              view === key
-                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-            }`}
-          >
-            {VIEW_LABELS[key]}
-          </Link>
-        ))}
-      </nav>
-
+    <RetailPageShell
+      title="经营情报"
+      subtitle={`窗口 ${data.window.start} ~ ${data.window.end} · 行为源 ${data.behaviorSource} · ${data.behaviorSource === 'synthetic' ? '合成演示数据' : '真实行为流'}`}
+      badge={<SyntheticBadge />}
+      tabs={tabs}
+    >
       {!data.apiEnabled ? (
-        <p className="text-sm text-red-500">commerce-data API 已按降级配置停用，无法读取数据。</p>
+        <p className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">commerce-data API 已按降级配置停用，无法读取数据。</p>
       ) : view === 'daily' ? (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <GenerateDailyBriefButton />
-            <span className="text-sm text-slate-500">
-              最近生成日报：
-              {data.latestReport ? new Intl.DateTimeFormat('zh-CN').format(new Date(data.latestReport.date)) : '尚未生成'}
-            </span>
+        <section className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/85 p-4 shadow-sm">
+            <div><p className="text-sm font-semibold">{String(data.daily?.stat_date ?? data.window.end)} 经营日报</p><p className="mt-1 text-xs text-muted-foreground">先看结果，再顺着环比和类目拆解找行动点。</p></div>
+            <div className="flex flex-wrap items-center gap-3"><GenerateDailyBriefButton /><span className="text-sm text-muted-foreground">最近生成：{data.latestReport ? new Intl.DateTimeFormat('zh-CN').format(new Date(data.latestReport.date)) : '尚未生成'}</span></div>
           </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">日期</div>
-              <div className="mt-1 text-lg font-semibold">{String(data.daily?.stat_date ?? '-')}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">GMV</div>
-              <div className="mt-1 text-lg font-semibold">{displayMoney(totals?.gmv)}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">曝光</div>
-              <div className="mt-1 text-lg font-semibold">{displayNumber(totals?.pv, 0)}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">购买转化</div>
-              <div className="mt-1 text-lg font-semibold">{displayPercent(data.daily?.buy_conversion)}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">客单价</div>
-              <div className="mt-1 text-lg font-semibold">{displayMoney(data.daily?.avg_price)}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">购买人数</div>
-              <div className="mt-1 text-lg font-semibold">{displayNumber(totals?.buyers, 0)}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">购买事件</div>
-              <div className="mt-1 text-lg font-semibold">{displayNumber(totals?.buy, 0)}</div>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
-              <div className="text-xs text-slate-500">状态</div>
-              <div className="mt-1 text-lg font-semibold">{String(data.daily?.status ?? '-')}</div>
-            </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <Metric label="GMV" value={displayMoney(totals?.gmv)} hint="合成金额口径" />
+            <Metric label="曝光" value={displayNumber(totals?.pv, 0)} hint="真实行为事件" />
+            <Metric label="购买事件" value={displayNumber(totals?.buy, 0)} hint="真实行为事件" />
+            <Metric label="购买转化" value={displayPercent(data.daily?.buy_conversion)} hint="buy / pv" />
+            <Metric label="客单价" value={displayMoney(data.daily?.avg_price)} hint="合成价格口径" />
           </div>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800/60">
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {['指标', '日环比'].map((h) => (
-                    <th key={h} className="px-3 py-2">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {dayOverDay ? Object.entries(dayOverDay).map(([key, value]) => (
-                  <tr key={'dod-' + key} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <Cell value={key} />
-                    <Cell value={value === null ? '-' : displayPercent(value)} />
-                  </tr>
-                )) : <tr><Cell value="首日或无前日数据，不计算日环比。" /></tr>}
-              </tbody>
-            </table>
+          <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+            <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between"><div><h2 className="font-semibold">异常与趋势信号</h2><p className="mt-1 text-xs text-muted-foreground">以日环比识别需要进一步拆解的指标。</p></div><span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{String(data.daily?.status ?? 'ok')}</span></div>
+              <DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">指标</th><th className="px-3 py-3">日环比</th><th className="px-3 py-3">判断</th></tr></thead><tbody className="divide-y divide-border/60">{dayOverDay ? Object.entries(dayOverDay).map(([key, value]) => { const n = Number(value); const label = n < 0 ? '需要拆解' : n > 0 ? '正向变化' : '保持稳定'; return <tr key={`dod-${key}`} className="hover:bg-muted/35"><Cell value={key} className="font-medium" /><Cell value={value === null ? '-' : displayPercent(value)} /><Cell value={label} className={n < 0 ? 'text-rose-600' : 'text-emerald-600'} /></tr>; }) : <tr><Cell value="首日或无前日数据，不计算日环比。" /></tr>}</tbody></DataTable>
+            </section>
+            <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm"><h2 className="font-semibold">重点关注</h2><div className="mt-4 space-y-4 text-sm"><div><p className="text-xs text-muted-foreground">GMV 贡献最高类目</p><p className="mt-1 font-semibold">{String(topCategory?.category_name ?? '暂无')}</p><p className="mt-1 text-xs text-muted-foreground">{topCategory ? `${displayMoney(topCategory.gmv)} · 转化 ${displayPercent(topCategory.buy_conversion)}` : '暂无可用类目数据'}</p></div><div className="border-t border-border/60 pt-4"><p className="text-xs text-muted-foreground">观察池头部商品</p><p className="mt-1 truncate font-semibold">{String(topWatch?.title ?? '暂无')}</p><p className="mt-1 text-xs text-muted-foreground">{topWatch ? `${displayMoney(topWatch.gmv)} · 购买 ${displayNumber(topWatch.buy, 0)}` : '暂无可用商品数据'}</p></div><div className="border-t border-border/60 pt-4"><p className="text-xs text-muted-foreground">建议动作</p><p className="mt-1 font-medium">{dayOverDay && Object.values(dayOverDay).some((value) => Number(value) < 0) ? '下钻负向指标，优先检查对应类目与商品转化。' : '继续观察头部类目，同时复核库存和价格带。'}</p></div></div></section>
           </div>
-          <p className="text-xs text-slate-400">
-            日报只描述窗口末日快照，不推断趋势；GMV/客单价为合成口径。
-          </p>
+          <p className="text-xs text-muted-foreground">日报描述窗口末日快照和可计算的环比，不推断窗口外趋势；GMV/客单价为合成口径。</p>
         </section>
       ) : view === 'categories' ? (
-        <section>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800/60">
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {['#', '类目', '曝光', '购买', 'GMV', '转化率', '客单价'].map((h) => (
-                    <th key={h} className="px-3 py-2">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {data.categories.map((cat, index) => (
-                  <tr key={String(cat.category_id ?? index)} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <Cell value={String(index + 1)} />
-                    <Cell value={String(cat.category_name ?? '-')} />
-                    <Cell value={displayNumber(cat.pv, 0)} />
-                    <Cell value={displayNumber(cat.buy, 0)} />
-                    <Cell value={displayMoney(cat.gmv)} />
-                    <Cell value={displayPercent(cat.buy_conversion)} />
-                    <Cell value={displayMoney(cat.avg_price)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-xs text-slate-400">类目名为合成映射；GMV = 购买事件 × 合成价格。</p>
-        </section>
+        <section className="space-y-4"><div><h2 className="text-lg font-semibold">类目经营榜</h2><p className="mt-1 text-sm text-muted-foreground">用规模、转化和客单价定位增长类目与结构风险。</p></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground">{['#', '类目', '曝光', '购买', 'GMV', '转化率', '客单价'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-3">{h}</th>)}</tr></thead><tbody className="divide-y divide-border/60">{data.categories.map((cat, index) => <tr key={String(cat.category_id ?? index)} className="hover:bg-muted/35"><Cell value={String(index + 1)} /><Cell value={String(cat.category_name ?? '-')} className="font-medium" /><Cell value={displayNumber(cat.pv, 0)} /><Cell value={displayNumber(cat.buy, 0)} /><Cell value={displayMoney(cat.gmv)} className="font-semibold" /><Cell value={displayPercent(cat.buy_conversion)} /><Cell value={displayMoney(cat.avg_price)} /></tr>)}</tbody></DataTable><p className="text-xs text-muted-foreground">类目名为合成映射；GMV = 购买事件 × 合成价格。</p></section>
       ) : (
-        <section>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-800/60">
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {['商品', '类目', '渠道', '价格', '曝光', '购买', 'GMV', '转化'].map((h) => (
-                    <th key={h} className="px-3 py-2">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {data.watch.map((item, index) => (
-                  <tr key={String(item.item_id ?? index)} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <Cell value={String(item.title ?? '-')} />
-                    <Cell value={String(item.category_name ?? '-')} />
-                    <Cell value={String(item.shop_tier ?? '-')} />
-                    <Cell value={displayMoney(item.price)} />
-                    <Cell value={displayNumber(item.pv, 0)} />
-                    <Cell value={displayNumber(item.buy, 0)} />
-                    <Cell value={displayMoney(item.gmv)} />
-                    <Cell value={displayPercent(item.buy_conversion)} />
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-xs text-slate-400">
-            观察池=窗口内 GMV 领先商品（top-20）；价格/渠道/GMV 为合成口径。
-          </p>
-        </section>
+        <section className="space-y-4"><div><h2 className="text-lg font-semibold">观察池</h2><p className="mt-1 text-sm text-muted-foreground">窗口内 GMV 领先商品，用于后续库存、价格和转化复核。</p></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground">{['商品', '类目', '渠道', '价格', '曝光', '购买', 'GMV', '转化'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-3">{h}</th>)}</tr></thead><tbody className="divide-y divide-border/60">{data.watch.map((item, index) => <tr key={String(item.item_id ?? index)} className="hover:bg-muted/35"><Cell value={String(item.title ?? '-')} className="max-w-[260px] truncate font-medium" /><Cell value={String(item.category_name ?? '-')} /><Cell value={String(item.shop_tier ?? '-')} /><Cell value={displayMoney(item.price)} /><Cell value={displayNumber(item.pv, 0)} /><Cell value={displayNumber(item.buy, 0)} /><Cell value={displayMoney(item.gmv)} className="font-semibold" /><Cell value={displayPercent(item.buy_conversion)} /></tr>)}</tbody></DataTable><p className="text-xs text-muted-foreground">观察池=窗口内 GMV 领先商品（top-20）；价格/渠道/GMV 为合成口径。</p></section>
       )}
-    </main>
+    </RetailPageShell>
   );
 }

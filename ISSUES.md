@@ -22,6 +22,7 @@
 | ISSUE-P14 | generation/eval/scaffold 内部历史命名与模板语义零售化 | P14 | `Quant*` 平台类型、旧 finance 示例、金融计算 skill 脚本和旧评测语料按模块完成改名/重写；retail benchmark、type-check、vitest 回归通过 | open（本切片已完成 generation 状态/队列/终态及 eval 内部契约改名；剩余 scaffold/视觉验证/金融计算 skill 脚本继续拆分） |
 | ISSUE-P15 | 权限与配额命名从 QuantPilot 迁移到 commerce/operations | P12 | 当前代码使用 `commerce.*` / `operations.*`；新增追加式 migration 同步 grant、override、quota、bucket、reservation、event；历史 migration 不改 | done（本轮已完成代码、文档、测试和 `20260909000200_rename_retail_access_metrics`） |
 | ISSUE-P16 | 视觉回归与 catalog 基准稳定性 | P16 | 登录态视觉 smoke 可稳定运行；R01–R04 连续运行无随机 token-budget 假失败；release gate 输出可审计报告 | in-progress（已接入真实 DeepSeek 直连验收；修复零售模板误用选股/K 线/MA60 验证规则、窗口内全库澄清误判与合法 `timeRange.value=null`；串行 R01–R04 已 4/4 READY。剩余：登录态视觉 smoke 独立门禁、失败 campaign 预览进程自动清理） |
+| ISSUE-P17 | 电商经营分析体验与生成看板视觉升级 | P17 | 商品运营/经营情报有统一返回入口；桌面与移动端视觉通过；生成看板形成“总览→趋势→异常→拆解→行动”闭环，所有金额/库存来源显式标注；模板校验、类型检查与 retail e2e 通过 | in-progress（本切片按可访问的相关电商 BI 方案建立指标与分析路径；用户提供的知乎原文抓取超时，未将其当作已核验内容） |
 
 ## P0 结果与残留台账（2025-09-06，随阶段推进收敛）
 

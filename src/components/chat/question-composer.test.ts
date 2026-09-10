@@ -15,7 +15,7 @@ describe('question composer', () => {
     expect(QUESTION_COMPOSER_COPY.defaultPlaceholder).toContain('经营分析需求');
     expect(QUESTION_COMPOSER_COPY.modelRewriteHelper).toContain('不做关键词预判');
     expect(buildQuickQuestions('大位科技')[0]).toContain('大位科技');
-    expect(buildQuickQuestions('分析大位科技最近20个交易日，生成技术面看板')[0]).toContain('当前标的');
+    expect(buildQuickQuestions('分析大位科技最近20个交易日，生成经营看板')[0]).toContain('当前店铺/商品');
   });
 
   it('keeps the visible question intact while constraining chat-only execution', () => {

@@ -72,7 +72,7 @@ export function PlatformSwitcher({ beforeNavigate }: PlatformSwitcherProps = {})
       <SheetContent side="right" className="w-[min(92vw,420px)] overflow-y-auto border-border/70 p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-[420px]">
         <SheetHeader className="border-b border-border/60 px-5 py-5 pr-12">
           <SheetTitle>Shop Gate 产品导航</SheetTitle>
-          <SheetDescription>围绕同一研究任务，在研究、策略、交付与治理之间切换。</SheetDescription>
+          <SheetDescription>围绕同一经营任务，在工作台、商品、情报与治理之间切换。</SheetDescription>
         </SheetHeader>
         <nav className="p-4" aria-label="Shop Gate 产品">
           {PRODUCT_GROUPS.map((group, groupIndex) => (

@@ -87,7 +87,7 @@ function recognitionTable(runPlan: RetailRunPlan): string {
   const analysisView = runPlan.visualization.variantName ??
     runPlan.visualization.name ??
     capability.name;
-  const output = runPlan.visualization.required ? '交互式金融看板' : '结构化分析';
+  const output = runPlan.visualization.required ? '交互式零售经营看板' : '结构化分析';
 
   const rows = [
     ['业务场景', capability.name, '明确'],

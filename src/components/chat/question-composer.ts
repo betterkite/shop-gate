@@ -46,11 +46,11 @@ export function buildQuickQuestions(projectName = ''): string[] {
   const subject = exactProjectName.length >= 2 && exactProjectName.length <= 16 &&
     !/[，,。！？?；;\n]/u.test(exactProjectName)
     ? exactProjectName
-    : '当前标的';
+    : '当前店铺/商品';
   return [
-    `分析${subject}近60个交易日的趋势、量能和主要风险`,
-    `评估${subject}的财务质量、估值位置和关键风险`,
-    `梳理${subject}近期重要公告及其潜在影响`,
-    `对${subject}做一个均线策略回测并说明适用边界`,
+    `分析${subject}近7天的流量、加购和购买转化`,
+    `对比${subject}各类目和商品的GMV贡献及集中度`,
+    `检查${subject}的价格带、库存和滞销风险`,
+    `生成${subject}经营日报，指出异常并给出行动建议`,
   ];
 }

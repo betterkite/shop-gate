@@ -176,7 +176,7 @@
       "priority": 60,
       "phases": ["platform-ui"],
       "requiresTools": [],
-      "objective": "设计 Shop Gate 主平台界面，不负责生成工作空间金融看板。",
+      "objective": "设计 Shop Gate 主平台界面，不负责生成工作空间零售经营看板。",
       "invariants": ["复用平台现有 UI primitives，并覆盖 loading、empty、error 和响应式状态。"],
       "workflow": ["在平台源码和设计 token 范围内完成 UI 修改。"],
       "doneWhen": ["平台页面通过 lint、type-check 和视觉检查。"],

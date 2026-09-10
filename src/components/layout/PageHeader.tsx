@@ -41,7 +41,7 @@ function PageHeader({
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {backHref !== false && (
             <Button variant="ghost" size="icon" asChild className="shrink-0">
-              <Link href={backHref} aria-label={backHref === "/" ? "返回研究工作台" : "返回上一页"}>
+              <Link href={backHref} aria-label={backHref === "/" ? "返回经营工作台" : "返回上一页"}>
                 <ArrowLeft className="h-5 w-5" />
               </Link>
             </Button>
@@ -50,7 +50,7 @@ function PageHeader({
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ee6b4d] to-[#d84d35] text-sm font-bold text-white shadow-[0_8px_20px_-10px_rgba(224,83,57,0.8)]",
             compactOnMobile && "max-[479px]:hidden",
           )}>
-            <span aria-hidden="true">Q</span>
+            <span aria-hidden="true">S</span>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">

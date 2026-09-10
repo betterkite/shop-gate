@@ -260,7 +260,7 @@ function CreateTaskForm({
         value={prompt}
         onChange={(e) => onPromptChange(e.target.value)}
         aria-label="经营分析需求"
-        placeholder={selectedRole.inputPlaceholder ?? selectedRole.inputHint ?? "描述你的金融分析需求..."}
+        placeholder={selectedRole.inputPlaceholder ?? selectedRole.inputHint ?? "描述你的经营分析需求..."}
         disabled={isCreating}
         aria-invalid={submissionState.validationMessage ? true : undefined}
         aria-describedby={submissionState.validationMessage ? validationMessageId : undefined}

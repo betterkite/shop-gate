@@ -420,6 +420,14 @@ export function retailDailyBriefPageTemplate(): string {
     .sort((left, right) => (numeric(right.gmv) ?? 0) - (numeric(left.gmv) ?? 0))
     .slice(0, 8);
   const moverBars = movers.map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
+  const dailySeries = asArray(asRecord(datasets.funnelDaily)?.rows)
+    .map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const negativeChanges = dayOverDay
+    ? Object.entries(dayOverDay).filter(([, value]) => (numeric(value) ?? 0) < 0)
+    : [];
+  const actionText = negativeChanges.length > 0
+    ? '优先下钻负向指标对应的类目与商品，复核转化和库存。'
+    : '继续观察头部类目，同时复核价格带和库存健康度。';
   const meta = asRecord(datasets.meta);
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
@@ -428,6 +436,7 @@ export function retailDailyBriefPageTemplate(): string {
         <div className="meta-row">
           <span className="meta-item">日期：{text(summary?.stat_date)}</span>
           <span className="meta-item">状态：{text(summary?.status)}</span>
+          <span className="meta-item">分析路径：总览 → 趋势 → 异常 → 拆解 → 行动</span>
           {syntheticBadge()}
         </div>
       </section>
@@ -439,15 +448,24 @@ export function retailDailyBriefPageTemplate(): string {
         <article className="metric-tile"><span>客单价</span><strong>{displayMoney(summary?.avg_price)}</strong></article>
       </section>
       <section className="chart-zone">
-        <h2>环比</h2>
+        <h2>趋势与异常</h2>
         <table className="dense-table">
-          <thead><tr><th>指标</th><th>环比</th></tr></thead>
+          <thead><tr><th>指标</th><th>日环比</th><th>信号</th></tr></thead>
           <tbody>
             {dayOverDay ? Object.entries(dayOverDay).map(([key, value]) => (
-              <tr key={'dod-' + key}><td>{key}</td><td>{value === null ? '-' : displayPercent(value)}</td></tr>
-            )) : <tr><td colSpan={2}>首日或前一日无数据，不计算环比。</td></tr>}
+              <tr key={'dod-' + key}><td>{key}</td><td>{value === null ? '-' : displayPercent(value)}</td><td>{(numeric(value) ?? 0) < 0 ? '需要拆解' : '继续观察'}</td></tr>
+            )) : <tr><td colSpan={3}>首日或前一日无数据，不计算环比。</td></tr>}
           </tbody>
         </table>
+        <h2>分日流量与转化</h2>
+        {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日趋势数据缺失。</p>}
+      </section>
+      <section className="action-strip">
+        <article><span>异常定位</span><strong>{negativeChanges.length > 0 ? negativeChanges.map(([key]) => key).join('、') : '当前无明显负向指标'}</strong></article>
+        <article><span>结构拆解</span><strong>{movers.length > 0 ? '查看类目 GMV 与转化排名' : '等待类目数据'}</strong></article>
+        <article><span>建议动作</span><strong>{actionText}</strong></article>
+      </section>
+      <section className="chart-zone">
         <h2>类目 GMV 榜（当日观察）</h2>
         {moverBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(moverBars, '类目GMV') }} /> : <p>类目数据缺失。</p>}
         <table className="dense-table">
@@ -525,7 +543,7 @@ export function retailBaseDashboardPageTemplate(): string {
 export function retailBaseDashboardCssTemplate(): string {
   return `${baseDashboardWorkbenchCss()}
 
-/* Shop Gate 零售板块（合成口径徽标、密集表格、图表区） */
+/* Shop Gate 零售板块（合成口径徽标、指标带、密集表格、图表区） */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -549,9 +567,74 @@ html, body {
   white-space: nowrap;
 }
 
+.dashboard-shell[data-visual-language="retail-workbench"] .hero-panel h1 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: clamp(22px, 3vw, 32px);
+  letter-spacing: -0.03em;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .hero-panel {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 58%, #eff6ff 100%);
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 12px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .meta-row .meta-item {
+  padding: 8px 12px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .insight-strip,
+.dashboard-shell[data-visual-language="retail-workbench"] .action-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .metric-tile,
+.dashboard-shell[data-visual-language="retail-workbench"] .action-strip article {
+  min-width: 0;
+  padding: 16px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .metric-tile span,
+.dashboard-shell[data-visual-language="retail-workbench"] .action-strip article span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .metric-tile strong,
+.dashboard-shell[data-visual-language="retail-workbench"] .action-strip article strong {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .action-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #f8fafc;
+}
+
 .dashboard-shell[data-visual-language="retail-workbench"] .chart-zone {
   border-bottom: 1px solid #e2e8f0;
   padding: 16px 0;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .chart-zone h2 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 16px;
 }
 
 .dashboard-shell[data-visual-language="retail-workbench"] .dense-table {
@@ -619,6 +702,18 @@ html, body {
 .dashboard-shell[data-visual-language="retail-workbench"] .dense-table {
   display: block;
   overflow-x: auto;
+}
+
+@media (max-width: 800px) {
+  .dashboard-shell[data-visual-language="retail-workbench"] .insight-strip,
+  .dashboard-shell[data-visual-language="retail-workbench"] .action-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-shell[data-visual-language="retail-workbench"] .metric-tile,
+  .dashboard-shell[data-visual-language="retail-workbench"] .action-strip article {
+    border-bottom: 1px solid #e2e8f0;
+  }
 }
 `;
 }

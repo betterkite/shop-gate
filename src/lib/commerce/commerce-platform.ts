@@ -18,6 +18,7 @@ export interface CommercePlatformData {
   window: { start: string; end: string };
   behaviorSource: string;
   meta: Record<string, unknown> | null;
+  summary: Record<string, unknown> | null;
   items: Record<string, unknown>[];
   itemsTotal: number;
   page: number;
@@ -106,6 +107,7 @@ export async function getCommercePlatformData(params: {
   let itemsTotal = 0;
   let categories: Record<string, unknown>[] = [];
   let channels: Record<string, unknown>[] = [];
+  const summary = await fetchJson<Record<string, unknown>>(`/api/v1/commerce/summary?date=${end}`);
 
   if (view === 'products') {
     const itemsResult = await fetchJson<Record<string, unknown>>(
@@ -130,6 +132,7 @@ export async function getCommercePlatformData(params: {
     window,
     behaviorSource,
     meta: null,
+    summary,
     items,
     itemsTotal,
     page,

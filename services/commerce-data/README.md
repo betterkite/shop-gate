@@ -36,7 +36,8 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/capabilities`：零售能力发现。
 - `GET /api/v1/commerce/funnel`、`/funnel/daily`：流量与转化漏斗。
 - `GET /api/v1/commerce/categories/top`、`/items`、`/items/{item_id}/daily`：类目和商品结构。
-- `GET /api/v1/commerce/inventory-risk`、`/channels`：库存风险和渠道聚合。
+- `GET /api/v1/commerce/inventory-risk`：库存风险 Top N（库销比）以及覆盖全量商品的库存健康 `health` 汇总。
+- `GET /api/v1/commerce/channels`：渠道聚合。
 - `GET /api/v1/commerce/summary`：经营日报快照。
 
 API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准。

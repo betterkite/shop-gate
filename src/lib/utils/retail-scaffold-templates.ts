@@ -121,19 +121,32 @@ function svgDailyLines(series: Array<{ stat_date: string } & Record<string, numb
   const width = 720;
   const height = 240;
   const metrics: Array<[string, string]> = [['pv', '#2563eb'], ['cart', '#f59e0b'], ['buy', '#16a34a']];
-  const max = Math.max(1, ...series.flatMap((point) => metrics.map(([key]) => numeric(point[key]) ?? 0)));
   const stepX = series.length > 1 ? (width - 48) / (series.length - 1) : 0;
   const paths = metrics
     .map(([key, color]) => {
+      const values = series.map((point) => numeric(point[key]) ?? 0);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min;
       const points = series
         .map((point, index) => {
           const value = numeric(point[key]) ?? 0;
           const x = 24 + index * stepX;
-          const y = height - 30 - (value / max) * (height - 70);
+          // 每条线按自身区间缩放，避免 PV 的量级把 Cart/Buy 压成一条直线。
+          // 具体数值仍在 KPI/明细表中展示，图中只表达日内趋势方向。
+          const normalized = range > 0 ? (value - min) / range : 0.5;
+          const y = height - 30 - normalized * (height - 70);
           return x.toFixed(1) + ',' + y.toFixed(1);
         })
         .join(' ');
-      return '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" points="' + points + '" />';
+      const dots = series.map((point, index) => {
+        const value = numeric(point[key]) ?? 0;
+        const normalized = range > 0 ? (value - min) / range : 0.5;
+        const x = 24 + index * stepX;
+        const y = height - 30 - normalized * (height - 70);
+        return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.5" fill="' + color + '" />';
+      }).join('');
+      return '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" points="' + points + '" />' + dots;
     })
     .join('');
   const labels = series
@@ -147,7 +160,7 @@ function svgDailyLines(series: Array<{ stat_date: string } & Record<string, numb
     'style="width:100%;max-width:760px;height:auto" xmlns="http://www.w3.org/2000/svg">' +
     '<line x1="16" y1="' + (height - 30) + '" x2="' + (width - 16) + '" y2="' + (height - 30) + '" stroke="#cbd5e1" />' +
     paths + labels +
-    '<text x="24" y="18" font-size="12" fill="#334155">蓝=页面浏览量（PV） 橙=加购（Cart） 绿=购买（Buy）</text></svg>';
+    '<text x="24" y="18" font-size="12" fill="#334155">蓝=页面浏览量（PV） 橙=加购（Cart） 绿=购买（Buy） · 各指标按自身区间显示趋势</text></svg>';
 }
 
 function svgDonut(segments: Array<{ label: string; value: number; color: string }>, unitLabel: string): string {
@@ -405,6 +418,7 @@ export function retailPriceInventoryPageTemplate(): string {
   const trafficItems = asArray(bi?.top_traffic_items).map(asRecord).filter((record): record is JsonRecord => record !== null);
   const anomalies = asArray(bi?.inventory_anomalies).map(asRecord).filter((record): record is JsonRecord => record !== null);
   const highTrafficLowConversion = asArray(bi?.high_traffic_low_conversion).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const inventoryHealth = asRecord(bi?.inventory_health) ?? asRecord(risk?.health);
   const actions = asArray(bi?.actions);
   const bands = [
     { label: '0-50', min: 0, max: 50 },
@@ -417,15 +431,19 @@ export function retailPriceInventoryPageTemplate(): string {
     label: band.label,
     value: items.filter((item) => (numeric(item.price) ?? 0) >= band.min && (numeric(item.price) ?? 0) < band.max).length,
   }));
-  const movingCount = items.filter((item) => (numeric(item.sell_through_ratio) ?? 0) <= 1).length;
-  const slowCount = items.length - movingCount;
+  const movingCount = numeric(inventoryHealth?.moving_items) ?? items.filter((item) => (numeric(item.sold) ?? 0) > 0).length;
+  const slowCount = numeric(inventoryHealth?.stagnant_items) ?? items.filter((item) => (numeric(item.stock) ?? 0) > 0 && (numeric(item.sold) ?? 0) <= 0).length;
+  const outOfStockCount = numeric(inventoryHealth?.out_of_stock_items) ?? 0;
   const healthDonut = [
     { label: '动销', value: movingCount, color: '#16a34a' },
     { label: '滞销', value: slowCount, color: '#f59e0b' },
+    { label: '无库存', value: outOfStockCount, color: '#94a3b8' },
   ];
   const channelBars = channels.map((row) => ({ label: text(row.channel), value: numeric(row.gmv) ?? 0 }));
   const categoryBars = categories.slice(0, 8).map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
-  const riskBars = anomalies.slice(0, 8).map((row) => ({ label: text(row.title), value: numeric(row.sell_through_ratio) ?? 0 }));
+  // 零销量商品的库销比会被地板值放大到数十万，直接画原始比值会导致柱子全部等高。
+  // 这里用风险样本的库存金额表达规模，库销比原值仍在明细表中保留。
+  const riskBars = anomalies.slice(0, 8).map((row) => ({ label: text(row.title), value: numeric(row.inventory_value) ?? 0 }));
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
@@ -447,7 +465,7 @@ export function retailPriceInventoryPageTemplate(): string {
         ))}
       </section>
       <section className="chart-zone">
-        <h2>经营趋势：流量、转化与成交</h2>
+        <h2>经营趋势：流量、转化与成交（分指标趋势）</h2>
         {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日经营数据缺失。</p>}
         <p className="footnote">PV/UV/购买来自窗口内真实行为事件；GMV 按购买事件 × 合成价格估算，窗口外趋势不支持。</p>
       </section>
@@ -478,7 +496,7 @@ export function retailPriceInventoryPageTemplate(): string {
       </section>
       <section className="chart-zone">
         <h2>异常诊断：库存风险与流量承接</h2>
-        {riskBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(riskBars, '库销比风险') }} /> : <p>库存风险数据缺失。</p>}
+        {riskBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(riskBars, '风险样本库存金额') }} /> : <p>库存风险数据缺失。</p>}
         <table className="dense-table"><thead><tr><th>商品</th><th>库存</th><th>窗口销量</th><th>页面浏览量（PV）</th><th>购买转化率</th><th>库销比</th><th>风险</th><th>诊断</th></tr></thead><tbody>{anomalies.map((item, index) => <tr key={'anomaly-' + index}><td>{text(item.title)}</td><td>{displayNumber(item.stock, 0)}</td><td>{displayNumber(item.sold, 0)}</td><td>{displayNumber(item.views, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayNumber(item.sell_through_ratio, 1)}</td><td>{text(item.risk_level)}</td><td>{text(item.diagnosis)}</td></tr>)}</tbody></table>
         <h3>高流量低转化类目</h3>
         {highTrafficLowConversion.length > 0 ? <table className="dense-table"><thead><tr><th>类目</th><th>PV</th><th>转化率</th><th>低于整体</th></tr></thead><tbody>{highTrafficLowConversion.map((row, index) => <tr key={'low-conversion-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.conversion_gap)}</td></tr>)}</tbody></table> : <p>当前没有满足阈值的高流量低转化类目。</p>}
@@ -486,9 +504,9 @@ export function retailPriceInventoryPageTemplate(): string {
         <table className="dense-table"><thead><tr><th>商品</th><th>类目</th><th>PV</th><th>购买</th><th>转化率</th><th>流量份额</th><th>诊断</th></tr></thead><tbody>{trafficItems.map((item, index) => <tr key={'traffic-item-' + index}><td>{text(item.title)}</td><td>{text(item.category_name)}</td><td>{displayNumber(item.pv, 0)}</td><td>{displayNumber(item.buy, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayPercent(item.traffic_share)}</td><td>{(numeric(item.conversion_gap) ?? 0) < 0 ? '低于整体转化，优先检查承接' : '观察头部流量与库存匹配'}</td></tr>)}</tbody></table>
       </section>
       <section className="chart-zone">
-        <h2>库存健康度（动销 / 滞销商品数）</h2>
+        <h2>库存健康度（动销 / 滞销 / 无库存商品数）</h2>
         {healthDonut.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(healthDonut, '动销占比') }} /> : <p>库存数据缺失。</p>}
-        <p className="footnote">动销 = 窗口内库销比 ≤ 1；滞销 = 库销比 &gt; 1。口径为合成主数据。</p>
+        <p className="footnote">动销 = 窗口内有购买事件（Buy &gt; 0）；滞销 = 有库存但窗口内无购买；动销占比 = 动销商品数 / 有库存商品数。口径为全量商品健康汇总，非库销比 Top 10 风险样本。</p>
       </section>
       <section className="action-strip bi-action-strip">
         <article><span>运营行动</span><strong>{text(actions[0], '继续观察库存健康度。')}</strong></article>

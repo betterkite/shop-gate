@@ -163,6 +163,21 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 | `price` | 合成价格（≥ 0） | GMV 口径输入 |
 | `stock` | 合成库存（≥ 0） | 库存风险 |
 | `listed_at` | 上架时间（合成） | 商品结构 |
+
+## 库存健康汇总（API 读模型）
+
+`GET /api/v1/commerce/inventory-risk` 返回两部分：`items` 是按库销比降序排列的风险 Top N；`health` 是覆盖全量商品的汇总，不能用 `items` 样本替代。
+
+| 字段 | 口径 |
+| --- | --- |
+| `total_items` | 当前商品主数据快照中的商品数 |
+| `in_stock_items` | `stock > 0` 的商品数 |
+| `moving_items` | 有库存且窗口内购买量 `sold > 0` 的商品数 |
+| `stagnant_items` | 有库存且窗口内 `sold = 0` 的商品数 |
+| `out_of_stock_items` | `stock = 0` 的商品数 |
+| `moving_share` | `moving_items / in_stock_items`；无有库存商品时为 0 |
+
+“动销占比”在看板中使用 `moving_share`，不使用库销比风险 Top N 的样本比例。
 | `synthetic_master` | 固定 `true` | 合成口径标注 |
 
 ### `commerce.categories` / `commerce.brands` / `commerce.shops`

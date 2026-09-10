@@ -181,14 +181,14 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/categories/top` | `GET` | 类目经营榜：`metric`（默认 gmv）+ `limit`（≤100） |
 | `/api/v1/commerce/items` | `GET` | 商品池分页：`page`/`page_size`（≤100）/`category_id`/`sort`（gmv\|pv\|buy\|price） |
 | `/api/v1/commerce/items/{item_id}/daily` | `GET` | 单商品日粒度行为与 GMV |
-| `/api/v1/commerce/inventory-risk` | `GET` | 库存风险（`limit` ≤200；合成字段 price/stock） |
+| `/api/v1/commerce/inventory-risk` | `GET` | 库存风险（`limit` ≤200；合成字段 price/stock），并返回覆盖全量商品的 `health` 汇总 |
 | `/api/v1/commerce/channels` | `GET` | 店铺 tier 三档（standard/premium/flagship）聚合，gmv_share ≈ 0.35/0.34/0.32 |
 | `/api/v1/commerce/summary` | `GET` | 单日经营汇总，`date` 参数 |
 
 关键数据：
 
 - `/meta`：first_event_ts=2017-11-25T00:00:00Z、last_event_ts=2017-12-03T16:00:06Z、user_count=10000、behavior_source=tianchi_userbehavior
-- `/items`：total=412,130
+- `/items`：total 取当前主数据快照；合成兜底重建时与当前行为流商品集合对齐
 - `/summary?date=2017-12-03`：GMV ¥1,198,069.97、曝光 110,710、购买 2,452、转化 2.21%、客单价 ¥488.61
 
 窗口约定：日期参数缺省时后端默认 `end=今天`、`start=end 往前 8 天`；实际取数应由调用方显式传入数据窗口（生成管线的预取窗口动态取自 `/meta`）。`start` 晚于 `end` 返回 400。

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from datetime import UTC, datetime
 
 from shopgate_commerce_data.retail import (
@@ -12,6 +13,8 @@ from shopgate_commerce_data.retail import (
 )
 from shopgate_commerce_data.synthetic import (
     batched_events,
+    daily_demand_multiplier,
+    sample_item_offset,
     synthetic_behavior_events,
     synthetic_item_offset_category,
     synthetic_master_rows,
@@ -102,6 +105,28 @@ def test_synthetic_generation_is_deterministic() -> None:
                                   category_pool_size=10)
     )
     assert first == second
+
+
+def test_synthetic_generation_has_weekly_demand_shape() -> None:
+    monday = datetime(2026, 8, 31, tzinfo=UTC)
+    saturday = datetime(2026, 9, 5, tzinfo=UTC)
+    assert daily_demand_multiplier(saturday) > daily_demand_multiplier(monday)
+    events = list(synthetic_behavior_events(users=500, days=9, seed=SEED, end_day=saturday))
+    per_day: dict[str, int] = {}
+    for event in events:
+        day = str(event["event_ts"])[:10]
+        per_day[day] = per_day.get(day, 0) + 1
+    assert len(per_day) == 9
+    assert max(per_day.values()) > min(per_day.values())
+
+
+def test_synthetic_generation_has_head_mid_tail_item_mix() -> None:
+    rng = random.Random(SEED)
+    samples = [sample_item_offset(rng, 1000) for _ in range(10_000)]
+    head = sum(offset < 100 for offset in samples)
+    middle = sum(100 <= offset < 400 for offset in samples)
+    tail = sum(offset >= 400 for offset in samples)
+    assert head > middle > tail
 
 
 def test_master_rows_reproducible_and_flagged_synthetic() -> None:

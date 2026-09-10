@@ -28,6 +28,7 @@ from psycopg.types.json import Jsonb
 
 from shopgate_commerce_data.database_core import database_url_from_env
 from shopgate_commerce_data.synthetic import (
+    DEFAULT_ITEM_POOL_SIZE,
     batched_events,
     synthetic_behavior_events,
     synthetic_master_rows,
@@ -255,6 +256,14 @@ def upsert_master_rows(
     master: dict[str, list[dict[str, Any]]],
 ) -> None:
     with connection.cursor() as cursor:
+        item_ids = [int(item["item_id"]) for item in master["items"]]
+        if item_ids:
+            # 主数据由当前行为流派生。只 upsert 不会移除上一次数据源留下的
+            # 商品，进而把库存健康分母和库存金额外推严重放大。
+            cursor.execute(
+                "DELETE FROM commerce.items WHERE NOT (item_id = ANY(%s))",
+                (item_ids,),
+            )
         cursor.executemany(
             """
             INSERT INTO commerce.categories (category_id, name, synthetic_name, parent_id)
@@ -298,6 +307,18 @@ def upsert_master_rows(
                 synthetic_master = EXCLUDED.synthetic_master
             """,
             master["items"],
+        )
+        cursor.execute(
+            "DELETE FROM commerce.categories c WHERE NOT EXISTS "
+            "(SELECT 1 FROM commerce.items i WHERE i.category_id = c.category_id)"
+        )
+        cursor.execute(
+            "DELETE FROM commerce.brands b WHERE NOT EXISTS "
+            "(SELECT 1 FROM commerce.items i WHERE i.brand_id = b.brand_id)"
+        )
+        cursor.execute(
+            "DELETE FROM commerce.shops s WHERE NOT EXISTS "
+            "(SELECT 1 FROM commerce.items i WHERE i.shop_id = s.shop_id)"
         )
 
 
@@ -387,6 +408,10 @@ def main() -> None:
     )
     synthetic_parser.add_argument("--users", type=int, default=10_000)
     synthetic_parser.add_argument("--days", type=int, default=9)
+    synthetic_parser.add_argument(
+        "--items", type=int, default=DEFAULT_ITEM_POOL_SIZE,
+        help="商品池规模；默认 1000，按头部/腰部/长尾分布抽样",
+    )
     synthetic_parser.add_argument("--seed", type=int, default=20251203)
     synthetic_parser.add_argument("--batch-size", type=int, default=10_000)
     synthetic_parser.add_argument(
@@ -448,6 +473,7 @@ def main() -> None:
                 "mode": "synthetic_fallback",
                 "users": args.users,
                 "days": args.days,
+                "items": args.items,
                 "seed": args.seed,
                 "time_shift": args.time_shift,
                 "anchor_end": args.anchor_end,
@@ -458,6 +484,7 @@ def main() -> None:
                     users=args.users,
                     days=args.days,
                     seed=args.seed,
+                    item_pool_size=args.items,
                     end_day=shift_target_end(args.anchor_end, args.time_shift),
                 ),
                 provider="synthetic",

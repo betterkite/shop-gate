@@ -550,6 +550,55 @@ async def inventory_risk(
     return rows[:limit]
 
 
+async def inventory_health(start: date, end: date) -> dict[str, Any]:
+    """返回全量商品的库存健康汇总，而不是只统计风险 Top N。
+
+    库销比接口按风险排序，直接用它计算动销占比会把观察窗口截断在
+    零销量商品上。动销口径固定为窗口内 ``sold > 0``，库存健康汇总则
+    覆盖全部商品，并把无库存商品单独列出，供 BI 看板使用。
+    """
+
+    rows = await fetch_all(
+        """
+        SELECT
+          COUNT(*) AS total_items,
+          COUNT(*) FILTER (WHERE COALESCE(i.stock, 0) > 0) AS in_stock_items,
+          COUNT(*) FILTER (
+            WHERE COALESCE(i.stock, 0) > 0 AND COALESCE(m.sold, 0) > 0
+          ) AS moving_items,
+          COUNT(*) FILTER (
+            WHERE COALESCE(i.stock, 0) > 0 AND COALESCE(m.sold, 0) = 0
+          ) AS stagnant_items,
+          COUNT(*) FILTER (WHERE COALESCE(i.stock, 0) = 0) AS out_of_stock_items,
+          COALESCE(SUM(m.sold), 0) AS sold_units,
+          COALESCE(SUM(i.stock), 0) AS stock_units
+        FROM commerce.items i
+        LEFT JOIN (
+          SELECT item_id, SUM(buy) AS sold
+          FROM commerce.daily_item_metrics
+          WHERE stat_date >= %s AND stat_date <= %s
+          GROUP BY item_id
+        ) m ON m.item_id = i.item_id
+        """,
+        (start, end),
+    )
+    row = rows[0] if rows else {}
+    total_items = int(row.get("total_items") or 0)
+    in_stock_items = int(row.get("in_stock_items") or 0)
+    moving_items = int(row.get("moving_items") or 0)
+    return {
+        "total_items": total_items,
+        "in_stock_items": in_stock_items,
+        "moving_items": moving_items,
+        "stagnant_items": int(row.get("stagnant_items") or 0),
+        "out_of_stock_items": int(row.get("out_of_stock_items") or 0),
+        "sold_units": int(row.get("sold_units") or 0),
+        "stock_units": int(row.get("stock_units") or 0),
+        "moving_share": round(moving_items / in_stock_items, 6) if in_stock_items else 0.0,
+        "window_days": (end - start).days + 1,
+    }
+
+
 async def daily_summary(stat_date: date) -> dict[str, Any]:
     rows = await fetch_all(
         """

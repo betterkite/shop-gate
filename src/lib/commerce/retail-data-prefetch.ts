@@ -311,6 +311,7 @@ async function fetchInventoryDataset(params: {
       window: { start: params.start, end: params.end },
       synthetic_fields: ['price', 'stock'],
       items: scoped,
+      health: payload.health ?? null,
     };
     const filePath = path.join(params.rawDir, 'inventory-risk.json');
     await writeJson(filePath, dataset);

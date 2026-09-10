@@ -22,6 +22,7 @@ SPEC_WORDS = ("经典款", "便携款", "礼盒装", "家庭装", "升级款", "
 PRICE_BASE_BANDS = (19.9, 49.9, 99.0, 199.0, 399.0, 699.0, 1299.0)
 
 BEHAVIOR_TYPES = ("pv", "fav", "cart", "buy")
+DEFAULT_ITEM_POOL_SIZE = 1_000
 
 
 def _rng(*parts: object) -> random.Random:
@@ -73,6 +74,30 @@ def title_for(item_id: int, category_name: str, brand_name: str, seed: int) -> s
 def listed_at_for(window_start: datetime, item_id: int, seed: int) -> datetime:
     days_back = _rng(seed, "listed", item_id).randint(0, 365)
     return window_start - timedelta(days=days_back)
+
+
+def daily_demand_multiplier(day: datetime) -> float:
+    """给合成行为增加可解释的周内季节性，避免 BI 趋势被随机噪声抹平。"""
+
+    weekday_factor = (0.88, 0.96, 1.03, 1.07, 1.12, 1.22, 1.28)[day.weekday()]
+    promo_wave = 1.0 + 0.04 * math.sin((day.timetuple().tm_yday % 14) / 14 * math.pi * 2)
+    return round(weekday_factor * promo_wave, 4)
+
+
+def sample_item_offset(rng: random.Random, item_pool_size: int) -> int:
+    """按头部/腰部/长尾抽样商品，模拟电商流量集中度。"""
+
+    pool_size = max(1, item_pool_size)
+    if pool_size == 1:
+        return 0
+    head_end = max(1, round(pool_size * 0.10))
+    middle_end = max(head_end + 1, round(pool_size * 0.40))
+    draw = rng.random()
+    if draw < 0.65:
+        return rng.randrange(head_end)
+    if draw < 0.90:
+        return rng.randrange(head_end, min(middle_end, pool_size))
+    return rng.randrange(min(middle_end, pool_size - 1), pool_size)
 
 
 def synthetic_master_rows(
@@ -144,7 +169,7 @@ def synthetic_behavior_events(
     days: int,
     seed: int,
     *,
-    item_pool_size: int = 10_000,
+    item_pool_size: int = DEFAULT_ITEM_POOL_SIZE,
     category_pool_size: int = 100,
     end_day: datetime | None = None,
 ) -> Iterator[dict[str, Any]]:
@@ -162,17 +187,18 @@ def synthetic_behavior_events(
         user_rng = _rng(seed, "user", user_id)
         for day_offset in range(days):
             day = first_day + timedelta(days=day_offset)
-            if user_rng.random() > 0.6:
+            demand = daily_demand_multiplier(day)
+            if user_rng.random() > min(0.9, 0.6 * demand):
                 continue
-            pv_count = user_rng.randint(1, 5)
-            item_offsets = [user_rng.randrange(item_pool_size) for _ in range(pv_count)]
+            pv_count = max(1, min(5, round(user_rng.randint(1, 5) * demand)))
+            item_offsets = [sample_item_offset(user_rng, item_pool_size) for _ in range(pv_count)]
             events: list[tuple[str, int]] = [("pv", offset) for offset in item_offsets]
-            if user_rng.random() < 0.25:
-                events.append(("fav", user_rng.randrange(item_pool_size)))
-            if user_rng.random() < 0.30:
-                events.append(("cart", user_rng.randrange(item_pool_size)))
-            if user_rng.random() < 0.15:
-                events.append(("buy", user_rng.randrange(item_pool_size)))
+            if user_rng.random() < min(0.8, 0.25 * demand):
+                events.append(("fav", sample_item_offset(user_rng, item_pool_size)))
+            if user_rng.random() < min(0.85, 0.30 * demand):
+                events.append(("cart", sample_item_offset(user_rng, item_pool_size)))
+            if user_rng.random() < min(0.7, 0.15 * demand):
+                events.append(("buy", sample_item_offset(user_rng, item_pool_size)))
             for behavior_type, item_offset in events:
                 item_id = item_base + item_offset
                 category_id = category_base + synthetic_item_offset_category(

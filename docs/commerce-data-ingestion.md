@@ -48,6 +48,11 @@ uv run --project services/commerce-data \
 uv run --project services/commerce-data \
   shopgate-commerce-import generate-synthetic-master
 
+# 无真实 CSV 时生成合成行为（演示默认 1,000 个商品）
+uv run --project services/commerce-data \
+  shopgate-commerce-import generate-synthetic-behavior \
+  --users 10000 --days 9 --items 1000
+
 # 重建商品/类目日聚合
 uv run --project services/commerce-data \
   shopgate-commerce-import aggregate-daily
@@ -58,6 +63,8 @@ uv run --project services/commerce-data \
 | 参数 | 默认 | 说明 |
 | --- | --- | --- |
 | `--users` | `10000` | 确定性抽样用户数（≤ 文件内独立用户数） |
+| `--items` | `1000`（合成行为） | 合成演示商品池规模；行为按头部/腰部/长尾分布抽样 |
+| `--days` | `9`（合成行为） | 合成行为窗口天数 |
 | `--seed` | `20251203` | 抽样种子，同种子可复现 |
 | `--time-shift` | `last-week` | `last-week`: 平移到最近一个完整周；`none`: 保留原始时间戳 |
 | `--anchor-end` | `2017-12-03` | 原始窗口末日（用于平移计算） |

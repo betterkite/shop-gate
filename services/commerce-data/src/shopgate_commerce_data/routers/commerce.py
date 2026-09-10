@@ -146,6 +146,7 @@ def create_commerce_router() -> APIRouter:
             "end": end_date.isoformat(),
             "synthetic_fields": ["price", "stock"],
             "items": await retail.inventory_risk(start_date, end_date, limit),
+            "health": await retail.inventory_health(start_date, end_date),
         }
 
     @router.get("/items")

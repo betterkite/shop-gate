@@ -17,6 +17,7 @@ export interface RetailBiOverview extends RetailBiRecord {
   top_traffic_items: RetailBiRecord[];
   inventory_anomalies: RetailBiRecord[];
   high_traffic_low_conversion: RetailBiRecord[];
+  inventory_health: RetailBiRecord;
   actions: string[];
 }
 
@@ -60,6 +61,20 @@ export function buildRetailBiOverview(params: {
   const daily = rows(params.funnelDaily?.rows);
   const categoryRows = rows(params.categories?.rows);
   const inventoryRows = rows(params.inventoryRisk?.items);
+  const inventoryHealth = params.inventoryRisk?.health && typeof params.inventoryRisk.health === 'object'
+    ? params.inventoryRisk.health as RetailBiRecord
+    : {
+      total_items: inventoryRows.length,
+      in_stock_items: inventoryRows.filter((item) => number(item.stock) > 0).length,
+      moving_items: inventoryRows.filter((item) => number(item.stock) > 0 && number(item.sold) > 0).length,
+      stagnant_items: inventoryRows.filter((item) => number(item.stock) > 0 && number(item.sold) <= 0).length,
+      out_of_stock_items: inventoryRows.filter((item) => number(item.stock) <= 0).length,
+      moving_share: ratio(
+        inventoryRows.filter((item) => number(item.stock) > 0 && number(item.sold) > 0).length,
+        inventoryRows.filter((item) => number(item.stock) > 0).length,
+      ),
+      source: '风险样本回退估算',
+    };
   const itemPoolRows = rows(params.itemPool?.items);
   const channelRows = rows(params.channels?.rows ?? params.channels);
 
@@ -212,6 +227,7 @@ export function buildRetailBiOverview(params: {
     top_traffic_items: topTrafficItems,
     inventory_anomalies: inventoryAnomalies,
     high_traffic_low_conversion: highTrafficLowConversion,
+    inventory_health: inventoryHealth,
     actions,
     limitations: [
       '行为指标来自当前数据窗口，窗口外趋势不支持。',

@@ -52,10 +52,22 @@ uv run --project services/commerce-data shopgate-commerce-import \
 - 相同参数第二次运行成功，行数仍为上述结果，未产生重复数据；
 - `GET /api/v1/commerce/datasets?dataset_id=retail-demo-expanded-v1` 返回契约、合成字段、生成规则和限制。
 
+数据质量扫描：
+
+```bash
+uv run --project services/commerce-data shopgate-commerce-import \
+  scan-analytics-dataset --dataset-id retail-demo-expanded-v1
+```
+
+最近一次扫描 `severity=ok`、`issue_count=0`，并已写入 `commerce.data_quality_scans`。行数、来源标记、订单会话关联、订单商品关联、库存滚动、库存非负和商品经济字段约束全部通过。
+
+现有 v1 能力回归：`/meta`、`/funnel`、`/categories/top`、`/inventory-risk`、`/summary` 五个接口在真实 UserBehavior 窗口 `2017-11-25`～`2017-12-03` 上均返回 HTTP 200；`npm run check:retail-e2e` 仍通过，30 条零售 case、4 项能力的最近运行证据保持 `ready=1/1`。
+
 ## 门禁
 
 - `uv run ruff check src tests`：通过；
 - `uv run pytest -q`：21 passed；
+- `scan-analytics-dataset`：`severity=ok`、`issue_count=0`；
 - `npm run type-check`：通过；
 - `npm run check:docs`：通过，54 个 Markdown、212 个本地链接；
 - commerce API / BI dataset 相关 Vitest：2 个文件、4 tests passed。

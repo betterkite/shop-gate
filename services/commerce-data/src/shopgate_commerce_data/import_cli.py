@@ -491,6 +491,139 @@ def replace_synthetic_analytics_dataset(
         )
 
 
+def scan_synthetic_analytics_dataset(
+    connection: psycopg.Connection[dict[str, Any]],
+    dataset_id: str,
+) -> dict[str, Any]:
+    """检查扩展数据集的契约行数、来源标记和关键关联，并写入质量扫描结果。"""
+
+    table_counts = {
+        "user_profiles": "dataset_user_profiles",
+        "channels": "dataset_channels",
+        "campaigns": "dataset_campaigns",
+        "sessions": "dataset_sessions",
+        "item_economics": "dataset_item_economics",
+        "orders": "dataset_orders",
+        "inventory_snapshots": "dataset_inventory_snapshots",
+    }
+    issues: list[str] = []
+    metrics: dict[str, Any] = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT * FROM commerce.dataset_contracts WHERE dataset_id = %s",
+            (dataset_id,),
+        )
+        contract = cursor.fetchone()
+        if contract is None:
+            raise SystemExit(f"数据集不存在：{dataset_id}")
+        expected_counts = contract["row_counts"] or {}
+        for key, table in table_counts.items():
+            cursor.execute(
+                f"SELECT COUNT(*) AS count FROM commerce.{table} WHERE dataset_id = %s",
+                (dataset_id,),
+            )
+            actual = int(cursor.fetchone()["count"])
+            expected = int(expected_counts.get(key, -1))
+            metrics[f"{key}_rows"] = actual
+            if actual != expected:
+                issues.append(f"{table} 行数 {actual} 与契约 {expected} 不一致")
+
+        marked_tables = tuple(table_counts.values())
+        for table in marked_tables:
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) AS count
+                FROM commerce.{table}
+                WHERE dataset_id = %s
+                  AND (source <> %s OR synthetic IS NOT TRUE)
+                """,
+                (dataset_id, contract["source_name"]),
+            )
+            unmarked = int(cursor.fetchone()["count"])
+            metrics[f"{table}_unmarked_rows"] = unmarked
+            if unmarked:
+                issues.append(f"{table} 有 {unmarked} 行来源或 synthetic 标记不符合契约")
+
+        checks = {
+            "orphan_orders": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_orders o
+                LEFT JOIN commerce.dataset_sessions s
+                  ON s.dataset_id = o.dataset_id AND s.session_id = o.session_id
+                WHERE o.dataset_id = %s AND s.session_id IS NULL
+            """,
+            "orphan_order_items": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_orders o
+                LEFT JOIN commerce.dataset_item_economics i
+                  ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
+                WHERE o.dataset_id = %s AND i.item_id IS NULL
+            """,
+            "negative_inventory": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_inventory_snapshots
+                WHERE dataset_id = %s
+                  AND (opening_stock < 0 OR inbound_qty < 0 OR sold_qty < 0
+                       OR reserved_qty < 0 OR closing_stock < 0)
+            """,
+            "invalid_inventory_rollforward": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_inventory_snapshots
+                WHERE dataset_id = %s
+                  AND closing_stock <> GREATEST(opening_stock + inbound_qty - sold_qty, 0)
+            """,
+            "invalid_economics": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_item_economics
+                WHERE dataset_id = %s
+                  AND (cost_price > list_price OR discount_rate < 0 OR discount_rate > 1)
+            """,
+        }
+        for name, query in checks.items():
+            cursor.execute(query, (dataset_id,))
+            count = int(cursor.fetchone()["count"])
+            metrics[name] = count
+            if count:
+                issues.append(f"{name}={count}")
+
+        checked_rows = sum(
+            int(value) for key, value in metrics.items() if key.endswith("_rows")
+        )
+        scan_id = f"analytics-quality-{dataset_id}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}"
+        severity = "ok" if not issues else "error"
+        cursor.execute(
+            """
+            INSERT INTO commerce.data_quality_scans
+              (id, universe_id, symbol, scope, timeframe, adjustment, status,
+               severity, checked_symbols, passed_symbols, warning_symbols,
+               failed_symbols, checked_rows, issue_count, issues, metrics,
+               started_at, completed_at)
+            VALUES (%s, %s, %s, 'analytics_dataset', 'daily', 'none', 'completed',
+                    %s, 1, %s, 0, %s, %s, %s, %s, %s, now(), now())
+            """,
+            (
+                scan_id,
+                dataset_id,
+                dataset_id,
+                severity,
+                1 if not issues else 0,
+                0 if not issues else 1,
+                checked_rows,
+                len(issues),
+                Jsonb(issues),
+                Jsonb(metrics),
+            ),
+        )
+    return {
+        "id": scan_id,
+        "dataset_id": dataset_id,
+        "severity": severity,
+        "issue_count": len(issues),
+        "issues": issues,
+        "metrics": metrics,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Shop Gate 零售数据导入工具")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -553,6 +686,12 @@ def main() -> None:
     analytics_parser.add_argument("--days", type=int, default=30)
     analytics_parser.add_argument("--seed", type=int, default=20251203)
     analytics_parser.add_argument("--end-day", default="2025-12-03")
+
+    quality_parser = subparsers.add_parser(
+        "scan-analytics-dataset",
+        help="检查扩展经营分析数据集并写入 data_quality_scans",
+    )
+    quality_parser.add_argument("--dataset-id", default=DEFAULT_ANALYTICS_DATASET_ID)
 
     args = parser.parse_args()
     connection = _connect()
@@ -644,6 +783,12 @@ def main() -> None:
             replace_synthetic_analytics_dataset(connection, dataset)
             connection.commit()
             print(f"[analytics] 完成：{dataset['contract']}")
+        elif args.command == "scan-analytics-dataset":
+            result = scan_synthetic_analytics_dataset(connection, args.dataset_id)
+            connection.commit()
+            print(f"[quality] 完成：{result}")
+            if result["issue_count"]:
+                raise SystemExit(1)
     finally:
         connection.close()
 

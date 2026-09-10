@@ -17,7 +17,7 @@ import {
 } from '@/lib/domains/retail/workspace';
 import type { RetailQueryRewriteResult } from '@/lib/domains/retail/query-rewrite';
 import { validateDataAgentArtifactContracts } from '@/lib/generation/artifact-contracts';
-import { validateQuantVisualPresentation } from '@/lib/commerce/visual-validation';
+import { validateRetailVisualPresentation } from '@/lib/commerce/visual-validation';
 import {
   generatedBuildScriptContents,
   restoreQuantDashboardTemplate,
@@ -801,7 +801,7 @@ async function checkVisualPresentation(
       summary: '无法执行视觉验收，因为预览 URL 不存在。',
     };
   }
-  const report = await validateQuantVisualPresentation({
+  const report = await validateRetailVisualPresentation({
     projectPath,
     projectId,
     previewUrl,

@@ -3,14 +3,14 @@ import path from 'path';
 import { DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH } from '@/lib/data-agent/workspace-layout';
 import { appendRetailWorkspaceEvent, ensureRetailWorkspace } from '@/lib/domains/retail/workspace';
 
-export type QuantVisualValidationStatus = 'passed' | 'failed' | 'warning';
+export type RetailVisualValidationStatus = 'passed' | 'failed' | 'warning';
 
-export interface QuantVisualViewportResult {
+export interface RetailVisualViewportResult {
   id: 'desktop' | 'mobile';
   width: number;
   height: number;
   screenshotPath: string;
-  status: QuantVisualValidationStatus;
+  status: RetailVisualValidationStatus;
   failures: string[];
   warnings: string[];
   metrics: {
@@ -38,7 +38,7 @@ export interface QuantVisualViewportResult {
     cardGridClusterCount: number;
     cardLikeSurfaceRatio: number;
     firstViewportCardLikeSurfaceRatio: number;
-    hasFinancialWorkbenchMarker: boolean;
+    hasRetailWorkbenchMarker: boolean;
     oversizedHeroLike: boolean;
     horizontalOverflow: boolean;
     blankLike: boolean;
@@ -47,7 +47,7 @@ export interface QuantVisualViewportResult {
   };
 }
 
-export interface QuantSurfaceCompositionMetrics {
+export interface RetailSurfaceCompositionMetrics {
   contentRegionCount: number;
   cardLikeSurfaceCount: number;
   firstViewportCardLikeSurfaceCount: number;
@@ -86,7 +86,7 @@ export function assessCoreVisualPresence(params: {
   return ['页面缺少可识别的图表元素。'];
 }
 
-export function assessFinancialWorkbenchSurface(metrics: QuantSurfaceCompositionMetrics): {
+export function assessRetailWorkbenchSurface(metrics: RetailSurfaceCompositionMetrics): {
   failures: string[];
   warnings: string[];
 } {
@@ -98,7 +98,7 @@ export function assessFinancialWorkbenchSurface(metrics: QuantSurfaceComposition
   if (cardGridDominates) {
     return {
       failures: [
-        '页面由独立圆角卡片网格主导；金融看板应使用连续工作台画布，以分区线、数据带、主图、矩阵和表格组织内容。',
+        '页面由独立圆角卡片网格主导；电商经营看板应使用连续分析画布，以分区线、指标带、主图、拆解表和行动建议组织内容。',
       ],
       warnings: [],
     };
@@ -116,16 +116,16 @@ export function assessFinancialWorkbenchSurface(metrics: QuantSurfaceComposition
   return { failures: [], warnings: [] };
 }
 
-export interface QuantVisualValidationReport {
+export interface RetailVisualValidationReport {
   schemaVersion: 1;
   projectId: string;
   requestId?: string | null;
-  status: QuantVisualValidationStatus;
+  status: RetailVisualValidationStatus;
   passed: boolean;
   previewUrl: string;
   reportPath: string;
   screenshotDir: string;
-  viewports: QuantVisualViewportResult[];
+  viewports: RetailVisualViewportResult[];
   failures: string[];
   warnings: string[];
   createdAt: string;
@@ -150,7 +150,7 @@ function uniq(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function statusFromIssues(failures: string[], warnings: string[]): QuantVisualValidationStatus {
+function statusFromIssues(failures: string[], warnings: string[]): RetailVisualValidationStatus {
   if (failures.length > 0) return 'failed';
   if (warnings.length > 0) return 'warning';
   return 'passed';
@@ -163,7 +163,7 @@ export function isVisualValidationInfrastructureError(error: unknown): boolean {
   );
 }
 
-async function writeReport(projectPath: string, report: QuantVisualValidationReport) {
+async function writeReport(projectPath: string, report: RetailVisualValidationReport) {
   await ensureRetailWorkspace(projectPath);
   await fs.writeFile(
     path.join(projectPath, DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH),
@@ -180,7 +180,7 @@ async function validateViewport(params: {
   previewUrl: string;
   timestamp: string;
   viewport: { id: 'desktop' | 'mobile'; width: number; height: number };
-}): Promise<QuantVisualViewportResult> {
+}): Promise<RetailVisualViewportResult> {
   const page = await params.browser.newPage({
     viewport: {
       width: params.viewport.width,
@@ -394,7 +394,7 @@ async function validateViewport(params: {
         cardGridClusterCount,
         cardLikeSurfaceRatio: cardLikeRegions.length / Math.max(1, contentRegions.length),
         firstViewportCardLikeSurfaceRatio: firstViewportCardLikeRegions.length / Math.max(1, firstViewportRegions.length),
-        hasFinancialWorkbenchMarker: Boolean(document.querySelector('[data-visual-language="retail-workbench"]')),
+        hasRetailWorkbenchMarker: Boolean(document.querySelector('[data-visual-language="retail-workbench"]')),
         oversizedHeroLike: oversizedHeading && firstViewportGraphicCount === 0 && firstViewportTableCount === 0,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         blankLike: bodyText.trim().length < 80 && rects.length < 8,
@@ -412,7 +412,7 @@ async function validateViewport(params: {
     // 零售工作台使用 `data-visual-language="retail-workbench"` 标记，不应被强制要求
     // 金融语义词（行情/K线/财务/风险/持仓…）。有该标记时放宽金融语义收紧项，但
     // 内容/首屏/核心图表校验仍保留，确保 retail 页面不是空白营销页。
-    const isRetailWorkbench = metrics.hasFinancialWorkbenchMarker;
+    const isRetailWorkbench = metrics.hasRetailWorkbenchMarker;
     if (!metrics.hasMarketLanguage && !isRetailWorkbench) {
       failures.push('页面缺少行情、K 线、财务、风险或持仓等金融语义。');
     }
@@ -441,7 +441,7 @@ async function validateViewport(params: {
       viewportId: params.viewport.id,
       orphanedMetricRowCount: metrics.orphanedMetricRowCount,
     }));
-    const surfaceAssessment = assessFinancialWorkbenchSurface(metrics);
+    const surfaceAssessment = assessRetailWorkbenchSurface(metrics);
     failures.push(...surfaceAssessment.failures);
     warnings.push(...surfaceAssessment.warnings);
     if (!metrics.hasDataFreshnessLanguage) {
@@ -469,12 +469,12 @@ async function validateViewport(params: {
   }
 }
 
-export async function validateQuantVisualPresentation(params: {
+export async function validateRetailVisualPresentation(params: {
   projectPath: string;
   projectId: string;
   previewUrl: string;
   requestId?: string | null;
-}): Promise<QuantVisualValidationReport> {
+}): Promise<RetailVisualValidationReport> {
   const projectPath = path.resolve(params.projectPath);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const createdAt = nowIso();
@@ -500,7 +500,7 @@ export async function validateQuantVisualPresentation(params: {
     const warnings = uniq(viewports.flatMap((viewport) => viewport.warnings.map((warning) => `${viewport.id}：${warning}`)));
     const updatedAt = nowIso();
     const status = statusFromIssues(failures, warnings);
-    const report: QuantVisualValidationReport = {
+    const report: RetailVisualValidationReport = {
       schemaVersion: 1,
       projectId: params.projectId,
       requestId: params.requestId ?? null,
@@ -536,7 +536,7 @@ export async function validateQuantVisualPresentation(params: {
     const infrastructureUnavailable = isVisualValidationInfrastructureError(error);
     const warning =
       '视觉截图验收已跳过：当前运行环境未安装 Playwright Chromium；运行 npx playwright install chromium 后可恢复桌面端和移动端截图验收。';
-    const report: QuantVisualValidationReport = {
+    const report: RetailVisualValidationReport = {
       schemaVersion: 1,
       projectId: params.projectId,
       requestId: params.requestId ?? null,
@@ -569,12 +569,12 @@ export async function validateQuantVisualPresentation(params: {
   }
 }
 
-export async function readQuantVisualValidationReport(projectPath: string): Promise<QuantVisualValidationReport | null> {
+export async function readRetailVisualValidationReport(projectPath: string): Promise<RetailVisualValidationReport | null> {
   const content = await fs.readFile(path.join(projectPath, DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH), 'utf8').catch(() => null);
   if (!content) return null;
   try {
     const parsed = JSON.parse(content);
-    return parsed && typeof parsed === 'object' ? parsed as QuantVisualValidationReport : null;
+    return parsed && typeof parsed === 'object' ? parsed as RetailVisualValidationReport : null;
   } catch {
     return null;
   }

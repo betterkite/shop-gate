@@ -12,7 +12,7 @@ import {
 import { readDataAgentArtifactContractReport, type DataAgentArtifactContractReport } from '@/lib/generation/artifact-contracts';
 import { readGenerationQueue, type GenerationQueueState } from '@/lib/generation/generation-queue';
 import { readGenerationState, type GenerationState } from '@/lib/generation/generation-state';
-import { readQuantVisualValidationReport, type QuantVisualValidationReport } from '@/lib/commerce/visual-validation';
+import { readRetailVisualValidationReport, type RetailVisualValidationReport } from '@/lib/commerce/visual-validation';
 import { normalizeModelId } from '@/lib/constants/models';
 
 type JsonRecord = Record<string, unknown>;
@@ -778,7 +778,7 @@ function buildArtifactContractEvents(projectId: string, report: DataAgentArtifac
   ];
 }
 
-function buildVisualValidationEvents(projectId: string, report: QuantVisualValidationReport | null): GenerationTimelineEvent[] {
+function buildVisualValidationEvents(projectId: string, report: RetailVisualValidationReport | null): GenerationTimelineEvent[] {
   if (!report) return [];
   return [
     {
@@ -954,7 +954,7 @@ async function inspectProjectTrace(
     readGenerationState(projectPath),
     readGenerationQueue(projectPath, project.id),
     readDataAgentArtifactContractReport(projectPath),
-    readQuantVisualValidationReport(projectPath),
+    readRetailVisualValidationReport(projectPath),
   ]);
   const timeline = dedupeTimeline([
     ...buildUserRequestEvents(project),

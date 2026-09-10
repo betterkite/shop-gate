@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assessCoreVisualPresence,
-  assessFinancialWorkbenchSurface,
+  assessRetailWorkbenchSurface,
   assessMetricStripBalance,
   isVisualValidationInfrastructureError,
 } from './visual-validation';
@@ -46,7 +46,7 @@ describe('visual validation infrastructure errors', () => {
 
 describe('financial workbench surface composition', () => {
   it('rejects a first viewport dominated by a rounded card grid', () => {
-    const result = assessFinancialWorkbenchSurface({
+    const result = assessRetailWorkbenchSurface({
       contentRegionCount: 9,
       cardLikeSurfaceCount: 7,
       firstViewportCardLikeSurfaceCount: 6,
@@ -62,7 +62,7 @@ describe('financial workbench surface composition', () => {
   });
 
   it('accepts a continuous canvas with a small number of detached alerts', () => {
-    expect(assessFinancialWorkbenchSurface({
+    expect(assessRetailWorkbenchSurface({
       contentRegionCount: 16,
       cardLikeSurfaceCount: 2,
       firstViewportCardLikeSurfaceCount: 1,
@@ -73,7 +73,7 @@ describe('financial workbench surface composition', () => {
   });
 
   it('rejects a card-dominant page even when cards are not sibling grid items', () => {
-    const result = assessFinancialWorkbenchSurface({
+    const result = assessRetailWorkbenchSurface({
       contentRegionCount: 13,
       cardLikeSurfaceCount: 8,
       firstViewportCardLikeSurfaceCount: 4,
@@ -89,7 +89,7 @@ describe('financial workbench surface composition', () => {
   });
 
   it('warns before a page crosses the blocking card-grid threshold', () => {
-    const result = assessFinancialWorkbenchSurface({
+    const result = assessRetailWorkbenchSurface({
       contentRegionCount: 14,
       cardLikeSurfaceCount: 8,
       firstViewportCardLikeSurfaceCount: 4,

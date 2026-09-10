@@ -70,7 +70,7 @@ describe('generation state terminal transitions', () => {
       errorMessage: 'MAX_TOKENS',
     });
 
-    expect(await readQuantGenerationState(projectPath)).toMatchObject({
+    expect(await readGenerationState(projectPath)).toMatchObject({
       status: 'repairing',
       completedAt: null,
       requestId: 'request-repair-state',

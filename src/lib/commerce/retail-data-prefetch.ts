@@ -153,6 +153,7 @@ async function fetchFunnelDatasets(params: {
 async function fetchCategoriesDataset(params: {
   start: string;
   end: string;
+  dailySnapshot?: boolean;
   categoryIds: number[];
   rawDir: string;
   rawFiles: string[];
@@ -160,8 +161,9 @@ async function fetchCategoriesDataset(params: {
   sources: JsonRecord[];
 }): Promise<JsonRecord | null> {
   try {
+    const queryStart = params.dailySnapshot ? params.end : params.start;
     const payload = await fetchCommerceJson('/api/v1/commerce/categories/top', {
-      start: params.start,
+      start: queryStart,
       end: params.end,
       metric: 'gmv',
       limit: '50',
@@ -379,6 +381,7 @@ export async function prefetchRetailDataForRunPlan(params: {
     const categories = await fetchCategoriesDataset({
       start: window.start,
       end: window.end,
+      dailySnapshot: params.plan.capabilityId === 'daily_brief',
       categoryIds,
       rawDir,
       rawFiles,

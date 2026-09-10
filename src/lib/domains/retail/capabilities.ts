@@ -183,7 +183,7 @@ export const RETAIL_CAPABILITIES: RetailCapability[] = [
     validationRules: [
       '类目排名必须来自真实日聚合表，并注明合成金额口径。',
       '类目名是合成映射（synthetic_name=true），页面必须保留标注。',
-      '页面必须包含类目排名、集中度（top-5 占比）和至少一个商品动销明细。',
+      '页面必须包含类目排名、集中度（top-5 占比）、高流量低转化诊断和至少一个商品动销明细。',
       '可视化必须使用 catalog-structure 模板。',
       '不得把合成金额表述为真实交易数据。',
     ],
@@ -191,7 +191,7 @@ export const RETAIL_CAPABILITIES: RetailCapability[] = [
       '优先把类目拆成 GMV、转化率、客单价三列。',
       '读取 data_file/final/dashboard-data.json 中的 categories 数据集。',
       '集中度必须给出计算口径（top-5 类目 GMV 占比）。',
-      '高曝光低转化商品要单独成表，不要混进类目榜。',
+      '高流量低转化类目要单独成表，说明流量阈值、整体转化率基线和诊断建议。',
     ],
   },
   {

@@ -84,8 +84,10 @@ describe('PI Agent Shop Gate prompts', () => {
         datasets: {
           meta: { window: { start: '2017-11-25', end: '2017-12-03' } },
           funnel: { window: { start: '2017-11-25', end: '2017-12-03' }, stages: [
-            { stage: 'pv', events: 10 }, { stage: 'fav', events: 5 },
-            { stage: 'cart', events: 3 }, { stage: 'buy', events: 1 },
+            { stage: 'pv', events: 10, unique_users: 8, user_reach_from_pv: 1 },
+            { stage: 'fav', events: 5, unique_users: 4, user_reach_from_pv: 0.5 },
+            { stage: 'cart', events: 3, unique_users: 3, user_reach_from_pv: 0.375 },
+            { stage: 'buy', events: 1, unique_users: 1, user_reach_from_pv: 0.125 },
           ] },
           funnelDaily: { window: { start: '2017-11-25', end: '2017-12-03' }, rows: [
             { stat_date: '2017-11-25', pv: 10, fav: 5, cart: 3, buy: 1 },

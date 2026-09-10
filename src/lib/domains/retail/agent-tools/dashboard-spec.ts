@@ -173,7 +173,11 @@ function funnelStagesReady(finalData: JsonRecord): boolean {
   if (stages.length !== order.length) return false;
   return stages.every((stage, index) => {
     if (contractString(stage.stage) !== order[index]) return false;
-    return finiteNumber(stage.events) !== null;
+    return (
+      finiteNumber(stage.events) !== null &&
+      finiteNumber(stage.unique_users) !== null &&
+      finiteNumber(stage.user_reach_from_pv) !== null
+    );
   });
 }
 
@@ -188,6 +192,14 @@ function categoriesReady(finalData: JsonRecord): boolean {
     finiteNumber(row.gmv) !== null &&
     finiteNumber(row.pv) !== null &&
     finiteNumber(row.buy) !== null
+  ));
+}
+
+function categoryMovementsReady(finalData: JsonRecord): boolean {
+  const rows = datasetRows(finalData, 'categories');
+  return rows.length >= 1 && rows.every((row) => (
+    Object.prototype.hasOwnProperty.call(row, 'gmv_day_over_day') &&
+    Object.prototype.hasOwnProperty.call(row, 'buy_conversion_day_over_day')
   ));
 }
 
@@ -231,7 +243,7 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     requiredComponents: ['漏斗事件总览', '分日转化趋势', '分类目对比表', '数据质量说明'],
     dataPrerequisites: [
       { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
-      { id: 'funnel_stages', description: 'funnel 四阶段事件计数', satisfiedBy: funnelStagesReady },
+      { id: 'funnel_stages', description: 'funnel 四阶段事件计数与独立用户触达率', satisfiedBy: funnelStagesReady },
       { id: 'funnel_daily', description: '分日趋势至少两日', satisfiedBy: funnelDailyReady },
     ],
   },
@@ -239,7 +251,7 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     capabilityId: 'catalog_structure',
     renderer: 'catalog-structure',
     templateId: 'catalog-structure',
-    requiredComponents: ['类目GMV排名', '集中度口径', '类目指标矩阵', '数据质量说明'],
+    requiredComponents: ['类目GMV排名', '集中度口径', '类目指标矩阵', '高流量低转化诊断', '数据质量说明'],
     dataPrerequisites: [
       { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
       { id: 'categories_rows', description: '类目行含 gmv/pv/buy', satisfiedBy: categoriesReady },
@@ -259,10 +271,11 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     capabilityId: 'daily_brief',
     renderer: 'daily-brief',
     templateId: 'daily-brief',
-    requiredComponents: ['当日总量摘要', '环比表', '类目异动榜', '数据质量说明'],
+      requiredComponents: ['当日总量摘要', '环比表', '类目异动榜', '数据质量说明'],
     dataPrerequisites: [
       { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
       { id: 'daily_summary', description: 'summary 快照与环比可用', satisfiedBy: dailySummaryReady },
+      { id: 'category_movements', description: '类目末日环比字段可用', satisfiedBy: categoryMovementsReady },
     ],
   },
 ];

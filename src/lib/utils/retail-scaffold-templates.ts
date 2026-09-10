@@ -220,6 +220,7 @@ export function retailFunnelPageTemplate(): string {
   return pageWrapper(
     `const funnel = asRecord(datasets.funnel);
   const funnelStages = asArray(funnel?.stages).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const uniqueUsers = asRecord(funnel?.unique_users);
   const funnelDaily = asArray(asRecord(datasets.funnelDaily)?.rows);
   const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
@@ -239,6 +240,13 @@ export function retailFunnelPageTemplate(): string {
     value: numeric(stage.events) ?? 0,
     color: stageColors[text(stage.stage)] ?? '#94a3b8',
   }));
+  const largestEventDrop = funnelStages.slice(1)
+    .map((stage, index) => ({
+      from: behaviorLabel(funnelStages[index].stage),
+      to: behaviorLabel(stage.stage),
+      drop: Math.max(0, (numeric(funnelStages[index].events) ?? 0) - (numeric(stage.events) ?? 0)),
+    }))
+    .sort((left, right) => right.drop - left.drop)[0];
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
@@ -253,17 +261,25 @@ export function retailFunnelPageTemplate(): string {
         <h2>行为漏斗（页面浏览量（PV） → 收藏（Fav） → 加购（Cart） → 购买（Buy））</h2>
         {funnelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(funnelBars, '事件漏斗') }} /> : <p>漏斗数据缺失。</p>}
         <table className="dense-table">
-          <thead><tr><th>阶段</th><th>事件数</th><th>相对上一阶段</th></tr></thead>
+          <thead><tr><th>阶段</th><th>事件数</th><th>独立用户数</th><th>事件相对上一阶段</th><th>用户触达率（相对 PV 用户）</th></tr></thead>
           <tbody>
             {funnelStages.map((stage, index) => (
               <tr key={'stage-' + index}>
                 <td>{behaviorLabel(stage.stage)}</td>
                 <td>{displayNumber(stage.events, 0)}</td>
+                <td>{displayNumber(uniqueUsers?.[String(stage.stage)] ?? stage.unique_users, 0)}</td>
                 <td>{stage.conversion_from_previous === null || stage.conversion_from_previous === undefined ? '-' : displayPercent(stage.conversion_from_previous)}</td>
+                <td>{stage.user_reach_from_pv === undefined ? '-' : displayPercent(stage.user_reach_from_pv)}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p className="footnote">事件数允许同一用户重复计数；独立用户数按 user_id 去重。用户触达率 = 当前阶段独立用户数 / 页面浏览量（PV）独立用户数。</p>
+      </section>
+      <section className="insight-strip">
+        <article><span>最大事件流失</span><strong>{largestEventDrop ? largestEventDrop.from + ' → ' + largestEventDrop.to + '，减少 ' + displayNumber(largestEventDrop.drop, 0) + ' 次' : '暂无足够数据'}</strong></article>
+        <article><span>购买用户触达率</span><strong>{displayPercent(funnelStages.find((stage) => String(stage.stage) === 'buy')?.user_reach_from_pv)}</strong></article>
+        <article><span>分析建议</span><strong>{largestEventDrop ? '优先检查' + largestEventDrop.from + '到' + largestEventDrop.to + '之间的商品承接与转化' : '补充至少两日行为数据'}</strong></article>
       </section>
       <section className="chart-zone">
         <h2>漏斗阶段占比</h2>
@@ -295,12 +311,19 @@ export function retailCatalogPageTemplate(): string {
   const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
   const totalGmv = ranked.reduce((sum, row) => sum + (numeric(row.gmv) ?? 0), 0);
+  const totalPv = ranked.reduce((sum, row) => sum + (numeric(row.pv) ?? 0), 0);
+  const totalBuy = ranked.reduce((sum, row) => sum + (numeric(row.buy) ?? 0), 0);
+  const overallConversion = totalPv > 0 ? totalBuy / totalPv : 0;
   const top5Gmv = ranked.slice(0, 5).reduce((sum, row) => sum + (numeric(row.gmv) ?? 0), 0);
   const concentration = totalGmv > 0 ? top5Gmv / totalGmv : null;
   const gmvBars = ranked.slice(0, 8).map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
   const donutSegments = totalGmv > 0
     ? [{ label: 'Top-5', value: top5Gmv, color: '#2563eb' }, { label: '其他', value: totalGmv - top5Gmv, color: '#cbd5e1' }]
     : [];
+  const highTrafficLowConversion = ranked
+    .filter((row) => (numeric(row.pv) ?? 0) >= Math.max(1, totalPv * 0.05) && (numeric(row.buy_conversion) ?? 0) < overallConversion)
+    .sort((left, right) => (numeric(right.pv) ?? 0) - (numeric(left.pv) ?? 0))
+    .slice(0, 5);
   const dailySeries = asArray(asRecord(datasets.funnelDaily)?.rows)
     .map(asRecord).filter((record): record is JsonRecord => record !== null);
   return (
@@ -338,6 +361,16 @@ export function retailCatalogPageTemplate(): string {
         <h2>类目集中度（Top-5 成交总额（GMV）占比）</h2>
         {donutSegments.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(donutSegments, 'Top-5 占比') }} /> : <p>集中度缺数据。</p>}
         <p className="footnote">集中度 = Top-5 类目成交总额（GMV）/ 全部类目成交总额（GMV）；金额为合成口径。</p>
+      </section>
+      <section className="chart-zone">
+        <h2>高流量低转化诊断</h2>
+        <p className="footnote">筛选条件：类目页面浏览量（PV）至少占当前类目流量 5%，且转化率低于类目整体转化率 {displayPercent(overallConversion)}。</p>
+        {highTrafficLowConversion.length > 0 ? (
+          <table className="dense-table">
+            <thead><tr><th>类目</th><th>页面浏览量（PV）</th><th>成交总额（GMV）</th><th>转化率</th><th>相对整体</th><th>诊断建议</th></tr></thead>
+            <tbody>{highTrafficLowConversion.map((row, index) => <tr key={'risk-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayMoney(row.gmv)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent((numeric(row.buy_conversion) ?? 0) - overallConversion)}</td><td>优先检查商品承接、价格与页面转化</td></tr>)}</tbody>
+          </table>
+        ) : <p>当前没有满足条件的高流量低转化类目。</p>}
       </section>
       <section className="chart-zone">
         <h2>分日页面浏览量（PV）/ 加购 / 购买趋势</h2>
@@ -439,8 +472,8 @@ export function retailDailyBriefPageTemplate(): string {
   const categories = asArray(asRecord(asRecord(datasets.categories)?.window ? datasets.categories : datasets.categories)?.rows)
     .map(asRecord).filter((record): record is JsonRecord => record !== null);
   const movers = [...categories]
-    .filter((row) => row.gmv !== undefined)
-    .sort((left, right) => (numeric(right.gmv) ?? 0) - (numeric(left.gmv) ?? 0))
+    .filter((row) => row.gmv !== undefined && row.gmv_day_over_day !== null && row.gmv_day_over_day !== undefined)
+    .sort((left, right) => Math.abs(numeric(right.gmv_day_over_day) ?? 0) - Math.abs(numeric(left.gmv_day_over_day) ?? 0))
     .slice(0, 8);
   const moverBars = movers.map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
   const dailySeries = asArray(asRecord(datasets.funnelDaily)?.rows)
@@ -448,9 +481,10 @@ export function retailDailyBriefPageTemplate(): string {
   const negativeChanges = dayOverDay
     ? Object.entries(dayOverDay).filter(([, value]) => (numeric(value) ?? 0) < 0)
     : [];
+  const topMover = movers[0];
   const actionText = negativeChanges.length > 0
-    ? '优先下钻负向指标对应的类目与商品，复核转化和库存。'
-    : '继续观察头部类目，同时复核价格带和库存健康度。';
+    ? '优先下钻' + (topMover ? text(topMover.category_name) : '负向指标对应') + '类目与商品，复核转化和库存。'
+    : '继续观察' + (topMover ? text(topMover.category_name) : '头部类目') + '，同时复核价格带和库存健康度。';
   const meta = asRecord(datasets.meta);
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
@@ -493,19 +527,21 @@ export function retailDailyBriefPageTemplate(): string {
         <h2>类目成交总额（GMV）榜（当日观察）</h2>
         {moverBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(moverBars, '类目GMV') }} /> : <p>类目数据缺失。</p>}
         <table className="dense-table">
-          <thead><tr><th>类目</th><th>成交总额（GMV）</th><th>购买</th><th>转化率</th></tr></thead>
+          <thead><tr><th>类目</th><th>成交总额（GMV）</th><th>成交总额环比</th><th>购买</th><th>转化率</th><th>转化率环比</th></tr></thead>
           <tbody>
             {movers.map((row, index) => (
               <tr key={'mover-' + index}>
                 <td>{text(row.category_name)}</td>
                 <td>{displayMoney(row.gmv)}</td>
+                <td>{displayPercent(row.gmv_day_over_day)}</td>
                 <td>{displayNumber(row.buy, 0)}</td>
                 <td>{displayPercent(row.buy_conversion)}</td>
+                <td>{displayPercent(row.buy_conversion_day_over_day)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="footnote">日报只描述窗口内当日观察，不做长期趋势推断；金额为合成口径。</p>
+        <p className="footnote">异动榜按窗口末日成交总额环比绝对值排序；前一日无成交的类目不计算环比。日报只描述窗口内当日观察，不做长期趋势推断；金额为合成口径。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>

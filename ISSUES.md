@@ -23,6 +23,7 @@
 | ISSUE-P15 | 权限与配额命名从 QuantPilot 迁移到 commerce/operations | P12 | 当前代码使用 `commerce.*` / `operations.*`；新增追加式 migration 同步 grant、override、quota、bucket、reservation、event；历史 migration 不改 | done（本轮已完成代码、文档、测试和 `20260909000200_rename_retail_access_metrics`） |
 | ISSUE-P16 | 视觉回归与 catalog 基准稳定性 | P16 | 登录态视觉 smoke 可稳定运行；R01–R04 连续运行无随机 token-budget 假失败；release gate 输出可审计报告 | in-progress（已接入真实 DeepSeek 直连验收；修复零售模板误用选股/K 线/MA60 验证规则、窗口内全库澄清误判与合法 `timeRange.value=null`；串行 R01–R04 已 4/4 READY。剩余：登录态视觉 smoke 独立门禁、失败 campaign 预览进程自动清理） |
 | ISSUE-P17 | 电商经营分析体验与生成看板视觉升级 | P17 | 商品运营/经营情报有统一返回入口；桌面与移动端视觉通过；生成看板形成“总览→趋势→异常→拆解→行动”闭环，所有金额/库存来源显式标注；模板校验、类型检查与 retail e2e 通过 | in-progress（本切片按可访问的相关电商 BI 方案建立指标与分析路径；用户提供的知乎原文直连返回 403、浏览器加载超时，未将其当作已核验内容；本轮新增 UV 去重口径、中文优先指标标签及移动端溢出修复） |
+| ISSUE-P18 | 零售看板数据分析深度：用户漏斗、类目诊断与日报异动 | P17 | 漏斗同时展示事件数与独立用户触达率；类目看板提供高流量低转化诊断；日报异动榜按末日环比绝对值排序并给出分析建议；数据契约、后端测试、模板验证和 retail e2e 通过 | done（实现与验收完成，待用户业务验收；记录见 `docs/review/p18-retail-analytics.md`） |
 
 ## P0 结果与残留台账（2025-09-06，随阶段推进收敛）
 

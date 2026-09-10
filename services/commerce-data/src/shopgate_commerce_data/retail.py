@@ -25,13 +25,18 @@ def parse_iso_date(value: str | None, fallback: date | None = None) -> date | No
         raise ValueError(f"日期格式必须是 YYYY-MM-DD：{value!r}") from error
 
 
-def funnel_stages(counts: dict[str, int]) -> list[dict[str, Any]]:
+def funnel_stages(
+    counts: dict[str, int],
+    unique_users: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
     """把 pv/fav/cart/buy 事件计数组装成漏斗阶段（纯函数）。
 
     每一阶段给出事件数、去重口径之外的相对上一阶段转化率；缺失阶段按 0 处理。
     """
 
     stages: list[dict[str, Any]] = []
+    user_counts = unique_users or {}
+    pv_users = max(0, int(user_counts.get("pv", 0)))
     previous = 0
     for index, behavior_type in enumerate(BEHAVIOR_ORDER):
         events = max(0, int(counts.get(behavior_type, 0)))
@@ -39,6 +44,7 @@ def funnel_stages(counts: dict[str, int]) -> list[dict[str, Any]]:
             "stage": behavior_type,
             "order": index,
             "events": events,
+            "unique_users": max(0, int(user_counts.get(behavior_type, 0))),
         }
         if index == 0:
             stage["conversion_from_previous"] = None
@@ -46,6 +52,9 @@ def funnel_stages(counts: dict[str, int]) -> list[dict[str, Any]]:
             stage["conversion_from_previous"] = (
                 round(events / previous, 6) if previous > 0 else 0.0
             )
+        stage["user_reach_from_pv"] = (
+            round(stage["unique_users"] / pv_users, 6) if pv_users > 0 else 0.0
+        )
         stages.append(stage)
         previous = events
     return stages
@@ -218,7 +227,7 @@ async def behavior_funnel(
         "start": start.isoformat(),
         "end": end.isoformat(),
         "category_id": category_id,
-        "stages": funnel_stages(counts),
+        "stages": funnel_stages(counts, users_by_type),
         "unique_users": users_by_type,
     }
 
@@ -273,35 +282,83 @@ async def top_categories(
     if metric not in {"gmv", "pv", "buy", "cart", "fav"}:
         raise ValueError(f"不支持的类目指标：{metric}")
     rows = await fetch_all(
-        """
+        f"""
+        WITH window_metrics AS (
+          SELECT
+            category_id,
+            SUM(pv) AS pv,
+            SUM(fav) AS fav,
+            SUM(cart) AS cart,
+            SUM(buy) AS buy,
+            SUM(gmv) AS gmv,
+            SUM(buyers) AS buyers
+          FROM commerce.daily_category_metrics
+          WHERE stat_date >= %s AND stat_date <= %s
+          GROUP BY category_id
+        ), previous_metrics AS (
+          SELECT
+            category_id,
+            SUM(pv) AS pv,
+            SUM(buy) AS buy,
+            SUM(gmv) AS gmv
+          FROM commerce.daily_category_metrics
+          WHERE stat_date = %s
+          GROUP BY category_id
+        )
         SELECT
           m.category_id,
           c.name AS category_name,
           c.synthetic_name,
-          SUM(m.pv) AS pv,
-          SUM(m.fav) AS fav,
-          SUM(m.cart) AS cart,
-          SUM(m.buy) AS buy,
-          SUM(m.gmv) AS gmv,
-          SUM(m.buyers) AS buyers
-        FROM commerce.daily_category_metrics m
+          m.pv,
+          m.fav,
+          m.cart,
+          m.buy,
+          m.gmv,
+          m.buyers,
+          COALESCE(p.pv, 0) AS previous_pv,
+          COALESCE(p.buy, 0) AS previous_buy,
+          COALESCE(p.gmv, 0) AS previous_gmv
+        FROM window_metrics m
         LEFT JOIN commerce.categories c ON c.category_id = m.category_id
-        WHERE m.stat_date >= %s AND m.stat_date <= %s
-        GROUP BY m.category_id, c.name, c.synthetic_name
-        ORDER BY {metric_column} DESC
+        LEFT JOIN previous_metrics p ON p.category_id = m.category_id
+        ORDER BY m.{metric} DESC
         LIMIT %s
-        """.format(metric_column=f"SUM(m.{metric})"),
-        (start, end, limit),
+        """,
+        (start, end, end - timedelta(days=1), limit),
     )
     for row in rows:
         for key in ("pv", "fav", "cart", "buy", "buyers"):
             row[key] = int(row[key] or 0)
         row["gmv"] = float(row.get("gmv") or 0)
+        previous_pv = int(row.pop("previous_pv") or 0)
+        previous_buy = int(row.pop("previous_buy") or 0)
+        previous_gmv = float(row.pop("previous_gmv") or 0)
         row["buy_conversion"] = (
             round(row["buy"] / row["pv"], 6) if row.get("pv") else 0.0
         )
         row["avg_price"] = (
             round(row["gmv"] / row["buy"], 2) if row.get("buy") else 0.0
+        )
+        row["gmv_day_over_day"] = (
+            round((row["gmv"] - previous_gmv) / previous_gmv, 6)
+            if previous_gmv
+            else None
+        )
+        row["pv_day_over_day"] = (
+            round((row["pv"] - previous_pv) / previous_pv, 6)
+            if previous_pv
+            else None
+        )
+        row["buy_day_over_day"] = (
+            round((row["buy"] - previous_buy) / previous_buy, 6)
+            if previous_buy
+            else None
+        )
+        previous_conversion = previous_buy / previous_pv if previous_pv else 0.0
+        row["buy_conversion_day_over_day"] = (
+            round(row["buy_conversion"] - previous_conversion, 6)
+            if previous_pv
+            else None
         )
     return rows
 

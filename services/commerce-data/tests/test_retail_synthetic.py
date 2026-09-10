@@ -35,6 +35,17 @@ def test_funnel_stages_handles_missing_stages() -> None:
     assert stages[3]["conversion_from_previous"] == 0.0
 
 
+def test_funnel_stages_exposes_unique_user_reach() -> None:
+    stages = funnel_stages(
+        {"pv": 1000, "fav": 100, "cart": 300, "buy": 50},
+        {"pv": 400, "fav": 80, "cart": 120, "buy": 45},
+    )
+    assert [stage["unique_users"] for stage in stages] == [400, 80, 120, 45]
+    assert stages[0]["user_reach_from_pv"] == 1.0
+    assert stages[1]["user_reach_from_pv"] == 0.2
+    assert stages[3]["user_reach_from_pv"] == 0.1125
+
+
 def test_sell_through_ratio_floor_and_ranking() -> None:
     assert sell_through_ratio(stock=0, sold=0, days=9) == 0.0
     assert sell_through_ratio(stock=100, sold=0, days=9) == 100 / 0.01

@@ -146,6 +146,8 @@ describe('restoreQuantDashboardTemplate', () => {
     expect(page).toContain('data-visual-language="retail-workbench"');
     expect(page).toContain('零售经营看板');
     expect(page).toContain('synthetic-badge');
+    expect(page).toContain('return <span className="synthetic-badge"');
+    expect(page).not.toContain("return '<span class=\"synthetic-badge\"");
     expect(page).toContain('数据集覆盖');
     expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .synthetic-badge');
     expect(css).toContain('.dashboard-shell[data-visual-language="retail-workbench"] .dense-table');

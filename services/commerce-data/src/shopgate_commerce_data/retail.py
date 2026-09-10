@@ -507,6 +507,23 @@ async def daily_summary(stat_date: date) -> dict[str, Any]:
     def _float(value: Any) -> float:
         return float(value) if value is not None else 0.0
 
+    unique_user_rows = await fetch_all(
+        """
+        SELECT event_ts::date AS stat_date, COUNT(DISTINCT user_id) AS uv
+        FROM commerce.user_behavior_events
+        WHERE event_ts >= %s AND event_ts < %s
+        GROUP BY event_ts::date
+        """,
+        (stat_date - timedelta(days=1), stat_date + timedelta(days=1)),
+    )
+    unique_users_by_day = {
+        row["stat_date"]: int(row["uv"] or 0) for row in unique_user_rows
+    }
+    if current is not None:
+        current["uv"] = unique_users_by_day.get(stat_date, 0)
+    if previous is not None:
+        previous["uv"] = unique_users_by_day.get(stat_date - timedelta(days=1), 0)
+
     summary: dict[str, Any] = {"stat_date": stat_date.isoformat()}
     if current is None:
         summary["status"] = "no_data"
@@ -514,7 +531,7 @@ async def daily_summary(stat_date: date) -> dict[str, Any]:
     summary["status"] = "ok"
     summary["totals"] = {
         key: (_float(current[key]) if key == "gmv" else int(current[key] or 0))
-        for key in ("pv", "fav", "cart", "buy", "buyers", "gmv")
+        for key in ("pv", "uv", "fav", "cart", "buy", "buyers", "gmv")
     }
     if previous is not None and int(previous["pv"] or 0):
         summary["day_over_day"] = {
@@ -523,7 +540,7 @@ async def daily_summary(stat_date: date) -> dict[str, Any]:
                 if _float(previous[key])
                 else None
             )
-            for key in ("pv", "cart", "buy", "gmv")
+            for key in ("pv", "uv", "cart", "buy", "gmv")
         }
     else:
         summary["day_over_day"] = None

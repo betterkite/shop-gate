@@ -53,6 +53,16 @@ function num(value: unknown): string {
   return Number.isFinite(parsed) ? parsed.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) : '-';
 }
 
+function metricLabel(value: string): string {
+  return {
+    gmv: '成交总额（GMV）',
+    pv: '页面浏览量（PV）',
+    uv: '独立访客（UV）',
+    buy: '购买（Buy）',
+    buyers: '购买用户数',
+  }[value] ?? value;
+}
+
 export async function generateRetailDailyBrief(options: {
   reportDate?: string;
 }): Promise<{ runId: string; reportId: string; date: string }> {
@@ -77,7 +87,7 @@ export async function generateRetailDailyBrief(options: {
   const totals = (daily?.totals ?? {}) as Record<string, unknown>;
   const dayOverDay = (daily?.day_over_day ?? {}) as Record<string, unknown>;
   const summaryText =
-    `窗口末日 ${reportDate}：GMV ${money(totals.gmv)}，曝光 ${num(totals.pv)}，` +
+    `窗口末日 ${reportDate}：成交总额（GMV）${money(totals.gmv)}，页面浏览量（PV）${num(totals.pv)}，` +
     `购买事件 ${num(totals.buy)}，购买转化 ${percent(daily?.buy_conversion)}，` +
     `客单价 ${money(daily?.avg_price)}。`;
 
@@ -89,12 +99,12 @@ export async function generateRetailDailyBrief(options: {
     '| 指标 | 值 | 日环比 |',
     '| --- | --- | --- |',
     ...Object.entries(totals)
-      .filter(([key]) => ['gmv', 'pv', 'buy', 'buyers'].includes(key))
-      .map(([key, value]) => `| ${key} | ${num(value)} | ${dayOverDay[key] === null ? '-' : percent(dayOverDay[key])} |`),
+      .filter(([key]) => ['gmv', 'pv', 'uv', 'buy', 'buyers'].includes(key))
+      .map(([key, value]) => `| ${metricLabel(key)} | ${num(value)} | ${dayOverDay[key] === null ? '-' : percent(dayOverDay[key])} |`),
     '',
     '## 类目经营榜（窗口内）',
     '',
-    '| 类目 | GMV | 购买 | 转化率 |',
+    '| 类目 | 成交总额（GMV） | 购买（Buy） | 转化率 |',
     '| --- | --- | --- | --- |',
     ...categories.slice(0, 10).map((cat) => (
       `| ${String(cat.category_name ?? '-')} | ${money(cat.gmv)} | ${num(cat.buy)} | ${percent(cat.buy_conversion)} |`

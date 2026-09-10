@@ -56,6 +56,29 @@ function text(value: unknown, fallback = '-'): string {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+function behaviorLabel(value: unknown): string {
+  const labels: Record<string, string> = {
+    pv: '页面浏览量（PV）',
+    fav: '收藏（Fav）',
+    cart: '加购（Cart）',
+    buy: '购买（Buy）',
+  };
+  return labels[String(value)] ?? text(value);
+}
+
+function metricLabel(value: unknown): string {
+  const labels: Record<string, string> = {
+    gmv: '成交总额（GMV）',
+    pv: '页面浏览量（PV）',
+    uv: '独立访客（UV）',
+    fav: '收藏（Fav）',
+    cart: '加购（Cart）',
+    buy: '购买（Buy）',
+    buyers: '购买用户数',
+  };
+  return labels[String(value)] ?? text(value);
+}
+
 function windowLabel(windowValue: unknown): string {
   const record = asRecord(windowValue);
   if (!record) return '数据窗口';
@@ -124,7 +147,7 @@ function svgDailyLines(series: Array<{ stat_date: string } & Record<string, numb
     'style="width:100%;max-width:760px;height:auto" xmlns="http://www.w3.org/2000/svg">' +
     '<line x1="16" y1="' + (height - 30) + '" x2="' + (width - 16) + '" y2="' + (height - 30) + '" stroke="#cbd5e1" />' +
     paths + labels +
-    '<text x="24" y="18" font-size="12" fill="#334155">蓝=曝光 橙=加购 绿=购买</text></svg>';
+    '<text x="24" y="18" font-size="12" fill="#334155">蓝=页面浏览量（PV） 橙=加购（Cart） 绿=购买（Buy）</text></svg>';
 }
 
 function svgDonut(segments: Array<{ label: string; value: number; color: string }>, unitLabel: string): string {
@@ -160,7 +183,7 @@ function svgDonut(segments: Array<{ label: string; value: number; color: string 
 }
 
 function syntheticBadge() {
-  return <span className="synthetic-badge" title="价格/库存/品牌/店铺与 GMV 金额来自合成主数据，不代表真实交易数据">合成口径</span>;
+  return <span className="synthetic-badge" title="价格/库存/品牌/店铺与成交总额（GMV）来自合成主数据，不代表真实交易数据">合成口径</span>;
 }
 `;
 
@@ -207,7 +230,7 @@ export function retailFunnelPageTemplate(): string {
     ? '全库口径（数据窗口内全部类目/商品）'
     : '类目 ' + categoryCount + ' 个 / 商品 ' + itemCount + ' 个';
   const funnelBars = funnelStages.map((stage) => ({
-    label: text(stage.stage),
+    label: behaviorLabel(stage.stage),
     value: numeric(stage.events) ?? 0,
   }));
   const stageColors: Record<string, string> = { pv: '#2563eb', fav: '#8b5cf6', cart: '#f59e0b', buy: '#16a34a' };
@@ -227,14 +250,14 @@ export function retailFunnelPageTemplate(): string {
         </div>
       </section>
       <section className="chart-zone">
-        <h2>事件漏斗（pv → fav → cart → buy）</h2>
+        <h2>行为漏斗（页面浏览量（PV） → 收藏（Fav） → 加购（Cart） → 购买（Buy））</h2>
         {funnelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(funnelBars, '事件漏斗') }} /> : <p>漏斗数据缺失。</p>}
         <table className="dense-table">
           <thead><tr><th>阶段</th><th>事件数</th><th>相对上一阶段</th></tr></thead>
           <tbody>
             {funnelStages.map((stage, index) => (
               <tr key={'stage-' + index}>
-                <td>{text(stage.stage)}</td>
+                <td>{behaviorLabel(stage.stage)}</td>
                 <td>{displayNumber(stage.events, 0)}</td>
                 <td>{stage.conversion_from_previous === null || stage.conversion_from_previous === undefined ? '-' : displayPercent(stage.conversion_from_previous)}</td>
               </tr>
@@ -249,7 +272,7 @@ export function retailFunnelPageTemplate(): string {
       <section className="chart-zone">
         <h2>分日趋势</h2>
         {funnelDaily.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
-        <p className="footnote">PV 占绝对多数；购买转化以 buy/pv 衡量。</p>
+        <p className="footnote">页面浏览量（PV）通常占绝对多数；购买转化率以购买事件（Buy）/页面浏览量（PV）衡量。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
@@ -287,15 +310,15 @@ export function retailCatalogPageTemplate(): string {
         <div className="meta-row">
           <span className="meta-item">窗口：{windowText}</span>
           <span className="meta-item">类目数：{ranked.length}</span>
-          <span className="meta-item">集中度（top-5 GMV）：{concentration === null ? '-' : displayPercent(concentration, 1)}</span>
+          <span className="meta-item">集中度（Top-5 成交总额（GMV））：{concentration === null ? '-' : displayPercent(concentration, 1)}</span>
           {syntheticBadge()}
         </div>
       </section>
       <section className="chart-zone">
-        <h2>类目 GMV 排名</h2>
+        <h2>类目成交总额（GMV）排名</h2>
         {gmvBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(gmvBars, '类目GMV') }} /> : <p>类目数据缺失。</p>}
         <table className="dense-table">
-          <thead><tr><th>类目</th><th>曝光</th><th>购买</th><th>GMV</th><th>转化率</th><th>客单价</th></tr></thead>
+          <thead><tr><th>类目</th><th>页面浏览量（PV）</th><th>购买</th><th>成交总额（GMV）</th><th>转化率</th><th>客单价</th></tr></thead>
           <tbody>
             {ranked.slice(0, 12).map((row, index) => (
               <tr key={'cat-' + index}>
@@ -309,17 +332,17 @@ export function retailCatalogPageTemplate(): string {
             ))}
           </tbody>
         </table>
-        <p className="footnote">类目名为合成映射（synthetic_name）；GMV = 购买事件 × 合成价格。</p>
+        <p className="footnote">类目名为合成映射（synthetic_name）；成交总额（GMV）= 购买事件 × 合成价格。</p>
       </section>
       <section className="chart-zone">
-        <h2>类目集中度（Top-5 GMV 占比）</h2>
+        <h2>类目集中度（Top-5 成交总额（GMV）占比）</h2>
         {donutSegments.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(donutSegments, 'Top-5 占比') }} /> : <p>集中度缺数据。</p>}
-        <p className="footnote">集中度 = Top-5 类目 GMV / 全部类目 GMV；金额为合成口径。</p>
+        <p className="footnote">集中度 = Top-5 类目成交总额（GMV）/ 全部类目成交总额（GMV）；金额为合成口径。</p>
       </section>
       <section className="chart-zone">
-        <h2>分日曝光 / 加购 / 购买趋势</h2>
+        <h2>分日页面浏览量（PV）/ 加购 / 购买趋势</h2>
         {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
-        <p className="footnote">事件行为为真实 UserBehavior；GMV 为合成口径。</p>
+        <p className="footnote">事件行为为真实 UserBehavior；成交总额（GMV）为合成口径。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
@@ -441,10 +464,11 @@ export function retailDailyBriefPageTemplate(): string {
         </div>
       </section>
       <section className="insight-strip">
-        <article className="metric-tile"><span>GMV</span><strong>{displayMoney(totals?.gmv)}</strong></article>
+        <article className="metric-tile"><span>成交总额（GMV）</span><strong>{displayMoney(totals?.gmv)}</strong></article>
         <article className="metric-tile"><span>购买事件</span><strong>{displayNumber(totals?.buy, 0)}</strong></article>
-        <article className="metric-tile"><span>曝光</span><strong>{displayNumber(totals?.pv, 0)}</strong></article>
-        <article className="metric-tile"><span>购买转化</span><strong>{displayPercent(summary?.buy_conversion)}</strong></article>
+        <article className="metric-tile"><span>页面浏览量（PV）</span><strong>{displayNumber(totals?.pv, 0)}</strong></article>
+        <article className="metric-tile"><span>独立访客（UV）</span><strong>{displayNumber(totals?.uv, 0)}</strong></article>
+        <article className="metric-tile"><span>购买转化率</span><strong>{displayPercent(summary?.buy_conversion)}</strong></article>
         <article className="metric-tile"><span>客单价</span><strong>{displayMoney(summary?.avg_price)}</strong></article>
       </section>
       <section className="chart-zone">
@@ -453,7 +477,7 @@ export function retailDailyBriefPageTemplate(): string {
           <thead><tr><th>指标</th><th>日环比</th><th>信号</th></tr></thead>
           <tbody>
             {dayOverDay ? Object.entries(dayOverDay).map(([key, value]) => (
-              <tr key={'dod-' + key}><td>{key}</td><td>{value === null ? '-' : displayPercent(value)}</td><td>{(numeric(value) ?? 0) < 0 ? '需要拆解' : '继续观察'}</td></tr>
+              <tr key={'dod-' + key}><td>{metricLabel(key)}</td><td>{value === null ? '-' : displayPercent(value)}</td><td>{(numeric(value) ?? 0) < 0 ? '需要拆解' : '继续观察'}</td></tr>
             )) : <tr><td colSpan={3}>首日或前一日无数据，不计算环比。</td></tr>}
           </tbody>
         </table>
@@ -461,15 +485,15 @@ export function retailDailyBriefPageTemplate(): string {
         {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日趋势数据缺失。</p>}
       </section>
       <section className="action-strip">
-        <article><span>异常定位</span><strong>{negativeChanges.length > 0 ? negativeChanges.map(([key]) => key).join('、') : '当前无明显负向指标'}</strong></article>
-        <article><span>结构拆解</span><strong>{movers.length > 0 ? '查看类目 GMV 与转化排名' : '等待类目数据'}</strong></article>
+        <article><span>异常定位</span><strong>{negativeChanges.length > 0 ? negativeChanges.map(([key]) => metricLabel(key)).join('、') : '当前无明显负向指标'}</strong></article>
+        <article><span>结构拆解</span><strong>{movers.length > 0 ? '查看类目成交总额（GMV）与转化率排名' : '等待类目数据'}</strong></article>
         <article><span>建议动作</span><strong>{actionText}</strong></article>
       </section>
       <section className="chart-zone">
-        <h2>类目 GMV 榜（当日观察）</h2>
+        <h2>类目成交总额（GMV）榜（当日观察）</h2>
         {moverBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(moverBars, '类目GMV') }} /> : <p>类目数据缺失。</p>}
         <table className="dense-table">
-          <thead><tr><th>类目</th><th>GMV</th><th>购买</th><th>转化率</th></tr></thead>
+          <thead><tr><th>类目</th><th>成交总额（GMV）</th><th>购买</th><th>转化率</th></tr></thead>
           <tbody>
             {movers.map((row, index) => (
               <tr key={'mover-' + index}>

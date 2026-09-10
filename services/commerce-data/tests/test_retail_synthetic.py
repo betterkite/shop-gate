@@ -15,6 +15,7 @@ from shopgate_commerce_data.synthetic import (
     batched_events,
     daily_demand_multiplier,
     sample_item_offset,
+    synthetic_analytics_dataset,
     synthetic_behavior_events,
     synthetic_item_offset_category,
     synthetic_master_rows,
@@ -164,6 +165,54 @@ def test_master_rows_reproducible_and_flagged_synthetic() -> None:
     assert {row["brand_id"] for row in first["brands"]} == {
         item["brand_id"] for item in first["items"]
     }
+
+
+def test_analytics_dataset_is_isolated_and_traceable() -> None:
+    dataset = synthetic_analytics_dataset(
+        users=50,
+        items=20,
+        days=4,
+        seed=SEED,
+        dataset_id="test-expanded-v1",
+        end_day=datetime(2026, 9, 5, tzinfo=UTC),
+    )
+    contract = dataset["contract"]
+    assert contract["dataset_id"] == "test-expanded-v1"
+    assert contract["source_kind"] == "synthetic"
+    assert contract["schema_version"] == "commerce.analytics.v1"
+    assert contract["row_counts"]["user_profiles"] == 50
+    assert contract["row_counts"]["item_economics"] == 20
+    assert contract["row_counts"]["inventory_snapshots"] == 80
+    assert contract["limitations"]
+    assert all(row["synthetic"] for row in dataset["profiles"])
+    assert all(row["synthetic"] for row in dataset["orders"])
+
+
+def test_analytics_dataset_orders_and_inventory_have_valid_links() -> None:
+    dataset = synthetic_analytics_dataset(
+        users=80,
+        items=30,
+        days=5,
+        seed=SEED,
+        dataset_id="test-links-v1",
+        end_day=datetime(2026, 9, 5, tzinfo=UTC),
+    )
+    sessions = {row["session_id"] for row in dataset["sessions"]}
+    items = {row["item_id"] for row in dataset["item_economics"]}
+    assert all(row["session_id"] in sessions for row in dataset["orders"])
+    assert all(row["item_id"] in items for row in dataset["orders"])
+    assert all(row["closing_stock"] >= 0 for row in dataset["inventories"])
+    assert all(row["cost_price"] <= row["list_price"] for row in dataset["item_economics"])
+
+
+def test_analytics_dataset_is_deterministic() -> None:
+    first = synthetic_analytics_dataset(
+        users=20, items=10, days=3, seed=SEED, dataset_id="test-deterministic"
+    )
+    second = synthetic_analytics_dataset(
+        users=20, items=10, days=3, seed=SEED, dataset_id="test-deterministic"
+    )
+    assert first == second
 
 
 def test_batched_events_keeps_tail() -> None:

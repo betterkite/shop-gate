@@ -28,8 +28,10 @@ from psycopg.types.json import Jsonb
 
 from shopgate_commerce_data.database_core import database_url_from_env
 from shopgate_commerce_data.synthetic import (
+    DEFAULT_ANALYTICS_DATASET_ID,
     DEFAULT_ITEM_POOL_SIZE,
     batched_events,
+    synthetic_analytics_dataset,
     synthetic_behavior_events,
     synthetic_master_rows,
 )
@@ -380,6 +382,115 @@ def rebuild_daily_aggregates(connection: psycopg.Connection[dict[str, Any]]) -> 
     return int(count or 0)
 
 
+def replace_synthetic_analytics_dataset(
+    connection: psycopg.Connection[dict[str, Any]],
+    dataset: dict[str, Any],
+) -> None:
+    """幂等替换一个扩展演示数据集，其他 dataset_id 不受影响。"""
+
+    contract = dataset["contract"]
+    dataset_id = contract["dataset_id"]
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM commerce.dataset_contracts WHERE dataset_id = %s",
+            (dataset_id,),
+        )
+        cursor.execute(
+            """
+            INSERT INTO commerce.dataset_contracts
+              (dataset_id, version, source_kind, source_name, schema_version,
+               window_start, window_end, generation_seed, row_counts,
+               synthetic_fields, limitations, generation_rule)
+            VALUES (%(dataset_id)s, %(version)s, %(source_kind)s, %(source_name)s,
+                    %(schema_version)s, %(window_start)s, %(window_end)s,
+                    %(generation_seed)s, %(row_counts)s, %(synthetic_fields)s,
+                    %(limitations)s, %(generation_rule)s)
+            """,
+            {
+                **contract,
+                "row_counts": Jsonb(contract["row_counts"]),
+                "synthetic_fields": Jsonb(contract["synthetic_fields"]),
+                "limitations": Jsonb(contract["limitations"]),
+            },
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_user_profiles
+              (dataset_id, user_id, age_band, gender, city_tier, member_level,
+               registered_at, source, synthetic)
+            VALUES (%(dataset_id)s, %(user_id)s, %(age_band)s, %(gender)s,
+                    %(city_tier)s, %(member_level)s, %(registered_at)s,
+                    %(source)s, %(synthetic)s)
+            """,
+            dataset["profiles"],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_channels
+              (dataset_id, channel_id, name, channel_type, source, synthetic)
+            VALUES (%(dataset_id)s, %(channel_id)s, %(name)s, %(channel_type)s,
+                    %(source)s, %(synthetic)s)
+            """,
+            dataset["channels"],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_campaigns
+              (dataset_id, campaign_id, name, campaign_type, starts_at, ends_at,
+               source, synthetic)
+            VALUES (%(dataset_id)s, %(campaign_id)s, %(name)s, %(campaign_type)s,
+                    %(starts_at)s, %(ends_at)s, %(source)s, %(synthetic)s)
+            """,
+            dataset["campaigns"],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_sessions
+              (dataset_id, session_id, user_id, started_at, ended_at, channel_id,
+               campaign_id, source, synthetic)
+            VALUES (%(dataset_id)s, %(session_id)s, %(user_id)s, %(started_at)s,
+                    %(ended_at)s, %(channel_id)s, %(campaign_id)s, %(source)s,
+                    %(synthetic)s)
+            """,
+            dataset["sessions"],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_item_economics
+              (dataset_id, item_id, category_id, list_price, cost_price,
+               discount_rate, source, synthetic)
+            VALUES (%(dataset_id)s, %(item_id)s, %(category_id)s, %(list_price)s,
+                    %(cost_price)s, %(discount_rate)s, %(source)s, %(synthetic)s)
+            """,
+            dataset["item_economics"],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_orders
+              (dataset_id, order_id, user_id, item_id, session_id, channel_id,
+               campaign_id, ordered_at, quantity, selling_price, discount_amount,
+               refund_amount, payment_status, fulfillment_status, source, synthetic)
+            VALUES (%(dataset_id)s, %(order_id)s, %(user_id)s, %(item_id)s,
+                    %(session_id)s, %(channel_id)s, %(campaign_id)s, %(ordered_at)s,
+                    %(quantity)s, %(selling_price)s, %(discount_amount)s,
+                    %(refund_amount)s, %(payment_status)s, %(fulfillment_status)s,
+                    %(source)s, %(synthetic)s)
+            """,
+            dataset["orders"],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_inventory_snapshots
+              (dataset_id, snapshot_date, item_id, opening_stock, inbound_qty,
+               sold_qty, reserved_qty, closing_stock, source, synthetic)
+            VALUES (%(dataset_id)s, %(snapshot_date)s, %(item_id)s,
+                    %(opening_stock)s, %(inbound_qty)s, %(sold_qty)s,
+                    %(reserved_qty)s, %(closing_stock)s, %(source)s, %(synthetic)s)
+            """,
+            dataset["inventories"],
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Shop Gate 零售数据导入工具")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -431,6 +542,17 @@ def main() -> None:
     ).add_argument("--seed", type=int, default=20251203)
 
     subparsers.add_parser("aggregate-daily", help="重建商品/类目日聚合")
+
+    analytics_parser = subparsers.add_parser(
+        "generate-synthetic-analytics-dataset",
+        help="生成按 dataset_id 隔离的电商经营分析演示数据集",
+    )
+    analytics_parser.add_argument("--dataset-id", default=DEFAULT_ANALYTICS_DATASET_ID)
+    analytics_parser.add_argument("--users", type=int, default=1_000)
+    analytics_parser.add_argument("--items", type=int, default=DEFAULT_ITEM_POOL_SIZE)
+    analytics_parser.add_argument("--days", type=int, default=30)
+    analytics_parser.add_argument("--seed", type=int, default=20251203)
+    analytics_parser.add_argument("--end-day", default="2025-12-03")
 
     args = parser.parse_args()
     connection = _connect()
@@ -506,6 +628,22 @@ def main() -> None:
             rows = rebuild_daily_aggregates(connection)
             connection.commit()
             print(f"[aggregate] 完成：daily_item_metrics rows={rows}")
+        elif args.command == "generate-synthetic-analytics-dataset":
+            try:
+                end_day = datetime.fromisoformat(args.end_day).replace(tzinfo=UTC)
+            except ValueError as error:
+                raise SystemExit("--end-day 必须是 YYYY-MM-DD") from error
+            dataset = synthetic_analytics_dataset(
+                users=args.users,
+                items=args.items,
+                days=args.days,
+                seed=args.seed,
+                dataset_id=args.dataset_id,
+                end_day=end_day,
+            )
+            replace_synthetic_analytics_dataset(connection, dataset)
+            connection.commit()
+            print(f"[analytics] 完成：{dataset['contract']}")
     finally:
         connection.close()
 

@@ -23,6 +23,8 @@ PRICE_BASE_BANDS = (19.9, 49.9, 99.0, 199.0, 399.0, 699.0, 1299.0)
 
 BEHAVIOR_TYPES = ("pv", "fav", "cart", "buy")
 DEFAULT_ITEM_POOL_SIZE = 1_000
+DEFAULT_ANALYTICS_DATASET_ID = "retail-demo-expanded-v1"
+DEFAULT_ANALYTICS_DAYS = 30
 
 
 def _rng(*parts: object) -> random.Random:
@@ -228,3 +230,272 @@ def batched_events(
             batch = []
     if batch:
         yield batch
+
+
+def synthetic_analytics_dataset(
+    users: int = 1_000,
+    items: int = DEFAULT_ITEM_POOL_SIZE,
+    days: int = DEFAULT_ANALYTICS_DAYS,
+    seed: int = 20251203,
+    *,
+    dataset_id: str = DEFAULT_ANALYTICS_DATASET_ID,
+    end_day: datetime | None = None,
+) -> dict[str, list[dict[str, Any]] | dict[str, Any]]:
+    """生成可追溯的电商经营分析演示数据集。
+
+    该数据集与 UserBehavior v1 事实表隔离，通过 ``dataset_id`` 写入扩展表。
+    它不是对真实业务的还原：用户画像、会话、渠道、活动、成本、订单状态和库存
+    快照全部标记为合成，并在返回的 contract 中记录生成规则与适用限制。
+    """
+
+    if users < 1 or items < 1 or days < 1:
+        raise ValueError("users、items、days 必须为正数")
+    last_day = end_day or datetime(2025, 12, 3, tzinfo=UTC)
+    first_day = last_day - timedelta(days=days - 1)
+    source = "synthetic_market_scenario_v1"
+    channels = [
+        {"channel_id": "organic", "name": "自然搜索", "channel_type": "自然流量"},
+        {"channel_id": "paid-search", "name": "搜索投放", "channel_type": "付费投放"},
+        {"channel_id": "content", "name": "内容种草", "channel_type": "内容种草"},
+        {"channel_id": "private", "name": "会员私域", "channel_type": "私域"},
+    ]
+    campaigns = [
+        {
+            "campaign_id": "always-on",
+            "name": "日常经营",
+            "campaign_type": "日常",
+            "starts_at": first_day.date(),
+            "ends_at": last_day.date(),
+        },
+        {
+            "campaign_id": "mid-month",
+            "name": "月中促销",
+            "campaign_type": "大促",
+            "starts_at": first_day.date() + timedelta(days=max(days // 3, 1)),
+            "ends_at": first_day.date() + timedelta(days=max(days // 3 + 3, 1)),
+        },
+        {
+            "campaign_id": "member-day",
+            "name": "会员日",
+            "campaign_type": "会员",
+            "starts_at": first_day.date() + timedelta(days=max(days // 2, 1)),
+            "ends_at": first_day.date() + timedelta(days=max(days // 2 + 1, 1)),
+        },
+        {
+            "campaign_id": "content-wave",
+            "name": "内容活动",
+            "campaign_type": "内容",
+            "starts_at": first_day.date() + timedelta(days=max(days * 2 // 3, 1)),
+            "ends_at": last_day.date(),
+        },
+    ]
+    profiles: list[dict[str, Any]] = []
+    for user_id in range(1, users + 1):
+        rng = _rng(seed, dataset_id, "profile", user_id)
+        profiles.append(
+            {
+                "dataset_id": dataset_id,
+                "user_id": user_id,
+                "age_band": rng.choice(("18-24", "25-34", "35-44", "45+")),
+                "gender": rng.choices(("female", "male", "unknown"), weights=(48, 45, 7))[0],
+                "city_tier": rng.choices(
+                    ("tier_1", "tier_2", "tier_3_plus"), weights=(25, 45, 30)
+                )[0],
+                "member_level": rng.choices(
+                    ("new", "standard", "loyal", "premium"), weights=(20, 45, 25, 10)
+                )[0],
+                "registered_at": (first_day.date() - timedelta(days=rng.randint(1, 720))),
+                "source": source,
+                "synthetic": True,
+            }
+        )
+
+    item_economics: list[dict[str, Any]] = []
+    for item_offset in range(items):
+        item_id = 1_000_000 + item_offset
+        category_id = 10_000 + synthetic_item_offset_category(item_offset, 50)
+        list_price = price_for(category_id, item_id, seed)
+        cost_ratio = _rng(seed, dataset_id, "cost", item_id).uniform(0.42, 0.78)
+        discount_rate = _rng(seed, dataset_id, "discount", item_id).choice(
+            (0.0, 0.0, 0.05, 0.1, 0.15, 0.2)
+        )
+        item_economics.append(
+            {
+                "dataset_id": dataset_id,
+                "item_id": item_id,
+                "category_id": category_id,
+                "list_price": list_price,
+                "cost_price": round(list_price * cost_ratio, 2),
+                "discount_rate": discount_rate,
+                "source": source,
+                "synthetic": True,
+            }
+        )
+    economics_by_item = {row["item_id"]: row for row in item_economics}
+    events = list(
+        synthetic_behavior_events(
+            users=users,
+            days=days,
+            seed=seed,
+            item_pool_size=items,
+            category_pool_size=50,
+            end_day=last_day,
+        )
+    )
+    sessions: list[dict[str, Any]] = []
+    session_by_user_day: dict[tuple[int, str], dict[str, Any]] = {}
+    for event in events:
+        if event["behavior_type"] != "pv":
+            continue
+        event_day = event["event_ts"].date().isoformat()
+        key = (event["user_id"], event_day)
+        if key in session_by_user_day:
+            continue
+        rng = _rng(seed, dataset_id, "session", event["user_id"], event_day)
+        channel = rng.choice(channels)
+        campaign = next(
+            campaign
+            for campaign in campaigns
+            if campaign["starts_at"] <= event["event_ts"].date() <= campaign["ends_at"]
+        )
+        started_at = event["event_ts"]
+        session = {
+            "dataset_id": dataset_id,
+            "session_id": f"{dataset_id}-s-{event['user_id']}-{event_day}",
+            "user_id": event["user_id"],
+            "started_at": started_at,
+            "ended_at": started_at + timedelta(minutes=rng.randint(3, 45)),
+            "channel_id": channel["channel_id"],
+            "campaign_id": campaign["campaign_id"],
+            "source": source,
+            "synthetic": True,
+        }
+        session_by_user_day[key] = session
+        sessions.append(session)
+
+    orders: list[dict[str, Any]] = []
+    sold_by_day_item: dict[tuple[str, int], int] = {}
+    for order_index, event in enumerate(
+        (event for event in events if event["behavior_type"] == "buy"), start=1
+    ):
+        event_day = event["event_ts"].date().isoformat()
+        session = session_by_user_day.get((event["user_id"], event_day))
+        if session is None:
+            continue
+        item = economics_by_item[event["item_id"]]
+        rng = _rng(seed, dataset_id, "order", order_index)
+        quantity = 1 if rng.random() < 0.9 else 2
+        selling_price = round(item["list_price"] * (1 - item["discount_rate"]), 2)
+        gross = round(selling_price * quantity, 2)
+        refund = gross if rng.random() < 0.04 else 0.0
+        orders.append(
+            {
+                "dataset_id": dataset_id,
+                "order_id": f"{dataset_id}-o-{order_index:07d}",
+                "user_id": event["user_id"],
+                "item_id": event["item_id"],
+                "session_id": session["session_id"],
+                "channel_id": session["channel_id"],
+                "campaign_id": session["campaign_id"],
+                "ordered_at": event["event_ts"],
+                "quantity": quantity,
+                "selling_price": selling_price,
+                "discount_amount": round(item["list_price"] * quantity - gross, 2),
+                "refund_amount": refund,
+                "payment_status": "refunded" if refund else "paid",
+                "fulfillment_status": rng.choice(("delivered", "shipped", "processing")),
+                "source": source,
+                "synthetic": True,
+            }
+        )
+        sold_by_day_item[(event_day, event["item_id"])] = (
+            sold_by_day_item.get((event_day, event["item_id"]), 0) + quantity
+        )
+
+    inventories: list[dict[str, Any]] = []
+    opening_by_item = {
+        row["item_id"]: stock_for(row["item_id"], seed) for row in item_economics
+    }
+    for day_offset in range(days):
+        snapshot_date = (first_day + timedelta(days=day_offset)).date()
+        for item in item_economics:
+            item_id = item["item_id"]
+            opening = opening_by_item[item_id]
+            sold = sold_by_day_item.get((snapshot_date.isoformat(), item_id), 0)
+            rng = _rng(seed, dataset_id, "inventory", snapshot_date, item_id)
+            inbound = rng.randint(0, 12) if rng.random() < 0.08 else 0
+            reserved = min(max(opening + inbound - sold, 0), rng.randint(0, 5))
+            closing = max(opening + inbound - sold, 0)
+            inventories.append(
+                {
+                    "dataset_id": dataset_id,
+                    "snapshot_date": snapshot_date,
+                    "item_id": item_id,
+                    "opening_stock": opening,
+                    "inbound_qty": inbound,
+                    "sold_qty": sold,
+                    "reserved_qty": reserved,
+                    "closing_stock": closing,
+                    "source": source,
+                    "synthetic": True,
+                }
+            )
+            opening_by_item[item_id] = closing
+
+    contract = {
+        "dataset_id": dataset_id,
+        "version": "1.0.0",
+        "source_kind": "synthetic",
+        "source_name": source,
+        "schema_version": "commerce.analytics.v1",
+        "window_start": first_day.date(),
+        "window_end": last_day.date(),
+        "generation_seed": seed,
+        "row_counts": {
+            "user_profiles": len(profiles),
+            "channels": len(channels),
+            "campaigns": len(campaigns),
+            "sessions": len(sessions),
+            "item_economics": len(item_economics),
+            "orders": len(orders),
+            "inventory_snapshots": len(inventories),
+        },
+        "synthetic_fields": [
+            "user_profiles",
+            "sessions",
+            "channels",
+            "campaigns",
+            "cost_price",
+            "discount_rate",
+            "orders",
+            "refund_amount",
+            "fulfillment_status",
+            "inventory_snapshots",
+        ],
+        "limitations": [
+            "仅用于演示数据分析，不代表真实用户、订单、库存或财务事实",
+            "订单由合成行为 buy 事件派生，不能用于真实收入确认或财务结算",
+            "渠道和活动归因是确定性模拟，不是广告平台回传或实验结果",
+            "库存快照没有真实仓库流水，不能单独作为补货结论",
+        ],
+        "generation_rule": (
+            "以显式 seed、dataset_id 和实体 ID 独立播种；行为按周内需求和头腰尾商品分布生成，"
+            "订单从 buy 事件派生，成本/折扣/库存按实体与日期确定性生成。"
+        ),
+    }
+    return {
+        "contract": contract,
+        "profiles": profiles,
+        "channels": [
+            {**row, "dataset_id": dataset_id, "source": source, "synthetic": True}
+            for row in channels
+        ],
+        "campaigns": [
+            {**row, "dataset_id": dataset_id, "source": source, "synthetic": True}
+            for row in campaigns
+        ],
+        "sessions": sessions,
+        "item_economics": item_economics,
+        "orders": orders,
+        "inventories": inventories,
+    }

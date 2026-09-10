@@ -31,6 +31,14 @@ def create_commerce_router() -> APIRouter:
 
         return await retail.dataset_meta()
 
+    @router.get("/datasets")
+    async def datasets(
+        dataset_id: Annotated[str | None, Query(max_length=120)] = None,
+    ) -> list[dict[str, Any]]:
+        """扩展经营分析数据集契约，明确来源、版本和限制。"""
+
+        return await retail.analytics_dataset_contracts(dataset_id)
+
     @router.get("/resolve")
     async def resolve(
         term: Annotated[str, Query(min_length=1, max_length=64)],
@@ -70,8 +78,24 @@ def create_commerce_router() -> APIRouter:
                     "name": "经营情报日报",
                     "endpoints": ["/api/v1/commerce/summary"],
                 },
+                {
+                    "id": "retail.analytics-dataset-contract",
+                    "name": "经营分析数据契约",
+                    "endpoints": ["/api/v1/commerce/datasets"],
+                },
             ],
-            "synthetic_fields": ["price", "stock", "brand", "shop", "gmv"],
+            "synthetic_fields": [
+                "price",
+                "stock",
+                "brand",
+                "shop",
+                "gmv",
+                "dataset_user_profiles",
+                "dataset_sessions",
+                "dataset_item_economics",
+                "dataset_orders",
+                "dataset_inventory_snapshots",
+            ],
         }
 
     @router.get("/funnel")

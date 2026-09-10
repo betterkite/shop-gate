@@ -25,13 +25,14 @@ uv run shopgate-commerce-import generate-synthetic-master
 uv run shopgate-commerce-import aggregate-daily
 ```
 
-真实 UserBehavior 事件写入 `commerce.user_behavior_events`；合成商品、品牌、店铺和类目主数据写入 `commerce.*`；商品/类目日聚合写入 `commerce.daily_*_metrics`。详细字段和重跑语义见项目根目录的 [commerce-data 接入说明](../../docs/commerce-data-ingestion.md) 与 [数据字典](../../docs/data-dictionary.md)。
+真实 UserBehavior 事件写入 `commerce.user_behavior_events`；合成商品、品牌、店铺和类目主数据写入 `commerce.*`；商品/类目日聚合写入 `commerce.daily_*_metrics`；P27 扩展经营分析数据集写入带 `dataset_id` 的 `commerce.dataset_*` 表。详细字段和重跑语义见项目根目录的 [commerce-data 接入说明](../../docs/commerce-data-ingestion.md) 与 [数据字典](../../docs/data-dictionary.md)。
 
 ## API
 
 - `GET /health`：进程存活检查。
 - `GET /ready`：数据库与 Redis 就绪检查。
 - `GET /api/v1/commerce/meta`：数据窗口、来源和规模。
+- `GET /api/v1/commerce/datasets`：扩展经营分析数据集的版本、来源、合成字段和限制。
 - `GET /api/v1/commerce/resolve`：商品/类目实体解析。
 - `GET /api/v1/commerce/capabilities`：零售能力发现。
 - `GET /api/v1/commerce/funnel`、`/funnel/daily`：流量与转化漏斗。

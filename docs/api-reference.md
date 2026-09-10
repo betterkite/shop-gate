@@ -174,6 +174,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/health` | `GET` | 进程存活检查，不探测下游依赖 |
 | `/ready` | `GET` | 数据库与 Redis 就绪检查；required 依赖失败返回 503 |
 | `/api/v1/commerce/meta` | `GET` | 数据集口径：窗口、规模与真实/合成来源计数 |
+| `/api/v1/commerce/datasets` | `GET` | 扩展经营分析数据集契约；可用 `dataset_id` 过滤，返回版本、生成规则、合成字段和限制 |
 | `/api/v1/commerce/resolve` | `GET` | 实体解析：`item:<id>`/`cat:<id>` 显式形式 + 类目名/商品标题模糊匹配，`limit` ≤50 |
 | `/api/v1/commerce/capabilities` | `GET` | 零售能力发现信息（domain_pack=`retail.core`，含 synthetic_fields 清单） |
 | `/api/v1/commerce/funnel` | `GET` | 流量漏斗（pv/fav/cart/buy），支持 `start`/`end`/`category_id` |

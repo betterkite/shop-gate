@@ -21,6 +21,9 @@
 - `daily_item_metrics` 687,562、`daily_category_metrics` 30,644
 - 平台表：`platform_jobs`、`market_data_ingestion_jobs`、`market_data_sync_state`、`data_quality_scans`
 
+P27 新增的 `retail-demo-expanded-v1` 是与上述 v1 事实表隔离的约 1,000 商品经营分析演示数据集：
+它通过 `dataset_id` 写入 `dataset_*` 扩展表，默认包含 1,000 个商品、1,000 个用户、30 天库存快照、会话、渠道、活动和由合成 `buy` 事件派生的订单。该数据集的用户画像、渠道归因、价格折扣、成本、退款、履约状态和库存快照全部是合成数据，不能描述为真实交易或真实库存。
+
 行为类型只有四种：`pv`(曝光) / `fav`(收藏) / `cart`(加购) / `buy`(购买)。
 
 **合成口径**：价格/库存/品牌/店铺为合成主数据；`gmv = buy 事件数 × 合成价格`；金额处必须带"合成口径"标注。
@@ -102,6 +105,25 @@ reservation 创建时先把数量原子加入 `usage_buckets.reserved`；settlem
 默认成员模板包含 9 条规则：`projects.owned=10 hard/lifetime`、`agent.pending=4 hard/lifetime`、`agent.concurrent=2 hard/lifetime`、`agent.requests.daily=100 hard/day`、`llm.total_tokens.monthly=2000000 warn/month`、`commerce.query_rewrite.llm.daily=200 hard/day`、`commerce.data_units.daily=2000 warn/day`、`operations.brief_runs.daily=20 hard/day`、`operations.brief_sends.daily=10 hard/day`。两个 Agent 结构指标由 UserRequest/GenerationJob 当前状态计算，不依赖 TTL reservation；管理员解析为无限但仍展示真实结构占用和计量用量。
 
 PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、完整 messages、system prompt、raw provider payload、凭据和 raw cause。工具原始参数/结果只以 SHA-256、UTF-8 字节数和受控计数进入 `agent_events`/`agent_tool_executions`；`agent_tool_approvals.public_input` 与 `edited_input` 只能包含受信工具主动投影、再次通过凭据字段拒绝策略的公开 JSON。文件内容仍以工作空间为事实源。`agent_runs.workspace_key` 与 `agent_workspace_leases.workspace_key` 都是 deployment namespace 与 canonical realpath 的 `sha256:<64 hex>` 身份，不保存宿主绝对路径，也不等同于会随内容变化的 `workspace_hash`。`agent_runs.workspace_key` 没有数据库默认值，调用方必须显式提供；数据库 check constraint 和启动 readiness 会拒绝格式漂移。
+
+## 经营分析扩展数据集
+
+### `commerce.dataset_contracts`
+
+每个扩展数据集一行契约，记录 `dataset_id`、版本、来源类型、时间窗口、生成种子、行数、合成字段、生成规则和限制。Agent 在使用扩展数据前必须先读取该契约；如果问题要求真实利润、真实库存或真实活动归因，而契约标记为合成，必须明确说明限制。
+
+### `commerce.dataset_*`
+
+| 表 | 用途 | 关键边界 |
+| --- | --- | --- |
+| `dataset_user_profiles` | 年龄段、性别、城市层级、会员等级 | 用户画像为合成，不代表真实用户画像 |
+| `dataset_sessions` | 会话起止、渠道、活动归因 | 渠道和活动为确定性模拟，不是平台回传 |
+| `dataset_channels` / `dataset_campaigns` | 渠道与活动维度 | 只用于经营分析演示 |
+| `dataset_item_economics` | 标价、成本、折扣 | 成本和折扣为合成，不等于财务成本 |
+| `dataset_orders` | 订单、成交价、退款、履约状态 | 由合成行为派生，不能用于收入确认 |
+| `dataset_inventory_snapshots` | 商品日库存、入库、销售、预留、结存 | 无真实仓库流水，不能单独下补货结论 |
+
+这些表都带 `dataset_id`、`source`、`synthetic`。导入命令和重跑语义见 [commerce-data 接入说明](commerce-data-ingestion.md) 的扩展数据集章节。
 
 ## 零售行为与日聚合表
 

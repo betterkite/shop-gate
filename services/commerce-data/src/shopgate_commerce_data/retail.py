@@ -201,6 +201,40 @@ async def dataset_meta() -> dict[str, Any]:
     return meta
 
 
+async def analytics_dataset_contracts(dataset_id: str | None = None) -> list[dict[str, Any]]:
+    """返回扩展分析数据集契约，供 Agent 判断数据是否足够支撑后续分析。"""
+
+    if dataset_id:
+        rows = await fetch_all(
+            """
+            SELECT dataset_id, version, source_kind, source_name, schema_version,
+                   window_start, window_end, generation_seed, row_counts,
+                   synthetic_fields, limitations, generation_rule, created_at
+            FROM commerce.dataset_contracts
+            WHERE dataset_id = %s
+            ORDER BY created_at DESC
+            """,
+            (dataset_id,),
+        )
+    else:
+        rows = await fetch_all(
+            """
+            SELECT dataset_id, version, source_kind, source_name, schema_version,
+                   window_start, window_end, generation_seed, row_counts,
+                   synthetic_fields, limitations, generation_rule, created_at
+            FROM commerce.dataset_contracts
+            ORDER BY created_at DESC, dataset_id
+            """
+        )
+    for row in rows:
+        for key in ("window_start", "window_end"):
+            if row.get(key) is not None:
+                row[key] = row[key].isoformat()
+        if row.get("created_at") is not None:
+            row["created_at"] = row["created_at"].isoformat()
+    return rows
+
+
 async def behavior_funnel(
     start: date,
     end: date,

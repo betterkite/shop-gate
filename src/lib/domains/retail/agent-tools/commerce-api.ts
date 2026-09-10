@@ -18,6 +18,7 @@ const MAX_OMISSION_DETAILS = 24;
 /** 只允许 P2 commerce-data 的只读端点（PRD §3/§5）。 */
 const ALLOWED_COMMERCE_API_PATHS = [
   /^\/api\/v1\/commerce\/meta$/,
+  /^\/api\/v1\/commerce\/datasets$/,
   /^\/api\/v1\/commerce\/resolve$/,
   /^\/api\/v1\/commerce\/funnel$/,
   /^\/api\/v1\/commerce\/funnel\/daily$/,

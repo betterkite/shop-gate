@@ -56,6 +56,12 @@ uv run --project services/commerce-data \
 # 重建商品/类目日聚合
 uv run --project services/commerce-data \
   shopgate-commerce-import aggregate-daily
+
+# 生成与 v1 事实表隔离的经营分析演示数据集（P27）
+uv run --project services/commerce-data \
+  shopgate-commerce-import generate-synthetic-analytics-dataset \
+  --dataset-id retail-demo-expanded-v1 --users 1000 --items 1000 --days 30 \
+  --seed 20251203 --end-day 2025-12-03
 ```
 
 常用参数：
@@ -72,6 +78,23 @@ uv run --project services/commerce-data \
 - 演示口径可用 `--time-shift last-week` 把窗口平移到最近完整周（日期为平移后的口径，
   页脚明示"时间戳平移"）。
 - 校验口径用 `--time-shift none` 保留原始日期（`behavior_source` 显示真实来源）。
+
+### 3.1 扩展经营分析数据集
+
+`generate-synthetic-analytics-dataset` 不会清空或改写 `commerce.user_behavior_events`、
+`commerce.items` 和 v1 日聚合。它只替换同一个 `dataset_id` 下的扩展数据，并写入：
+
+- `dataset_contracts`：版本、时间窗口、种子、行数、合成字段和限制；
+- `dataset_user_profiles`、`dataset_sessions`、`dataset_channels`、`dataset_campaigns`；
+- `dataset_item_economics`、`dataset_orders`、`dataset_inventory_snapshots`。
+
+默认数据集约 1,000 用户、1,000 商品、30 天库存快照。订单从合成 `buy` 事件派生，成本、折扣、退款、履约和库存状态均为合成；后续 P28 只能在页面中明确这些边界后使用。重复执行同一 `dataset_id` 会幂等替换该数据集，不影响其他数据集。
+
+契约可以通过 API 查看：
+
+```bash
+curl 'http://127.0.0.1:8000/api/v1/commerce/datasets?dataset_id=retail-demo-expanded-v1'
+```
 
 ## 4. 接入自有真实数据
 

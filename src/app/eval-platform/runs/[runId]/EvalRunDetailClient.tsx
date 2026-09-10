@@ -19,10 +19,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
-import type { QuantEvalRun, QuantEvalResult, EvalCheckStatus } from '@/lib/eval';
+import type { CommerceEvalRun, CommerceEvalResult, EvalCheckStatus } from '@/lib/eval';
 
 type Props = {
-  run: QuantEvalRun;
+  run: CommerceEvalRun;
 };
 
 function formatDate(value: string) {
@@ -75,7 +75,7 @@ function statusIcon(status: EvalCheckStatus) {
   return <ListChecks className="h-4 w-4" />;
 }
 
-function resultBorder(result: QuantEvalResult) {
+function resultBorder(result: CommerceEvalResult) {
   if (!result.passed) return 'border-red-500/25 bg-red-500/[0.035]';
   if (result.validationChecks.some((check) => check.status === 'warning')) {
     return 'border-amber-500/25 bg-amber-500/[0.025]';

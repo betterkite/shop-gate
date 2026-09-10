@@ -1,4 +1,4 @@
-import { getQuantEvalDashboardData } from '@/lib/eval';
+import { getCommerceEvalDashboardData } from '@/lib/eval';
 import EvalsDashboardClient from './EvalsDashboardClient';
 import type { Metadata } from 'next';
 
@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 export default async function EvalPlatformPage() {
-  const data = await getQuantEvalDashboardData();
+  const data = await getCommerceEvalDashboardData();
   return <EvalsDashboardClient data={data} />;
 }
 

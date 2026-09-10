@@ -4,7 +4,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { prisma } from '@/lib/db/client';
 import { buildModelComparison, buildSkillVersionImpact } from './analysis';
 import { evaluateEvalJudgeCalibration, type EvalJudgeCalibrationSample } from './judge-calibration';
-import { getQuantEvalCases, getQuantEvalSets } from './cases';
+import { getCommerceEvalCases, getCommerceEvalSets } from './cases';
 import { getEvalEvaluatorDefinition } from './evaluators';
 import {
   DEFAULT_EVAL_CONCURRENCY,
@@ -27,20 +27,20 @@ import {
 } from './paths';
 import type {
   EvalCheckStatus,
-  QuantEvalArtifactSummary,
-  QuantEvalCase,
-  QuantEvalCheck,
-  QuantEvalDashboardData,
-  QuantEvalFlowSimulation,
-  QuantEvalFlowStep,
-  QuantEvalQueueItem,
-  QuantEvalQueueStatus,
-  QuantEvalRepairTicket,
-  QuantEvalResult,
-  QuantEvalRun,
-  QuantEvalScheduleConfig,
-  StartQuantEvalOptions,
-  UpdateQuantEvalScheduleInput,
+  CommerceEvalArtifactSummary,
+  CommerceEvalCase,
+  CommerceEvalCheck,
+  CommerceEvalDashboardData,
+  CommerceEvalFlowSimulation,
+  CommerceEvalFlowStep,
+  CommerceEvalQueueItem,
+  CommerceEvalQueueStatus,
+  CommerceEvalRepairTicket,
+  CommerceEvalResult,
+  CommerceEvalRun,
+  CommerceEvalScheduleConfig,
+  StartCommerceEvalOptions,
+  UpdateCommerceEvalScheduleInput,
 } from './types';
 import {
   addHours,
@@ -71,10 +71,10 @@ import {
 } from './runtime-mappers';
 
 export {
-  createQuantEvalCase,
-  createQuantEvalSet,
-  getQuantEvalCases,
-  getQuantEvalSets,
+  createCommerceEvalCase,
+  createCommerceEvalSet,
+  getCommerceEvalCases,
+  getCommerceEvalSets,
 } from './cases';
 
 let queueKickoffInProgress = false;
@@ -82,7 +82,7 @@ const runningChildren = new Map<string, ChildProcess>();
 const EVAL_CLI = 'pi';
 const EVAL_MODEL = PI_AGENT_DEFAULT_MODEL;
 
-function normalizeExecutionMode(value: unknown): QuantEvalQueueItem['mode'] {
+function normalizeExecutionMode(value: unknown): CommerceEvalQueueItem['mode'] {
   return value === 'e2e' ? 'e2e' : 'contract';
 }
 
@@ -112,7 +112,7 @@ function normalizeEvalRepeat(value: unknown): number {
   return Math.min(5, Math.max(1, Math.floor(parsed)));
 }
 
-async function writeEvalRunToDatabase(run: QuantEvalRun): Promise<void> {
+async function writeEvalRunToDatabase(run: CommerceEvalRun): Promise<void> {
   await prisma.evalRun.upsert({
     where: { id: run.id },
     update: {
@@ -151,7 +151,7 @@ async function writeEvalRunToDatabase(run: QuantEvalRun): Promise<void> {
   });
 }
 
-async function listEvalRunsFromDatabase(limit: number): Promise<QuantEvalRun[]> {
+async function listEvalRunsFromDatabase(limit: number): Promise<CommerceEvalRun[]> {
   const records = await prisma.evalRun.findMany({
     orderBy: { reportCreatedAt: 'desc' },
     take: limit,
@@ -159,7 +159,7 @@ async function listEvalRunsFromDatabase(limit: number): Promise<QuantEvalRun[]> 
   return records.map(mapDbEvalRun);
 }
 
-async function readQueue(): Promise<QuantEvalQueueItem[]> {
+async function readQueue(): Promise<CommerceEvalQueueItem[]> {
   const dbItems = await prisma.evalQueueItem
     .findMany({ orderBy: { createdAt: 'desc' }, take: 50 })
     .then((items) => items.map((item) => ({
@@ -173,7 +173,7 @@ async function readQueue(): Promise<QuantEvalQueueItem[]> {
   const items = Array.isArray(parsed) ? parsed : [];
   const fileItems = items
     .filter(isRecord)
-    .map((item): QuantEvalQueueItem => ({
+    .map((item): CommerceEvalQueueItem => ({
       id: stringValue(item.id),
       status: normalizeQueueStatus(item.status),
       createdAt: stringValue(item.createdAt, new Date().toISOString()),
@@ -197,7 +197,7 @@ async function readQueue(): Promise<QuantEvalQueueItem[]> {
       error: stringValue(item.error) || null,
     }))
     .filter((item) => item.id);
-  const byId = new Map<string, QuantEvalQueueItem>();
+  const byId = new Map<string, CommerceEvalQueueItem>();
   for (const item of fileItems) byId.set(item.id, item);
   for (const item of dbItems) {
     const fileItem = byId.get(item.id);
@@ -215,7 +215,7 @@ async function readQueue(): Promise<QuantEvalQueueItem[]> {
     .slice(0, 50);
 }
 
-async function writeQueue(items: QuantEvalQueueItem[]): Promise<void> {
+async function writeQueue(items: CommerceEvalQueueItem[]): Promise<void> {
   const limited = items.slice(0, 80);
   await Promise.all([
     writeJson(QUEUE_PATH, limited).catch(() => undefined),
@@ -270,7 +270,7 @@ async function writeQueue(items: QuantEvalQueueItem[]): Promise<void> {
   ]);
 }
 
-function buildVirtualQueueItem(options: StartQuantEvalOptions = {}): QuantEvalQueueItem {
+function buildVirtualQueueItem(options: StartCommerceEvalOptions = {}): CommerceEvalQueueItem {
   const selectedCases = Array.isArray(options.selectedCases)
     ? options.selectedCases.map(String).filter(Boolean)
     : [];
@@ -310,7 +310,7 @@ function buildVirtualQueueItem(options: StartQuantEvalOptions = {}): QuantEvalQu
   };
 }
 
-async function updateQueueItem(id: string, patch: Partial<QuantEvalQueueItem>): Promise<QuantEvalQueueItem | null> {
+async function updateQueueItem(id: string, patch: Partial<CommerceEvalQueueItem>): Promise<CommerceEvalQueueItem | null> {
   const queue = await readQueue();
   const index = queue.findIndex((item) => item.id === id);
   if (index < 0) return null;
@@ -319,12 +319,12 @@ async function updateQueueItem(id: string, patch: Partial<QuantEvalQueueItem>): 
   return queue[index];
 }
 
-async function latestReportAfter(startedAtMs: number, mode: QuantEvalQueueItem['mode']): Promise<QuantEvalRun | null> {
-  const runs = await getQuantEvalRuns(5);
+async function latestReportAfter(startedAtMs: number, mode: CommerceEvalQueueItem['mode']): Promise<CommerceEvalRun | null> {
+  const runs = await getCommerceEvalRuns(5);
   return runs.find((run) => run.mtimeMs >= startedAtMs - 1000 && (run.metadata.suite?.mode ?? 'contract') === mode) ?? null;
 }
 
-async function readRepairTickets(): Promise<QuantEvalRepairTicket[]> {
+async function readRepairTickets(): Promise<CommerceEvalRepairTicket[]> {
   const dbTickets = await prisma.evalRepairTicket
     .findMany({ orderBy: { createdAt: 'desc' } })
     .then((items) => items.map(mapDbRepairTicket))
@@ -333,7 +333,7 @@ async function readRepairTickets(): Promise<QuantEvalRepairTicket[]> {
   const items = Array.isArray(parsed) ? parsed : [];
   const fileTickets = items
     .filter(isRecord)
-    .map((item): QuantEvalRepairTicket => ({
+    .map((item): CommerceEvalRepairTicket => ({
       id: stringValue(item.id),
       runId: stringValue(item.runId),
       caseId: stringValue(item.caseId),
@@ -353,14 +353,14 @@ async function readRepairTickets(): Promise<QuantEvalRepairTicket[]> {
         : {},
     }))
     .filter((item) => item.id);
-  const byId = new Map<string, QuantEvalRepairTicket>();
+  const byId = new Map<string, CommerceEvalRepairTicket>();
   for (const item of fileTickets) byId.set(item.id, item);
   for (const item of dbTickets) byId.set(item.id, item);
   return Array.from(byId.values())
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
-async function writeRepairTickets(items: QuantEvalRepairTicket[]): Promise<void> {
+async function writeRepairTickets(items: CommerceEvalRepairTicket[]): Promise<void> {
   const limited = items.slice(0, 200);
   await Promise.all([
     writeJson(REPAIRS_PATH, limited).catch(() => undefined),
@@ -403,7 +403,7 @@ async function writeRepairTickets(items: QuantEvalRepairTicket[]): Promise<void>
   ]);
 }
 
-function suggestedActionsForResult(result: QuantEvalResult): string[] {
+function suggestedActionsForResult(result: CommerceEvalResult): string[] {
   const actions = new Set<string>();
   result.validationChecks.forEach((check) => {
     if (check.status !== 'failed') return;
@@ -422,7 +422,7 @@ function suggestedActionsForResult(result: QuantEvalResult): string[] {
   return Array.from(actions);
 }
 
-async function createRepairTicketsForRun(run: QuantEvalRun): Promise<QuantEvalRepairTicket[]> {
+async function createRepairTicketsForRun(run: CommerceEvalRun): Promise<CommerceEvalRepairTicket[]> {
   if (run.passed) return readRepairTickets();
   const existing = await readRepairTickets();
   const existingKeys = new Set(existing.map((ticket) => `${ticket.runId}:${ticket.caseId}`));
@@ -433,7 +433,7 @@ async function createRepairTicketsForRun(run: QuantEvalRun): Promise<QuantEvalRe
   const newTickets = run.results
     .filter((result) => !result.passed)
     .filter((result) => !existingKeys.has(`${run.id}:${result.id}`))
-    .map((result): QuantEvalRepairTicket => ({
+    .map((result): CommerceEvalRepairTicket => ({
       id: uniqueId('repair'),
       runId: run.id,
       caseId: result.id,
@@ -458,7 +458,7 @@ async function createRepairTicketsForRun(run: QuantEvalRun): Promise<QuantEvalRe
   return merged;
 }
 
-async function readScheduleConfig(): Promise<QuantEvalScheduleConfig> {
+async function readScheduleConfig(): Promise<CommerceEvalScheduleConfig> {
   const dbSchedule = await prisma.evalSchedule
     .findUnique({ where: { id: 'default' } })
     .then((record) => record ? mapDbSchedule(record) : null)
@@ -494,7 +494,7 @@ async function readScheduleConfig(): Promise<QuantEvalScheduleConfig> {
   };
 }
 
-async function writeScheduleConfig(config: QuantEvalScheduleConfig): Promise<QuantEvalScheduleConfig> {
+async function writeScheduleConfig(config: CommerceEvalScheduleConfig): Promise<CommerceEvalScheduleConfig> {
   const lockedConfig = {
     ...config,
     cli: EVAL_CLI,
@@ -537,7 +537,7 @@ async function writeScheduleConfig(config: QuantEvalScheduleConfig): Promise<Qua
   return lockedConfig;
 }
 
-function buildBenchmarkArgs(item: QuantEvalQueueItem): string[] {
+function buildBenchmarkArgs(item: CommerceEvalQueueItem): string[] {
   const args = [
     'scripts/evals/run-commerce-benchmarks.js',
     '--trigger=eval-backend',
@@ -564,7 +564,7 @@ function buildBenchmarkArgs(item: QuantEvalQueueItem): string[] {
   return args;
 }
 
-function runBenchmarkQueueItem(item: QuantEvalQueueItem) {
+function runBenchmarkQueueItem(item: CommerceEvalQueueItem) {
   const startedAtMs = Date.now();
   const logPath = path.join(LOG_DIR, `${item.id}.log`);
   void (async () => {
@@ -668,8 +668,8 @@ async function processEvalQueue(): Promise<void> {
   }
 }
 
-export async function getQuantEvalRuns(limit = 30): Promise<QuantEvalRun[]> {
-  const cases = await getQuantEvalCases();
+export async function getCommerceEvalRuns(limit = 30): Promise<CommerceEvalRun[]> {
+  const cases = await getCommerceEvalCases();
   const dbRuns = await listEvalRunsFromDatabase(limit).catch(() => []);
   const files = await fs
     .readdir(REPORTS_DIR)
@@ -687,17 +687,17 @@ export async function getQuantEvalRuns(limit = 30): Promise<QuantEvalRun[]> {
 
   await Promise.all(runs.map((run) => writeEvalRunToDatabase(run).catch(() => undefined)));
 
-  const byId = new Map<string, QuantEvalRun>();
+  const byId = new Map<string, CommerceEvalRun>();
   for (const run of dbRuns) byId.set(run.id, run);
   for (const run of runs) byId.set(run.id, run);
   return Array.from(byId.values()).sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, limit);
 }
 
-export async function getQuantEvalQueue(): Promise<QuantEvalQueueItem[]> {
+export async function getCommerceEvalQueue(): Promise<CommerceEvalQueueItem[]> {
   return readQueue();
 }
 
-export async function cancelQuantEvalRun(queueId: string): Promise<QuantEvalQueueItem> {
+export async function cancelCommerceEvalRun(queueId: string): Promise<CommerceEvalQueueItem> {
   const queue = await readQueue();
   const item = queue.find((entry) => entry.id === queueId);
   if (!item) {
@@ -734,11 +734,11 @@ export async function cancelQuantEvalRun(queueId: string): Promise<QuantEvalQueu
   return updated;
 }
 
-export async function simulateQuantEvalFlow(options: StartQuantEvalOptions = {}): Promise<QuantEvalFlowSimulation> {
+export async function simulateCommerceEvalFlow(options: StartCommerceEvalOptions = {}): Promise<CommerceEvalFlowSimulation> {
   const generatedAt = new Date().toISOString();
-  const steps: QuantEvalFlowStep[] = [];
+  const steps: CommerceEvalFlowStep[] = [];
   const warnings: string[] = [];
-  const allCases = await getQuantEvalCases();
+  const allCases = await getCommerceEvalCases();
   const selectedCases = Array.isArray(options.selectedCases)
     ? options.selectedCases.map(String).filter(Boolean)
     : [];
@@ -754,7 +754,7 @@ export async function simulateQuantEvalFlow(options: StartQuantEvalOptions = {})
   const virtualItem = buildVirtualQueueItem({ ...options, selectedCases, limit });
   const command = [process.execPath, ...buildBenchmarkArgs(virtualItem)];
 
-  const pushStep = (step: QuantEvalFlowStep) => {
+  const pushStep = (step: CommerceEvalFlowStep) => {
     steps.push(step);
     if (step.status === 'warning') {
       warnings.push(step.summary);
@@ -815,7 +815,7 @@ export async function simulateQuantEvalFlow(options: StartQuantEvalOptions = {})
     detail: [QUEUE_DIR, LOG_DIR, REPORTS_DIR, REPAIRS_DIR].map((item) => path.relative(ROOT, item)).join(' · '),
   });
 
-  const runs = await getQuantEvalRuns(3);
+  const runs = await getCommerceEvalRuns(3);
   pushStep({
     id: 'report-parser',
     name: '报告解析',
@@ -869,9 +869,9 @@ export async function simulateQuantEvalFlow(options: StartQuantEvalOptions = {})
   };
 }
 
-export async function startQuantEvalRun(options: StartQuantEvalOptions = {}): Promise<QuantEvalQueueItem> {
+export async function startCommerceEvalRun(options: StartCommerceEvalOptions = {}): Promise<CommerceEvalQueueItem> {
   const queue = await readQueue();
-  const item: QuantEvalQueueItem = {
+  const item: CommerceEvalQueueItem = {
     ...buildVirtualQueueItem(options),
     id: uniqueId('eval-run'),
     createdAt: new Date().toISOString(),
@@ -882,7 +882,7 @@ export async function startQuantEvalRun(options: StartQuantEvalOptions = {}): Pr
   return item;
 }
 
-export async function updateQuantEvalSchedule(input: UpdateQuantEvalScheduleInput): Promise<QuantEvalScheduleConfig> {
+export async function updateCommerceEvalSchedule(input: UpdateCommerceEvalScheduleInput): Promise<CommerceEvalScheduleConfig> {
   const current = await readScheduleConfig();
   const intervalHours =
     typeof input.intervalHours === 'number' && Number.isFinite(input.intervalHours) && input.intervalHours > 0
@@ -916,7 +916,7 @@ export async function updateQuantEvalSchedule(input: UpdateQuantEvalScheduleInpu
   });
 }
 
-export async function checkQuantEvalSchedule(): Promise<{ queued: boolean; schedule: QuantEvalScheduleConfig; item: QuantEvalQueueItem | null }> {
+export async function checkCommerceEvalSchedule(): Promise<{ queued: boolean; schedule: CommerceEvalScheduleConfig; item: CommerceEvalQueueItem | null }> {
   const schedule = await readScheduleConfig();
   if (!schedule.enabled || !schedule.nextRunAt) {
     return { queued: false, schedule, item: null };
@@ -925,7 +925,7 @@ export async function checkQuantEvalSchedule(): Promise<{ queued: boolean; sched
   if (new Date(schedule.nextRunAt).getTime() > now.getTime()) {
     return { queued: false, schedule, item: null };
   }
-  const item = await startQuantEvalRun({
+  const item = await startCommerceEvalRun({
     cli: schedule.cli,
     model: schedule.model,
     reasoningEffort: schedule.reasoningEffort,
@@ -943,11 +943,11 @@ export async function checkQuantEvalSchedule(): Promise<{ queued: boolean; sched
   return { queued: true, schedule: updated, item };
 }
 
-export async function getQuantEvalRun(runId: string): Promise<QuantEvalRun | null> {
+export async function getCommerceEvalRun(runId: string): Promise<CommerceEvalRun | null> {
   if (!/^report-\d+$/.test(runId)) {
     return null;
   }
-  const cases = await getQuantEvalCases();
+  const cases = await getCommerceEvalCases();
   const filePath = path.join(REPORTS_DIR, `${runId}.json`);
   const stat = await fs.stat(filePath).catch(() => null);
   if (stat) {
@@ -965,12 +965,12 @@ export async function getQuantEvalRun(runId: string): Promise<QuantEvalRun | nul
     .catch(() => null);
 }
 
-export async function getQuantEvalDashboardData(): Promise<QuantEvalDashboardData> {
+export async function getCommerceEvalDashboardData(): Promise<CommerceEvalDashboardData> {
   const [cases, customEvalSets, runs, queue, repairTickets, schedule] = await Promise.all([
-    getQuantEvalCases(),
-    getQuantEvalSets(),
-    getQuantEvalRuns(),
-    getQuantEvalQueue(),
+    getCommerceEvalCases(),
+    getCommerceEvalSets(),
+    getCommerceEvalRuns(),
+    getCommerceEvalQueue(),
     readRepairTickets(),
     readScheduleConfig(),
   ]);

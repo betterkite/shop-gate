@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getQuantEvalRun } from '@/lib/eval';
+import { getCommerceEvalRun } from '@/lib/eval';
 import EvalRunDetailClient from './EvalRunDetailClient';
 
 export default async function EvalRunPage({
@@ -8,7 +8,7 @@ export default async function EvalRunPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  const run = await getQuantEvalRun(runId);
+  const run = await getCommerceEvalRun(runId);
   if (!run) {
     notFound();
   }

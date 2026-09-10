@@ -19,12 +19,12 @@ import {
   normalizeProductCliId,
 } from '@/lib/constants/cli';
 import type {
-  QuantEvalDashboardData,
-  QuantEvalFlowSimulation,
-  QuantEvalQueueItem,
-  QuantEvalResult,
-  QuantEvalRun,
-  QuantEvalRuntimeOption,
+  CommerceEvalDashboardData,
+  CommerceEvalFlowSimulation,
+  CommerceEvalQueueItem,
+  CommerceEvalResult,
+  CommerceEvalRun,
+  CommerceEvalRuntimeOption,
 } from '@/lib/eval';
 
 export type EvalSet = {
@@ -42,7 +42,7 @@ export const CLI_LABELS: Record<string, string> = {
   pi: 'PI Agent',
 };
 
-export const FALLBACK_RUNTIME: QuantEvalRuntimeOption = {
+export const FALLBACK_RUNTIME: CommerceEvalRuntimeOption = {
   cli: PRODUCT_CLI_ID,
   label: 'PI Agent',
   defaultModel: LOCAL_QWEN_MODEL_ID,
@@ -242,7 +242,7 @@ export function passRateClass(rate: number) {
   return 'text-red-400';
 }
 
-export function statusPill(result?: QuantEvalResult) {
+export function statusPill(result?: CommerceEvalResult) {
   if (!result) {
     return (
       <Badge variant="outline" className="inline-flex whitespace-nowrap border-border/40 bg-muted/20 text-muted-foreground">
@@ -268,8 +268,8 @@ export function statusPill(result?: QuantEvalResult) {
   );
 }
 
-export function queueBadge(status: QuantEvalQueueItem['status']) {
-  const config: Record<QuantEvalQueueItem['status'], { className: string; label: string }> = {
+export function queueBadge(status: CommerceEvalQueueItem['status']) {
+  const config: Record<CommerceEvalQueueItem['status'], { className: string; label: string }> = {
     queued: { className: 'border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/10', label: '排队中' },
     running: { className: 'border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/10', label: '运行中' },
     passed: { className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/10', label: '已通过' },
@@ -279,11 +279,11 @@ export function queueBadge(status: QuantEvalQueueItem['status']) {
   return <Badge className={config[status].className}>{config[status].label}</Badge>;
 }
 
-export function hasActiveQueue(queue: QuantEvalQueueItem[]) {
+export function hasActiveQueue(queue: CommerceEvalQueueItem[]) {
   return queue.some((item) => item.status === 'queued' || item.status === 'running');
 }
 
-export function getLatestRunDelta(runs: QuantEvalRun[]) {
+export function getLatestRunDelta(runs: CommerceEvalRun[]) {
   if (runs.length < 2) return null;
   const [latest, previous] = runs;
   return {
@@ -293,7 +293,7 @@ export function getLatestRunDelta(runs: QuantEvalRun[]) {
   };
 }
 
-export function getRuntimeOption(runtimeOptions: QuantEvalRuntimeOption[], cli: string) {
+export function getRuntimeOption(runtimeOptions: CommerceEvalRuntimeOption[], cli: string) {
   const canonicalCli = normalizeProductCliId(cli);
   const option = (
     canonicalCli
@@ -311,15 +311,15 @@ export function getRuntimeOption(runtimeOptions: QuantEvalRuntimeOption[], cli: 
     : FALLBACK_RUNTIME;
 }
 
-export function getInitialRuntime(data: QuantEvalDashboardData) {
+export function getInitialRuntime(data: CommerceEvalDashboardData) {
   return getRuntimeOption(data.runtimeOptions, PRODUCT_CLI_ID);
 }
 
-export function getReasoningEffort(runtime: QuantEvalRuntimeOption, value: string | null | undefined) {
+export function getReasoningEffort(runtime: CommerceEvalRuntimeOption, value: string | null | undefined) {
   return runtime.supportsReasoningEffort ? value || 'low' : '';
 }
 
-export function buildEvalSets(data: QuantEvalDashboardData): EvalSet[] {
+export function buildEvalSets(data: CommerceEvalDashboardData): EvalSet[] {
   const cases = data.cases;
   const sets: EvalSet[] = [
     {
@@ -477,10 +477,10 @@ export function ConfigField({ label, children }: { label: string; children: Reac
   );
 }
 
-export function getEvalSetStats(evalSet: EvalSet, latestResultByCase: Map<string, QuantEvalResult>) {
+export function getEvalSetStats(evalSet: EvalSet, latestResultByCase: Map<string, CommerceEvalResult>) {
   const results = evalSet.caseIds
     .map((caseId) => latestResultByCase.get(caseId))
-    .filter((result): result is QuantEvalResult => Boolean(result));
+    .filter((result): result is CommerceEvalResult => Boolean(result));
   const passed = results.filter((result) => result.passed).length;
   const failed = results.length - passed;
   const passRate = results.length ? Math.round((passed / results.length) * 100) : null;
@@ -493,7 +493,7 @@ export function getEvalSetStats(evalSet: EvalSet, latestResultByCase: Map<string
   };
 }
 
-export function flowStepClass(status: QuantEvalFlowSimulation['steps'][number]['status']) {
+export function flowStepClass(status: CommerceEvalFlowSimulation['steps'][number]['status']) {
   if (status === 'passed') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
   if (status === 'warning') return 'border-amber-500/30 bg-amber-500/10 text-amber-400';
   return 'border-red-500/30 bg-red-500/10 text-red-400';

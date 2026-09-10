@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAction } from '@/lib/auth/action';
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
-import { getQuantEvalRun } from '@/lib/eval';
+import { getCommerceEvalRun } from '@/lib/eval';
 
 export async function GET(
   request: Request,
@@ -14,7 +14,7 @@ export async function GET(
       action: 'platform.observability.read',
     });
     const { runId } = await context.params;
-    const run = await getQuantEvalRun(runId);
+    const run = await getCommerceEvalRun(runId);
     if (!run) {
       return NextResponse.json(
         {

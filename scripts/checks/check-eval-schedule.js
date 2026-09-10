@@ -7,9 +7,9 @@ const jiti = require('jiti')(path.join(process.cwd(), 'scripts/checks/check-eval
   interopDefault: true,
 });
 
-const { checkQuantEvalSchedule } = jiti('../../src/lib/eval/index.ts');
+const { checkCommerceEvalSchedule } = jiti('../../src/lib/eval/index.ts');
 
-checkQuantEvalSchedule()
+checkCommerceEvalSchedule()
   .then((result) => {
     if (result.queued) {
       console.log(`[eval-schedule] queued ${result.item.id}, next=${result.schedule.nextRunAt}`);

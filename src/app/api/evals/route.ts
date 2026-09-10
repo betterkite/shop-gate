@@ -3,14 +3,14 @@ import { requireAction } from '@/lib/auth/action';
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
 import {
-  cancelQuantEvalRun,
-  createQuantEvalCase,
-  createQuantEvalSet,
-  checkQuantEvalSchedule,
-  getQuantEvalDashboardData,
-  simulateQuantEvalFlow,
-  startQuantEvalRun,
-  updateQuantEvalSchedule,
+  cancelCommerceEvalRun,
+  createCommerceEvalCase,
+  createCommerceEvalSet,
+  checkCommerceEvalSchedule,
+  getCommerceEvalDashboardData,
+  simulateCommerceEvalFlow,
+  startCommerceEvalRun,
+  updateCommerceEvalSchedule,
 } from '@/lib/eval';
 import { assertPrivilegedMutation, PrivilegedRequestError } from '@/lib/server/privileged-request';
 
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     });
     const response = NextResponse.json({
       success: true,
-      data: await getQuantEvalDashboardData(),
+      data: await getCommerceEvalDashboardData(),
     });
     response.headers.set('Cache-Control', 'private, no-store');
     return response;
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const action = String(body.action ?? '');
     if (action === 'start-benchmark') {
-      const item = await startQuantEvalRun({
+      const item = await startCommerceEvalRun({
         cli: typeof body.cli === 'string' ? body.cli : undefined,
         model: typeof body.model === 'string' ? body.model : undefined,
         reasoningEffort: typeof body.reasoningEffort === 'string' ? body.reasoningEffort : undefined,
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'create-case') {
-      const item = await createQuantEvalCase({
+      const item = await createCommerceEvalCase({
         id: typeof body.id === 'string' ? body.id : undefined,
         name: typeof body.name === 'string' ? body.name : undefined,
         question: typeof body.question === 'string' ? body.question : undefined,
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'create-eval-set') {
-      const item = await createQuantEvalSet({
+      const item = await createCommerceEvalSet({
         id: typeof body.id === 'string' ? body.id : undefined,
         name: typeof body.name === 'string' ? body.name : undefined,
         description: typeof body.description === 'string' ? body.description : undefined,
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'simulate-flow') {
-      const simulation = await simulateQuantEvalFlow({
+      const simulation = await simulateCommerceEvalFlow({
         cli: typeof body.cli === 'string' ? body.cli : undefined,
         model: typeof body.model === 'string' ? body.model : undefined,
         reasoningEffort: typeof body.reasoningEffort === 'string' ? body.reasoningEffort : undefined,
@@ -119,12 +119,12 @@ export async function POST(request: Request) {
     }
 
     if (action === 'cancel-benchmark') {
-      const item = await cancelQuantEvalRun(String(body.queueId ?? ''));
+      const item = await cancelCommerceEvalRun(String(body.queueId ?? ''));
       return NextResponse.json({ success: true, data: item });
     }
 
     if (action === 'update-schedule') {
-      const schedule = await updateQuantEvalSchedule({
+      const schedule = await updateCommerceEvalSchedule({
         enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
         intervalHours: typeof body.intervalHours === 'number' ? body.intervalHours : undefined,
         cli: typeof body.cli === 'string' ? body.cli : undefined,
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
     }
 
     if (action === 'check-schedule') {
-      const result = await checkQuantEvalSchedule();
+      const result = await checkCommerceEvalSchedule();
       return NextResponse.json({ success: true, data: result });
     }
 

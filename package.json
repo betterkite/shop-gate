@@ -51,7 +51,6 @@
     "db:init": "node scripts/db/init-database.js",
     "db:doctor": "node scripts/db/check-database.js",
     "db:sync-workspaces": "node scripts/db/sync-projects-from-workspaces.js",
-    "db:migrate-platform-state": "node scripts/db/migrate-platform-state-to-postgres.js",
     "db:backup:release": "node scripts/db/release-backup.js",
     "db:restore:release": "node scripts/db/release-restore.js",
     "worker:generation": "node --import tsx scripts/workers/generation-worker.ts",

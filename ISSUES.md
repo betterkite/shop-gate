@@ -21,7 +21,7 @@
 | ISSUE-P13 | commerce-data 后端旧金融模块物理清理 | P13 | 运行入口只保留零售数据路由；旧行情/回测/ClickHouse/provider/models/tests/config/docker 残留有引用图、迁移说明和后端全门验证 | done（专用分支完成；运行入口/路由/依赖/Compose/环境/维护脚本已收敛，引用图与验证见 `docs/review/p13-backend-cleanup.md`） |
 | ISSUE-P14 | generation/eval/scaffold 内部历史命名与模板语义零售化 | P14 | `Quant*` 平台类型、旧 finance 示例、金融计算 skill 脚本和旧评测语料按模块完成改名/重写；retail benchmark、type-check、vitest 回归通过 | open（保留为独立 PR，避免与运行链路清理混合） |
 | ISSUE-P15 | 权限与配额命名从 QuantPilot 迁移到 commerce/operations | P12 | 当前代码使用 `commerce.*` / `operations.*`；新增追加式 migration 同步 grant、override、quota、bucket、reservation、event；历史 migration 不改 | done（本轮已完成代码、文档、测试和 `20260909000200_rename_retail_access_metrics`） |
-| ISSUE-P16 | 视觉回归与 catalog 基准稳定性 | P16 | 登录态视觉 smoke 可稳定运行；R01–R04 连续运行无随机 token-budget 假失败；release gate 输出可审计报告 | open（需要运行态/模型配置，未在本轮伪造通过） |
+| ISSUE-P16 | 视觉回归与 catalog 基准稳定性 | P16 | 登录态视觉 smoke 可稳定运行；R01–R04 连续运行无随机 token-budget 假失败；release gate 输出可审计报告 | in-progress（已接入真实 DeepSeek 直连验收；修复零售模板误用选股/K 线/MA60 验证规则、窗口内全库澄清误判与合法 `timeRange.value=null`；串行 R01–R04 已 4/4 READY。剩余：登录态视觉 smoke 独立门禁、失败 campaign 预览进程自动清理） |
 
 ## P0 结果与残留台账（2025-09-06，随阶段推进收敛）
 

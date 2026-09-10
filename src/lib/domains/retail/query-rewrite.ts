@@ -142,7 +142,10 @@ export interface RetailQuerySemanticDraft {
 
 export interface RetailQueryLlmSemantics {
   targetCandidates: string[];
-  timeRange: (Omit<RetailQueryTimeRange, 'source'> & { evidence: string }) | null;
+  timeRange: (Omit<RetailQueryTimeRange, 'source' | 'value'> & {
+    value?: number | null;
+    evidence: string;
+  }) | null;
   analysisFocusId: RetailQueryFocusId;
   outputIntent: 'dashboard' | 'answer';
   /** 明确要求只回答不出图的查询原文字面摘录。 */
@@ -541,13 +544,14 @@ function normalizeLlmTimeRange(
   if (!label || label.length > 64 || !VALID_TIME_RANGE_UNITS.has(unit)) return null;
   if (
     rawValue !== undefined &&
+    rawValue !== null &&
     (!Number.isSafeInteger(rawValue) || rawValue <= 0 || rawValue > 5_000)
   ) {
     return null;
   }
   return {
     label,
-    ...(rawValue === undefined ? {} : { value: rawValue }),
+    ...(typeof rawValue === 'number' ? { value: rawValue } : {}),
     unit,
     source: 'explicit',
   };
@@ -679,6 +683,32 @@ function rewrittenQueryText(params: {
   ].join('；');
 }
 
+const WHOLE_CATALOG_SCOPE_PATTERN =
+  /数据窗口内|窗口内|全库|全量|整体|大盘|总体|全店|商品池|全部类目|所有商品|各类目|各价格带/;
+const VAGUE_DISCOVERY_PATTERN =
+  /(?:有哪些|有什么).{0,12}(?:商品|类目).{0,12}(?:值得关注|推荐|重点)/;
+
+function shouldInferBroadUniverse(params: {
+  query: string;
+  targetCandidates: string[];
+  focusId: RetailQueryFocusId;
+}): boolean {
+  if (params.targetCandidates.length > 0 || VAGUE_DISCOVERY_PATTERN.test(params.query)) {
+    return false;
+  }
+
+  // The four retail capabilities are executable over the platform-wide data
+  // window when the user explicitly names that scope. DeepSeek occasionally
+  // omits broadUniverse for phrases such as “窗口内各价格带”; recover only
+  // this bounded, literal scope instead of falling back to keyword guessing.
+  return (
+    params.focusId === 'funnel' ||
+    params.focusId === 'catalog' ||
+    params.focusId === 'price_inventory' ||
+    params.focusId === 'daily_brief'
+  ) && WHOLE_CATALOG_SCOPE_PATTERN.test(params.query);
+}
+
 export async function rewriteRetailQuery(
   query: string,
   options: RewriteRetailQueryOptions = {},
@@ -762,8 +792,18 @@ export async function rewriteRetailQuery(
     llmExecution.semanticConfidence = llmResult.outcome.data.confidence;
     llmExecution.usage = llmResult.outcome.usage ?? null;
     if (merged) {
-      semanticDraft = merged.draft;
+      const inferredBroadUniverse = shouldInferBroadUniverse({
+        query: normalizedQuery,
+        targetCandidates: merged.draft.targetCandidates,
+        focusId: merged.draft.analysisFocus.id,
+      });
+      semanticDraft = inferredBroadUniverse
+        ? { ...merged.draft, broadUniverse: true }
+        : merged.draft;
       llmExecution.guardedFields = merged.guardedFields;
+      if (inferredBroadUniverse) {
+        llmExecution.guardedFields = [...llmExecution.guardedFields, 'broadUniverse'];
+      }
       llmExecution.applied = true;
       llmExecution.status = 'applied';
       llmExecution.errorCode = null;

@@ -92,6 +92,54 @@ describe('retail query rewrite LLM path', () => {
     expect(result.resolvedEntities[0]).toMatchObject({ kind: 'item', id: 1000329 });
     expect(result.capabilityHint).toBe('traffic_funnel');
   });
+
+  it('treats an explicit window-wide price inventory request as executable', async () => {
+    const result = await rewriteRetailQuery('窗口内各价格带的商品分布与库销比风险如何？', {
+      requestedCapabilityId: 'price_inventory',
+      semanticRewriter: async () => ({
+        ok: true as const,
+        data: {
+          ...baseSemantics,
+          analysisFocusId: 'price_inventory' as const,
+          timeRange: {
+            label: '窗口内',
+            value: null,
+            unit: 'data_window' as const,
+            evidence: '窗口内',
+          },
+          broadUniverse: false,
+          broadUniverseEvidence: null,
+        },
+        provider: 'test',
+        model: 'test-model',
+      }),
+    });
+
+    expect(result.status).toBe('ready');
+    expect(result.broadUniverse).toBe(true);
+    expect(result.rewrittenQuery).toContain('全库口径');
+    expect(result.execution.llm.guardedFields).toContain('broadUniverse');
+  });
+
+  it('does not turn vague product discovery into a whole-catalog run', async () => {
+    const result = await rewriteRetailQuery('窗口内有哪些商品值得关注？', {
+      requestedCapabilityId: 'price_inventory',
+      semanticRewriter: async () => ({
+        ok: true as const,
+        data: {
+          ...baseSemantics,
+          analysisFocusId: 'price_inventory' as const,
+          broadUniverse: false,
+          broadUniverseEvidence: null,
+        },
+        provider: 'test',
+        model: 'test-model',
+      }),
+    });
+
+    expect(result.status).toBe('needs_clarification');
+    expect(result.broadUniverse).toBe(false);
+  });
 });
 
 describe('retail entity candidate ranking', () => {

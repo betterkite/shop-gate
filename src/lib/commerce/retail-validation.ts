@@ -999,47 +999,34 @@ async function checkFinalDataFile(
       }
 
       if (plannedTemplateId === 'catalog-structure' && !isEmptyScreenerResult) {
-        const selectionRanking = asRecord(record?.selectionRanking);
-        const financialQuality = asRecord(record?.financialQuality);
-        const rankingRows = Array.isArray(selectionRanking?.rows) ? selectionRanking.rows : [];
-        const qualityRows = Array.isArray(financialQuality?.rows) ? financialQuality.rows : [];
-        const comparisonRows = Array.isArray(asRecord(record?.comparison)?.rows)
-          ? asRecord(record?.comparison)?.rows as unknown[]
+        const categories = asRecord(asRecord(record)?.datasets)?.categories;
+        const categoryRows = Array.isArray(asRecord(categories)?.rows)
+          ? asRecord(categories)?.rows as unknown[]
           : [];
-        const missingSelectionData = [
-          rankingRows.length === 0 ? 'selectionRanking.rows' : null,
-          qualityRows.length === 0 ? 'financialQuality.rows' : null,
-          comparisonRows.some((row) => {
-            const item = asRecord(row);
-            return !item || numeric(item.composite_score) === null || !pickString(item.selection_view);
-          }) ? 'comparison.rows[].composite_score/selection_view' : null,
+        const missingCatalogData = [
+          categoryRows.length === 0 ? 'datasets.categories.rows' : null,
         ].filter((item): item is string => Boolean(item));
 
-        if (missingSelectionData.length > 0) {
+        if (missingCatalogData.length > 0) {
           errors.push(
-            `${normalizeRelativePath(projectPath, filePath)} 缺少选股模板数据字段：${missingSelectionData.join('、')}。`
+            `${normalizeRelativePath(projectPath, filePath)} 缺少类目结构模板数据字段：${missingCatalogData.join('、')}。`
           );
           continue;
         }
       }
 
       if (plannedTemplateId === 'price-inventory') {
-        const record = asRecord(parsed);
-        const holdings = Array.isArray(record?.holdings) ? record.holdings : [];
-        const assets = Array.isArray(record?.assets) ? record.assets : [];
-        const comparisonRows = Array.isArray(asRecord(record?.comparison)?.rows)
-          ? asRecord(record?.comparison)?.rows as unknown[]
+        const inventory = asRecord(asRecord(record)?.datasets)?.inventoryRisk;
+        const inventoryItems = Array.isArray(asRecord(inventory)?.items)
+          ? asRecord(inventory)?.items as unknown[]
           : [];
-        const missingHoldingData = [
-          !asRecord(record?.portfolio) ? 'portfolio' : null,
-          holdings.length === 0 ? 'holdings[]' : null,
-          assets.length === 0 ? 'assets[]' : null,
-          comparisonRows.length === 0 ? 'comparison.rows' : null,
+        const missingInventoryData = [
+          inventoryItems.length === 0 ? 'datasets.inventoryRisk.items' : null,
         ].filter((item): item is string => Boolean(item));
 
-        if (missingHoldingData.length > 0) {
+        if (missingInventoryData.length > 0) {
           errors.push(
-            `${normalizeRelativePath(projectPath, filePath)} 缺少持仓分析模板数据字段：${missingHoldingData.join('、')}。`
+            `${normalizeRelativePath(projectPath, filePath)} 缺少价格库存模板数据字段：${missingInventoryData.join('、')}。`
           );
           continue;
         }
@@ -1974,17 +1961,16 @@ async function checkDashboardBinding(
 	    const serializedFinal = JSON.stringify(finalData ?? {}).toLowerCase();
 	    const templateChecks: Record<string, { label: string; patterns: RegExp[] }> = {
       'price-inventory': {
-        label: '持仓分析模板',
-        patterns: [/持仓|holding|portfolio|仓位|集中度/, /调仓|风险|相关性|流动性|回撤/],
+        label: '价格库存模板',
+        patterns: [/价格带|库销比|库存|滞销|price|inventory/, /合成口径|销量|日均|商品|数据质量|更新时间/],
       },
       'catalog-structure': {
-	        label: '选股分析模板',
-	        patterns: [
-	          /stock-selection|选股|候选|多标的|comparison|assets/,
-	          /selectionranking|financialquality|排名|相对强弱|研究优先级/,
-	          /收益对比|波动对比|回撤对比|财务质量|数据口径|更新时间/,
-	        ],
-	      },
+        label: '类目结构模板',
+        patterns: [
+          /类目|category|categories|商品|catalog|GMV|排名|集中度/,
+          /转化率|客单价|数据质量|合成口径|数据窗口|更新时间/,
+        ],
+      },
       'strategy-research': {
         label: '策略研究模板',
         patterns: [
@@ -1994,12 +1980,12 @@ async function checkDashboardBinding(
         ],
       },
       'funnel-analysis': {
-        label: '个股诊断模板',
-        patterns: [/个股|行情|最新价|quote|k\s*线|k线/, /财务|公告|质量|更新时间|报告期/],
+        label: '行为漏斗模板',
+        patterns: [/漏斗|funnel|曝光|收藏|加购|购买|转化率/, /分日|趋势|数据质量|数据窗口|更新时间/],
       },
       'daily-brief': {
-        label: '技术择时模板',
-        patterns: [/k\s*线|k线|均线|ma20|ma60|成交量/, /触发|失效|趋势|回撤|波动/],
+        label: '经营日报模板',
+        patterns: [/日报|经营摘要|GMV|转化|客单价|summary/, /环比|异动|类目|数据质量|数据窗口|更新时间/],
       },
       'fundamental-research': {
         label: '基本面研究模板',
@@ -2148,14 +2134,32 @@ async function checkChartPresence(
     };
   }
 
-  if (
-    plannedTemplateId === 'catalog-structure' &&
-    !/selectionRanking|financialQuality|stock-selection|相对强弱与排名依据|财务质量|收益对比图|波动对比图|回撤对比图/.test(page)
-  ) {
+  const retailChartRequirements: Record<string, { pattern: RegExp; label: string }> = {
+    'catalog-structure': {
+      pattern: /categories|类目|GMV|集中度|category|排名/i,
+      label: '类目排名、集中度或指标矩阵',
+    },
+    'funnel-analysis': {
+      pattern: /funnel|漏斗|曝光|收藏|加购|购买|转化|分日/i,
+      label: '行为漏斗或分日转化趋势',
+    },
+    'price-inventory': {
+      pattern: /inventory|库销比|价格带|库存|滞销|销量/i,
+      label: '价格带、库销比或库存风险图表',
+    },
+    'daily-brief': {
+      pattern: /日报|经营摘要|GMV|转化|客单价|环比|异动|summary/i,
+      label: '经营日报摘要、环比或类目异动图表',
+    },
+  };
+  const retailChartRequirement = plannedTemplateId
+    ? retailChartRequirements[plannedTemplateId]
+    : undefined;
+  if (retailChartRequirement && !retailChartRequirement.pattern.test(page)) {
     return {
       status: 'failed',
-      summary: '选股任务未检测到场景化选股图表组件。',
-      details: '页面需要展示相对强弱/排名依据、财务质量、收益对比图、波动对比图或回撤对比图。',
+      summary: `${retailChartRequirement.label}未检测到。`,
+      details: `页面需要展示${retailChartRequirement.label}。`,
       metadata: {
         plannedSymbols,
         plannedTemplateId,
@@ -2163,33 +2167,20 @@ async function checkChartPresence(
     };
   }
 
-  if (plannedTemplateId === 'daily-brief') {
-    const hasMa60Graphic =
-      /legend-ma60|className=["'][^"']*ma60|(?:ma60|MA60)[\w]*\s*\.map\(|name\s*:\s*["']MA60/i.test(page);
-    const hasExplicitRiskConclusion = /风险结论|风险等级/.test(page);
-    const hasVolumeGraphic = /volume-chart|成交量副图|VolumeChart|volumeBars/.test(page);
-    if (!hasMa60Graphic || !hasExplicitRiskConclusion || !hasVolumeGraphic) {
-      return {
-        status: 'failed',
-        summary: '技术择时看板缺少完整的 MA60、成交量或风险结论。',
-        details: [
-          !hasMa60Graphic ? 'MA60 必须实际绘制到主图，不能只出现在文字或组件清单中。' : null,
-          !hasVolumeGraphic ? '必须绘制成交量副图。' : null,
-          !hasExplicitRiskConclusion ? '必须显式展示风险结论或风险等级。' : null,
-        ].filter(Boolean).join('\n'),
-        metadata: {
-          hasMa60Graphic,
-          hasVolumeGraphic,
-          hasExplicitRiskConclusion,
-          plannedTemplateId,
-        },
-      };
-    }
+  if (plannedTemplateId === 'daily-brief' && !/风险|质量|限制|合成口径|数据质量/i.test(page)) {
+    return {
+      status: 'failed',
+      summary: '经营日报看板缺少数据质量或口径说明。',
+      details: '日报页面需要显式展示数据质量、合成口径或分析限制。',
+      metadata: {
+        plannedTemplateId,
+      },
+    };
   }
 
   return {
     status: 'passed',
-    summary: '已检测到金融图表相关实现。',
+    summary: '已检测到零售场景图表实现。',
   };
 }
 

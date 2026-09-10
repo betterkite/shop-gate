@@ -1,6 +1,6 @@
 import {
-  incrementQuantGenerationRepairAttempt,
-  readQuantGenerationState,
+  incrementGenerationRepairAttempt,
+  readGenerationState,
   updateRetailGenerationStep,
 } from '@/lib/generation/generation-state';
 import {
@@ -38,7 +38,7 @@ export async function runBenchmarkRepairLoop(params: {
   validate: (requestId: string) => Promise<RetailValidationReport>;
   preparePlatformArtifacts?: () => Promise<{ runPlanRebuilt: boolean }>;
 }): Promise<BenchmarkRepairLoopResult> {
-  const generationState = await readQuantGenerationState(params.projectPath);
+  const generationState = await readGenerationState(params.projectPath);
   const maxRepairAttempts = Math.max(
     1,
     params.maxRepairAttempts ?? generationState?.maxRepairAttempts ?? 3,
@@ -85,7 +85,7 @@ export async function runBenchmarkRepairLoop(params: {
         maxRepairAttempts,
       },
     });
-    const recordedAttempt = await incrementQuantGenerationRepairAttempt({
+    const recordedAttempt = await incrementGenerationRepairAttempt({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.parentRequestId,
@@ -189,7 +189,7 @@ export async function failBenchmarkGenerationRun(params: {
   parentRequestId: string;
   error: unknown;
 }) {
-  const state = await readQuantGenerationState(params.projectPath);
+  const state = await readGenerationState(params.projectPath);
   if (
     !state ||
     state.requestId !== params.parentRequestId ||

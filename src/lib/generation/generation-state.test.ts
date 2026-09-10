@@ -3,8 +3,8 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  cancelQuantGenerationRun,
-  readQuantGenerationState,
+  cancelGenerationRun,
+  readGenerationState,
   startRetailGenerationRun,
   updateRetailGenerationStep,
 } from './generation-state';
@@ -33,7 +33,7 @@ describe('generation state terminal transitions', () => {
       ...identifiers,
       instruction: 'generate a dashboard',
     });
-    await cancelQuantGenerationRun({ ...identifiers, reason: 'user paused' });
+    await cancelGenerationRun({ ...identifiers, reason: 'user paused' });
     await updateRetailGenerationStep({
       ...identifiers,
       stepId: 'completed',
@@ -42,7 +42,7 @@ describe('generation state terminal transitions', () => {
       runStatus: 'completed',
     });
 
-    expect(await readQuantGenerationState(projectPath)).toMatchObject({
+    expect(await readGenerationState(projectPath)).toMatchObject({
       status: 'cancelled',
       requestId: 'request-state',
     });

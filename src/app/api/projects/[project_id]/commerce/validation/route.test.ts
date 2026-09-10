@@ -29,14 +29,14 @@ vi.mock("@/lib/services/project", () => ({
 }));
 
 vi.mock("@/lib/generation/generation-state", () => ({
-  readQuantGenerationState: mocks.readGenerationState,
+  readGenerationState: mocks.readGenerationState,
   readRetailGenerationState: mocks.readGenerationState,
-  updateQuantGenerationStep: mocks.updateGenerationStep,
+  updateGenerationStep: mocks.updateGenerationStep,
   updateRetailGenerationStep: mocks.updateGenerationStep,
 }));
 
 vi.mock("@/lib/generation/generation-queue", () => ({
-  runQuantGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
+  runGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
     input.task(),
   runRetailGenerationStage: async <T>(input: { task: () => Promise<T> }) =>
     input.task(),

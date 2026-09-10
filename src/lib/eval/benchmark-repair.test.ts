@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  readQuantGenerationState,
+  readGenerationState,
   startRetailGenerationRun,
   updateRetailGenerationStep,
 } from '@/lib/generation/generation-state';
@@ -81,7 +81,7 @@ describe('benchmark repair state machine', () => {
       repairRequestId: `${identifiers.parentRequestId}-validation-repair-1`,
     }));
     expect(validate).toHaveBeenCalledWith(identifiers.parentRequestId);
-    expect(await readQuantGenerationState(identifiers.projectPath)).toMatchObject({
+    expect(await readGenerationState(identifiers.projectPath)).toMatchObject({
       requestId: identifiers.parentRequestId,
       activeStep: 'final_validation',
       repairAttemptCount: 1,
@@ -105,7 +105,7 @@ describe('benchmark repair state machine', () => {
       validate: async () => report(true),
     })).rejects.toThrow('repair exploded');
 
-    expect(await readQuantGenerationState(identifiers.projectPath)).toMatchObject({
+    expect(await readGenerationState(identifiers.projectPath)).toMatchObject({
       requestId: identifiers.parentRequestId,
       status: 'failed',
       activeStep: 'repair',
@@ -129,7 +129,7 @@ describe('benchmark repair state machine', () => {
       error: new Error('initialization failed'),
     });
 
-    expect(await readQuantGenerationState(identifiers.projectPath)).toMatchObject({
+    expect(await readGenerationState(identifiers.projectPath)).toMatchObject({
       requestId: identifiers.parentRequestId,
       status: 'failed',
       activeStep: 'agent_execution',

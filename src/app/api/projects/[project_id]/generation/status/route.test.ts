@@ -13,7 +13,7 @@ vi.mock('@/lib/services/project', () => ({
 }));
 
 vi.mock('@/lib/generation/generation-state', () => ({
-  readQuantGenerationState: mocks.readGeneration,
+  readGenerationState: mocks.readGeneration,
 }));
 
 vi.mock('@/lib/commerce/retail-validation', () => ({

@@ -5,7 +5,7 @@ import { AuthorizationError } from "@/lib/auth/authorization";
 import { authErrorResponse } from "@/lib/auth/http";
 import { getProjectById } from "@/lib/services/project";
 import {
-  readQuantGenerationState,
+  readGenerationState,
   updateRetailGenerationStep,
 } from "@/lib/generation/generation-state";
 import { startPersistentValidatedPreview } from "@/lib/generation/generation-preview";
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const [report, repairPlan, generationState] = await Promise.all([
       quantValidation.readRetailValidationReport(projectPath),
       quantValidation.readRetailValidationRepairPlan(projectPath),
-      readQuantGenerationState(projectPath),
+      readGenerationState(projectPath),
     ]);
     const acceptance = generationState?.requestId
       ? await readPiAgentAcceptedMissionSnapshot(
@@ -272,7 +272,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       requestId: requestedRequestId ?? null,
       stage: "manual_validation",
       task: async () => {
-        const generationState = await readQuantGenerationState(projectPath);
+        const generationState = await readGenerationState(projectPath);
         if (
           requestedRequestId &&
           generationState?.requestId &&

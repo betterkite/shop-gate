@@ -29,7 +29,7 @@ import {
   type ActiveCliId,
   type ActiveModelOption,
 } from '@/lib/utils/cliOptions';
-import type { QuantGenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
+import type { GenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
 import {
   CHAT_PANE_DEFAULT_WIDTH,
   CHAT_PANE_MAX_WIDTH,
@@ -1014,7 +1014,7 @@ const persistProjectPreferences = useCallback(
     return 'unknown';
   }, [isVisualCheck, projectId]);
 
-  const readGenerationTerminalSnapshot = useCallback(async (): Promise<QuantGenerationTerminalSnapshot | null> => {
+  const readGenerationTerminalSnapshot = useCallback(async (): Promise<GenerationTerminalSnapshot | null> => {
     const response = await fetch(
       `${API_BASE}/api/projects/${projectId}/generation/status`,
       { cache: 'no-store' },
@@ -1023,12 +1023,12 @@ const persistProjectPreferences = useCallback(
       return null;
     }
     const payload = await response.json();
-    return (payload?.data ?? null) as QuantGenerationTerminalSnapshot | null;
+    return (payload?.data ?? null) as GenerationTerminalSnapshot | null;
   }, [projectId]);
 
   const start = useCallback(async (options: {
     requireValidation?: boolean;
-    acceptedSnapshot?: QuantGenerationTerminalSnapshot;
+    acceptedSnapshot?: GenerationTerminalSnapshot;
   } = {}) => {
     // A URL already adopted by this page must never trigger another start.
     if (previewUrlRef.current) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RetailValidationCheck } from '../commerce/retail-validation';
-import { deriveQuantGenerationTerminalSnapshot } from './generation-terminal';
+import { deriveGenerationTerminalSnapshot } from './generation-terminal';
 
 const validation = (runId: string | undefined, passed = true) => ({
   runId,
@@ -38,7 +38,7 @@ const acceptedMission = (requestId: string, generationId = 'generation-1') => ({
 
 describe('generation terminal snapshot', () => {
   it('projects a policy refusal as terminal without requiring validation or preview', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: {
         projectId: 'project-1',
         requestId: 'refused-request',
@@ -59,7 +59,7 @@ describe('generation terminal snapshot', () => {
   });
 
   it('is ready only after current-run validation and a running preview URL', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: piAgentGeneration('request-1'),
       validation: validation('request-1'),
       preview: preview('running', 'http://localhost:4100'),
@@ -79,7 +79,7 @@ describe('generation terminal snapshot', () => {
   });
 
   it('fails closed for a PI Agent generation without an accepted receipt', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: piAgentGeneration('request-1'),
       validation: validation('request-1'),
       preview: preview('running', 'http://localhost:4100'),
@@ -124,7 +124,7 @@ describe('generation terminal snapshot', () => {
   ])(
     'rejects accepted evidence bound to a different or incomplete $name',
     ({ mission }) => {
-      const snapshot = deriveQuantGenerationTerminalSnapshot({
+      const snapshot = deriveGenerationTerminalSnapshot({
         generation: piAgentGeneration('request-1'),
         validation: validation('request-1'),
         preview: preview('running', 'http://localhost:4100'),
@@ -138,7 +138,7 @@ describe('generation terminal snapshot', () => {
   );
 
   it('fails closed when persisted generation identity is not canonical', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: {
         projectId: 'project-1',
         requestId: 'noncanonical-request',
@@ -161,7 +161,7 @@ describe('generation terminal snapshot', () => {
   });
 
   it('fails closed when a persisted PI Agent generation lacks Mission identity', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: {
         projectId: 'project-1',
         requestId: 'incomplete-request',
@@ -184,7 +184,7 @@ describe('generation terminal snapshot', () => {
   });
 
   it('fails closed for Mission-backed recovery state without a cliPreference', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: {
         ...piAgentGeneration('request-1'),
         cliPreference: null,
@@ -202,7 +202,7 @@ describe('generation terminal snapshot', () => {
   });
 
   it('does not reuse a passed report from an older generation', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: { requestId: 'request-new', status: 'running', error: null },
       validation: validation('request-old'),
       preview: preview('running', 'http://localhost:4100'),
@@ -220,7 +220,7 @@ describe('generation terminal snapshot', () => {
   it.each(['pending', 'running', 'repairing'] as const)(
     'keeps an intermediate failed validation non-terminal while generation is %s',
     (status) => {
-      const snapshot = deriveQuantGenerationTerminalSnapshot({
+      const snapshot = deriveGenerationTerminalSnapshot({
         generation: {
           requestId: 'request-repairing',
           status,
@@ -239,7 +239,7 @@ describe('generation terminal snapshot', () => {
   );
 
   it('does not revive a failed generation from validation without acceptance', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: {
         requestId: 'request-preview-failed',
         status: 'failed',
@@ -260,7 +260,7 @@ describe('generation terminal snapshot', () => {
   });
 
   it('does not revive a failed Mission-backed generation from a passed report', () => {
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: {
         ...piAgentGeneration('request-mission-failed'),
         status: 'failed',
@@ -289,7 +289,7 @@ describe('generation terminal snapshot', () => {
       summary: 'stale',
     });
 
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation: { requestId: 'request-1', status: 'completed', error: null },
       validation: report,
       preview: preview('running', 'http://localhost:4100'),

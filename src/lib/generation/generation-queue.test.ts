@@ -194,10 +194,10 @@ vi.mock("@/lib/services/pi-agent-generation-dispatch-session", async () => {
 });
 
 import {
-  markQuantGenerationQueueCancelled,
-  QuantGenerationCancelledError,
-  readQuantGenerationQueue,
-  runQuantGenerationQueued,
+  markGenerationQueueCancelled,
+  GenerationCancelledError,
+  readGenerationQueue,
+  runGenerationQueued,
 } from "./generation-queue";
 
 const temporaryProjects: string[] = [];
@@ -233,7 +233,7 @@ describe("generation durable dispatch projection", () => {
     const projectId = `project-${Date.now()}`;
     let executed = false;
 
-    await runQuantGenerationQueued({
+    await runGenerationQueued({
       projectPath,
       projectId,
       requestId: "request-1",
@@ -267,13 +267,13 @@ describe("generation durable dispatch projection", () => {
     const projectId = `project-cancel-${Date.now()}`;
     let started = false;
 
-    await markQuantGenerationQueueCancelled({
+    await markGenerationQueueCancelled({
       projectPath,
       projectId,
       requestId: "request-cancelled",
       reason: "test cancellation",
     });
-    const result = await runQuantGenerationQueued({
+    const result = await runGenerationQueued({
       projectPath,
       projectId,
       requestId: "request-cancelled",
@@ -283,9 +283,9 @@ describe("generation durable dispatch projection", () => {
       },
     }).catch((error) => error);
 
-    expect(result).toBeInstanceOf(QuantGenerationCancelledError);
+    expect(result).toBeInstanceOf(GenerationCancelledError);
     expect(started).toBe(false);
-    const queue = await readQuantGenerationQueue(projectPath, projectId);
+    const queue = await readGenerationQueue(projectPath, projectId);
     expect(
       queue.items.find((item) => item.requestId === "request-cancelled"),
     ).toMatchObject({

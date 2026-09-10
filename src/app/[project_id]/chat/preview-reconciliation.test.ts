@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { QuantGenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
+import type { GenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
 import { planPreviewReconciliation } from './preview-reconciliation';
 
 function snapshot(
-  overrides: Partial<QuantGenerationTerminalSnapshot> = {},
-): QuantGenerationTerminalSnapshot {
+  overrides: Partial<GenerationTerminalSnapshot> = {},
+): GenerationTerminalSnapshot {
   return {
     requestId: 'request-1',
     status: 'preview_pending',

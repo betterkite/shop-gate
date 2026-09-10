@@ -12,8 +12,8 @@ import {
 } from '@/lib/services/user-requests';
 import { streamManager } from '@/lib/services/stream';
 import { getProjectById } from '@/lib/services/project';
-import { markQuantGenerationQueueCancelled } from '@/lib/generation/generation-queue';
-import { cancelQuantGenerationRun } from '@/lib/generation/generation-state';
+import { markGenerationQueueCancelled } from '@/lib/generation/generation-queue';
+import { cancelGenerationRun } from '@/lib/generation/generation-state';
 import {
   cancelActivePiAgentMissions,
   cancelPiAgentMission,
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             ? project.repoPath
             : path.resolve(/*turbopackIgnore: true*/ process.cwd(), project.repoPath)
           : path.resolve(/*turbopackIgnore: true*/ process.cwd(), projectsDir, project_id);
-        await markQuantGenerationQueueCancelled({
+        await markGenerationQueueCancelled({
           projectPath,
           projectId: project_id,
           requestId,
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         }).catch((error) => {
           console.warn('[API] Failed to mark generation queue item cancelled:', error);
         });
-        await cancelQuantGenerationRun({
+        await cancelGenerationRun({
           projectPath,
           projectId: project_id,
           requestId,

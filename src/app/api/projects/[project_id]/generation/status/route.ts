@@ -5,10 +5,10 @@ import { AuthorizationError } from '@/lib/auth/authorization';
 import { authErrorResponse } from '@/lib/auth/http';
 import { projectRouteAction } from '@/lib/auth/project-route-action';
 import {
-  deriveQuantGenerationTerminalSnapshot,
+  deriveGenerationTerminalSnapshot,
   requiresPiAgentMissionAcceptance,
 } from '@/lib/generation/generation-terminal';
-import { readQuantGenerationState } from '@/lib/generation/generation-state';
+import { readGenerationState } from '@/lib/generation/generation-state';
 import { readRetailValidationReport } from '@/lib/commerce/retail-validation';
 import { readPiAgentAcceptedMissionSnapshot } from '@/lib/services/pi-agent-mission-store';
 import { getProjectById } from '@/lib/services/project';
@@ -42,7 +42,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
         );
     const [{ previewManager }, generation, validation] = await Promise.all([
       import('@/lib/services/preview'),
-      readQuantGenerationState(projectPath),
+      readGenerationState(projectPath),
       readRetailValidationReport(projectPath),
     ]);
     const preview = await previewManager.getReconciledStatus(
@@ -57,7 +57,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
             generation.requestId,
           )
         : null;
-    const snapshot = deriveQuantGenerationTerminalSnapshot({
+    const snapshot = deriveGenerationTerminalSnapshot({
       generation,
       validation,
       preview,

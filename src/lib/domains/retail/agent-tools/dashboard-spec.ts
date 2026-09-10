@@ -215,6 +215,15 @@ function inventoryRiskReady(finalData: JsonRecord): boolean {
   ));
 }
 
+function biOverviewReady(finalData: JsonRecord): boolean {
+  const overview = datasetRecord(finalData, 'biOverview');
+  if (!overview) return false;
+  const kpis = recordArray(overview.kpis);
+  const daily = recordArray(overview.daily);
+  const actions = recordArray(overview.actions);
+  return kpis.length >= 6 && daily.length >= 2 && actions.length >= 2;
+}
+
 function dailySummaryReady(finalData: JsonRecord): boolean {
   const summary = datasetRecord(finalData, 'summary');
   if (!summary) return false;
@@ -264,10 +273,11 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     capabilityId: 'price_inventory',
     renderer: 'price-inventory',
     templateId: 'price-inventory',
-    requiredComponents: ['价格带分布', '库销比排行', '流量转化明细', '滞销清单说明', '合成口径标注'],
+    requiredComponents: ['经营 KPI 总览', '分日经营趋势', '价格带分布', '渠道与类目拆解', '库销比排行', '异常诊断', '行动建议', '合成口径标注'],
     dataPrerequisites: [
       { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
       { id: 'inventory_items', description: '库存行含 price/stock/库销比', satisfiedBy: inventoryRiskReady },
+      { id: 'bi_overview', description: 'BI 总览至少包含 KPI、日趋势和行动建议', satisfiedBy: biOverviewReady },
     ],
   },
   {

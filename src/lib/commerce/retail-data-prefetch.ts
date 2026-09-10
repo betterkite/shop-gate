@@ -17,6 +17,7 @@ import {
   ensureRetailWorkspace,
   type RetailRunPlan,
 } from '@/lib/domains/retail/workspace';
+import { buildRetailBiOverview } from '@/lib/domains/retail/bi-dataset';
 import { RETAIL_RUN_PLAN_RELATIVE_PATH } from '@/lib/domains/retail/workspace-artifacts';
 import { writeWorkspaceJsonAtomic } from '@/lib/data-agent';
 
@@ -81,9 +82,96 @@ function datasetKeyFromEndpoint(endpoint: string): string | null {
   if (raw === 'meta') return 'meta';
   if (raw === 'summary') return 'summary';
   if (raw === 'inventory-risk') return 'inventoryRisk';
+  if (raw === 'channels') return 'channels';
   if (raw === 'categories') return 'categories';
   if (raw === 'items') return 'itemDaily';
   return null;
+}
+
+async function fetchChannelsDataset(params: {
+  start: string;
+  end: string;
+  rawDir: string;
+  rawFiles: string[];
+  warnings: string[];
+  sources: JsonRecord[];
+}): Promise<JsonRecord | null> {
+  try {
+    const payload = await fetchCommerceJson('/api/v1/commerce/channels', {
+      start: params.start,
+      end: params.end,
+    });
+    const dataset = { window: { start: params.start, end: params.end }, rows: Array.isArray(payload.rows) ? payload.rows : [] };
+    const filePath = path.join(params.rawDir, 'channels.json');
+    await writeJson(filePath, dataset);
+    params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
+    params.sources.push({
+      source: '/api/v1/commerce/channels',
+      dataset: 'channels',
+      endpoint: '/api/v1/commerce/channels',
+      status: 'success',
+      fetched_at: new Date().toISOString(),
+    });
+    return dataset;
+  } catch (error) {
+    params.warnings.push(`渠道预取失败：${error instanceof Error ? error.message : String(error)}`);
+    params.sources.push({
+      source: '/api/v1/commerce/channels',
+      dataset: 'channels',
+      endpoint: '/api/v1/commerce/channels',
+      status: 'failed',
+      fetched_at: new Date().toISOString(),
+    });
+    return null;
+  }
+}
+
+async function fetchItemPoolDataset(params: {
+  start: string;
+  end: string;
+  rawDir: string;
+  rawFiles: string[];
+  warnings: string[];
+  sources: JsonRecord[];
+}): Promise<JsonRecord | null> {
+  try {
+    const payload = await fetchCommerceJson('/api/v1/commerce/items', {
+      start: params.start,
+      end: params.end,
+      page: '1',
+      page_size: '100',
+      sort: 'pv',
+    });
+    const dataset = {
+      window: { start: params.start, end: params.end },
+      page: payload.page,
+      page_size: payload.page_size,
+      total: payload.total,
+      synthetic_fields: ['price', 'stock', 'brand_name', 'shop_name', 'shop_tier', 'gmv'],
+      items: Array.isArray(payload.items) ? payload.items : [],
+    };
+    const filePath = path.join(params.rawDir, 'item-pool.json');
+    await writeJson(filePath, dataset);
+    params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
+    params.sources.push({
+      source: '/api/v1/commerce/items',
+      dataset: 'itemPool',
+      endpoint: '/api/v1/commerce/items?page_size=100&sort=pv',
+      status: 'success',
+      fetched_at: new Date().toISOString(),
+    });
+    return dataset;
+  } catch (error) {
+    params.warnings.push(`商品表现预取失败：${error instanceof Error ? error.message : String(error)}`);
+    params.sources.push({
+      source: '/api/v1/commerce/items',
+      dataset: 'itemPool',
+      endpoint: '/api/v1/commerce/items?page_size=100&sort=pv',
+      status: 'failed',
+      fetched_at: new Date().toISOString(),
+    });
+    return null;
+  }
 }
 
 function planDatasetKeys(plan: RetailRunPlan): Set<string> {
@@ -413,6 +501,39 @@ export async function prefetchRetailDataForRunPlan(params: {
     if (summary) datasets.summary = summary;
   }
 
+  // 价库看板需要跨主题 BI 拆解：行为流、类目、库存之外补充渠道和
+  // 高流量商品表现；成本/毛利等行为流没有的字段由可复现合成投影生成。
+  if (params.plan.capabilityId === 'price_inventory') {
+    const channels = await fetchChannelsDataset({
+      start: window.start,
+      end: window.end,
+      rawDir,
+      rawFiles,
+      warnings,
+      sources,
+    });
+    if (channels) datasets.channels = channels;
+    const itemPool = await fetchItemPoolDataset({
+      start: window.start,
+      end: window.end,
+      rawDir,
+      rawFiles,
+      warnings,
+      sources,
+    });
+    if (itemPool) datasets.itemPool = itemPool;
+    datasets.biOverview = buildRetailBiOverview({
+      window,
+      meta: asRecord(datasets.meta),
+      funnelDaily: asRecord(datasets.funnelDaily),
+      categories: asRecord(datasets.categories),
+      inventoryRisk: asRecord(datasets.inventoryRisk),
+      itemPool,
+      channels,
+      summary: asRecord(datasets.summary),
+    });
+  }
+
   const itemDailyRequired = params.plan.dataRequirements.some(
     (endpoint) => endpoint.includes('/items/'),
   );
@@ -458,8 +579,8 @@ export async function prefetchRetailDataForRunPlan(params: {
       ? { visualization: { template_id: params.plan.visualization.templateId } }
       : {}),
     synthetic: {
-      fields: ['price', 'stock', 'brand', 'shop', 'gmv'],
-      note: '金额与库存来自合成主数据，展示必须带合成口径标注（PRD §5.3）。',
+      fields: ['price', 'stock', 'brand', 'shop', 'gmv', 'channel', 'cost_proxy', 'profit_proxy', 'inventory_value'],
+      note: '行为事件为窗口事实；价格、库存、渠道、成本、毛利和库存金额为合成或估算口径，展示必须带合成口径标注（PRD §5.3）。',
     },
     datasets,
     warnings,
@@ -485,7 +606,9 @@ export async function prefetchRetailDataForRunPlan(params: {
         dataset: key,
         row_count: rows ?? null,
         synthetic_fields:
-          key === 'categories' || key === 'inventoryRisk' ? ['price', 'stock', 'gmv'] : [],
+          key === 'categories' || key === 'inventoryRisk' || key === 'itemPool' || key === 'channels' || key === 'biOverview'
+            ? ['price', 'stock', 'channel', 'cost_proxy', 'profit_proxy', 'inventory_value']
+            : [],
         missing_fields: [],
       };
     }),

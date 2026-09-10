@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from shopgate_commerce_data.retail import (
-    funnel_stages,
     buy_conversion_rate,
+    funnel_stages,
     parse_iso_date,
     sell_through_ratio,
 )

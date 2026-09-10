@@ -241,7 +241,7 @@ async function validateViewport(params: {
           height: rect.height,
           top: rect.top,
           area: rect.width * rect.height,
-          hasMarketContext: /K\s*线|K线|成交量|均线|MA5|MA10|MA20|收益|回撤|波动|对比|矩阵|强弱|排名/i.test(text),
+          hasMarketContext: /K\s*线|K线|成交量|均线|MA5|MA10|MA20|收益|回撤|波动|对比|矩阵|强弱|排名|经营|趋势|流量|转化|GMV|PV|UV|渠道|类目|库销比|库存|动销|成交/i.test(text),
         };
       });
       const largeCharts = charts.filter((chart) => chart.visible && chart.width >= 280 && chart.height >= 140 && chart.hasMarketContext);

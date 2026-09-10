@@ -247,7 +247,8 @@ async def funnel_daily_series(
     if category_id is None:
         rows = await fetch_all(
             """
-            SELECT event_ts::date AS stat_date, behavior_type, COUNT(*) AS events
+            SELECT event_ts::date AS stat_date, behavior_type,
+                   COUNT(*) AS events, COUNT(DISTINCT user_id) AS users
             FROM commerce.user_behavior_events
             WHERE event_ts >= %s AND event_ts < %s
             GROUP BY 1, 2
@@ -258,7 +259,8 @@ async def funnel_daily_series(
     else:
         rows = await fetch_all(
             """
-            SELECT event_ts::date AS stat_date, behavior_type, COUNT(*) AS events
+            SELECT event_ts::date AS stat_date, behavior_type,
+                   COUNT(*) AS events, COUNT(DISTINCT user_id) AS users
             FROM commerce.user_behavior_events
             WHERE event_ts >= %s AND event_ts < %s AND category_id = %s
             GROUP BY 1, 2
@@ -270,9 +272,13 @@ async def funnel_daily_series(
     for row in rows:
         day = series.setdefault(
             row["stat_date"].isoformat(),
-            {behavior_type: 0 for behavior_type in BEHAVIOR_ORDER},
+            {
+                **{behavior_type: 0 for behavior_type in BEHAVIOR_ORDER},
+                **{f"{behavior_type}_users": 0 for behavior_type in BEHAVIOR_ORDER},
+            },
         )
         day[row["behavior_type"]] = row["events"]
+        day[f'{row["behavior_type"]}_users'] = row["users"]
     return [
         {"stat_date": stat_date, **counts_by_type}
         for stat_date, counts_by_type in sorted(series.items())

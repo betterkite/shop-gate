@@ -108,6 +108,8 @@ export const RETAIL_DATA_ENDPOINTS = {
   categoriesTop: 'GET /api/v1/commerce/categories/top',
   itemDaily: 'GET /api/v1/commerce/items/{item_id}/daily',
   inventoryRisk: 'GET /api/v1/commerce/inventory-risk',
+  channels: 'GET /api/v1/commerce/channels',
+  items: 'GET /api/v1/commerce/items',
   summary: 'GET /api/v1/commerce/summary',
 } as const;
 
@@ -210,14 +212,19 @@ export const RETAIL_CAPABILITIES: RetailCapability[] = [
     dataEndpoints: [
       RETAIL_DATA_ENDPOINTS.resolve,
       RETAIL_DATA_ENDPOINTS.meta,
+      RETAIL_DATA_ENDPOINTS.funnel,
+      RETAIL_DATA_ENDPOINTS.funnelDaily,
+      RETAIL_DATA_ENDPOINTS.categoriesTop,
       RETAIL_DATA_ENDPOINTS.inventoryRisk,
+      RETAIL_DATA_ENDPOINTS.channels,
+      RETAIL_DATA_ENDPOINTS.items,
       RETAIL_DATA_ENDPOINTS.itemDaily,
     ],
     expectedArtifacts: baseExpectedArtifacts(),
     validationRules: [
       '价格、库存全部来自合成主数据，页面每个相关模块都必须带“合成口径”徽标与说明。',
       '库销比必须给出计算口径（库存 / 日均销量，销量为 0 时用地板值）。',
-      '页面必须包含价格带分布、库销比排行和滞销清单。',
+      '页面必须包含 KPI 总览、分日经营趋势、价格带分布、渠道/类目拆解、库销比排行、异常诊断和行动建议。',
       '可视化必须使用 price-inventory 模板。',
       '滞销建议必须说明是分析参考，不构成采购或下架指令。',
     ],

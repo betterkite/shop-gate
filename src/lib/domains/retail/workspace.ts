@@ -390,10 +390,12 @@ function buildAnalysisSteps(capabilityId: string, hasEntities: boolean, instruct
     return [
       ...common,
       '调用 /api/v1/commerce/inventory-risk 获取库销比排行与价格/库存（合成口径）。',
+      '调用 /api/v1/commerce/funnel/daily、/api/v1/commerce/categories/top、/api/v1/commerce/channels 和 /api/v1/commerce/items 获取 BI 总览、趋势与拆解数据。',
+      '生成真实行为指标与合成经营指标的边界说明，并识别高流量低转化、滞销和库存金额风险。',
       '标注零销量商品与库销比地板值口径。',
       '检查数据质量并写入 evidence/sources.json 与 evidence/data_quality.json。',
-      '生成包含 datasets.inventoryRisk 的最终数据文件。',
-      '生成价格库存看板并验证合成徽标、排行口径和更新时间。',
+      '生成包含 datasets.biOverview、datasets.channels、datasets.itemPool 和 datasets.inventoryRisk 的最终数据文件。',
+      '生成 BI 级价格库存看板并验证 KPI、趋势、异常、拆解、行动、合成徽标和更新时间。',
     ];
   }
 

@@ -394,10 +394,18 @@ export function retailCatalogPageTemplate(): string {
 export function retailPriceInventoryPageTemplate(): string {
   return pageWrapper(
     `const risk = asRecord(datasets.inventoryRisk);
+  const bi = asRecord(datasets.biOverview);
   const items = asArray(risk?.items).map(asRecord).filter((record): record is JsonRecord => record !== null);
-  const topRiskItems = items.slice(0, 10);
   const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
+  const kpis = asArray(bi?.kpis).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const dailySeries = asArray(bi?.daily).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const channels = asArray(bi?.channels).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const categories = asArray(bi?.categories).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const trafficItems = asArray(bi?.top_traffic_items).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const anomalies = asArray(bi?.inventory_anomalies).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const highTrafficLowConversion = asArray(bi?.high_traffic_low_conversion).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const actions = asArray(bi?.actions);
   const bands = [
     { label: '0-50', min: 0, max: 50 },
     { label: '50-200', min: 50, max: 200 },
@@ -415,47 +423,82 @@ export function retailPriceInventoryPageTemplate(): string {
     { label: '动销', value: movingCount, color: '#16a34a' },
     { label: '滞销', value: slowCount, color: '#f59e0b' },
   ];
+  const channelBars = channels.map((row) => ({ label: text(row.channel), value: numeric(row.gmv) ?? 0 }));
+  const categoryBars = categories.slice(0, 8).map((row) => ({ label: text(row.category_name), value: numeric(row.gmv) ?? 0 }));
+  const riskBars = anomalies.slice(0, 8).map((row) => ({ label: text(row.title), value: numeric(row.sell_through_ratio) ?? 0 }));
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
-        <h1>价格与库存（合成口径）</h1>
+        <h1>电商经营 BI 看板</h1>
         <div className="meta-row">
           <span className="meta-item">窗口：{windowText}</span>
-          <span className="meta-item">商品数：{items.length}</span>
+          <span className="meta-item">商品数：{displayNumber(meta?.master_item_count ?? items.length, 0)}</span>
+          <span className="meta-item">分析路径：总览 → 趋势 → 异常 → 拆解 → 行动</span>
           {syntheticBadge()}
         </div>
+      </section>
+      <section className="insight-strip bi-kpi-strip">
+        {kpis.slice(0, 4).map((kpi, index) => (
+          <article className="metric-tile" key={'kpi-' + index}>
+            <span>{text(kpi.label)}</span>
+            <strong>{String(kpi.id) === 'buy_conversion' ? displayPercent(kpi.value) : String(kpi.id).includes('gmv') || String(kpi.id).includes('value') || String(kpi.id).includes('order_value') || String(kpi.id).includes('profit') ? displayMoney(kpi.value) : displayNumber(kpi.value, 0)}</strong>
+            <small>{text(kpi.source)}</small>
+          </article>
+        ))}
+      </section>
+      <section className="chart-zone">
+        <h2>经营趋势：流量、转化与成交</h2>
+        {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日经营数据缺失。</p>}
+        <p className="footnote">PV/UV/购买来自窗口内真实行为事件；GMV 按购买事件 × 合成价格估算，窗口外趋势不支持。</p>
+      </section>
+      <section className="insight-strip bi-kpi-strip bi-kpi-secondary">
+        {kpis.slice(4, 8).map((kpi, index) => (
+          <article className="metric-tile" key={'secondary-kpi-' + index}>
+            <span>{text(kpi.label)}</span>
+            <strong>{String(kpi.id) === 'buy_conversion' ? displayPercent(kpi.value) : String(kpi.id).includes('gmv') || String(kpi.id).includes('value') || String(kpi.id).includes('order_value') || String(kpi.id).includes('profit') ? displayMoney(kpi.value) : displayNumber(kpi.value, 0)}</strong>
+            <small>{text(kpi.source)}</small>
+          </article>
+        ))}
       </section>
       <section className="chart-zone">
         <h2>价格带分布（合成价格）</h2>
         <div dangerouslySetInnerHTML={{ __html: svgBars(bandCounts, '价格带') }} />
-        <h2>库销比最差 Top 10（库存 / 日均销量）</h2>
-        <table className="dense-table">
-          <thead><tr><th>商品</th><th>价格</th><th>库存</th><th>窗口销量</th><th>页面浏览量（PV）</th><th>购买转化率（Buy / PV）</th><th>库销比</th></tr></thead>
-          <tbody>
-            {topRiskItems.map((item, index) => (
-              <tr key={'inv-' + index}>
-                <td>{text(item.title)}</td>
-                <td>{displayMoney(item.price)}</td>
-                <td>{displayNumber(item.stock, 0)}</td>
-                <td>{displayNumber(item.sold, 0)}</td>
-                <td>{displayNumber(item.views, 0)}</td>
-                <td>{displayPercent(item.buy_conversion)}</td>
-                <td>{displayNumber(item.sell_through_ratio, 1)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="footnote">按库销比从高到低取前 10 个商品；页面浏览量（PV）与购买事件来自行为流，购买转化率（Buy / PV）用于观察流量承接；价格/库存为合成主数据。库销比越大越滞销，零销量商品用地板值计算，仅作分析参考，不构成采购或下架指令。</p>
+      </section>
+      <section className="chart-zone bi-two-column">
+        <div>
+          <h2>渠道拆解：成交总额（GMV）</h2>
+          {channelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(channelBars, '渠道 GMV') }} /> : <p>渠道数据缺失。</p>}
+          <table className="dense-table"><thead><tr><th>渠道</th><th>商品数</th><th>页面浏览量（PV）</th><th>购买</th><th>转化率</th><th>GMV 份额</th></tr></thead><tbody>{channels.map((row, index) => <tr key={'channel-' + index}><td>{text(row.channel)}</td><td>{displayNumber(row.item_count, 0)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayNumber(row.buy, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.gmv_share)}</td></tr>)}</tbody></table>
+        </div>
+        <div>
+          <h2>类目拆解：规模与转化</h2>
+          {categoryBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(categoryBars, '类目 GMV') }} /> : <p>类目数据缺失。</p>}
+          <table className="dense-table"><thead><tr><th>类目</th><th>流量份额</th><th>GMV 份额</th><th>转化率</th><th>库存风险数</th></tr></thead><tbody>{categories.slice(0, 8).map((row, index) => <tr key={'category-' + index}><td>{text(row.category_name)}</td><td>{displayPercent(row.traffic_share)}</td><td>{displayPercent(row.gmv_share)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayNumber(row.inventory_risk_count, 0)}</td></tr>)}</tbody></table>
+        </div>
+      </section>
+      <section className="chart-zone">
+        <h2>异常诊断：库存风险与流量承接</h2>
+        {riskBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(riskBars, '库销比风险') }} /> : <p>库存风险数据缺失。</p>}
+        <table className="dense-table"><thead><tr><th>商品</th><th>库存</th><th>窗口销量</th><th>页面浏览量（PV）</th><th>购买转化率</th><th>库销比</th><th>风险</th><th>诊断</th></tr></thead><tbody>{anomalies.map((item, index) => <tr key={'anomaly-' + index}><td>{text(item.title)}</td><td>{displayNumber(item.stock, 0)}</td><td>{displayNumber(item.sold, 0)}</td><td>{displayNumber(item.views, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayNumber(item.sell_through_ratio, 1)}</td><td>{text(item.risk_level)}</td><td>{text(item.diagnosis)}</td></tr>)}</tbody></table>
+        <h3>高流量低转化类目</h3>
+        {highTrafficLowConversion.length > 0 ? <table className="dense-table"><thead><tr><th>类目</th><th>PV</th><th>转化率</th><th>低于整体</th></tr></thead><tbody>{highTrafficLowConversion.map((row, index) => <tr key={'low-conversion-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.conversion_gap)}</td></tr>)}</tbody></table> : <p>当前没有满足阈值的高流量低转化类目。</p>}
+        <h3>高流量商品表现</h3>
+        <table className="dense-table"><thead><tr><th>商品</th><th>类目</th><th>PV</th><th>购买</th><th>转化率</th><th>流量份额</th><th>诊断</th></tr></thead><tbody>{trafficItems.map((item, index) => <tr key={'traffic-item-' + index}><td>{text(item.title)}</td><td>{text(item.category_name)}</td><td>{displayNumber(item.pv, 0)}</td><td>{displayNumber(item.buy, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayPercent(item.traffic_share)}</td><td>{(numeric(item.conversion_gap) ?? 0) < 0 ? '低于整体转化，优先检查承接' : '观察头部流量与库存匹配'}</td></tr>)}</tbody></table>
       </section>
       <section className="chart-zone">
         <h2>库存健康度（动销 / 滞销商品数）</h2>
         {healthDonut.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(healthDonut, '动销占比') }} /> : <p>库存数据缺失。</p>}
         <p className="footnote">动销 = 窗口内库销比 ≤ 1；滞销 = 库销比 &gt; 1。口径为合成主数据。</p>
       </section>
+      <section className="action-strip bi-action-strip">
+        <article><span>运营行动</span><strong>{text(actions[0], '继续观察库存健康度。')}</strong></article>
+        <article><span>转化行动</span><strong>{text(actions[1], '继续观察流量承接。')}</strong></article>
+        <article><span>口径边界</span><strong>{text(actions[2], '合成字段仅用于分析演示。')}</strong></article>
+      </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
-        <span>主数据与金额：合成口径</span>
+        <span>价格/库存/渠道/成本/毛利：合成或估算口径</span>
         <span>窗口外趋势不支持。</span>
         {syntheticBadge()}
       </footer>
@@ -688,6 +731,29 @@ html, body {
   background: #f8fafc;
 }
 
+.dashboard-shell[data-visual-language="retail-workbench"] .bi-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .bi-two-column > div {
+  min-width: 0;
+  padding: 16px 18px;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .bi-two-column > div + div {
+  border-left: 1px solid #e2e8f0;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .bi-kpi-strip small {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .dashboard-shell[data-visual-language="retail-workbench"] .chart-zone {
   border-bottom: 1px solid #e2e8f0;
   padding: 16px 0;
@@ -775,6 +841,21 @@ html, body {
   .dashboard-shell[data-visual-language="retail-workbench"] .metric-tile,
   .dashboard-shell[data-visual-language="retail-workbench"] .action-strip article {
     border-bottom: 1px solid #e2e8f0;
+  }
+
+  /* 移动端首屏优先露出趋势主图；其余 KPI 仍保留在桌面端和数据文件中，
+     但不让摘要带把主分析内容推出 390px 首屏。 */
+  .dashboard-shell[data-visual-language="retail-workbench"] .bi-kpi-strip .metric-tile:nth-child(n + 3) {
+    display: none;
+  }
+
+  .dashboard-shell[data-visual-language="retail-workbench"] .bi-two-column {
+    display: block;
+  }
+
+  .dashboard-shell[data-visual-language="retail-workbench"] .bi-two-column > div + div {
+    border-left: 0;
+    border-top: 1px solid #e2e8f0;
   }
 }
 `;

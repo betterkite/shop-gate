@@ -191,11 +191,16 @@ async function api(
 }
 
 async function authenticate(context: BrowserContext): Promise<void> {
-  const login = process.env.SHOPGATE_TASK_E2E_ADMIN_LOGIN?.trim() || 'admin';
-  const password = process.env.SHOPGATE_TASK_E2E_ADMIN_PASSWORD?.trim() || 'admin';
+  const configuredLogin = process.env.SHOPGATE_TASK_E2E_ADMIN_LOGIN?.trim()
+    || process.env.SHOPGATE_AUTH_ADMIN_EMAIL?.trim();
+  const configuredPassword = process.env.SHOPGATE_TASK_E2E_ADMIN_PASSWORD?.trim()
+    || process.env.SHOPGATE_AUTH_ADMIN_PASSWORD?.trim();
+  const login = configuredLogin || 'admin@shopgate.local';
+  const password = configuredPassword || 'shopgate2025';
   const target = new URL(baseUrl);
-  if ((login === 'admin' || password === 'admin') && !['localhost', '127.0.0.1', '::1'].includes(target.hostname)) {
-    throw new Error('Default local E2E credentials are forbidden for a non-loopback Shop Gate URL.');
+  const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(target.hostname);
+  if ((!configuredLogin || !configuredPassword) && !isLoopback) {
+    throw new Error('E2E credentials must be explicitly configured for a non-loopback Shop Gate URL.');
   }
   const page = await context.newPage();
   try {

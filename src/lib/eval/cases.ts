@@ -2,11 +2,11 @@ import { EVAL_CAPABILITY_LABELS, EVAL_TYPE_LABELS } from './constants';
 import type { EvalOracleAssertion } from './oracles';
 import { CASES_PATH, EVAL_SETS_PATH } from './paths';
 import type {
-  CreateQuantEvalCaseInput,
-  CreateQuantEvalSetInput,
-  QuantEvalCase,
-  QuantEvalCoverageLevel,
-  QuantEvalSetDefinition,
+  CreateCommerceEvalCaseInput,
+  CreateCommerceEvalSetInput,
+  CommerceEvalCase,
+  CommerceEvalCoverageLevel,
+  CommerceEvalSetDefinition,
 } from './types';
 import {
   booleanValue,
@@ -26,7 +26,7 @@ function inferCaseType(testCase: JsonRecord): string {
   return 'generated_project';
 }
 
-function inferCoverageLevel(testCase: JsonRecord): QuantEvalCoverageLevel {
+function inferCoverageLevel(testCase: JsonRecord): CommerceEvalCoverageLevel {
   const explicit = stringValue(testCase.coverageLevel);
   if (explicit === 'routing' || explicit === 'contract' || explicit === 'live_e2e' || explicit === 'production') {
     return explicit;
@@ -75,7 +75,7 @@ function buildCaseTags(testCase: JsonRecord): string[] {
   return Array.from(tags);
 }
 
-export function normalizeCase(testCase: JsonRecord): QuantEvalCase {
+export function normalizeCase(testCase: JsonRecord): CommerceEvalCase {
   const capabilityId = stringValue(testCase.capabilityId, 'unknown');
   const type = inferCaseType(testCase);
   const expectedSymbols = [
@@ -191,7 +191,7 @@ function validateOracleAssertions(value: unknown): EvalOracleAssertion[] {
   });
 }
 
-function normalizeCustomEvalSet(value: JsonRecord): QuantEvalSetDefinition {
+function normalizeCustomEvalSet(value: JsonRecord): CommerceEvalSetDefinition {
   return {
     id: stringValue(value.id, uniqueId('custom-set')),
     name: stringValue(value.name, '未命名评测集'),
@@ -212,12 +212,12 @@ async function readCustomEvalSetsRaw(): Promise<JsonRecord[]> {
   return readRecordArray(parsed);
 }
 
-export async function getQuantEvalCases(): Promise<QuantEvalCase[]> {
+export async function getCommerceEvalCases(): Promise<CommerceEvalCase[]> {
   return (await readRawEvalCases()).map(normalizeCase);
 }
 
-export async function getQuantEvalSets(): Promise<QuantEvalSetDefinition[]> {
-  const cases = await getQuantEvalCases();
+export async function getCommerceEvalSets(): Promise<CommerceEvalSetDefinition[]> {
+  const cases = await getCommerceEvalCases();
   const caseIds = new Set(cases.map((testCase) => testCase.id));
   return (await readCustomEvalSetsRaw())
     .map(normalizeCustomEvalSet)
@@ -228,7 +228,7 @@ export async function getQuantEvalSets(): Promise<QuantEvalSetDefinition[]> {
     .filter((evalSet) => evalSet.caseIds.length > 0);
 }
 
-export async function createQuantEvalCase(input: CreateQuantEvalCaseInput): Promise<QuantEvalCase> {
+export async function createCommerceEvalCase(input: CreateCommerceEvalCaseInput): Promise<CommerceEvalCase> {
   const rawCases = await readRawEvalCases();
   const existingIds = new Set(rawCases.map((item) => stringValue(item.id)).filter(Boolean));
   const name = stringValue(input.name).trim();
@@ -283,9 +283,9 @@ export async function createQuantEvalCase(input: CreateQuantEvalCaseInput): Prom
   return normalizeCase(record);
 }
 
-export async function createQuantEvalSet(input: CreateQuantEvalSetInput): Promise<QuantEvalSetDefinition> {
+export async function createCommerceEvalSet(input: CreateCommerceEvalSetInput): Promise<CommerceEvalSetDefinition> {
   const rawSets = await readCustomEvalSetsRaw();
-  const cases = await getQuantEvalCases();
+  const cases = await getCommerceEvalCases();
   const caseIds = new Set(cases.map((testCase) => testCase.id));
   const selectedCaseIds = normalizeStringList(input.caseIds).filter((caseId) => caseIds.has(caseId));
   const reservedIds = new Set<string>(['all']);

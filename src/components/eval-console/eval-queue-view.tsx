@@ -20,14 +20,14 @@ import { formatCompactDate as formatDate } from '@/components/eval-console/conso
 import { getEvalEvaluatorOption } from '@/components/eval-console/eval-evaluator-view';
 import { EvalPagination, formatDuration } from '@/components/eval-console/eval-console-primitives';
 import type { EvalSet } from '@/components/eval-console/eval-console-primitives';
-import type { QuantEvalQueueItem, QuantEvalRun } from '@/lib/eval';
+import type { CommerceEvalQueueItem, CommerceEvalRun } from '@/lib/eval';
 import { cn } from '@/lib/utils';
 
 type QueueStatusFilter = 'all' | 'active' | 'completed' | 'cancelled';
 
 type EvalQueueViewProps = {
-  queue: QuantEvalQueueItem[];
-  runs: QuantEvalRun[];
+  queue: CommerceEvalQueueItem[];
+  runs: CommerceEvalRun[];
   evalSets: EvalSet[];
   totalCaseCount: number;
   onCancelBenchmark: (queueId: string) => void;
@@ -68,8 +68,8 @@ function MetricCard({
   );
 }
 
-function statusBadge(status: QuantEvalQueueItem['status']) {
-  const config: Record<QuantEvalQueueItem['status'], { label: string; className: string; icon: ReactNode }> = {
+function statusBadge(status: CommerceEvalQueueItem['status']) {
+  const config: Record<CommerceEvalQueueItem['status'], { label: string; className: string; icon: ReactNode }> = {
     queued: {
       label: '排队中',
       className: 'border-blue-500/30 bg-blue-500/10 text-blue-500',
@@ -105,7 +105,7 @@ function statusBadge(status: QuantEvalQueueItem['status']) {
   );
 }
 
-function statusMatches(item: QuantEvalQueueItem, filter: QueueStatusFilter) {
+function statusMatches(item: CommerceEvalQueueItem, filter: QueueStatusFilter) {
   if (filter === 'all') return true;
   if (filter === 'active') return item.status === 'queued' || item.status === 'running';
   if (filter === 'completed') return item.status === 'passed' || item.status === 'failed';
@@ -119,7 +119,7 @@ function isToday(value: string | null) {
   return date.toDateString() === new Date().toDateString();
 }
 
-function elapsedMs(item: QuantEvalQueueItem) {
+function elapsedMs(item: CommerceEvalQueueItem) {
   const start = item.startedAt ?? item.createdAt;
   const startMs = new Date(start).getTime();
   if (Number.isNaN(startMs)) return 0;
@@ -128,13 +128,13 @@ function elapsedMs(item: QuantEvalQueueItem) {
   return endMs - startMs;
 }
 
-function selectedCaseTarget(item: QuantEvalQueueItem, totalCaseCount: number) {
+function selectedCaseTarget(item: CommerceEvalQueueItem, totalCaseCount: number) {
   if (item.selectedCases.length) return item.selectedCases.length;
   if (item.limit) return item.limit;
   return totalCaseCount;
 }
 
-function itemType(item: QuantEvalQueueItem) {
+function itemType(item: CommerceEvalQueueItem) {
   if (item.selectedCases.length === 1) return '单用例执行';
   if (item.selectedCases.length > 1) return '自定义执行';
   return '评测集执行';
@@ -146,7 +146,7 @@ function sameCaseSet(left: string[], right: string[]) {
   return left.every((caseId) => rightSet.has(caseId));
 }
 
-function associatedEvalSet(item: QuantEvalQueueItem, evalSets: EvalSet[]) {
+function associatedEvalSet(item: CommerceEvalQueueItem, evalSets: EvalSet[]) {
   if (!item.selectedCases.length) return evalSets.find((evalSet) => evalSet.id === 'all')?.name ?? '全部用例';
   const matched = evalSets.find((evalSet) => evalSet.id !== 'all' && sameCaseSet(item.selectedCases, evalSet.caseIds));
   if (matched) return matched.name;
@@ -161,7 +161,7 @@ function passRateClass(rate: number | null) {
   return 'text-red-500';
 }
 
-function progressTone(item: QuantEvalQueueItem, run?: QuantEvalRun) {
+function progressTone(item: CommerceEvalQueueItem, run?: CommerceEvalRun) {
   if (item.status === 'running' || item.status === 'queued') return 'bg-blue-500';
   if (item.status === 'cancelled') return 'bg-slate-400';
   if (run && run.passRate >= 80) return 'bg-emerald-500';

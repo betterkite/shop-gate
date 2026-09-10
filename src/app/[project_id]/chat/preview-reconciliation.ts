@@ -1,4 +1,4 @@
-import type { QuantGenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
+import type { GenerationTerminalSnapshot } from '@/lib/generation/generation-terminal';
 
 export type PreviewReconciliationPlan =
   | {
@@ -19,7 +19,7 @@ export type PreviewReconciliationPlan =
 
 function recoveryAttemptKey(
   projectId: string,
-  snapshot: QuantGenerationTerminalSnapshot,
+  snapshot: GenerationTerminalSnapshot,
 ): string {
   return `${projectId}:${snapshot.requestId}`;
 }
@@ -33,7 +33,7 @@ function recoveryAttemptKey(
  */
 export function planPreviewReconciliation(params: {
   projectId: string;
-  snapshot: QuantGenerationTerminalSnapshot;
+  snapshot: GenerationTerminalSnapshot;
   currentPreviewUrl: string | null;
   attemptedRecoveryKey: string | null;
 }): PreviewReconciliationPlan {

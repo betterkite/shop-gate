@@ -10,8 +10,8 @@ import {
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
 import { readDataAgentArtifactContractReport, type DataAgentArtifactContractReport } from '@/lib/generation/artifact-contracts';
-import { readQuantGenerationQueue, type QuantGenerationQueueState } from '@/lib/generation/generation-queue';
-import { readQuantGenerationState, type QuantGenerationState } from '@/lib/generation/generation-state';
+import { readGenerationQueue, type GenerationQueueState } from '@/lib/generation/generation-queue';
+import { readGenerationState, type GenerationState } from '@/lib/generation/generation-state';
 import { readQuantVisualValidationReport, type QuantVisualValidationReport } from '@/lib/commerce/visual-validation';
 import { normalizeModelId } from '@/lib/constants/models';
 
@@ -649,7 +649,7 @@ function stateStepStatus(status: string): GenerationTraceStatus {
   return 'unknown';
 }
 
-function buildGenerationStateEvents(projectId: string, state: QuantGenerationState | null): GenerationTimelineEvent[] {
+function buildGenerationStateEvents(projectId: string, state: GenerationState | null): GenerationTimelineEvent[] {
   if (!state) return [];
   return state.steps
     .filter((step) => step.startedAt || step.completedAt || step.summary)
@@ -694,7 +694,7 @@ function queueStatusToTrace(status: string): GenerationTraceStatus {
   return 'unknown';
 }
 
-function buildGenerationQueueEvents(projectId: string, queue: QuantGenerationQueueState | null): GenerationTimelineEvent[] {
+function buildGenerationQueueEvents(projectId: string, queue: GenerationQueueState | null): GenerationTimelineEvent[] {
   if (!queue) return [];
   return queue.items.slice(0, 20).flatMap((item) => {
     const events: GenerationTimelineEvent[] = [
@@ -951,8 +951,8 @@ async function inspectProjectTrace(
     readRetailRunPlan(projectPath),
     readValidationReportForObservability(projectPath),
     readValidationRepairPlanForObservability(projectPath),
-    readQuantGenerationState(projectPath),
-    readQuantGenerationQueue(projectPath, project.id),
+    readGenerationState(projectPath),
+    readGenerationQueue(projectPath, project.id),
     readDataAgentArtifactContractReport(projectPath),
     readQuantVisualValidationReport(projectPath),
   ]);

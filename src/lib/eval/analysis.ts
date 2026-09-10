@@ -1,7 +1,7 @@
-import type { QuantEvalModelComparison, QuantEvalRun, QuantEvalSkillVersionImpact } from './types';
+import type { CommerceEvalModelComparison, CommerceEvalRun, CommerceEvalSkillVersionImpact } from './types';
 
-export function buildModelComparison(runs: QuantEvalRun[]): QuantEvalModelComparison[] {
-  const groups = new Map<string, QuantEvalRun[]>();
+export function buildModelComparison(runs: CommerceEvalRun[]): CommerceEvalModelComparison[] {
+  const groups = new Map<string, CommerceEvalRun[]>();
   runs.forEach((run) => {
     const cli = run.metadata.runtime.cli ?? 'unknown';
     const model = run.metadata.runtime.model ?? 'unknown';
@@ -31,8 +31,8 @@ export function buildModelComparison(runs: QuantEvalRun[]): QuantEvalModelCompar
     .sort((a, b) => b.latestCreatedAt.localeCompare(a.latestCreatedAt));
 }
 
-export function buildSkillVersionImpact(runs: QuantEvalRun[]): QuantEvalSkillVersionImpact[] {
-  const groups = new Map<string, { skillId: string; version: string; runs: QuantEvalRun[] }>();
+export function buildSkillVersionImpact(runs: CommerceEvalRun[]): CommerceEvalSkillVersionImpact[] {
+  const groups = new Map<string, { skillId: string; version: string; runs: CommerceEvalRun[] }>();
 
   runs.forEach((run) => {
     Object.entries(run.metadata.skillLockSnapshot.skills).forEach(([skillId, entry]) => {

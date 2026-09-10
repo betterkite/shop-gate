@@ -10,8 +10,8 @@ import {
   DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
 } from '@/lib/data-agent/workspace-layout';
 import { readDataAgentArtifactContractReport } from '@/lib/generation/artifact-contracts';
-import { readQuantGenerationQueue } from '@/lib/generation/generation-queue';
-import { readQuantGenerationState, type QuantGenerationState } from '@/lib/generation/generation-state';
+import { readGenerationQueue } from '@/lib/generation/generation-queue';
+import { readGenerationState, type GenerationState } from '@/lib/generation/generation-state';
 import { readQuantVisualValidationReport } from '@/lib/commerce/visual-validation';
 import {
   RETAIL_QUERY_REWRITE_RELATIVE_PATH,
@@ -248,7 +248,7 @@ const ACTIVE_LIFECYCLES = new Set<WorkspaceLifecycleStatus>([
 
 export function deriveWorkspaceLifecycle(params: {
   runPlanStatus?: string | null;
-  generationState?: Pick<QuantGenerationState, 'status' | 'requestId' | 'updatedAt'> | null;
+  generationState?: Pick<GenerationState, 'status' | 'requestId' | 'updatedAt'> | null;
   queue?: {
     activeRequestId?: string | null;
     items?: Array<{ requestId: string; status: string; queuedAt?: string | null; startedAt?: string | null; completedAt?: string | null }>;
@@ -515,8 +515,8 @@ async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> 
     readEvents(projectPath),
     readJsonRecord(path.join(projectPath, 'evidence', 'data_quality.json')),
     readJsonRecord(path.join(projectPath, 'evidence', 'sources.json')),
-    readQuantGenerationState(projectPath),
-    readQuantGenerationQueue(projectPath, project.id),
+    readGenerationState(projectPath),
+    readGenerationQueue(projectPath, project.id),
     readDataAgentArtifactContractReport(projectPath),
     readQuantVisualValidationReport(projectPath),
   ]);

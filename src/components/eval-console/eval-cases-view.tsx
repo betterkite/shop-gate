@@ -25,17 +25,17 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { EvalPagination, EvalSelect, statusPill } from '@/components/eval-console/eval-console-primitives';
-import type { QuantEvalCase, QuantEvalResult, QuantEvalRun } from '@/lib/eval';
+import type { CommerceEvalCase, CommerceEvalResult, CommerceEvalRun } from '@/lib/eval';
 import { cn } from '@/lib/utils';
 
 type EvalCasesViewProps = {
   caseKeyword: string;
   selectedCaseIds: string[];
   totalCaseCount: number;
-  filteredCases: QuantEvalCase[];
-  selectedEvalSetCases: QuantEvalCase[];
-  latestRun: QuantEvalRun | null;
-  latestResultByCase: Map<string, QuantEvalResult>;
+  filteredCases: CommerceEvalCase[];
+  selectedEvalSetCases: CommerceEvalCase[];
+  latestRun: CommerceEvalRun | null;
+  latestResultByCase: Map<string, CommerceEvalResult>;
   isStarting: boolean;
   onCaseKeywordChange: (keyword: string) => void;
   onSelectedCaseIdsChange: (caseIds: string[]) => void;
@@ -406,9 +406,9 @@ export function EvalCasesView({
     [selectedEvalSetCases],
   );
 
-  const getCaseResult = (testCase: QuantEvalCase) =>
+  const getCaseResult = (testCase: CommerceEvalCase) =>
     latestResultByCase.get(testCase.id) ?? latestResultByCase.get(testCase.name);
-  const getCaseStatus = (testCase: QuantEvalCase): Exclude<CaseStatusFilter, 'all'> => {
+  const getCaseStatus = (testCase: CommerceEvalCase): Exclude<CaseStatusFilter, 'all'> => {
     const result = getCaseResult(testCase);
     if (!result) return 'not_run';
     return result.passed ? 'passed' : 'failed';

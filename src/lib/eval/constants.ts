@@ -1,4 +1,4 @@
-import type { QuantEvalRuntimeOption } from './types';
+import type { CommerceEvalRuntimeOption } from './types';
 import {
   LOCAL_QWEN_MODEL_ID,
   PI_AGENT_MODEL_DEFINITIONS,
@@ -8,7 +8,7 @@ export const DEFAULT_EVALUATOR_ID = 'rule-strict';
 export const DEFAULT_EVAL_CONCURRENCY = 1;
 export const MAX_EVAL_CONCURRENCY = 16;
 
-export const EVAL_RUNTIME_OPTIONS: QuantEvalRuntimeOption[] = [
+export const EVAL_RUNTIME_OPTIONS: CommerceEvalRuntimeOption[] = [
   {
     cli: 'pi',
     label: 'PI Agent',

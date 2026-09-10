@@ -15,15 +15,15 @@ import {
 } from './scoring';
 import type {
   EvalCheckStatus,
-  QuantEvalArtifactSummary,
-  QuantEvalCase,
-  QuantEvalCheck,
-  QuantEvalQueueItem,
-  QuantEvalQueueStatus,
-  QuantEvalRepairTicket,
-  QuantEvalResult,
-  QuantEvalRun,
-  QuantEvalScheduleConfig,
+  CommerceEvalArtifactSummary,
+  CommerceEvalCase,
+  CommerceEvalCheck,
+  CommerceEvalQueueItem,
+  CommerceEvalQueueStatus,
+  CommerceEvalRepairTicket,
+  CommerceEvalResult,
+  CommerceEvalRun,
+  CommerceEvalScheduleConfig,
 } from './types';
 import {
   booleanValue,
@@ -43,7 +43,7 @@ function normalizeEvalConcurrency(value: unknown): number {
   return Math.min(MAX_EVAL_CONCURRENCY, Math.max(1, Math.floor(value)));
 }
 
-export function normalizeSkillLockSnapshot(value: unknown): QuantEvalRun['metadata']['skillLockSnapshot'] {
+export function normalizeSkillLockSnapshot(value: unknown): CommerceEvalRun['metadata']['skillLockSnapshot'] {
   const snapshot = isRecord(value) ? value : {};
   const skillsRaw = isRecord(snapshot.skills) ? snapshot.skills : {};
   const skills = Object.fromEntries(
@@ -75,13 +75,13 @@ export function normalizeSkillLockSnapshot(value: unknown): QuantEvalRun['metada
   };
 }
 
-export async function readCurrentSkillLockSnapshot(): Promise<QuantEvalRun['metadata']['skillLockSnapshot']> {
+export async function readCurrentSkillLockSnapshot(): Promise<CommerceEvalRun['metadata']['skillLockSnapshot']> {
   const lockPath = path.join(ROOT, '.pi', 'skills.lock.json');
   const parsed = await readJson(lockPath).catch(() => null);
   return normalizeSkillLockSnapshot(parsed);
 }
 
-export function normalizeMetadata(report: JsonRecord, results: QuantEvalResult[]): QuantEvalRun['metadata'] {
+export function normalizeMetadata(report: JsonRecord, results: CommerceEvalResult[]): CommerceEvalRun['metadata'] {
   const metadata = isRecord(report.metadata) ? report.metadata : {};
   const runtime = isRecord(metadata.runtime) ? metadata.runtime : {};
   const selection = isRecord(metadata.selection) ? metadata.selection : {};
@@ -169,7 +169,7 @@ export function normalizeMetadata(report: JsonRecord, results: QuantEvalResult[]
   };
 }
 
-export function normalizeCoverage(value: unknown): QuantEvalRun['coverage'] {
+export function normalizeCoverage(value: unknown): CommerceEvalRun['coverage'] {
   const coverage = isRecord(value) ? value : {};
 
   function normalizeBucket(raw: unknown) {
@@ -202,13 +202,13 @@ export function normalizeCoverage(value: unknown): QuantEvalRun['coverage'] {
       level,
       normalizeBucket(rawByLevel[level]),
     ]),
-  ) as QuantEvalRun['coverage']['byLevel'];
+  ) as CommerceEvalRun['coverage']['byLevel'];
   const caseLevels = isRecord(coverage.caseLevels)
     ? Object.fromEntries(Object.entries(coverage.caseLevels).map(([key, value]) => [
         key,
         stringArray(value).filter((item) =>
           item === 'routing' || item === 'contract' || item === 'live_e2e' || item === 'production'),
-      ])) as QuantEvalRun['coverage']['caseLevels']
+      ])) as CommerceEvalRun['coverage']['caseLevels']
     : {};
   const requiredLevels = isRecord(requiredCoverage.levels)
     ? Object.fromEntries(Object.entries(requiredCoverage.levels).map(([key, value]) => [key, stringArray(value)]))
@@ -230,7 +230,7 @@ export function normalizeCoverage(value: unknown): QuantEvalRun['coverage'] {
   };
 }
 
-export function normalizeChecks(value: unknown): QuantEvalCheck[] {
+export function normalizeChecks(value: unknown): CommerceEvalCheck[] {
   return readRecordArray(value).map((check) => ({
     id: stringValue(check.id, 'unknown'),
     name: stringValue(check.name, stringValue(check.id, '检查项')),
@@ -246,7 +246,7 @@ export function normalizeStatus(value: unknown): EvalCheckStatus {
   return 'unknown';
 }
 
-export function normalizeQueueStatus(value: unknown): QuantEvalQueueStatus {
+export function normalizeQueueStatus(value: unknown): CommerceEvalQueueStatus {
   if (
     value === 'queued' ||
     value === 'running' ||
@@ -275,7 +275,7 @@ export function mapDbEvalRun(record: {
   metadata: unknown;
   coverage: unknown;
   results: unknown;
-}): QuantEvalRun {
+}): CommerceEvalRun {
   const coverage = normalizeCoverage(record.coverage);
   const results = readRecordArray(record.results).map((result) =>
     normalizeResult(result, new Map(), coverage.caseTags));
@@ -331,7 +331,7 @@ export function mapDbQueueItem(record: {
   createdAt: Date;
   startedAt: Date | null;
   finishedAt: Date | null;
-}): QuantEvalQueueItem {
+}): CommerceEvalQueueItem {
   return {
     id: record.id,
     status: normalizeQueueStatus(record.status),
@@ -373,7 +373,7 @@ export function mapDbRepairTicket(record: {
   validationSummaries: unknown;
   suggestedActions: unknown;
   skillVersions: unknown;
-}): QuantEvalRepairTicket {
+}): CommerceEvalRepairTicket {
   return {
     id: record.id,
     runId: record.runId,
@@ -408,7 +408,7 @@ export function mapDbSchedule(record: {
   lastRunAt: Date | null;
   lastQueuedRunId: string | null;
   updatedAt: Date;
-}): QuantEvalScheduleConfig {
+}): CommerceEvalScheduleConfig {
   return {
     enabled: record.enabled,
     intervalHours: record.intervalHours,
@@ -436,7 +436,7 @@ export function computeResultScore(result: JsonRecord): number {
   return resultScore(result);
 }
 
-export function normalizeArtifacts(result: JsonRecord): QuantEvalArtifactSummary {
+export function normalizeArtifacts(result: JsonRecord): CommerceEvalArtifactSummary {
   const artifacts = isRecord(result.artifacts) ? result.artifacts : {};
   const finalData = isRecord(artifacts.finalData) ? artifacts.finalData : {};
   const prefetch = isRecord(result.prefetch) ? result.prefetch : {};
@@ -458,7 +458,7 @@ export function normalizeArtifacts(result: JsonRecord): QuantEvalArtifactSummary
   };
 }
 
-export function normalizeVisualCheck(result: JsonRecord): QuantEvalResult['visualCheck'] {
+export function normalizeVisualCheck(result: JsonRecord): CommerceEvalResult['visualCheck'] {
   const visualCheck = isRecord(result.visualCheck) ? result.visualCheck : null;
   if (!visualCheck) return null;
   return {
@@ -475,7 +475,7 @@ export function normalizeVisualCheck(result: JsonRecord): QuantEvalResult['visua
   };
 }
 
-function normalizeEvaluation(value: unknown): QuantEvalResult['evaluation'] {
+function normalizeEvaluation(value: unknown): CommerceEvalResult['evaluation'] {
   if (!isRecord(value)) return null;
   const dimensions = readRecordArray(value.dimensions)
     .filter((item) => EVAL_SCORE_DIMENSION_IDS.includes(stringValue(item.id) as EvalScoreDimensionId))
@@ -537,7 +537,7 @@ function normalizeEvaluation(value: unknown): QuantEvalResult['evaluation'] {
   };
 }
 
-function normalizeStability(value: unknown): QuantEvalResult['stability'] {
+function normalizeStability(value: unknown): CommerceEvalResult['stability'] {
   if (!isRecord(value)) return null;
   const attempts = readRecordArray(value.attempts).map((attempt) => ({
     attempt: Math.max(1, numberValue(attempt.attempt, 1)),
@@ -562,7 +562,7 @@ function normalizeStability(value: unknown): QuantEvalResult['stability'] {
   };
 }
 
-export function normalizeEventAudit(result: JsonRecord): QuantEvalResult['eventAudit'] {
+export function normalizeEventAudit(result: JsonRecord): CommerceEvalResult['eventAudit'] {
   const eventAudit = isRecord(result.eventAudit) ? result.eventAudit : null;
   if (!eventAudit) return null;
   return {
@@ -574,7 +574,7 @@ export function normalizeEventAudit(result: JsonRecord): QuantEvalResult['eventA
   };
 }
 
-function normalizeTraceDiagnostics(value: unknown): QuantEvalResult['traceDiagnostics'] {
+function normalizeTraceDiagnostics(value: unknown): CommerceEvalResult['traceDiagnostics'] {
   if (!isRecord(value)) return null;
   const allowedIds = new Set(['intent', 'planning', 'data', 'artifact', 'visual', 'runtime', 'acceptance']);
   const stages = readRecordArray(value.stages)
@@ -582,7 +582,7 @@ function normalizeTraceDiagnostics(value: unknown): QuantEvalResult['traceDiagno
     .map((stage) => {
       const status = normalizeStatus(stage.status);
       return {
-        id: stringValue(stage.id) as NonNullable<QuantEvalResult['traceDiagnostics']>['stages'][number]['id'],
+        id: stringValue(stage.id) as NonNullable<CommerceEvalResult['traceDiagnostics']>['stages'][number]['id'],
         label: stringValue(stage.label, stringValue(stage.id)),
         status,
         signals: stringArray(stage.signals),
@@ -592,7 +592,7 @@ function normalizeTraceDiagnostics(value: unknown): QuantEvalResult['traceDiagno
   return {
     schemaVersion: 1,
     primaryFailureStage: allowedIds.has(primaryFailureStage)
-      ? primaryFailureStage as NonNullable<QuantEvalResult['traceDiagnostics']>['primaryFailureStage']
+      ? primaryFailureStage as NonNullable<CommerceEvalResult['traceDiagnostics']>['primaryFailureStage']
       : null,
     stages,
     observedEventStages: stringArray(value.observedEventStages),
@@ -642,7 +642,7 @@ function normalizeAgentRun(value: JsonRecord) {
   };
 }
 
-function normalizeMissionAcceptance(value: unknown): QuantEvalResult['missionAcceptance'] {
+function normalizeMissionAcceptance(value: unknown): CommerceEvalResult['missionAcceptance'] {
   if (!isRecord(value)) return null;
   return {
     missionId: stringValue(value.missionId) || null,
@@ -661,9 +661,9 @@ function normalizeMissionAcceptance(value: unknown): QuantEvalResult['missionAcc
 
 export function normalizeResult(
   raw: JsonRecord,
-  casesById: Map<string, QuantEvalCase>,
+  casesById: Map<string, CommerceEvalCase>,
   caseTags: Record<string, string[]>
-): QuantEvalResult {
+): CommerceEvalResult {
   const id = stringValue(raw.id, 'unknown');
   const testCase = casesById.get(id);
   const capabilityId = testCase?.capabilityId ?? stringValue(raw.capabilityId, 'unknown');
@@ -736,16 +736,16 @@ export function normalizeResult(
   };
 }
 
-export function durationSum(results: QuantEvalResult[]): number {
+export function durationSum(results: CommerceEvalResult[]): number {
   return results.reduce((total, result) => total + result.durationMs, 0);
 }
 
-export function averageScore(results: QuantEvalResult[]): number {
+export function averageScore(results: CommerceEvalResult[]): number {
   if (!results.length) return 0;
   return Math.round(results.reduce((total, result) => total + result.score, 0) / results.length);
 }
 
-function normalizeE2eQuality(value: unknown): QuantEvalRun['e2eQuality'] {
+function normalizeE2eQuality(value: unknown): CommerceEvalRun['e2eQuality'] {
   if (!isRecord(value)) return null;
   const thresholds = isRecord(value.thresholds) ? value.thresholds : {};
   const summary = isRecord(value.summary) ? value.summary : {};
@@ -791,7 +791,7 @@ function normalizeE2eQuality(value: unknown): QuantEvalRun['e2eQuality'] {
   };
 }
 
-export function normalizeRun(filePath: string, statMtimeMs: number, report: JsonRecord, cases: QuantEvalCase[]): QuantEvalRun {
+export function normalizeRun(filePath: string, statMtimeMs: number, report: JsonRecord, cases: CommerceEvalCase[]): CommerceEvalRun {
   const fileName = path.basename(filePath);
   const id = fileName.replace(/\.json$/, '');
   const coverage = normalizeCoverage(report.coverage);

@@ -1,9 +1,9 @@
 import type { PiAgentAcceptedMissionSnapshot } from '@/lib/agent/mission';
-import type { QuantGenerationRunStatus } from '@/lib/generation/generation-state';
+import type { GenerationRunStatus } from '@/lib/generation/generation-state';
 import type { RetailValidationReport } from '@/lib/commerce/retail-validation';
 import type { PreviewInfo } from '@/lib/services/preview';
 
-export type QuantGenerationTerminalStatus =
+export type GenerationTerminalStatus =
   | 'idle'
   | 'running'
   | 'preview_pending'
@@ -14,10 +14,10 @@ export type QuantGenerationTerminalStatus =
   | 'needs_clarification'
   | 'refused';
 
-export type QuantGenerationTerminalGenerationInput = {
+export type GenerationTerminalGenerationInput = {
   projectId?: string;
   requestId: string;
-  status: QuantGenerationRunStatus;
+  status: GenerationRunStatus;
   cliPreference?: string | null;
   steps?: Array<{
     metadata?: Record<string, unknown>;
@@ -25,7 +25,7 @@ export type QuantGenerationTerminalGenerationInput = {
   error?: { message?: string | null } | null;
 } | null;
 
-type GenerationStateInput = QuantGenerationTerminalGenerationInput;
+type GenerationStateInput = GenerationTerminalGenerationInput;
 
 type ValidationReportInput = Pick<
   RetailValidationReport,
@@ -45,9 +45,9 @@ type AcceptedMissionInput = Pick<
   | 'acceptedAt'
 > | null;
 
-export interface QuantGenerationTerminalSnapshot {
+export interface GenerationTerminalSnapshot {
   requestId: string | null;
-  status: QuantGenerationTerminalStatus;
+  status: GenerationTerminalStatus;
   terminal: boolean;
   validationStatus: 'passed' | 'failed' | 'pending';
   validationRunId: string | null;
@@ -82,7 +82,7 @@ function generationIdFromState(
 }
 
 export function requiresPiAgentMissionAcceptance(
-  generation: QuantGenerationTerminalGenerationInput,
+  generation: GenerationTerminalGenerationInput,
 ): boolean {
   if (!generation) return false;
   // Refusals and other non-delivery terminal states never produce a candidate.
@@ -120,13 +120,13 @@ function hasCurrentAcceptedMission(
  * A healthy preview is never accepted for a different generation run, and an
  * Agent/validation success is not terminal until the preview is HTTP-ready.
  */
-export function deriveQuantGenerationTerminalSnapshot(params: {
+export function deriveGenerationTerminalSnapshot(params: {
   generation: GenerationStateInput;
   validation: ValidationReportInput;
   preview: PreviewInput;
   acceptedMission?: AcceptedMissionInput;
   persistedPreviewUrl?: string | null;
-}): QuantGenerationTerminalSnapshot {
+}): GenerationTerminalSnapshot {
   const requestId = params.generation?.requestId ?? null;
   const validationRunId = params.validation?.runId ?? null;
   const validationMatchesCurrentRun = !params.generation
@@ -166,7 +166,7 @@ export function deriveQuantGenerationTerminalSnapshot(params: {
       ? params.preview.url
       : null;
 
-  let status: QuantGenerationTerminalStatus = 'idle';
+  let status: GenerationTerminalStatus = 'idle';
   if (params.generation?.status === 'cancelled') {
     status = 'cancelled';
   } else if (params.generation?.status === 'refused') {

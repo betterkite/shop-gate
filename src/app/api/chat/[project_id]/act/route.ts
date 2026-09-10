@@ -58,14 +58,14 @@ import { createWorkspaceProgressPublisher } from "@/lib/generation/workspace-pro
 import { shouldEscalateStalledRepair } from "@/lib/generation/repair-convergence";
 import { buildClarificationContinuation } from "@/lib/domains/retail/intent";
 import {
-  incrementQuantGenerationRepairAttempt,
-  readQuantGenerationState,
+  incrementGenerationRepairAttempt,
+  readGenerationState,
   updateRetailGenerationStep,
 } from "@/lib/generation/generation-state";
 import {
-  finishQuantGenerationQueueItem,
-  enqueueQuantGeneration,
-  startQuantGenerationQueued,
+  finishGenerationQueueItem,
+  enqueueGeneration,
+  startGenerationQueued,
 } from "@/lib/generation/generation-queue";
 import { validatePiAgentIngressInput } from "@/lib/agent/input-policy";
 import { classifyPiAgentExecutionError } from "@/lib/services/pi-agent-execution-error";
@@ -641,7 +641,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
 
     if (process.env.PI_AGENT_DISPATCH_MODE === "worker") {
-      await enqueueQuantGeneration({
+      await enqueueGeneration({
         projectPath,
         projectId: project_id,
         requestId,
@@ -662,7 +662,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       });
     }
 
-    const queuedGeneration = await startQuantGenerationQueued({
+    const queuedGeneration = await startGenerationQueued({
       projectPath,
       projectId: project_id,
       requestId,

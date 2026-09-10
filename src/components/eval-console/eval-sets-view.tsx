@@ -33,7 +33,7 @@ import {
   passRateClass,
   type EvalSet,
 } from '@/components/eval-console/eval-console-primitives';
-import type { QuantEvalCase, QuantEvalRun } from '@/lib/eval';
+import type { CommerceEvalCase, CommerceEvalRun } from '@/lib/eval';
 import { cn } from '@/lib/utils';
 
 type RunStateFilter = 'all' | 'ran' | 'not-run';
@@ -41,15 +41,15 @@ type OwnerFilter = 'all' | 'mine' | 'unassigned';
 type SourceFilter = 'all' | 'builtin' | 'custom';
 
 type EvalSetRunSummary = {
-  latestRun: QuantEvalRun | null;
+  latestRun: CommerceEvalRun | null;
   latestPassRate: number | null;
   owner: string;
   feedbackPassRate: number | null;
 };
 
 type EvalSetsViewProps = {
-  cases: QuantEvalCase[];
-  runs: QuantEvalRun[];
+  cases: CommerceEvalCase[];
+  runs: CommerceEvalRun[];
   evalSets: EvalSet[];
   filteredEvalSets: EvalSet[];
   selectedEvalSet: EvalSet;
@@ -83,7 +83,7 @@ function formatRelativeTime(value?: string | null) {
   return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
 
-function runCoversEvalSet(run: QuantEvalRun, evalSet: EvalSet) {
+function runCoversEvalSet(run: CommerceEvalRun, evalSet: EvalSet) {
   const selectedCaseIds = run.metadata.selection.selectedCases;
   if (evalSet.id === 'all') return selectedCaseIds.length === 0;
   if (selectedCaseIds.length === 0) return true;
@@ -91,14 +91,14 @@ function runCoversEvalSet(run: QuantEvalRun, evalSet: EvalSet) {
   return evalSet.caseIds.every((caseId) => selectedCaseIdSet.has(caseId));
 }
 
-function getEvalSetPassRateFromRun(run: QuantEvalRun, evalSet: EvalSet) {
+function getEvalSetPassRateFromRun(run: CommerceEvalRun, evalSet: EvalSet) {
   if (!runCoversEvalSet(run, evalSet)) return null;
 
   const resultById = new Map(run.results.map((result) => [result.id, result]));
   const resultByName = new Map(run.results.map((result) => [result.name, result]));
   const results = evalSet.caseIds
     .map((caseId) => resultById.get(caseId) ?? resultByName.get(caseId))
-    .filter((result): result is QuantEvalRun['results'][number] => Boolean(result));
+    .filter((result): result is CommerceEvalRun['results'][number] => Boolean(result));
 
   if (!results.length) return null;
   if (evalSet.id === 'all' && results.length < evalSet.caseIds.length) return null;
@@ -178,7 +178,7 @@ function CreateEvalSetSheet({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  cases: QuantEvalCase[];
+  cases: CommerceEvalCase[];
   onCreateEvalSet: (payload: Record<string, unknown>) => Promise<void>;
 }) {
   const [id, setId] = useState('');

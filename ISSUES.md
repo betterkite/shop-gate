@@ -19,7 +19,7 @@
 | ISSUE-P11 | （可选）`src/lib/commerce` 33 个纯平台文件物理迁移 `src/lib/generation/` | 后续 | 迁移后全部门绿 | done（`eed58a1` 已并 main `00cd153`）：**18 个纯平台模块 + 8 个伴随测试**迁移至 `src/lib/generation/`（artifact-contracts/chat-act-contract/chat-act-support/evidence/generation-observability/preview/queue/runtime/state/terminal/validation/realtime-generation-status/repair-convergence/workspace-health/progress/response/data-agent-application/notification-adapters），33 文件 import 同步更新（含 workers 相对路径、research-reports 的 notification-adapters、idempotency test 的 vi.mock 路径）；config/module-boundaries.json：quant-core paths += `src/lib/generation/**`，并**修复 4 个过时 largeFileBudget 引用**（validation.ts→retail-validation.ts、data-prefetch.ts→retail-data-prefetch.ts、移除 StrategyPlatformClient.tsx/strategies.ts 行）——**module-boundaries 的 4 个 missing-file 失败就此清零**；docs/module-boundaries.md 登记 generation 模块行。门：type-check/check:skills/check:retail-e2e/check:docs/module-boundaries/vitest 全绿（vitest 仅既有基线 28） |
 | ISSUE-P12 | 交接复核与 QuantPilot 残留清理（本轮） | P12 | 交接证据可复现；当前路由、文档、脚本、产物路径、权限/配额命名与未引用旧 UI/资产完成核查 | done（本轮专用分支）：删除无引用的旧 research API/UI、旧视觉检查脚本、QuantPilot 资产与归档噪音；修复文档断链、module boundary、视觉检查路由、验证 smoke 与默认零售 profile；新增交接记录。 |
 | ISSUE-P13 | commerce-data 后端旧金融模块物理清理 | P13 | 运行入口只保留零售数据路由；旧行情/回测/ClickHouse/provider/models/tests/config/docker 残留有引用图、迁移说明和后端全门验证 | done（专用分支完成；运行入口/路由/依赖/Compose/环境/维护脚本已收敛，引用图与验证见 `docs/review/p13-backend-cleanup.md`） |
-| ISSUE-P14 | generation/eval/scaffold 内部历史命名与模板语义零售化 | P14 | `Quant*` 平台类型、旧 finance 示例、金融计算 skill 脚本和旧评测语料按模块完成改名/重写；retail benchmark、type-check、vitest 回归通过 | open（保留为独立 PR，避免与运行链路清理混合） |
+| ISSUE-P14 | generation/eval/scaffold 内部历史命名与模板语义零售化 | P14 | `Quant*` 平台类型、旧 finance 示例、金融计算 skill 脚本和旧评测语料按模块完成改名/重写；retail benchmark、type-check、vitest 回归通过 | open（本切片已完成 generation 状态/队列/终态及 eval 内部契约改名；剩余 scaffold/视觉验证/金融计算 skill 脚本继续拆分） |
 | ISSUE-P15 | 权限与配额命名从 QuantPilot 迁移到 commerce/operations | P12 | 当前代码使用 `commerce.*` / `operations.*`；新增追加式 migration 同步 grant、override、quota、bucket、reservation、event；历史 migration 不改 | done（本轮已完成代码、文档、测试和 `20260909000200_rename_retail_access_metrics`） |
 | ISSUE-P16 | 视觉回归与 catalog 基准稳定性 | P16 | 登录态视觉 smoke 可稳定运行；R01–R04 连续运行无随机 token-budget 假失败；release gate 输出可审计报告 | in-progress（已接入真实 DeepSeek 直连验收；修复零售模板误用选股/K 线/MA60 验证规则、窗口内全库澄清误判与合法 `timeRange.value=null`；串行 R01–R04 已 4/4 READY。剩余：登录态视觉 smoke 独立门禁、失败 campaign 预览进程自动清理） |
 
@@ -44,7 +44,7 @@
 | 残留 | 规模 | 归属 |
 | --- | --- | --- |
 | `.pi` skill 源内品牌词（QuantPilot/quantpilot/QUANTPILOT_） | 33 文件 | P8 |
-| `Quant*` 平台标识符（QuantGenerationStep 等，注意 `Quantity` 不动） | ~1,684 处 | P3/P8 |
+| `Quant*` 平台标识符（generation/eval/scaffold 等剩余模块；注意 `Quantity` 不动） | 待继续拆分 | P14 |
 | `sqls/` 中 `quant.*` schema 引用 | 544 处 | P2 |
 | `finance.quant` 领域包 | 4.4k LOC | P3 删除 |
 | skill id `quant-*` 家族（目录/registry/lock/tgz） | 6 个 skill | P8 |

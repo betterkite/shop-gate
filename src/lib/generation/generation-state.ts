@@ -3,7 +3,7 @@ import path from 'path';
 import { DATA_AGENT_GENERATION_STATE_RELATIVE_PATH } from '@/lib/data-agent/workspace-layout';
 import { appendRetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
 
-export type QuantGenerationStepId =
+export type GenerationStepId =
   | 'request_received'
   | 'planning'
   | 'data_prefetch'
@@ -15,9 +15,9 @@ export type QuantGenerationStepId =
   | 'evidence_verification'
   | 'completed';
 
-export type QuantGenerationStepStatus = 'pending' | 'running' | 'success' | 'warning' | 'failed' | 'skipped';
+export type GenerationStepStatus = 'pending' | 'running' | 'success' | 'warning' | 'failed' | 'skipped';
 
-export type QuantGenerationRunStatus =
+export type GenerationRunStatus =
   | 'pending'
   | 'running'
   | 'needs_clarification'
@@ -27,22 +27,22 @@ export type QuantGenerationRunStatus =
   | 'failed'
   | 'cancelled';
 
-export interface QuantGenerationStep {
-  id: QuantGenerationStepId;
+export interface GenerationStep {
+  id: GenerationStepId;
   label: string;
-  status: QuantGenerationStepStatus;
+  status: GenerationStepStatus;
   startedAt: string | null;
   completedAt: string | null;
   summary: string;
   metadata?: Record<string, unknown>;
 }
 
-export interface QuantGenerationState {
+export interface GenerationState {
   schemaVersion: 1;
   projectId: string;
   requestId: string;
-  status: QuantGenerationRunStatus;
-  activeStep: QuantGenerationStepId;
+  status: GenerationRunStatus;
+  activeStep: GenerationStepId;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -51,9 +51,9 @@ export interface QuantGenerationState {
   selectedModel: string | null;
   repairAttemptCount: number;
   maxRepairAttempts: number;
-  steps: QuantGenerationStep[];
+  steps: GenerationStep[];
   error: {
-    step: QuantGenerationStepId;
+    step: GenerationStepId;
     message: string;
   } | null;
 }
@@ -68,7 +68,7 @@ const DEFAULT_MAX_REPAIR_ATTEMPTS =
     : 3;
 const stateLocks = new Map<string, Promise<void>>();
 
-const STEP_LABELS: Record<QuantGenerationStepId, string> = {
+const STEP_LABELS: Record<GenerationStepId, string> = {
   request_received: '接收请求',
   planning: '生成计划',
   data_prefetch: '数据预取',
@@ -89,8 +89,8 @@ function statePath(projectPath: string) {
   return path.join(projectPath, DATA_AGENT_GENERATION_STATE_RELATIVE_PATH);
 }
 
-function initialSteps(): QuantGenerationStep[] {
-  return (Object.keys(STEP_LABELS) as QuantGenerationStepId[]).map((id) => ({
+function initialSteps(): GenerationStep[] {
+  return (Object.keys(STEP_LABELS) as GenerationStepId[]).map((id) => ({
     id,
     label: STEP_LABELS[id],
     status: id === 'request_received' ? 'running' : 'pending',
@@ -100,18 +100,18 @@ function initialSteps(): QuantGenerationStep[] {
   }));
 }
 
-async function readState(projectPath: string): Promise<QuantGenerationState | null> {
+async function readState(projectPath: string): Promise<GenerationState | null> {
   const content = await fs.readFile(statePath(projectPath), 'utf8').catch(() => null);
   if (!content) return null;
   try {
-    const parsed = JSON.parse(content) as QuantGenerationState;
+    const parsed = JSON.parse(content) as GenerationState;
     return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
     return null;
   }
 }
 
-async function writeState(projectPath: string, state: QuantGenerationState) {
+async function writeState(projectPath: string, state: GenerationState) {
   const filePath = statePath(projectPath);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
@@ -138,9 +138,9 @@ async function withStateLock<T>(projectPath: string, task: () => Promise<T>): Pr
 }
 
 function mergeStep(
-  state: QuantGenerationState,
-  stepId: QuantGenerationStepId,
-  status: QuantGenerationStepStatus,
+  state: GenerationState,
+  stepId: GenerationStepId,
+  status: GenerationStepStatus,
   summary: string,
   metadata?: Record<string, unknown>
 ) {
@@ -183,10 +183,10 @@ function mergeStep(
 }
 
 function deriveRunStatus(params: {
-  previous: QuantGenerationRunStatus;
-  stepId: QuantGenerationStepId;
-  stepStatus: QuantGenerationStepStatus;
-  runStatus?: QuantGenerationRunStatus;
+  previous: GenerationRunStatus;
+  stepId: GenerationStepId;
+  stepStatus: GenerationStepStatus;
+  runStatus?: GenerationRunStatus;
 }) {
   if (params.runStatus) return params.runStatus;
   if (params.stepStatus === 'failed') return 'failed';
@@ -210,7 +210,7 @@ async function startRetailGenerationRunUnlocked(params: {
     return existing;
   }
   const timestamp = nowIso();
-  const state: QuantGenerationState = {
+  const state: GenerationState = {
     schemaVersion: 1,
     projectId: params.projectId,
     requestId: params.requestId,
@@ -250,11 +250,11 @@ async function updateRetailGenerationStepUnlocked(params: {
   projectPath: string;
   projectId: string;
   requestId: string;
-  stepId: QuantGenerationStepId;
-  status: QuantGenerationStepStatus;
+  stepId: GenerationStepId;
+  status: GenerationStepStatus;
   summary: string;
   metadata?: Record<string, unknown>;
-  runStatus?: QuantGenerationRunStatus;
+  runStatus?: GenerationRunStatus;
   errorMessage?: string | null;
 }) {
   const existing = await readState(params.projectPath);
@@ -266,7 +266,7 @@ async function updateRetailGenerationStepUnlocked(params: {
     return existing;
   }
   const timestamp = nowIso();
-  const state: QuantGenerationState =
+  const state: GenerationState =
     existing?.requestId === params.requestId
       ? existing
       : {
@@ -293,7 +293,7 @@ async function updateRetailGenerationStepUnlocked(params: {
     stepStatus: params.status,
     runStatus: params.runStatus,
   });
-  const nextState: QuantGenerationState = {
+  const nextState: GenerationState = {
     ...state,
     status: nextStatus,
     activeStep: params.stepId,
@@ -330,7 +330,7 @@ export async function updateRetailGenerationStep(
   return withStateLock(params.projectPath, () => updateRetailGenerationStepUnlocked(params));
 }
 
-export async function incrementQuantGenerationRepairAttempt(params: {
+export async function incrementGenerationRepairAttempt(params: {
   projectPath: string;
   projectId: string;
   requestId: string;
@@ -362,11 +362,11 @@ export async function incrementQuantGenerationRepairAttempt(params: {
   });
 }
 
-export async function readQuantGenerationState(projectPath: string) {
+export async function readGenerationState(projectPath: string) {
   return readState(projectPath);
 }
 
-export async function cancelQuantGenerationRun(params: {
+export async function cancelGenerationRun(params: {
   projectPath: string;
   projectId: string;
   requestId: string;

@@ -43,11 +43,11 @@ vi.mock('@/lib/services/project', () => ({
 }));
 
 vi.mock('@/lib/generation/generation-queue', () => ({
-  markQuantGenerationQueueCancelled: mocks.markQueueCancelled,
+  markGenerationQueueCancelled: mocks.markQueueCancelled,
 }));
 
 vi.mock('@/lib/generation/generation-state', () => ({
-  cancelQuantGenerationRun: mocks.cancelGenerationRun,
+  cancelGenerationRun: mocks.cancelGenerationRun,
 }));
 
 vi.mock('@/lib/services/pi-agent-mission-store', () => ({

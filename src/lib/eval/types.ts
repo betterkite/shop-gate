@@ -4,10 +4,10 @@ import type { EvalQualitySummary, EvalScoreDimension } from './scoring';
 import type { EvalTraceDiagnostics } from './trace-diagnostics';
 
 export type EvalCheckStatus = 'passed' | 'failed' | 'warning' | 'unknown';
-export type QuantEvalExecutionMode = 'contract' | 'e2e';
-export type QuantEvalCoverageLevel = 'routing' | 'contract' | 'live_e2e' | 'production';
+export type CommerceEvalExecutionMode = 'contract' | 'e2e';
+export type CommerceEvalCoverageLevel = 'routing' | 'contract' | 'live_e2e' | 'production';
 
-export interface QuantEvalCase {
+export interface CommerceEvalCase {
   id: string;
   name: string;
   question: string;
@@ -23,7 +23,7 @@ export interface QuantEvalCase {
   expectedRawFiles: string[];
   expectedFinalFields: string[];
   tags: string[];
-  coverageLevel: QuantEvalCoverageLevel;
+  coverageLevel: CommerceEvalCoverageLevel;
   productionSupported: boolean;
   oracleAssertions: EvalOracleAssertion[];
   safetyTags: string[];
@@ -32,7 +32,7 @@ export interface QuantEvalCase {
   visualCheck: boolean;
 }
 
-export interface QuantEvalSetDefinition {
+export interface CommerceEvalSetDefinition {
   id: string;
   name: string;
   description: string;
@@ -41,14 +41,14 @@ export interface QuantEvalSetDefinition {
   custom: boolean;
 }
 
-export interface QuantEvalCheck {
+export interface CommerceEvalCheck {
   id: string;
   name: string;
   status: EvalCheckStatus;
   summary: string;
 }
 
-export interface QuantEvalArtifactSummary {
+export interface CommerceEvalArtifactSummary {
   templateId: string | null;
   finalDataPath: string | null;
   rawFileCount: number;
@@ -63,7 +63,7 @@ export interface QuantEvalArtifactSummary {
   hasImageExtraction: boolean;
 }
 
-export interface QuantEvalResult {
+export interface CommerceEvalResult {
   id: string;
   name: string;
   question: string;
@@ -171,7 +171,7 @@ export interface QuantEvalResult {
   typeLabel: string;
   tags: string[];
   validationStatus: EvalCheckStatus;
-  validationChecks: QuantEvalCheck[];
+  validationChecks: CommerceEvalCheck[];
   evaluation: {
     evaluatorId: string;
     evaluatorVersion: string;
@@ -211,7 +211,7 @@ export interface QuantEvalResult {
     stages: string[];
   } | null;
   traceDiagnostics: EvalTraceDiagnostics | null;
-  artifacts: QuantEvalArtifactSummary;
+  artifacts: CommerceEvalArtifactSummary;
   visualCheck: {
     passed: boolean;
     screenshotPath: string | null;
@@ -226,7 +226,7 @@ export interface QuantEvalResult {
   } | null;
 }
 
-export interface QuantEvalE2eQuality {
+export interface CommerceEvalE2eQuality {
   passed: boolean;
   problems: string[];
   thresholds: {
@@ -248,7 +248,7 @@ export interface QuantEvalE2eQuality {
   };
 }
 
-export interface QuantEvalRun {
+export interface CommerceEvalRun {
   id: string;
   fileName: string;
   filePath: string;
@@ -285,7 +285,7 @@ export interface QuantEvalRun {
       buildRevision?: string | null;
     };
     suite?: {
-      mode: QuantEvalExecutionMode;
+      mode: CommerceEvalExecutionMode;
       label: string;
       executionClass?: 'deterministic_contract' | 'live_mission_e2e' | string;
     };
@@ -321,7 +321,7 @@ export interface QuantEvalRun {
       }>;
     };
     /** Duplicated into metadata JSON so DB-backed report reads retain it. */
-    e2eQuality?: QuantEvalE2eQuality | null;
+    e2eQuality?: CommerceEvalE2eQuality | null;
     selection: {
       selectedCases: string[];
       limit: number | null;
@@ -347,38 +347,38 @@ export interface QuantEvalRun {
     };
   };
   qualitySummary: EvalQualitySummary;
-  e2eQuality: QuantEvalE2eQuality | null;
+  e2eQuality: CommerceEvalE2eQuality | null;
   coverage: {
     byCapability: Record<string, { total: number; passed: number; failed: number }>;
     byType: Record<string, { total: number; passed: number; failed: number }>;
     byTag: Record<string, { total: number; passed: number; failed: number }>;
-    byLevel: Record<QuantEvalCoverageLevel, Record<string, { total: number; passed: number; failed: number }>>;
-    caseLevels: Record<string, QuantEvalCoverageLevel[]>;
+    byLevel: Record<CommerceEvalCoverageLevel, Record<string, { total: number; passed: number; failed: number }>>;
+    caseLevels: Record<string, CommerceEvalCoverageLevel[]>;
     caseTags: Record<string, string[]>;
     failedTags: Record<string, string[]>;
     requiredCoverage: {
       capabilities: string[];
       tags: string[];
-      levels: Partial<Record<QuantEvalCoverageLevel, string[]>>;
+      levels: Partial<Record<CommerceEvalCoverageLevel, string[]>>;
     };
   };
-  results: QuantEvalResult[];
+  results: CommerceEvalResult[];
 }
 
-export interface QuantEvalDashboardData {
+export interface CommerceEvalDashboardData {
   generatedAt: string;
   reportsDir: string;
   casesPath: string;
-  runtimeOptions: QuantEvalRuntimeOption[];
-  cases: QuantEvalCase[];
-  customEvalSets: QuantEvalSetDefinition[];
-  runs: QuantEvalRun[];
-  queue: QuantEvalQueueItem[];
-  repairTickets: QuantEvalRepairTicket[];
-  schedule: QuantEvalScheduleConfig;
-  latestRun: QuantEvalRun | null;
-  modelComparison: QuantEvalModelComparison[];
-  skillVersionImpact: QuantEvalSkillVersionImpact[];
+  runtimeOptions: CommerceEvalRuntimeOption[];
+  cases: CommerceEvalCase[];
+  customEvalSets: CommerceEvalSetDefinition[];
+  runs: CommerceEvalRun[];
+  queue: CommerceEvalQueueItem[];
+  repairTickets: CommerceEvalRepairTicket[];
+  schedule: CommerceEvalScheduleConfig;
+  latestRun: CommerceEvalRun | null;
+  modelComparison: CommerceEvalModelComparison[];
+  skillVersionImpact: CommerceEvalSkillVersionImpact[];
   assurance: {
     mutation: {
       createdAt: string;
@@ -418,7 +418,7 @@ export interface QuantEvalDashboardData {
   };
 }
 
-export interface CreateQuantEvalCaseInput {
+export interface CreateCommerceEvalCaseInput {
   id?: string;
   name?: string;
   question?: string;
@@ -431,7 +431,7 @@ export interface CreateQuantEvalCaseInput {
   expectedDatasets?: string[];
   expectedRawFiles?: string[];
   expectedFinalFields?: string[];
-  coverageLevel?: QuantEvalCoverageLevel;
+  coverageLevel?: CommerceEvalCoverageLevel;
   productionSupported?: boolean;
   oracleAssertions?: EvalOracleAssertion[];
   safetyTags?: string[];
@@ -439,7 +439,7 @@ export interface CreateQuantEvalCaseInput {
   visualCheck?: boolean;
 }
 
-export interface CreateQuantEvalSetInput {
+export interface CreateCommerceEvalSetInput {
   id?: string;
   name?: string;
   description?: string;
@@ -447,7 +447,7 @@ export interface CreateQuantEvalSetInput {
   caseIds?: string[];
 }
 
-export interface QuantEvalRuntimeOption {
+export interface CommerceEvalRuntimeOption {
   cli: string;
   label: string;
   defaultModel: string;
@@ -459,7 +459,7 @@ export interface QuantEvalRuntimeOption {
   }[];
 }
 
-export interface QuantEvalQueueItem {
+export interface CommerceEvalQueueItem {
   id: string;
   status: 'queued' | 'running' | 'passed' | 'failed' | 'cancelled';
   createdAt: string;
@@ -471,7 +471,7 @@ export interface QuantEvalQueueItem {
   evaluatorId: string;
   concurrency: number;
   repeat: number;
-  mode: QuantEvalExecutionMode;
+  mode: CommerceEvalExecutionMode;
   selectedCases: string[];
   limit: number | null;
   keepProjects: boolean;
@@ -483,9 +483,9 @@ export interface QuantEvalQueueItem {
   error: string | null;
 }
 
-export type QuantEvalQueueStatus = QuantEvalQueueItem['status'];
+export type CommerceEvalQueueStatus = CommerceEvalQueueItem['status'];
 
-export interface QuantEvalModelComparison {
+export interface CommerceEvalModelComparison {
   key: string;
   cli: string;
   model: string;
@@ -499,7 +499,7 @@ export interface QuantEvalModelComparison {
   latestCreatedAt: string;
 }
 
-export interface QuantEvalSkillVersionImpact {
+export interface CommerceEvalSkillVersionImpact {
   skillId: string;
   version: string;
   runs: number;
@@ -511,20 +511,20 @@ export interface QuantEvalSkillVersionImpact {
   latestCreatedAt: string;
 }
 
-export interface StartQuantEvalOptions {
+export interface StartCommerceEvalOptions {
   cli?: string;
   model?: string;
   reasoningEffort?: string;
   evaluatorId?: string;
   concurrency?: number;
   repeat?: number;
-  mode?: QuantEvalExecutionMode;
+  mode?: CommerceEvalExecutionMode;
   selectedCases?: string[];
   limit?: number | null;
   keepProjects?: boolean;
 }
 
-export interface QuantEvalFlowStep {
+export interface CommerceEvalFlowStep {
   id: string;
   name: string;
   status: 'passed' | 'warning' | 'failed';
@@ -532,14 +532,14 @@ export interface QuantEvalFlowStep {
   detail: string | null;
 }
 
-export interface QuantEvalFlowSimulation {
+export interface CommerceEvalFlowSimulation {
   generatedAt: string;
   ready: boolean;
   runtime: {
     cli: string;
     model: string;
     reasoningEffort: string;
-    mode: QuantEvalExecutionMode;
+    mode: CommerceEvalExecutionMode;
   };
   evaluator: {
     id: string;
@@ -555,11 +555,11 @@ export interface QuantEvalFlowSimulation {
   };
   selectedCaseIds: string[];
   command: string[];
-  steps: QuantEvalFlowStep[];
+  steps: CommerceEvalFlowStep[];
   warnings: string[];
 }
 
-export interface QuantEvalRepairTicket {
+export interface CommerceEvalRepairTicket {
   id: string;
   runId: string;
   caseId: string;
@@ -577,7 +577,7 @@ export interface QuantEvalRepairTicket {
   skillVersions: Record<string, string | null>;
 }
 
-export interface QuantEvalScheduleConfig {
+export interface CommerceEvalScheduleConfig {
   enabled: boolean;
   intervalHours: number;
   cli: string;
@@ -592,7 +592,7 @@ export interface QuantEvalScheduleConfig {
   updatedAt: string | null;
 }
 
-export interface UpdateQuantEvalScheduleInput {
+export interface UpdateCommerceEvalScheduleInput {
   enabled?: boolean;
   intervalHours?: number;
   cli?: string;

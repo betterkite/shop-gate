@@ -20,8 +20,8 @@ import {
   flowStepClass,
   type EvalSet,
 } from '@/components/eval-console/eval-console-primitives';
-import type { QuantEvalFlowSimulation } from '@/lib/eval';
-import type { EvalEvaluatorId, QuantEvalExecutionMode } from '@/lib/eval';
+import type { CommerceEvalFlowSimulation } from '@/lib/eval';
+import type { EvalEvaluatorId, CommerceEvalExecutionMode } from '@/lib/eval';
 import { cn } from '@/lib/utils';
 import { PI_AGENT_DEFAULT_MODEL } from '@/lib/constants/models';
 import { PRODUCT_CLI_ID } from '@/lib/constants/cli';
@@ -40,7 +40,7 @@ export type EvalEvaluatorOption = {
   reasoningEffort?: string;
   defaultConcurrency: number;
   maxConcurrency: number;
-  executionMode: QuantEvalExecutionMode;
+  executionMode: CommerceEvalExecutionMode;
   checks: string[];
   highlights: string[];
 };
@@ -116,7 +116,7 @@ type EvalEvaluatorViewProps = {
   repeat: number;
   evalSets: EvalSet[];
   selectedEvalSetId: string;
-  flowSimulation: QuantEvalFlowSimulation | null;
+  flowSimulation: CommerceEvalFlowSimulation | null;
   isSimulatingFlow: boolean;
   isStarting: boolean;
   onEvaluatorSelect: (evaluatorId: EvalEvaluatorId) => void;

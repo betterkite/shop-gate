@@ -29,11 +29,11 @@ import {
 } from '@/lib/platform/knowledge';
 import { recordContextAcceptance } from '@/lib/platform/context/use-manifest';
 import {
-  incrementQuantGenerationRepairAttempt,
-  readQuantGenerationState,
+  incrementGenerationRepairAttempt,
+  readGenerationState,
   updateRetailGenerationStep,
 } from '@/lib/generation/generation-state';
-import { finishQuantGenerationQueueItem } from '@/lib/generation/generation-queue';
+import { finishGenerationQueueItem } from '@/lib/generation/generation-queue';
 import type { WorkspaceProgressPublisher } from '@/lib/generation/workspace-progress';
 import { shouldEscalateStalledRepair } from '@/lib/generation/repair-convergence';
 import {
@@ -187,7 +187,7 @@ export function runValidationAfterExecution(params: {
         runStatus: "completed",
         metadata,
       }),
-      finishQuantGenerationQueueItem({
+      finishGenerationQueueItem({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -343,7 +343,7 @@ export function runValidationAfterExecution(params: {
         runStatus: "cancelled",
         errorMessage: "请求已取消。",
       });
-      await finishQuantGenerationQueueItem({
+      await finishGenerationQueueItem({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -410,7 +410,7 @@ export function runValidationAfterExecution(params: {
         params.requestId,
         executionFailureMessage,
       );
-      await finishQuantGenerationQueueItem({
+      await finishGenerationQueueItem({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -562,7 +562,7 @@ export function runValidationAfterExecution(params: {
           runStatus: "cancelled",
           errorMessage: "请求已取消。",
         });
-        await finishQuantGenerationQueueItem({
+        await finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -612,7 +612,7 @@ export function runValidationAfterExecution(params: {
           acceptedReceiptSha256: acceptance.receipt.receiptHash,
         },
       });
-      await finishQuantGenerationQueueItem({
+      await finishGenerationQueueItem({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -742,7 +742,7 @@ export function runValidationAfterExecution(params: {
     const baseRepairRequestId = `${params.requestId}-validation-repair`;
     let latestReport = validationReport;
     let latestFailedChecks = failedChecks;
-    const generationState = await readQuantGenerationState(params.projectPath);
+    const generationState = await readGenerationState(params.projectPath);
     const maxRepairAttempts = Math.max(
       1,
       generationState?.maxRepairAttempts ?? 1,
@@ -870,7 +870,7 @@ export function runValidationAfterExecution(params: {
           runStatus: "cancelled",
           errorMessage: "原始请求已取消。",
         });
-        await finishQuantGenerationQueueItem({
+        await finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -895,7 +895,7 @@ export function runValidationAfterExecution(params: {
       let repairExecutionFailed = false;
       let repairCandidate: PiAgentCandidateSubmission | null = null;
       try {
-        const recordedAttempt = await incrementQuantGenerationRepairAttempt({
+        const recordedAttempt = await incrementGenerationRepairAttempt({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -979,7 +979,7 @@ export function runValidationAfterExecution(params: {
             activeRepairRequestId = null;
           }
         }
-        await finishQuantGenerationQueueItem({
+        await finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -1062,7 +1062,7 @@ export function runValidationAfterExecution(params: {
             runStatus: "cancelled",
             errorMessage: "请求已取消。",
           });
-          await finishQuantGenerationQueueItem({
+          await finishGenerationQueueItem({
             projectPath: params.projectPath,
             projectId: params.projectId,
             requestId: params.requestId,
@@ -1327,7 +1327,7 @@ export function runValidationAfterExecution(params: {
         params.requestId,
         "自动验证和修复后仍未通过，请查看验证摘要。",
       );
-      await finishQuantGenerationQueueItem({
+      await finishGenerationQueueItem({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,
@@ -1432,7 +1432,7 @@ export function runValidationAfterExecution(params: {
         params.requestId,
         `自动验证失败：${message}`,
       );
-      await finishQuantGenerationQueueItem({
+      await finishGenerationQueueItem({
         projectPath: params.projectPath,
         projectId: params.projectId,
         requestId: params.requestId,

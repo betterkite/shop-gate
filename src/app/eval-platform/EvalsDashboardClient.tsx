@@ -35,11 +35,11 @@ import {
   type EvalSet,
   type EvalView,
 } from "@/components/eval-console/eval-console-primitives";
-import type { QuantEvalDashboardData, QuantEvalFlowSimulation, QuantEvalResult } from "@/lib/eval";
+import type { CommerceEvalDashboardData, CommerceEvalFlowSimulation, CommerceEvalResult } from "@/lib/eval";
 import { cn } from "@/lib/utils";
 import { PlatformSwitcher } from "@/components/layout/PlatformSwitcher";
 
-type Props = { data: QuantEvalDashboardData };
+type Props = { data: CommerceEvalDashboardData };
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 const VIEW_TABS: { id: EvalView; label: string; icon: typeof Gauge }[] = [
   { id: "overview", label: "质量总览", icon: Gauge },
@@ -105,7 +105,7 @@ export default function EvalsDashboardClient({ data }: Props) {
   const [isStarting, setIsStarting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSimulatingFlow, setIsSimulatingFlow] = useState(false);
-  const [flowSimulation, setFlowSimulation] = useState<QuantEvalFlowSimulation | null>(null);
+  const [flowSimulation, setFlowSimulation] = useState<CommerceEvalFlowSimulation | null>(null);
 
   const latestRun = dashboard.latestRun;
   const delta = getLatestRunDelta(dashboard.runs);
@@ -291,7 +291,7 @@ export default function EvalsDashboardClient({ data }: Props) {
   };
 
   const latestResultByCase = useMemo(() => {
-    const map = new Map<string, QuantEvalResult>();
+    const map = new Map<string, CommerceEvalResult>();
     latestRun?.results.forEach((r) => { map.set(r.id, r); map.set(r.name, r); });
     return map;
   }, [latestRun]);

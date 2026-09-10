@@ -27,18 +27,18 @@ import {
 import { withPiAgentGenerationLease } from "@/lib/services/pi-agent-generation-lease-session";
 import type { PiAgentGenerationStage } from "@/lib/services/pi-agent-generation-lease-store";
 
-export type QuantGenerationQueueStatus =
+export type GenerationQueueStatus =
   | "queued"
   | "running"
   | "completed"
   | "failed"
   | "cancelled";
 
-export interface QuantGenerationQueueItem {
+export interface GenerationQueueItem {
   id: string;
   projectId: string;
   requestId: string;
-  status: QuantGenerationQueueStatus;
+  status: GenerationQueueStatus;
   cliPreference: string | null;
   selectedModel: string | null;
   instructionPreview: string;
@@ -48,12 +48,12 @@ export interface QuantGenerationQueueItem {
   errorMessage: string | null;
 }
 
-export interface QuantGenerationQueueState {
+export interface GenerationQueueState {
   schemaVersion: 1;
   projectId: string;
   activeRequestId: string | null;
   updatedAt: string;
-  items: QuantGenerationQueueItem[];
+  items: GenerationQueueItem[];
 }
 
 type QueueTask<T> = () => Promise<T>;
@@ -64,10 +64,10 @@ const MAX_QUEUE_ITEMS =
     10,
   ) || 50;
 
-export class QuantGenerationCancelledError extends Error {
+export class GenerationCancelledError extends Error {
   constructor(message = "生成任务已取消。") {
     super(message);
-    this.name = "QuantGenerationCancelledError";
+    this.name = "GenerationCancelledError";
   }
 }
 
@@ -75,7 +75,7 @@ function queuePath(projectPath: string) {
   return path.join(projectPath, DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH);
 }
 
-function projectionStatus(status: string): QuantGenerationQueueStatus {
+function projectionStatus(status: string): GenerationQueueStatus {
   if (status === "pending" || status === "retry_wait") return "queued";
   if (status === "running") return "running";
   if (status === "completed") return "completed";
@@ -83,7 +83,7 @@ function projectionStatus(status: string): QuantGenerationQueueStatus {
   return "failed";
 }
 
-function projectJob(job: AgentGenerationJob): QuantGenerationQueueItem {
+function projectJob(job: AgentGenerationJob): GenerationQueueItem {
   return {
     id: job.id,
     projectId: job.projectId,
@@ -101,7 +101,7 @@ function projectJob(job: AgentGenerationJob): QuantGenerationQueueItem {
 
 async function writeProjection(
   projectPath: string,
-  state: QuantGenerationQueueState,
+  state: GenerationQueueState,
 ): Promise<void> {
   await ensureRetailWorkspace(projectPath);
   const filePath = queuePath(projectPath);
@@ -123,7 +123,7 @@ async function projectDurableQueue(
   projectPath: string,
   projectId: string,
   options: { reconcileExpired?: boolean } = {},
-): Promise<QuantGenerationQueueState> {
+): Promise<GenerationQueueState> {
   if (options.reconcileExpired !== false) {
     await reconcileExpiredPiAgentGenerationJobs({ projectId });
   }
@@ -132,7 +132,7 @@ async function projectDurableQueue(
     listPendingPiAgentGenerationOutboxEvents(projectId),
   ]);
   const items = jobs.map(projectJob);
-  const state: QuantGenerationQueueState = {
+  const state: GenerationQueueState = {
     schemaVersion: 1,
     projectId,
     activeRequestId:
@@ -198,7 +198,7 @@ export async function runRetailGenerationStage<T>(params: {
   });
 }
 
-interface QuantGenerationQueuedParams<T> {
+interface GenerationQueuedParams<T> {
   projectPath: string;
   projectId: string;
   requestId: string;
@@ -212,8 +212,8 @@ interface QuantGenerationQueuedParams<T> {
   task: QueueTask<T>;
 }
 
-async function prepareQuantGenerationDispatch<T>(
-  params: QuantGenerationQueuedParams<T>,
+async function prepareGenerationDispatch<T>(
+  params: GenerationQueuedParams<T>,
 ): Promise<PiAgentGenerationDispatchSession> {
   let dispatch: PiAgentGenerationDispatchSession;
   try {
@@ -234,7 +234,7 @@ async function prepareQuantGenerationDispatch<T>(
       await projectDurableQueue(params.projectPath, params.projectId, {
         reconcileExpired: false,
       }).catch(() => undefined);
-      throw new QuantGenerationCancelledError(error.message);
+      throw new GenerationCancelledError(error.message);
     }
     throw error;
   }
@@ -271,8 +271,8 @@ async function prepareQuantGenerationDispatch<T>(
   }
 }
 
-export async function enqueueQuantGeneration(params: Omit<
-  QuantGenerationQueuedParams<never>,
+export async function enqueueGeneration(params: Omit<
+  GenerationQueuedParams<never>,
   "task" | "completeOnTaskSuccess" | "completeOnTaskFailure"
 >): Promise<void> {
   await enqueuePiAgentGenerationJob({
@@ -296,8 +296,8 @@ export async function enqueueQuantGeneration(params: Omit<
   });
 }
 
-async function executeQuantGenerationDispatch<T>(
-  params: QuantGenerationQueuedParams<T>,
+async function executeGenerationDispatch<T>(
+  params: GenerationQueuedParams<T>,
   dispatch: PiAgentGenerationDispatchSession,
 ): Promise<T> {
   try {
@@ -310,7 +310,7 @@ async function executeQuantGenerationDispatch<T>(
     dispatch.assertHealthy();
     if (params.completeOnTaskSuccess !== false) {
       await dispatch.run(() =>
-        finishQuantGenerationQueueItem({
+        finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -322,7 +322,7 @@ async function executeQuantGenerationDispatch<T>(
   } catch (error) {
     await dispatch
       .run(() =>
-        finishQuantGenerationQueueItem({
+        finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
@@ -354,29 +354,29 @@ async function executeQuantGenerationDispatch<T>(
  * Persist and claim before returning control to the HTTP request, then expose
  * a separately awaitable completion for the background lifecycle.
  */
-export async function startQuantGenerationQueued<T>(
-  params: QuantGenerationQueuedParams<T>,
+export async function startGenerationQueued<T>(
+  params: GenerationQueuedParams<T>,
 ): Promise<{ completion: Promise<T> }> {
-  const dispatch = await prepareQuantGenerationDispatch(params);
-  return { completion: executeQuantGenerationDispatch(params, dispatch) };
+  const dispatch = await prepareGenerationDispatch(params);
+  return { completion: executeGenerationDispatch(params, dispatch) };
 }
 
-export async function runQuantGenerationQueued<T>(
-  params: QuantGenerationQueuedParams<T>,
+export async function runGenerationQueued<T>(
+  params: GenerationQueuedParams<T>,
 ): Promise<T> {
-  const started = await startQuantGenerationQueued(params);
+  const started = await startGenerationQueued(params);
   return started.completion;
 }
 
-export async function finishQuantGenerationQueueItem(params: {
+export async function finishGenerationQueueItem(params: {
   projectPath: string;
   projectId: string;
   requestId: string;
-  status: Exclude<QuantGenerationQueueStatus, "queued" | "running">;
+  status: Exclude<GenerationQueueStatus, "queued" | "running">;
   errorMessage?: string | null;
 }) {
   if (params.status === "cancelled") {
-    return markQuantGenerationQueueCancelled({
+    return markGenerationQueueCancelled({
       projectPath: params.projectPath,
       projectId: params.projectId,
       requestId: params.requestId,
@@ -409,7 +409,7 @@ export async function finishQuantGenerationQueueItem(params: {
   return job;
 }
 
-export async function markQuantGenerationQueueCancelled(params: {
+export async function markGenerationQueueCancelled(params: {
   projectPath: string;
   projectId: string;
   requestId: string;
@@ -435,7 +435,7 @@ export async function markQuantGenerationQueueCancelled(params: {
   return job;
 }
 
-export async function readQuantGenerationQueue(
+export async function readGenerationQueue(
   projectPath: string,
   projectId: string,
 ) {

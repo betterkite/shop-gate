@@ -23,7 +23,7 @@ import {
   type EvalSet,
   type EvalView,
 } from '@/components/eval-console/eval-console-primitives';
-import type { QuantEvalDashboardData, QuantEvalRun } from '@/lib/eval';
+import type { CommerceEvalDashboardData, CommerceEvalRun } from '@/lib/eval';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -47,7 +47,7 @@ const chartTooltipStyle = {
 const chartCursor = { fill: 'hsl(var(--muted))' };
 
 type EvalOverviewViewProps = {
-  dashboard: QuantEvalDashboardData;
+  dashboard: CommerceEvalDashboardData;
   delta: RunDelta;
   activeQueueCount: number;
   evalSets: EvalSet[];
@@ -55,7 +55,7 @@ type EvalOverviewViewProps = {
 };
 
 type RecentEvalSetRow = {
-  run: QuantEvalRun;
+  run: CommerceEvalRun;
   evalSet: EvalSet | null;
   selectedCount: number;
 };
@@ -76,7 +76,7 @@ type RunTrendTooltipPayload = {
   payload?: RunTrendPoint;
 };
 
-function ScoreDistributionChart({ runs }: { runs: QuantEvalRun[] }) {
+function ScoreDistributionChart({ runs }: { runs: CommerceEvalRun[] }) {
   const buckets = [
     { range: '0-20', min: 0, max: 20, count: 0 },
     { range: '20-40', min: 20, max: 40, count: 0 },
@@ -113,7 +113,7 @@ function ScoreDistributionChart({ runs }: { runs: QuantEvalRun[] }) {
   );
 }
 
-function RunsOverTimeChart({ runs }: { runs: QuantEvalRun[] }) {
+function RunsOverTimeChart({ runs }: { runs: CommerceEvalRun[] }) {
   const chronologicalRuns = [...runs].reverse();
   const recentRuns = chronologicalRuns.slice(-20);
   const runIndexOffset = chronologicalRuns.length - recentRuns.length;
@@ -211,7 +211,7 @@ function isSameCaseSet(selectedCaseIds: string[], evalSetCaseIds: string[]) {
   return selectedCaseIds.every((caseId) => expectedCaseIds.has(caseId));
 }
 
-function resolveRunEvalSet(run: QuantEvalRun, evalSets: EvalSet[]) {
+function resolveRunEvalSet(run: CommerceEvalRun, evalSets: EvalSet[]) {
   const selectedCaseIds = run.metadata.selection.selectedCases;
   if (selectedCaseIds.length === 0) {
     return evalSets.find((evalSet) => evalSet.id === 'all') ?? null;
@@ -225,7 +225,7 @@ function RecentEvalSetsPanel({
   evalSets,
   onNavigate,
 }: {
-  runs: QuantEvalRun[];
+  runs: CommerceEvalRun[];
   evalSets: EvalSet[];
   onNavigate: (view: EvalView) => void;
 }) {
@@ -363,7 +363,7 @@ function BaselineSetup({
   dashboard,
   onNavigate,
 }: {
-  dashboard: QuantEvalDashboardData;
+  dashboard: CommerceEvalDashboardData;
   onNavigate: (view: EvalView) => void;
 }) {
   const capabilityCounts = new Map<string, number>();
@@ -427,7 +427,7 @@ function BaselineSetup({
   );
 }
 
-function EvalAssurancePanel({ dashboard }: { dashboard: QuantEvalDashboardData }) {
+function EvalAssurancePanel({ dashboard }: { dashboard: CommerceEvalDashboardData }) {
   const mutation = dashboard.assurance.mutation;
   const datasets = dashboard.assurance.datasets;
   const judge = dashboard.assurance.judge;

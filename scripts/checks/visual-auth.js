@@ -29,7 +29,7 @@ function getVisualCredentials(prefix) {
     password: readEnvValue(`${prefix}_PASSWORD`)
       || readEnvValue('SHOPGATE_AUTH_ADMIN_PASSWORD')
       || readEnvValue('SHOPGATE_TASK_E2E_ADMIN_PASSWORD')
-      || 'admin',
+      || 'shopgate2025',
   };
 }
 

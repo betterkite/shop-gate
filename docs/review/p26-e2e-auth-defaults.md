@@ -10,6 +10,7 @@ task E2E 脚本在没有传入专用环境变量时使用 `admin/admin`，而 Sh
 - 未配置专用 E2E 凭据时，回退读取 `SHOPGATE_AUTH_ADMIN_EMAIL/PASSWORD`。
 - 两者都没有配置时，仅对 loopback 地址使用本地登录页默认值。
 - 非 loopback 地址必须完整配置登录凭据，避免误用开发默认值。
+- 视觉检查共用的认证辅助器同步使用同一套回退顺序和本地默认值。
 
 ## 验收
 

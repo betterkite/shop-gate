@@ -194,11 +194,11 @@ def synthetic_behavior_events(
             item_offsets = [sample_item_offset(user_rng, item_pool_size) for _ in range(pv_count)]
             events: list[tuple[str, int]] = [("pv", offset) for offset in item_offsets]
             if user_rng.random() < min(0.8, 0.25 * demand):
-                events.append(("fav", sample_item_offset(user_rng, item_pool_size)))
+                events.append(("fav", user_rng.choice(item_offsets)))
             if user_rng.random() < min(0.85, 0.30 * demand):
-                events.append(("cart", sample_item_offset(user_rng, item_pool_size)))
+                events.append(("cart", user_rng.choice(item_offsets)))
             if user_rng.random() < min(0.7, 0.15 * demand):
-                events.append(("buy", sample_item_offset(user_rng, item_pool_size)))
+                events.append(("buy", user_rng.choice(item_offsets)))
             for behavior_type, item_offset in events:
                 item_id = item_base + item_offset
                 category_id = category_base + synthetic_item_offset_category(

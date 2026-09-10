@@ -129,6 +129,22 @@ def test_synthetic_generation_has_head_mid_tail_item_mix() -> None:
     assert head > middle > tail
 
 
+def test_synthetic_funnel_is_bounded_by_item_views() -> None:
+    events = list(synthetic_behavior_events(users=800, days=9, seed=SEED, item_pool_size=1000))
+    metrics: dict[tuple[str, int], dict[str, int]] = {}
+    for event in events:
+        key = (str(event["event_ts"])[:10], int(event["item_id"]))
+        row = metrics.setdefault(key, {"pv": 0, "fav": 0, "cart": 0, "buy": 0})
+        row[str(event["behavior_type"])] += 1
+    assert metrics
+    assert all(
+        row["fav"] <= row["pv"]
+        and row["cart"] <= row["pv"]
+        and row["buy"] <= row["pv"]
+        for row in metrics.values()
+    )
+
+
 def test_master_rows_reproducible_and_flagged_synthetic() -> None:
     events = list(
         synthetic_behavior_events(users=40, days=2, seed=SEED, item_pool_size=120,

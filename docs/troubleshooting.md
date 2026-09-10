@@ -179,8 +179,10 @@ test -n "${DEEPSEEK_API_KEY}" && echo configured || echo missing
 
 ```bash
 npm run dev
-npm run check:models
+SHOPGATE_EVAL_MODEL=deepseek-v4-flash npm run check:models
 ```
+
+`check:models` 在显式选择官方直连模型时校验 `DEEPSEEK_API_KEY`；未显式选择时仍按默认 ModelPort/Qwen 路径校验 `MODELPORT_API_KEY`。
 
 ## 生成页面没有真实数据
 

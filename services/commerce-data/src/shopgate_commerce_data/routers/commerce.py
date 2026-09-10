@@ -12,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from shopgate_commerce_data import retail
+from shopgate_commerce_data import analytics, retail
 
 
 def _parse_date(value: str | None, fallback: date | None) -> date | None:
@@ -82,6 +82,17 @@ def create_commerce_router() -> APIRouter:
                     "id": "retail.analytics-dataset-contract",
                     "name": "经营分析数据契约",
                     "endpoints": ["/api/v1/commerce/datasets"],
+                },
+                {
+                    "id": "retail.advanced-analytics",
+                    "name": "用户、渠道、利润与库存分析",
+                    "endpoints": [
+                        "/api/v1/commerce/analytics/overview",
+                        "/api/v1/commerce/analytics/rfm",
+                        "/api/v1/commerce/analytics/channel-campaign",
+                        "/api/v1/commerce/analytics/profit",
+                        "/api/v1/commerce/analytics/inventory",
+                    ],
                 },
             ],
             "synthetic_fields": [
@@ -218,5 +229,52 @@ def create_commerce_router() -> APIRouter:
         parsed = _parse_date(stat_date, date.today())
         assert parsed is not None
         return await retail.daily_summary(parsed)
+
+    @router.get("/analytics/overview")
+    async def analytics_overview(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.analytics_overview(dataset_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/rfm")
+    async def analytics_rfm(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.rfm_segments(dataset_id, limit)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/channel-campaign")
+    async def analytics_channel_campaign(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.channel_campaign_metrics(dataset_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/profit")
+    async def analytics_profit(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.profit_metrics(dataset_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/inventory")
+    async def analytics_inventory(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.inventory_analytics(dataset_id, limit)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
 
     return router

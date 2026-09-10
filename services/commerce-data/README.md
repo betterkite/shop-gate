@@ -40,6 +40,11 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/inventory-risk`：库存风险 Top N（库销比）以及覆盖全量商品的库存健康 `health` 汇总。
 - `GET /api/v1/commerce/channels`：渠道聚合。
 - `GET /api/v1/commerce/summary`：经营日报快照。
+- `GET /api/v1/commerce/analytics/overview`：扩展数据集经营概览。
+- `GET /api/v1/commerce/analytics/rfm`：用户购买新近度、频次和金额分群（RFM）。
+- `GET /api/v1/commerce/analytics/channel-campaign`：渠道/活动会话、订单和转化。
+- `GET /api/v1/commerce/analytics/profit`：合成成本下的销售额、退款、毛利和毛利率。
+- `GET /api/v1/commerce/analytics/inventory`：库存结存、日销量、可售天数和库存健康标签。
 
 API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准。
 

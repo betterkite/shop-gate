@@ -129,6 +129,22 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
     limitations: ['成交总额依赖商品价格，属于估算金额。'],
   },
   {
+    id: 'commerce-expanded-analytics',
+    name: '经营分析扩展数据集',
+    category: 'synthetic-dataset',
+    status: 'available',
+    description: '按 dataset_id 隔离的用户、会话、渠道、活动、订单、成本和库存快照，供 P28 分析能力使用。',
+    endpoints: [
+      '/api/v1/commerce/datasets',
+      '/api/v1/commerce/analytics/rfm',
+      '/api/v1/commerce/analytics/channel-campaign',
+      '/api/v1/commerce/analytics/profit',
+      '/api/v1/commerce/analytics/inventory',
+    ],
+    cacheTtlSeconds: null,
+    limitations: ['当前演示数据为合成数据；渠道归因、成本、利润和库存快照不能代表真实业务事实。'],
+  },
+  {
     id: 'ecommerce-open-api',
     name: '电商平台开放 API（淘宝/京东/抖店）',
     category: 'licensed-provider',

@@ -185,6 +185,11 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/inventory-risk` | `GET` | 库存风险（`limit` ≤200；合成字段 price/stock），并返回覆盖全量商品的 `health` 汇总 |
 | `/api/v1/commerce/channels` | `GET` | 店铺 tier 三档（standard/premium/flagship）聚合，gmv_share ≈ 0.35/0.34/0.32 |
 | `/api/v1/commerce/summary` | `GET` | 单日经营汇总，`date` 参数 |
+| `/api/v1/commerce/analytics/overview` | `GET` | 扩展数据集经营概览和最近质量扫描结果，必填 `dataset_id` |
+| `/api/v1/commerce/analytics/rfm` | `GET` | 用户 RFM 分群和示例用户，必填 `dataset_id`，`limit` ≤100 |
+| `/api/v1/commerce/analytics/channel-campaign` | `GET` | 渠道/活动的会话、用户、订单和订单转化，必填 `dataset_id` |
+| `/api/v1/commerce/analytics/profit` | `GET` | 合成成本下的销售额、退款、成本、毛利和毛利率，必填 `dataset_id` |
+| `/api/v1/commerce/analytics/inventory` | `GET` | 库存结存、平均日销量、可售天数和健康标签，必填 `dataset_id`，`limit` ≤100 |
 
 关键数据：
 

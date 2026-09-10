@@ -528,6 +528,7 @@ export async function rewriteRetailQuerySemanticsWithConfiguredProvider(
         code: `LLM_${error.code}`,
         provider: provider.name,
         model,
+        ...(error.status === undefined ? {} : { status: error.status }),
         retryable: retryableProviderError(error),
       };
     }

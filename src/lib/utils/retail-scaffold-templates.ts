@@ -395,6 +395,7 @@ export function retailPriceInventoryPageTemplate(): string {
   return pageWrapper(
     `const risk = asRecord(datasets.inventoryRisk);
   const items = asArray(risk?.items).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const topRiskItems = items.slice(0, 10);
   const meta = asRecord(datasets.meta);
   const windowText = windowLabel(data.window);
   const bands = [
@@ -427,23 +428,24 @@ export function retailPriceInventoryPageTemplate(): string {
       <section className="chart-zone">
         <h2>价格带分布（合成价格）</h2>
         <div dangerouslySetInnerHTML={{ __html: svgBars(bandCounts, '价格带') }} />
-        <h2>库销比排行（库存 / 日均销量）</h2>
+        <h2>库销比最差 Top 10（库存 / 日均销量）</h2>
         <table className="dense-table">
-          <thead><tr><th>商品</th><th>价格</th><th>库存</th><th>窗口销量</th><th>曝光</th><th>库销比</th></tr></thead>
+          <thead><tr><th>商品</th><th>价格</th><th>库存</th><th>窗口销量</th><th>页面浏览量（PV）</th><th>购买转化率（Buy / PV）</th><th>库销比</th></tr></thead>
           <tbody>
-            {items.slice(0, 12).map((item, index) => (
+            {topRiskItems.map((item, index) => (
               <tr key={'inv-' + index}>
                 <td>{text(item.title)}</td>
                 <td>{displayMoney(item.price)}</td>
                 <td>{displayNumber(item.stock, 0)}</td>
                 <td>{displayNumber(item.sold, 0)}</td>
                 <td>{displayNumber(item.views, 0)}</td>
+                <td>{displayPercent(item.buy_conversion)}</td>
                 <td>{displayNumber(item.sell_through_ratio, 1)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="footnote">价格/库存为合成主数据；库销比越大越滞销，零销量商品用地板值计算，仅作分析参考，不构成采购或下架指令。</p>
+        <p className="footnote">按库销比从高到低取前 10 个商品；页面浏览量（PV）与购买事件来自行为流，购买转化率（Buy / PV）用于观察流量承接；价格/库存为合成主数据。库销比越大越滞销，零销量商品用地板值计算，仅作分析参考，不构成采购或下架指令。</p>
       </section>
       <section className="chart-zone">
         <h2>库存健康度（动销 / 滞销商品数）</h2>

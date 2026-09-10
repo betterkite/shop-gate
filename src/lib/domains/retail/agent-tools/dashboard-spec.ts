@@ -208,7 +208,10 @@ function inventoryRiskReady(finalData: JsonRecord): boolean {
   return items.length >= 1 && items.every((item) => (
     finiteNumber(item.price) !== null &&
     finiteNumber(item.stock) !== null &&
-    finiteNumber(item.sell_through_ratio) !== null
+    finiteNumber(item.sell_through_ratio) !== null &&
+    finiteNumber(item.sold) !== null &&
+    finiteNumber(item.views) !== null &&
+    finiteNumber(item.buy_conversion) !== null
   ));
 }
 
@@ -261,7 +264,7 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     capabilityId: 'price_inventory',
     renderer: 'price-inventory',
     templateId: 'price-inventory',
-    requiredComponents: ['价格带分布', '库销比排行', '滞销清单说明', '合成口径标注'],
+    requiredComponents: ['价格带分布', '库销比排行', '流量转化明细', '滞销清单说明', '合成口径标注'],
     dataPrerequisites: [
       { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
       { id: 'inventory_items', description: '库存行含 price/stock/库销比', satisfiedBy: inventoryRiskReady },

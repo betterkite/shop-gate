@@ -182,6 +182,7 @@ export type RetailQuerySemanticRewriteOutcome =
       code: string;
       provider?: string;
       model?: string;
+      status?: number;
       retryable: boolean;
       /** 仅用于修复后续 LLM 工具调用的有界、无载荷反馈。 */
       repairInstruction?: string;
@@ -683,6 +684,32 @@ function rewrittenQueryText(params: {
   ].join('；');
 }
 
+function normalizeLlmFailureCode(
+  outcome: Extract<RetailQuerySemanticRewriteOutcome, { ok: false }>,
+): string {
+  if (outcome.code === 'LLM_HTTP_ERROR' && (outcome.status === 401 || outcome.status === 403)) {
+    return 'LLM_AUTH_FAILED';
+  }
+  if (outcome.code === 'LLM_HTTP_ERROR' && outcome.status === 404) {
+    return 'LLM_MODEL_NOT_FOUND';
+  }
+  return outcome.code;
+}
+
+function llmUnavailableMessage(
+  errorCode: string | null,
+  provider: string | null,
+  model: string | null,
+): string {
+  if (errorCode === 'LLM_AUTH_FAILED') {
+    return `${provider ?? 'LLM'} 凭据无效或已失效（${model ?? '当前模型'}），任务已暂停；请更新模型凭据后重试。`;
+  }
+  if (errorCode === 'LLM_MODEL_NOT_FOUND') {
+    return `${provider ?? 'LLM'} 当前模型不可用（${model ?? '未指定模型'}），任务已暂停；请更换可用模型后重试。`;
+  }
+  return 'Query Rewrite 大模型暂时不可用或返回了无效结果，任务已暂停；请稍后重试。';
+}
+
 const WHOLE_CATALOG_SCOPE_PATTERN =
   /数据窗口内|窗口内|全库|全量|整体|大盘|总体|全店|商品池|全部类目|所有商品|各类目|各价格带/;
 const VAGUE_DISCOVERY_PATTERN =
@@ -772,7 +799,7 @@ export async function rewriteRetailQuery(
   if (!llmResult.outcome.ok) {
     llmExecution.provider = llmResult.outcome.provider ?? null;
     llmExecution.model = llmResult.outcome.model ?? null;
-    llmExecution.errorCode = llmResult.outcome.code;
+    llmExecution.errorCode = normalizeLlmFailureCode(llmResult.outcome);
     llmExecution.status = llmResult.timedOut
       ? 'timed_out'
       : llmResult.outcome.code === 'LLM_NOT_CONFIGURED'
@@ -817,7 +844,7 @@ export async function rewriteRetailQuery(
   if (!semanticDraft) {
     const unavailableMessage = llmExecution.status === 'skipped_unconfigured'
       ? 'Query Rewrite 大模型未配置，任务已暂停；请配置可用模型后重试。'
-      : 'Query Rewrite 大模型暂时不可用或返回了无效结果，任务已暂停；请稍后重试。';
+      : llmUnavailableMessage(llmExecution.errorCode, llmExecution.provider, llmExecution.model);
     return {
       schemaVersion: RETAIL_QUERY_REWRITE_SCHEMA_VERSION,
       originalQuery,

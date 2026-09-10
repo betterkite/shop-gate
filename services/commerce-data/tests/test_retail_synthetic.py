@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from shopgate_commerce_data.retail import (
     funnel_stages,
+    buy_conversion_rate,
     parse_iso_date,
     sell_through_ratio,
 )
@@ -52,6 +53,11 @@ def test_sell_through_ratio_floor_and_ranking() -> None:
     low = sell_through_ratio(stock=100, sold=900, days=9)
     high = sell_through_ratio(stock=1000, sold=90, days=9)
     assert low < high
+
+
+def test_buy_conversion_rate_uses_pv_denominator() -> None:
+    assert buy_conversion_rate(sold=25, views=1000) == 0.025
+    assert buy_conversion_rate(sold=25, views=0) == 0.0
 
 
 def test_parse_iso_date_accepts_and_rejects() -> None:

@@ -44,6 +44,25 @@ describe('retail query rewrite LLM path', () => {
     expect(result.issues[0].code).toBe('QUERY_REWRITE_LLM_UNAVAILABLE');
   });
 
+  it('explains invalid provider credentials without falling back to keywords', async () => {
+    const result = await rewriteRetailQuery('库销比最差的 10 个商品是哪些？它们的流量转化情况如何？', {
+      requestedModel: 'deepseek-v4-flash',
+      requestedCapabilityId: 'price_inventory',
+      semanticRewriter: async () => ({
+        ok: false as const,
+        code: 'LLM_HTTP_ERROR',
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        status: 401,
+        retryable: false,
+      }),
+    });
+
+    expect(result.status).toBe('needs_clarification');
+    expect(result.execution.llm.errorCode).toBe('LLM_AUTH_FAILED');
+    expect(result.issues[0].message).toContain('凭据无效或已失效');
+  });
+
   it('requires literal evidence for answer-only intent', async () => {
     let guarded = false;
     const result = await rewriteRetailQuery('分析 item:1000329 的销量', {

@@ -96,6 +96,7 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     requiredComponents: [
       '价格带分布',
       '库销比排行',
+      '流量转化明细',
       '滞销清单说明',
       '合成口径标注',
     ],
@@ -107,7 +108,7 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
       '库销比口径：库存 / 日均销量，零销量用地板值。',
     ],
     dataRequirements: ['datasets.inventoryRisk'],
-    dataSignals: ['price', 'stock', 'sell_through_ratio', 'sold', 'views'],
+    dataSignals: ['price', 'stock', 'sell_through_ratio', 'sold', 'views', 'buy_conversion'],
     painPoints: ['库销比排行容易被误读为操作指令'],
     finalDataContract: ['window', 'plannedEntities', 'datasets.inventoryRisk'],
   },

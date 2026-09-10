@@ -71,6 +71,12 @@ def sell_through_ratio(stock: int, sold: int, days: int) -> float:
     return round(max(stock, 0) / daily_rate, 2)
 
 
+def buy_conversion_rate(sold: int, views: int) -> float:
+    """购买转化率（Buy / PV）；无页面浏览量时返回 0。"""
+
+    return round(max(sold, 0) / views, 6) if views > 0 else 0.0
+
+
 async def fetch_all(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
     connection = await connect()
     async with connection:
@@ -533,6 +539,7 @@ async def inventory_risk(
         row["views"] = int(row["views"] or 0)
         row["window_days"] = days
         row["sell_through_ratio"] = sell_through_ratio(row["stock"], row["sold"], days)
+        row["buy_conversion"] = buy_conversion_rate(row["sold"], row["views"])
     rows.sort(key=lambda row: row["sell_through_ratio"], reverse=True)
     return rows[:limit]
 

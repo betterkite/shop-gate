@@ -134,6 +134,8 @@ cd services/commerce-data && .venv/bin/ruff check src && .venv/bin/python -m pyt
 | 8 | `assets/` 文件名带 quant（4 个 webp） | 品牌残留（文件名） | 本轮确认无引用并删除 3 个旧资产；现有有效资产不含该残留 |
 | 9 | `docs/commerce-data-source-knowledge.md` 等归档文档 | 文档噪音 | 本轮删除无引用归档文档并修复链接；后续只保留必要的历史出处记录 |
 
+当前数据能力边界与后续 issue：现有 9 天行为数据和合成商品主数据能够支撑流量漏斗、类目结构、价格库存和经营日报，但不能直接支撑用户留存/RFM、渠道或活动归因、毛利利润、补货预测、商品生命周期等完整电商分析。金融 Agent 的后续优化已转换为电商语义，并拆分为 `ISSUE-P27`（数据契约与数据集）、`ISSUE-P28`（经营分析能力）、`ISSUE-P29`（Skill 与评测语料功能级电商化）、`ISSUE-P30`（Agent 任务闭环与 BI 交互）；详细迁移矩阵见 [`future-commerce-agent-roadmap.md`](future-commerce-agent-roadmap.md)。
+
 ## 3.1 本轮交接审计结论
 
 已完成并可复核：
@@ -149,6 +151,7 @@ cd services/commerce-data && .venv/bin/ruff check src && .venv/bin/python -m pyt
 - `ISSUE-P13`：已在专用分支完成 `commerce-data` 旧金融后端物理清理；删除候选引用图、保留边界和验证命令见 `docs/review/p13-backend-cleanup.md`。本地仓库无 remote，待用户审阅后按 RepoSteward 流程发起 PR。
 - `ISSUE-P14`：已完成 generation、eval、scaffold 中的 `Quant*` 类型清理、旧金融脚手架删除、零售评测夹具收敛和电商视觉语义验收；技能 body/scripts 的金融计算逻辑仍按 `ISSUE-P8/P9` 的功能级重写计划推进。
 - `ISSUE-P16`：视觉回归需要登录态运行环境，catalog 基准仍有 token-budget 偶发失败，不能仅靠静态检查宣称完成。
+- `ISSUE-P27`～`ISSUE-P30`：后续电商数据与 Agent 能力路线已登记，当前仅完成规划，尚未修改功能代码；必须先完成数据契约和数据质量证据，再开放对应分析能力。
 
 RepoSteward 备注：本地仓库未配置 remote，因此本轮没有创建远端 GitHub Issue/PR；上述条目已写入 `ISSUES.md` 作为后续 PR 的 reviewed work items。当前改动仍在专用分支，未合入 `main`。
 

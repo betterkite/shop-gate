@@ -107,8 +107,11 @@ data-quality(0.5.1)、image-extraction(0.5.0)、platform-ui-product-design(0.3.2
 
 ## 12. 遗留（如实标注，不得描述为已完成）
 
-- 改名 skill 的 body/scripts 仍为金融计算逻辑（功能级零售化待做）
-- 判官校准/变异/生产回放缺零售语料（归档）
+- 改名 Skill 的 body/scripts 仍有金融计算逻辑，功能级零售化归 `ISSUE-P29`
+- 判官校准/变异/生产回放缺零售语料，重建归 `ISSUE-P29`
+- 当前数据集缺少用户、会话、渠道、活动、成本、利润、退款、履约和长期复购字段；数据契约与可追溯扩展归 `ISSUE-P27`
+- 用户留存/RFM、渠道/活动归因、毛利利润、补货预测、生命周期和价格弹性等分析能力归 `ISSUE-P28`
+- 多轮下钻、图表联动、限制说明和行动建议增强归 `ISSUE-P30`
 - 日报推送回执待通知渠道
 - `retail-validation.ts` 3140 行（预算警告）
 - R01 类 catalog case 偶发输出 token 预算达成

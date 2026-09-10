@@ -602,14 +602,19 @@ async function main(): Promise<void> {
     const passed = ordered.filter((item) => item.passed).length;
     const completedFullCampaign = only.size === 0 && selected.length === dataset.cases.length &&
       passed === ordered.length;
-    const shouldCleanup = !retainProjects && (forceCleanup || completedFullCampaign);
+    const failedProjects = ordered.filter((item) => !item.passed);
+    const shouldCleanup = !retainProjects &&
+      (forceCleanup || completedFullCampaign || failedProjects.length > 0);
+    const cleanupProjects = forceCleanup || completedFullCampaign
+      ? ordered
+      : failedProjects;
     const cleanup = shouldCleanup
       ? {
           attempted: true,
           deleted: await cleanupCampaignProjects(
             context.request,
             campaign,
-            ordered.map((item) => item.projectId),
+            cleanupProjects.map((item) => item.projectId),
           ),
         }
       : { attempted: false, deleted: 0 };

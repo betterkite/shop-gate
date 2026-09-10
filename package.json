@@ -94,6 +94,7 @@
     "eval:ci:shadow": "node scripts/checks/check-eval-ci-gate.js --mode e2e --dataset-visibility production_replay --max-age-hours 48",
     "eval:prepare-shadow": "node scripts/evals/prepare-shadow-replay.js",
     "check:homepage": "node scripts/checks/check-homepage-visual.js",
+    "check:visual-auth": "node scripts/checks/check-visual-auth.js",
     "check:project-visual": "node scripts/checks/check-project-visual.js",
     "check:platform-visuals": "node scripts/checks/check-platform-visuals.js",
     "check:eval-platform-visual": "node scripts/checks/check-eval-platform-visual.js",

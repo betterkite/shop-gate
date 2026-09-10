@@ -10,6 +10,12 @@ describe('retail BI scaffold language', () => {
     expect(template).toContain('加购（Cart）');
     expect(template).toContain('购买（Buy）');
     expect(template).toContain('同一个数量刻度');
+    expect(template).toContain('成交总额（GMV）占比');
+    expect(template).toContain('需关注库存商品数');
+    expect(template).toContain('原因与建议');
+    expect(template).not.toContain('GMV 份额');
+    expect(template).not.toContain('库存风险数');
+    expect(template).not.toContain('<th>诊断</th>');
     expect(template).not.toContain('PV/UV/购买');
     expect(template).not.toContain('蓝=页面浏览量（PV）');
   });

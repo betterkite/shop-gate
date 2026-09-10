@@ -163,10 +163,10 @@ export function buildRetailBiOverview(params: {
       risk_level: riskLevel(item),
       inventory_value: round(number(item.stock) * number(item.price), 2),
       diagnosis: number(item.views) > 0 && number(item.buy_conversion) < overallConversion
-        ? '有流量但转化低，优先检查商品承接与价格'
-        : number(item.sold) === 0
-          ? '窗口内无购买事件，库销比按地板值计算'
-          : '关注库存周转与补货节奏',
+          ? '浏览较多但购买偏少，建议检查商品页和价格'
+          : number(item.sold) === 0
+          ? '当前窗口没有购买，建议检查商品曝光、价格和库存'
+          : '继续关注库存周转和补货节奏',
     }))
     .sort((left, right) => number(right['sell_through_ratio']) - number(left['sell_through_ratio']))
     .slice(0, 10);
@@ -197,11 +197,11 @@ export function buildRetailBiOverview(params: {
 
   const actions = [
     inventoryAnomalies.some((item) => item.risk_level === '高')
-      ? '优先复核高库销比商品，区分零销量、低转化和流量不足三类原因。'
-      : '当前库存风险处于可观察范围，继续跟踪库销比变化。',
+      ? '优先检查库存可售天数较高的商品，区分零购买、低转化和浏览不足。'
+      : '当前库存情况可以继续观察，留意库存和购买变化。',
     highTrafficLowConversion.length > 0
-      ? `对 ${highTrafficLowConversion.length} 个高流量低转化类目下钻商品详情，检查页面承接和价格。`
-      : '当前没有达到阈值的高流量低转化类目。',
+      ? `有 ${highTrafficLowConversion.length} 个类目浏览较多但购买偏少，建议查看商品页和价格。`
+      : '当前没有发现浏览较多但购买偏少的类目。',
     '成本、毛利和库存金额为演示估算，只用于看板练习，不代表真实财务或采购结果。',
   ];
 

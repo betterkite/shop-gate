@@ -294,7 +294,7 @@ export function retailFunnelPageTemplate(): string {
       <section className="insight-strip">
         <article><span>最大事件流失</span><strong>{largestEventDrop ? largestEventDrop.from + ' → ' + largestEventDrop.to + '，减少 ' + displayNumber(largestEventDrop.drop, 0) + ' 次' : '暂无足够数据'}</strong></article>
         <article><span>购买用户触达率</span><strong>{displayPercent(funnelStages.find((stage) => String(stage.stage) === 'buy')?.user_reach_from_pv)}</strong></article>
-        <article><span>分析建议</span><strong>{largestEventDrop ? '优先检查' + largestEventDrop.from + '到' + largestEventDrop.to + '之间的商品承接与转化' : '补充至少两日行为数据'}</strong></article>
+        <article><span>分析建议</span><strong>{largestEventDrop ? largestEventDrop.from + '到' + largestEventDrop.to + '的转化下降较多，建议检查商品页面、价格和优惠信息' : '至少需要两天行为数据才能比较变化'}</strong></article>
       </section>
       <section className="chart-zone">
         <h2>漏斗阶段占比</h2>
@@ -378,14 +378,14 @@ export function retailCatalogPageTemplate(): string {
         <p className="footnote">集中度 = 前 5 个类目成交总额（GMV）/ 全部类目成交总额；金额按商品价格估算。</p>
       </section>
       <section className="chart-zone">
-        <h2>高流量低转化诊断</h2>
-        <p className="footnote">筛选条件：类目页面浏览量（PV）至少占当前类目流量 5%，且转化率低于类目整体转化率 {displayPercent(overallConversion)}。</p>
+        <h2>高浏览低购买类目</h2>
+        <p className="footnote">筛选条件：类目页面浏览量（PV）至少占总浏览量 5%，但购买转化率低于整体水平 {displayPercent(overallConversion)}。</p>
         {highTrafficLowConversion.length > 0 ? (
           <table className="dense-table">
-            <thead><tr><th>类目</th><th>页面浏览量（PV）</th><th>成交总额（GMV）</th><th>转化率</th><th>相对整体</th><th>诊断建议</th></tr></thead>
-            <tbody>{highTrafficLowConversion.map((row, index) => <tr key={'risk-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayMoney(row.gmv)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent((numeric(row.buy_conversion) ?? 0) - overallConversion)}</td><td>优先检查商品承接、价格与页面转化</td></tr>)}</tbody>
+            <thead><tr><th>类目</th><th>页面浏览量（PV）</th><th>成交总额（GMV）</th><th>购买转化率</th><th>与整体差距</th><th>原因与建议</th></tr></thead>
+            <tbody>{highTrafficLowConversion.map((row, index) => <tr key={'risk-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayMoney(row.gmv)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent((numeric(row.buy_conversion) ?? 0) - overallConversion)}</td><td>浏览较多但购买偏少，建议检查商品页和价格</td></tr>)}</tbody>
           </table>
-        ) : <p>当前没有满足条件的高流量低转化类目。</p>}
+        ) : <p>当前没有发现“浏览较多但购买偏少”的类目。</p>}
       </section>
       <section className="chart-zone">
         <h2>分日页面浏览量（PV）/ 加购 / 购买趋势</h2>
@@ -487,23 +487,23 @@ export function retailPriceInventoryPageTemplate(): string {
       <section className="chart-zone bi-two-column">
         <div>
           <h2>渠道拆解：成交总额（GMV）</h2>
-          {channelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(channelBars, '渠道 GMV') }} /> : <p>渠道数据缺失。</p>}
-          <table className="dense-table"><thead><tr><th>渠道</th><th>商品数</th><th>页面浏览量（PV）</th><th>购买</th><th>转化率</th><th>GMV 份额</th></tr></thead><tbody>{channels.map((row, index) => <tr key={'channel-' + index}><td>{text(row.channel)}</td><td>{displayNumber(row.item_count, 0)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayNumber(row.buy, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.gmv_share)}</td></tr>)}</tbody></table>
+          {channelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(channelBars, '渠道成交总额') }} /> : <p>渠道数据缺失。</p>}
+          <table className="dense-table"><thead><tr><th>渠道</th><th>商品数</th><th>页面浏览量（PV）</th><th>购买</th><th>购买转化率</th><th>成交总额（GMV）占比</th></tr></thead><tbody>{channels.map((row, index) => <tr key={'channel-' + index}><td>{text(row.channel)}</td><td>{displayNumber(row.item_count, 0)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayNumber(row.buy, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.gmv_share)}</td></tr>)}</tbody></table>
         </div>
         <div>
           <h2>类目拆解：规模与转化</h2>
-          {categoryBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(categoryBars, '类目 GMV') }} /> : <p>类目数据缺失。</p>}
-          <table className="dense-table"><thead><tr><th>类目</th><th>流量份额</th><th>GMV 份额</th><th>转化率</th><th>库存风险数</th></tr></thead><tbody>{categories.slice(0, 8).map((row, index) => <tr key={'category-' + index}><td>{text(row.category_name)}</td><td>{displayPercent(row.traffic_share)}</td><td>{displayPercent(row.gmv_share)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayNumber(row.inventory_risk_count, 0)}</td></tr>)}</tbody></table>
+          {categoryBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(categoryBars, '类目成交总额') }} /> : <p>类目数据缺失。</p>}
+          <table className="dense-table"><thead><tr><th>类目</th><th>浏览量占比</th><th>成交总额（GMV）占比</th><th>购买转化率</th><th>需关注库存商品数</th></tr></thead><tbody>{categories.slice(0, 8).map((row, index) => <tr key={'category-' + index}><td>{text(row.category_name)}</td><td>{displayPercent(row.traffic_share)}</td><td>{displayPercent(row.gmv_share)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayNumber(row.inventory_risk_count, 0)}</td></tr>)}</tbody></table>
         </div>
       </section>
       <section className="chart-zone">
-        <h2>异常诊断：库存风险与流量承接</h2>
-        {riskBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(riskBars, '风险样本库存金额') }} /> : <p>库存风险数据缺失。</p>}
-        <table className="dense-table"><thead><tr><th>商品</th><th>库存</th><th>窗口销量</th><th>页面浏览量（PV）</th><th>购买转化率</th><th>库销比</th><th>风险</th><th>诊断</th></tr></thead><tbody>{anomalies.map((item, index) => <tr key={'anomaly-' + index}><td>{text(item.title)}</td><td>{displayNumber(item.stock, 0)}</td><td>{displayNumber(item.sold, 0)}</td><td>{displayNumber(item.views, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayNumber(item.sell_through_ratio, 1)}</td><td>{text(item.risk_level)}</td><td>{text(item.diagnosis)}</td></tr>)}</tbody></table>
-        <h3>高流量低转化类目</h3>
-        {highTrafficLowConversion.length > 0 ? <table className="dense-table"><thead><tr><th>类目</th><th>PV</th><th>转化率</th><th>低于整体</th></tr></thead><tbody>{highTrafficLowConversion.map((row, index) => <tr key={'low-conversion-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.conversion_gap)}</td></tr>)}</tbody></table> : <p>当前没有满足阈值的高流量低转化类目。</p>}
-        <h3>高流量商品表现</h3>
-        <table className="dense-table"><thead><tr><th>商品</th><th>类目</th><th>PV</th><th>购买</th><th>转化率</th><th>流量份额</th><th>诊断</th></tr></thead><tbody>{trafficItems.map((item, index) => <tr key={'traffic-item-' + index}><td>{text(item.title)}</td><td>{text(item.category_name)}</td><td>{displayNumber(item.pv, 0)}</td><td>{displayNumber(item.buy, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayPercent(item.traffic_share)}</td><td>{(numeric(item.conversion_gap) ?? 0) < 0 ? '低于整体转化，优先检查承接' : '观察头部流量与库存匹配'}</td></tr>)}</tbody></table>
+        <h2>需要关注的问题：库存和购买转化</h2>
+        {riskBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(riskBars, '需关注商品的库存金额') }} /> : <p>库存数据缺失。</p>}
+        <table className="dense-table"><thead><tr><th>商品</th><th>库存</th><th>窗口销量</th><th>页面浏览量（PV）</th><th>购买转化率</th><th>库存可售天数（估算）</th><th>关注程度</th><th>原因与建议</th></tr></thead><tbody>{anomalies.map((item, index) => <tr key={'anomaly-' + index}><td>{text(item.title)}</td><td>{displayNumber(item.stock, 0)}</td><td>{displayNumber(item.sold, 0)}</td><td>{displayNumber(item.views, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayNumber(item.sell_through_ratio, 1)}</td><td>{text(item.risk_level)}</td><td>{text(item.diagnosis)}</td></tr>)}</tbody></table>
+        <h3>高浏览低购买类目</h3>
+        {highTrafficLowConversion.length > 0 ? <table className="dense-table"><thead><tr><th>类目</th><th>页面浏览量（PV）</th><th>购买转化率</th><th>与整体差距</th></tr></thead><tbody>{highTrafficLowConversion.map((row, index) => <tr key={'low-conversion-' + index}><td>{text(row.category_name)}</td><td>{displayNumber(row.pv, 0)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayPercent(row.conversion_gap)}</td></tr>)}</tbody></table> : <p>当前没有发现“浏览较多但购买偏少”的类目。</p>}
+        <h3>高浏览商品表现</h3>
+        <table className="dense-table"><thead><tr><th>商品</th><th>类目</th><th>页面浏览量（PV）</th><th>购买</th><th>购买转化率</th><th>浏览量占比</th><th>原因与建议</th></tr></thead><tbody>{trafficItems.map((item, index) => <tr key={'traffic-item-' + index}><td>{text(item.title)}</td><td>{text(item.category_name)}</td><td>{displayNumber(item.pv, 0)}</td><td>{displayNumber(item.buy, 0)}</td><td>{displayPercent(item.buy_conversion)}</td><td>{displayPercent(item.traffic_share)}</td><td>{(numeric(item.conversion_gap) ?? 0) < 0 ? '浏览较多但购买偏少，建议检查商品页和价格' : '购买表现正常，继续关注库存'}</td></tr>)}</tbody></table>
       </section>
       <section className="chart-zone">
         <h2>库存健康度（动销 / 滞销 / 无库存商品数）</h2>
@@ -512,7 +512,7 @@ export function retailPriceInventoryPageTemplate(): string {
       </section>
       <section className="action-strip bi-action-strip">
         <article><span>运营行动</span><strong>{text(actions[0], '继续观察库存健康度。')}</strong></article>
-        <article><span>转化行动</span><strong>{text(actions[1], '继续观察流量承接。')}</strong></article>
+        <article><span>转化行动</span><strong>{text(actions[1], '继续观察浏览量和购买变化。')}</strong></article>
         <article><span>口径边界</span><strong>{text(actions[2], '合成字段仅用于分析演示。')}</strong></article>
       </section>
       <footer className="data-quality-footer">

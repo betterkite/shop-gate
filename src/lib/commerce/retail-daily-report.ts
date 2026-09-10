@@ -110,7 +110,7 @@ export async function generateRetailDailyBrief(options: {
       `| ${String(cat.category_name ?? '-')} | ${money(cat.gmv)} | ${num(cat.buy)} | ${percent(cat.buy_conversion)} |`
     )),
     '',
-    '> 金额/客单价为合成口径；行为事件为真实 UserBehavior。',
+    '> 成交总额和平均每次购买金额按商品价格估算；行为数据用于统计浏览、加购和购买。',
   ].join('\n');
 
   const startedAt = new Date();

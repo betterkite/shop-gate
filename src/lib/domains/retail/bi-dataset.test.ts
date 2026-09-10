@@ -28,6 +28,8 @@ describe('retail BI overview dataset', () => {
     expect(result.kpis).toHaveLength(8);
     expect(result.daily).toHaveLength(2);
     expect(result.daily[0]).toMatchObject({ uv: 600, buy: 20 });
+    expect(result.kpis.find((kpi) => kpi.id === 'uv')).toMatchObject({ source: '看过商品页面的不同用户数' });
+    expect(result.kpis.find((kpi) => kpi.id === 'gmv')).toMatchObject({ source: '购买次数 × 商品价格（估算）' });
     expect(result.inventory_anomalies[0]).toMatchObject({ risk_level: '高' });
     expect(result.inventory_health).toMatchObject({ moving_items: 3, stagnant_items: 5, moving_share: 0.375 });
     expect(result.channels).toHaveLength(1);

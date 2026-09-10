@@ -122,7 +122,7 @@ export function buildRetailBiOverview(params: {
       buy,
       gmv: round(gmv, 2),
       buy_conversion: ratio(buy, number(point.pv)),
-      source: '真实行为事件 + 合成价格投影',
+      source: '行为数据 + 商品价格估算',
     };
   });
 
@@ -202,7 +202,7 @@ export function buildRetailBiOverview(params: {
     highTrafficLowConversion.length > 0
       ? `对 ${highTrafficLowConversion.length} 个高流量低转化类目下钻商品详情，检查页面承接和价格。`
       : '当前没有达到阈值的高流量低转化类目。',
-    '成本、毛利和库存金额为合成经营代理，仅用于看板演示与分析练习，不构成财务或采购指令。',
+    '成本、毛利和库存金额为演示估算，只用于看板练习，不代表真实财务或采购结果。',
   ];
 
   return {
@@ -211,14 +211,14 @@ export function buildRetailBiOverview(params: {
     scope: '真实行为窗口 + 合成经营主数据投影',
     synthetic_fields: ['price', 'stock', 'channel', 'cost_proxy', 'profit_proxy', 'inventory_value'],
     kpis: [
-      { id: 'gmv', label: '成交总额（GMV）', value: round(totalGmv, 2), source: '购买事件 × 合成价格' },
-      { id: 'pv', label: '页面浏览量（PV）', value: totals.pv, source: '真实行为事件' },
-      { id: 'uv', label: '独立访客（UV）', value: totals.uv, source: '真实用户去重' },
-      { id: 'buy', label: '购买事件（Buy）', value: totals.buy, source: '真实行为事件' },
-      { id: 'buy_conversion', label: '购买转化率（Buy / PV）', value: overallConversion, source: '真实行为事件计算' },
-      { id: 'avg_order_value', label: '客单价（AOV）', value: round(totalGmv / Math.max(totals.buy, 1), 2), source: '合成价格投影' },
-      { id: 'inventory_value', label: '库存金额估算', value: round(estimatedInventoryValue, 2), source: '合成库存 × 合成价格；按样本外推' },
-      { id: 'profit_proxy', label: '毛利代理（合成）', value: round(estimatedProfit, 2), source: 'GMV × 22% 合成毛利率' },
+      { id: 'gmv', label: '成交总额（GMV）', value: round(totalGmv, 2), source: '购买次数 × 商品价格（估算）' },
+      { id: 'pv', label: '页面浏览量（PV）', value: totals.pv, source: '打开商品页面的次数' },
+      { id: 'uv', label: '独立访客（UV）', value: totals.uv, source: '看过商品页面的不同用户数' },
+      { id: 'buy', label: '购买次数（Buy）', value: totals.buy, source: '商品被买下的次数' },
+      { id: 'buy_conversion', label: '购买转化率（Buy / PV）', value: overallConversion, source: '购买次数 ÷ 页面浏览量' },
+      { id: 'avg_order_value', label: '平均每次购买金额（AOV）', value: round(totalGmv / Math.max(totals.buy, 1), 2), source: '成交总额 ÷ 购买次数（估算）' },
+      { id: 'inventory_value', label: '库存金额估算', value: round(estimatedInventoryValue, 2), source: '库存数量 × 商品价格（估算）' },
+      { id: 'profit_proxy', label: '毛利估算', value: round(estimatedProfit, 2), source: '按估算毛利率计算' },
     ],
     daily: dailyRows,
     categories: categoryMetrics,
@@ -230,9 +230,9 @@ export function buildRetailBiOverview(params: {
     inventory_health: inventoryHealth,
     actions,
     limitations: [
-      '行为指标来自当前数据窗口，窗口外趋势不支持。',
-      '价格、库存、渠道、成本、毛利和库存金额为合成或估算口径。',
-      '外部电商数据集未混入，避免用户、商品和时间窗口无法对齐。',
+      '只统计当前数据窗口，窗口外没有数据。',
+      '商品价格、库存、渠道、成本、毛利和库存金额为演示或估算数据。',
+      '本看板没有混入其他数据集，避免用户、商品和时间范围对不上。',
     ],
   };
 }

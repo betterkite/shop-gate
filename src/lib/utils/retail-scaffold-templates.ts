@@ -119,48 +119,50 @@ function svgBars(entries: Array<{ label: string; value: number }>, unitLabel: st
 
 function svgDailyLines(series: Array<{ stat_date: string } & Record<string, number>>): string {
   const width = 720;
-  const height = 240;
-  const metrics: Array<[string, string]> = [['pv', '#2563eb'], ['cart', '#f59e0b'], ['buy', '#16a34a']];
-  const stepX = series.length > 1 ? (width - 48) / (series.length - 1) : 0;
-  const paths = metrics
-    .map(([key, color]) => {
-      const values = series.map((point) => numeric(point[key]) ?? 0);
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const range = max - min;
-      const points = series
-        .map((point, index) => {
-          const value = numeric(point[key]) ?? 0;
-          const x = 24 + index * stepX;
-          // 每条线按自身区间缩放，避免 PV 的量级把 Cart/Buy 压成一条直线。
-          // 具体数值仍在 KPI/明细表中展示，图中只表达日内趋势方向。
-          const normalized = range > 0 ? (value - min) / range : 0.5;
-          const y = height - 30 - normalized * (height - 70);
-          return x.toFixed(1) + ',' + y.toFixed(1);
-        })
-        .join(' ');
-      const dots = series.map((point, index) => {
-        const value = numeric(point[key]) ?? 0;
-        const normalized = range > 0 ? (value - min) / range : 0.5;
-        const x = 24 + index * stepX;
-        const y = height - 30 - normalized * (height - 70);
-        return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.5" fill="' + color + '" />';
-      }).join('');
-      return '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" points="' + points + '" />' + dots;
-    })
-    .join('');
-  const labels = series
-    .map((point, index) =>
-      index % Math.ceil(series.length / 9 || 1) === 0
-        ? '<text x="' + (24 + index * stepX) + '" y="' + (height - 8) + '" font-size="10" text-anchor="middle" fill="#475569">' +
-          point.stat_date.slice(5) + '</text>'
-        : '')
-    .join('');
+  const height = 280;
+  const top = 38;
+  const left = 44;
+  const right = 20;
+  const bottom = height - 34;
+  const metrics: Array<[string, string, string]> = [
+    ['pv', '#2563eb', '页面浏览量（PV）'],
+    ['cart', '#f59e0b', '加购（Cart）'],
+    ['buy', '#16a34a', '购买（Buy）'],
+  ];
+  const stepX = series.length > 1 ? (width - left - right) / (series.length - 1) : 0;
+  const maxValue = Math.max(...metrics.flatMap(([key]) => series.map((point) => numeric(point[key]) ?? 0)), 1);
+  const paths = metrics.map(([key, color]) => {
+    const points = series.map((point, index) => {
+      const value = numeric(point[key]) ?? 0;
+      const x = left + index * stepX;
+      const y = bottom - (value / maxValue) * (bottom - top);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    const dots = series.map((point, index) => {
+      const value = numeric(point[key]) ?? 0;
+      const x = left + index * stepX;
+      const y = bottom - (value / maxValue) * (bottom - top);
+      return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.5" fill="' + color + '" />';
+    }).join('');
+    return '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" points="' + points + '" />' + dots;
+  }).join('');
+  const legend = metrics.map(([key, color, label], index) => {
+    const latest = numeric(series[series.length - 1]?.[key]) ?? 0;
+    const x = 150 + index * 190;
+    return '<circle cx="' + x + '" cy="18" r="4" fill="' + color + '" />' +
+      '<text x="' + (x + 8) + '" y="22" font-size="11" fill="#334155">' + label + '：' + displayNumber(latest, 0) + '</text>';
+  }).join('');
+  const labels = series.map((point, index) =>
+    index % Math.ceil(series.length / 9 || 1) === 0
+      ? '<text x="' + (left + index * stepX) + '" y="' + (height - 8) + '" font-size="10" text-anchor="middle" fill="#475569">' +
+        point.stat_date.slice(5) + '</text>'
+      : '').join('');
   return '<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="分日趋势" ' +
     'style="width:100%;max-width:760px;height:auto" xmlns="http://www.w3.org/2000/svg">' +
-    '<line x1="16" y1="' + (height - 30) + '" x2="' + (width - 16) + '" y2="' + (height - 30) + '" stroke="#cbd5e1" />' +
-    paths + labels +
-    '<text x="24" y="18" font-size="12" fill="#334155">蓝=页面浏览量（PV） 橙=加购（Cart） 绿=购买（Buy） · 各指标按自身区间显示趋势</text></svg>';
+    legend +
+    '<line x1="' + left + '" y1="' + bottom + '" x2="' + (width - right) + '" y2="' + bottom + '" stroke="#cbd5e1" />' +
+    '<line x1="' + left + '" y1="' + top + '" x2="' + left + '" y2="' + bottom + '" stroke="#cbd5e1" />' +
+    paths + labels + '</svg>';
 }
 
 function svgDonut(segments: Array<{ label: string; value: number; color: string }>, unitLabel: string): string {
@@ -196,7 +198,7 @@ function svgDonut(segments: Array<{ label: string; value: number; color: string 
 }
 
 function syntheticBadge() {
-  return <span className="synthetic-badge" title="价格/库存/品牌/店铺与成交总额（GMV）来自合成主数据，不代表真实交易数据">合成口径</span>;
+  return <span className="synthetic-badge" title="商品价格、库存、渠道和成交金额使用演示数据，不代表真实订单金额">演示数据</span>;
 }
 `;
 
@@ -301,13 +303,13 @@ export function retailFunnelPageTemplate(): string {
       <section className="chart-zone">
         <h2>分日趋势</h2>
         {funnelDaily.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(funnelDaily.map(asRecord).filter(Boolean) as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
-        <p className="footnote">页面浏览量（PV）通常占绝对多数；购买转化率以购买事件（Buy）/页面浏览量（PV）衡量。</p>
+        <p className="footnote">页面浏览量（PV）是打开商品页面的次数；购买转化率 = 购买次数 ÷ 页面浏览量。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
-        <span>主数据与金额：合成口径</span>
-        <span>窗口外趋势不支持。</span>
+        <span>行为数据：{String(meta?.behavior_source ?? "") === "synthetic" ? "演示行为数据" : "真实用户行为数据（" + String(meta?.behavior_source ?? "") + "）"}</span>
+        <span>商品价格、库存、渠道、成本和毛利：演示或估算数据</span>
+        <span>只统计当前数据窗口，窗口外没有数据。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -368,12 +370,12 @@ export function retailCatalogPageTemplate(): string {
             ))}
           </tbody>
         </table>
-        <p className="footnote">类目名为合成映射（synthetic_name）；成交总额（GMV）= 购买事件 × 合成价格。</p>
+        <p className="footnote">类目名称和商品价格来自演示数据；成交总额（GMV）按购买次数 × 商品价格估算。</p>
       </section>
       <section className="chart-zone">
         <h2>类目集中度（Top-5 成交总额（GMV）占比）</h2>
         {donutSegments.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(donutSegments, 'Top-5 占比') }} /> : <p>集中度缺数据。</p>}
-        <p className="footnote">集中度 = Top-5 类目成交总额（GMV）/ 全部类目成交总额（GMV）；金额为合成口径。</p>
+        <p className="footnote">集中度 = 前 5 个类目成交总额（GMV）/ 全部类目成交总额；金额按商品价格估算。</p>
       </section>
       <section className="chart-zone">
         <h2>高流量低转化诊断</h2>
@@ -388,13 +390,13 @@ export function retailCatalogPageTemplate(): string {
       <section className="chart-zone">
         <h2>分日页面浏览量（PV）/ 加购 / 购买趋势</h2>
         {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日数据缺失。</p>}
-        <p className="footnote">事件行为为真实 UserBehavior；成交总额（GMV）为合成口径。</p>
+        <p className="footnote">行为数据用于统计浏览、加购和购买；成交总额（GMV）按商品价格估算。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
-        <span>主数据与金额：合成口径</span>
-        <span>窗口外趋势不支持。</span>
+        <span>行为数据：{String(meta?.behavior_source ?? "") === "synthetic" ? "演示行为数据" : "真实用户行为数据（" + String(meta?.behavior_source ?? "") + "）"}</span>
+        <span>商品价格、库存、渠道、成本和毛利：演示或估算数据</span>
+        <span>只统计当前数据窗口，窗口外没有数据。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -467,7 +469,7 @@ export function retailPriceInventoryPageTemplate(): string {
       <section className="chart-zone">
         <h2>经营趋势：流量、转化与成交（分指标趋势）</h2>
         {dailySeries.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(dailySeries as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>分日经营数据缺失。</p>}
-        <p className="footnote">PV/UV/购买来自窗口内真实行为事件；GMV 按购买事件 × 合成价格估算，窗口外趋势不支持。</p>
+        <p className="footnote">蓝线是页面浏览量（PV），橙线是加购（Cart），绿线是购买（Buy）。三条线使用同一个数量刻度，所以线条高低可以直接比较；低量级指标可能贴近底部。</p>
       </section>
       <section className="insight-strip bi-kpi-strip bi-kpi-secondary">
         {kpis.slice(4, 8).map((kpi, index) => (
@@ -479,7 +481,7 @@ export function retailPriceInventoryPageTemplate(): string {
         ))}
       </section>
       <section className="chart-zone">
-        <h2>价格带分布（合成价格）</h2>
+        <h2>价格区间分布（商品价格）</h2>
         <div dangerouslySetInnerHTML={{ __html: svgBars(bandCounts, '价格带') }} />
       </section>
       <section className="chart-zone bi-two-column">
@@ -515,9 +517,9 @@ export function retailPriceInventoryPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
-        <span>价格/库存/渠道/成本/毛利：合成或估算口径</span>
-        <span>窗口外趋势不支持。</span>
+        <span>行为数据：{String(meta?.behavior_source ?? "") === "synthetic" ? "演示行为数据" : "真实用户行为数据（" + String(meta?.behavior_source ?? "") + "）"}</span>
+        <span>商品价格、库存、渠道、成本和毛利：演示或估算数据</span>
+        <span>只统计当前数据窗口，窗口外没有数据。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -604,13 +606,13 @@ export function retailDailyBriefPageTemplate(): string {
             ))}
           </tbody>
         </table>
-        <p className="footnote">异动榜按窗口末日成交总额环比绝对值排序；前一日无成交的类目不计算环比。日报只描述窗口内当日观察，不做长期趋势推断；金额为合成口径。</p>
+        <p className="footnote">异动榜按窗口末日成交总额环比绝对值排序；前一日无成交的类目不计算环比。日报只描述窗口内当日观察，不做长期趋势推断；金额按商品价格估算。</p>
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
-        <span>主数据与金额：合成口径</span>
-        <span>窗口外趋势不支持。</span>
+        <span>行为数据：{String(meta?.behavior_source ?? "") === "synthetic" ? "演示行为数据" : "真实用户行为数据（" + String(meta?.behavior_source ?? "") + "）"}</span>
+        <span>商品价格、库存、渠道、成本和毛利：演示或估算数据</span>
+        <span>只统计当前数据窗口，窗口外没有数据。</span>
         {syntheticBadge()}
       </footer>
     </main>
@@ -651,9 +653,9 @@ export function retailBaseDashboardPageTemplate(): string {
       </section>
       <footer className="data-quality-footer">
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
-        <span>行为流：{String(meta?.behavior_source ?? "") === "synthetic" ? "合成演示数据（结构对齐天池 UserBehavior 口径）" : "真实行为流（" + String(meta?.behavior_source ?? "") + "）"}</span>
-        <span>主数据与金额：合成口径</span>
-        <span>窗口外趋势不支持。</span>
+        <span>行为数据：{String(meta?.behavior_source ?? "") === "synthetic" ? "演示行为数据" : "真实用户行为数据（" + String(meta?.behavior_source ?? "") + "）"}</span>
+        <span>商品价格、库存、渠道、成本和毛利：演示或估算数据</span>
+        <span>只统计当前数据窗口，窗口外没有数据。</span>
         {syntheticBadge()}
       </footer>
     </main>

@@ -67,6 +67,7 @@ vi.mock('@/lib/domains/retail', () => ({
     status: 'ready',
     requiredSkillIds: ['dashboard-visualization'],
   })),
+  serializeRetailVisualizationTemplate: vi.fn(() => '{}'),
 }));
 
 vi.mock('@/lib/services/pi-agent-prompts', () => ({
@@ -101,7 +102,7 @@ vi.mock('@/lib/domains/retail/workspace', () => ({
 
 vi.mock('@/lib/commerce/retail-validation', () => ({
   readRetailValidationReport: mocks.readValidationReport,
-  quantValidationRepairWritableGlobs: mocks.repairWritableGlobs,
+  retailValidationRepairWritableGlobs: mocks.repairWritableGlobs,
 }));
 
 vi.mock('@/lib/db/pi-agent-schema-readiness', () => ({
@@ -110,7 +111,7 @@ vi.mock('@/lib/db/pi-agent-schema-readiness', () => ({
 }));
 
 vi.mock('./pi-agent-workspace', () => ({
-  validatePiAgentProjectPath: vi.fn(async (projectPath: string) => projectPath),
+  validatePiAgentProjectPath: vi.fn(async (projectPath: string) => fs.realpath(projectPath)),
 }));
 
 vi.mock('@/lib/services/stream', () => ({
@@ -670,7 +671,7 @@ describe('PI Agent terminal ownership', () => {
 
   it('selects only the retail capability skills and never appends the platform-only UI skill', async () => {
     mocks.run.mockResolvedValue(result('completed'));
-    mocks.readRunPlan.mockResolvedValue({ requestedCapabilityId: 'asset_comparison' });
+    mocks.readRunPlan.mockResolvedValue({ requestedCapabilityId: 'catalog_structure' });
 
     await executePiAgent(
       'project-test',
@@ -681,7 +682,7 @@ describe('PI Agent terminal ownership', () => {
     );
 
     expect(mocks.compileSkills).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'asset_comparison',
+      capabilityId: 'catalog_structure',
       phase: 'data-preparation',
       activatedSkillIds: [],
       excludedSkillIds: ['image-extraction'],
@@ -733,7 +734,7 @@ describe('PI Agent terminal ownership', () => {
       'request-prepared-profile',
     );
 
-    expect(mocks.assessPreparedArtifacts).toHaveBeenCalledWith(workspace, runPlan);
+    expect(mocks.assessPreparedArtifacts).toHaveBeenCalledWith(await fs.realpath(workspace), runPlan);
     expect(mocks.compileSkills).toHaveBeenCalledWith(expect.objectContaining({
       capabilityId: 'traffic_funnel',
       requiredSkillIds: ['dashboard-visualization'],

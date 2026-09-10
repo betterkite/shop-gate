@@ -493,7 +493,8 @@ export function retailPriceInventoryPageTemplate(): string {
         <div>
           <h2>类目拆解：规模与转化</h2>
           {categoryBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(categoryBars, '类目成交总额') }} /> : <p>类目数据缺失。</p>}
-          <table className="dense-table"><thead><tr><th>类目</th><th>浏览量占比</th><th>成交总额（GMV）占比</th><th>购买转化率</th><th>需关注库存商品数</th></tr></thead><tbody>{categories.slice(0, 8).map((row, index) => <tr key={'category-' + index}><td>{text(row.category_name)}</td><td>{displayPercent(row.traffic_share)}</td><td>{displayPercent(row.gmv_share)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayNumber(row.inventory_risk_count, 0)}</td></tr>)}</tbody></table>
+          <table className="dense-table"><thead><tr><th>类目</th><th>浏览量占比</th><th>成交总额（GMV）占比</th><th>购买转化率</th><th title="达到关注规则的商品数，不等于立即补货数量">需关注库存商品数</th></tr></thead><tbody>{categories.slice(0, 8).map((row, index) => <tr key={'category-' + index}><td>{text(row.category_name)}</td><td>{displayPercent(row.traffic_share)}</td><td>{displayPercent(row.gmv_share)}</td><td>{displayPercent(row.buy_conversion)}</td><td>{displayNumber(row.inventory_risk_count, 0)}</td></tr>)}</tbody></table>
+          <p className="footnote">需关注库存商品数 = 达到关注规则的商品数，例如库存可售天数较高、没有购买，或浏览较多但购买转化偏低。它只是提醒，不等于立即补货；请结合库存、销量、浏览量和购买转化判断原因。</p>
         </div>
       </section>
       <section className="chart-zone">
@@ -508,7 +509,7 @@ export function retailPriceInventoryPageTemplate(): string {
       <section className="chart-zone">
         <h2>库存健康度（动销 / 滞销 / 无库存商品数）</h2>
         {healthDonut.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDonut(healthDonut, '动销占比') }} /> : <p>库存数据缺失。</p>}
-        <p className="footnote">动销 = 窗口内有购买事件（Buy &gt; 0）；滞销 = 有库存但窗口内无购买；动销占比 = 动销商品数 / 有库存商品数。口径为全量商品健康汇总，非库销比 Top 10 风险样本。</p>
+        <p className="footnote">动销 = 当前窗口内至少有一次购买；滞销 = 有库存但当前窗口内没有购买。需关注不等于立即补货，请结合库存、销量、浏览量和购买转化判断是库存积压、商品页/价格问题，还是确有补货需求。</p>
       </section>
       <section className="action-strip bi-action-strip">
         <article><span>运营行动</span><strong>{text(actions[0], '继续观察库存健康度。')}</strong></article>

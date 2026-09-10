@@ -3,13 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { createAuthenticatedStorageState, getVisualCredentials } = require('./visual-auth');
 
 const rootDir = path.join(__dirname, '..', '..');
 const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'platforms');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const adminLogin = process.env.PLATFORM_ADMIN_LOGIN || 'admin';
-const adminPassword = process.env.PLATFORM_ADMIN_PASSWORD || 'admin';
+const { login: adminLogin, password: adminPassword } = getVisualCredentials('PLATFORM_ADMIN');
 
 const routes = [
   { id: 'home', path: '/', expected: 'Shop Gate' },
@@ -37,42 +37,10 @@ function cleanMessage(value) {
 }
 
 async function createAuthenticatedState(browser) {
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
-    colorScheme: 'light',
+  return createAuthenticatedStorageState(browser, baseUrl, {
+    login: adminLogin,
+    password: adminPassword,
   });
-  const page = await context.newPage();
-
-  try {
-    const response = await page.goto(`${baseUrl}/`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 30_000,
-    });
-    if (!response?.ok()) {
-      throw new Error(`首页请求返回 ${response?.status() ?? '无响应'}`);
-    }
-
-    const identity = page.locator('#identity');
-    if (new URL(page.url()).pathname === '/login' || await identity.isVisible().catch(() => false)) {
-      await identity.fill(adminLogin);
-      await page.locator('#password').fill(adminPassword);
-      await page.locator('button[type="submit"]').click();
-      await page.waitForFunction(
-        () => window.location.pathname !== '/login',
-        null,
-        { timeout: 20_000 },
-      );
-    }
-
-    if (new URL(page.url()).pathname === '/login') {
-      const alert = await page.locator('[role="alert"]').textContent().catch(() => null);
-      throw new Error(alert?.trim() || '默认管理员登录失败');
-    }
-
-    return await context.storageState();
-  } finally {
-    await context.close();
-  }
 }
 
 async function discoverProjectRoute(request) {

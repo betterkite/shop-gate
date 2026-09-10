@@ -3,14 +3,15 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { createAuthenticatedStorageState, getVisualCredentials } = require('./visual-auth');
 
 const rootDir = path.join(__dirname, '..', '..');
 const baseUrl = (process.env.SHOPGATE_WEB_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'business-knowledge');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const views = [
-  { id: 'overview', query: '', label: '业务总览', expected: '把业务问题，映射为可执行的量化能力' },
-  { id: 'capabilities', query: '?view=capabilities', label: '能力目录', expected: '量化业务能力目录' },
+  { id: 'overview', query: '', label: '业务总览', expected: '把业务问题，映射为可执行的经营分析能力' },
+  { id: 'capabilities', query: '?view=capabilities', label: '能力目录', expected: '经营业务能力目录' },
   { id: 'knowledge', query: '?view=knowledge', label: '业务知识', expected: '业务知识与交付规范' },
   { id: 'resources', query: '?view=resources', label: '支撑资源', expected: '业务能力背后的支撑资源' },
 ];
@@ -19,8 +20,8 @@ function cleanMessage(value) {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
-async function inspectProfile(browser, profile) {
-  const context = await browser.newContext({ viewport: profile.viewport, deviceScaleFactor: 1, colorScheme: profile.theme });
+async function inspectProfile(browser, storageState, profile) {
+  const context = await browser.newContext({ storageState, viewport: profile.viewport, deviceScaleFactor: 1, colorScheme: profile.theme });
   await context.addInitScript((theme) => localStorage.setItem('shopgate-color-mode', theme), profile.theme);
   const page = await context.newPage();
   const problems = [];
@@ -63,11 +64,11 @@ async function inspectProfile(browser, profile) {
 
     await page.goto(`${baseUrl}/business-knowledge?view=capabilities`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     const search = page.getByPlaceholder('搜索业务能力、场景或关注点...');
-    await search.fill('持仓');
-    await page.getByRole('button', { name: /持仓分析/ }).waitFor({ state: 'visible' });
+    await search.fill('商品');
+    await page.getByRole('button', { name: /类目与商品结构/ }).waitFor({ state: 'visible' });
     await search.fill('');
-    await page.getByRole('button', { name: /个股诊断/ }).first().click();
-    await page.getByRole('heading', { name: '个股诊断' }).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: /类目与商品结构/ }).first().click();
+    await page.getByRole('heading', { name: '类目与商品结构' }).waitFor({ state: 'visible' });
     await page.getByText('典型业务场景').waitFor({ state: 'visible' });
     await page.keyboard.press('Escape');
   } catch (error) {
@@ -89,7 +90,12 @@ async function main() {
   ];
   const problems = [];
   try {
-    for (const profile of profiles) problems.push(...await inspectProfile(browser, profile));
+    const storageState = await createAuthenticatedStorageState(
+      browser,
+      baseUrl,
+      getVisualCredentials('BUSINESS_KNOWLEDGE_ADMIN'),
+    );
+    for (const profile of profiles) problems.push(...await inspectProfile(browser, storageState, profile));
   } finally {
     await browser.close();
   }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { RetailPageShell } from '@/components/layout/RetailPageShell';
@@ -139,6 +140,22 @@ async function fetchAnalytics(path: string): Promise<JsonRecord | null> {
   }
 }
 
+async function fetchDatasetContracts(): Promise<JsonRecord[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/commerce/datasets`, { cache: 'no-store' });
+    if (!response.ok) return [];
+    const parsed: unknown = await response.json();
+    return asArray(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function datasetRowCount(contract: JsonRecord): number {
+  const counts = asRecord(contract.row_counts);
+  return Object.values(counts ?? {}).reduce<number>((total, value) => total + number(value), 0);
+}
+
 function SyntheticBadge() {
   return <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">合成演示数据</span>;
 }
@@ -160,9 +177,69 @@ function Limitations({ payload }: { payload: JsonRecord | null }) {
   return <p className="text-xs leading-5 text-muted-foreground">口径边界：{limitations.map(String).join('；') || '请先读取数据集契约。'}</p>;
 }
 
+function DatasetSelector({
+  contracts,
+  selectedDatasetId,
+  view,
+  dimension,
+  value,
+}: {
+  contracts: JsonRecord[];
+  selectedDatasetId: string;
+  view: string;
+  dimension?: string;
+  value?: string;
+}) {
+  const selected = contracts.find((contract) => text(contract.dataset_id) === selectedDatasetId);
+  return (
+    <section className="mb-5 rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm" aria-label="经营分析数据集">
+      <form method="get" className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <input type="hidden" name="view" value={view} />
+        {view === 'drilldown' && dimension ? <input type="hidden" name="dimension" value={dimension} /> : null}
+        {view === 'drilldown' && value ? <input type="hidden" name="value" value={value} /> : null}
+        <label className="min-w-0 flex-1">
+          <span className="text-sm font-semibold">分析数据集</span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">切换后会重新读取当前视图的全部分析结果；不会把其他数据集的数据混入当前页面。</span>
+          <select name="dataset_id" defaultValue={selectedDatasetId} className="mt-2 w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" disabled={!contracts.length}>
+            {contracts.length ? contracts.map((contract) => {
+              const id = text(contract.dataset_id);
+              return <option key={id} value={id}>{id} · {text(contract.source_kind, '未标注来源')}</option>;
+            }) : <option value={selectedDatasetId}>{selectedDatasetId} · 数据集列表暂不可用</option>}
+          </select>
+        </label>
+        <button type="submit" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50" disabled={!contracts.length}>切换并刷新分析</button>
+      </form>
+      {selected ? (
+        <div className="mt-3 grid gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+          <span>数据窗口：{text(selected.window_start)} ~ {text(selected.window_end)}</span>
+          <span>来源：{text(selected.source_name, text(selected.source_kind, '未标注'))}</span>
+          <span>契约版本：{text(selected.version, '未标注')}</span>
+          <span>记录数：{new Intl.NumberFormat('zh-CN').format(datasetRowCount(selected))}</span>
+          <span className="sm:col-span-2 lg:col-span-4">合成字段：{asStringArray(selected.synthetic_fields).join('、') || '无特别标注'}</span>
+        </div>
+      ) : (
+        <p className="mt-3 border-t border-border/60 pt-3 text-xs text-amber-700">当前数据集未出现在契约列表中，请先确认 commerce-data 已启动且数据集已注册。</p>
+      )}
+    </section>
+  );
+}
+
 export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const params = await searchParams;
-  const datasetId = params?.dataset_id || DEFAULT_DATASET_ID;
+  const datasetContracts = await fetchDatasetContracts();
+  const requestedDatasetId = params?.dataset_id || DEFAULT_DATASET_ID;
+  const requestedContract = datasetContracts.find((contract) => text(contract.dataset_id) === requestedDatasetId);
+  if (datasetContracts.length && !requestedContract) {
+    const canonicalQuery = new URLSearchParams({
+      view: params?.view || 'overview',
+      dataset_id: text(datasetContracts[0].dataset_id),
+    });
+    for (const key of ['dimension', 'value', 'page', 'stage'] as const) {
+      if (params?.[key]) canonicalQuery.set(key, params[key]);
+    }
+    redirect(`/analytics-workbench?${canonicalQuery.toString()}`);
+  }
+  const datasetId = requestedDatasetId;
   const view = Object.keys(VIEW_LABELS).includes(params?.view || '') ? params?.view as Exclude<View, 'drilldown'> : 'overview';
   const requestedLifecyclePage = Number.parseInt(params?.page || '1', 10);
   const lifecyclePage = Number.isFinite(requestedLifecyclePage) && requestedLifecyclePage > 0 ? requestedLifecyclePage : 1;
@@ -214,6 +291,14 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         <div><p className="text-sm font-semibold">从总览到下钻</p><p className="mt-1 text-xs text-muted-foreground">先看经营结果，再沿用户、渠道、利润、库存和商品阶段定位原因。</p></div>
         <div className="flex flex-wrap gap-2 text-xs"><Link href="/commerce-platform" className="rounded-lg bg-muted px-3 py-2 hover:text-foreground">商品运营</Link><Link href="/operations-briefing" className="rounded-lg bg-muted px-3 py-2 hover:text-foreground">经营情报</Link><span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">质量：{text(quality?.severity, '未扫描')}</span></div>
       </div>
+
+      <DatasetSelector
+        contracts={datasetContracts}
+        selectedDatasetId={datasetId}
+        view={params?.view === 'drilldown' ? 'drilldown' : view}
+        dimension={params?.dimension}
+        value={params?.value}
+      />
 
       {!overview ? <Panel title="暂时无法读取经营分析数据"><p className="text-sm text-destructive">commerce-data 未返回扩展数据集，请确认服务已启动且 dataset_id 有效。</p></Panel> : null}
 

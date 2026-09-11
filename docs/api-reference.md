@@ -180,7 +180,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/datasets` | `GET` | 扩展经营分析数据集契约；可用 `dataset_id` 过滤，返回版本、生成规则、合成字段和限制 |
 | `/api/v1/commerce/datasets/import` | `POST` | 受控生成隔离的合成经营分析数据集，异步执行质量扫描并返回任务 ID |
 | `/api/v1/commerce/datasets/import/csv` | `POST` | 上传标准五列行为事件 CSV，保留行为来源并异步补齐合成经营分析字段；`dataset_id`、`seed`、`filename` 使用查询参数 |
-| `/api/v1/commerce/datasets/import/{job_id}` | `GET` | 查询合成数据集生成任务状态、进度、质量扫描结果和失败原因 |
+| `/api/v1/commerce/datasets/import/{job_id}` | `GET` | 查询数据集导入或自动生成看板配置任务的状态、进度、结果和失败原因 |
 | `/api/v1/commerce/datasets/import` | `GET` | 列出最近的数据集生成任务，支持按 `dataset_id` 和 `limit` 过滤 |
 | `/api/v1/commerce/resolve` | `GET` | 实体解析：`item:<id>`/`cat:<id>` 显式形式 + 类目名/商品标题模糊匹配，`limit` ≤50 |
 | `/api/v1/commerce/capabilities` | `GET` | 零售能力发现信息（domain_pack=`retail.core`，含 synthetic_fields 清单） |

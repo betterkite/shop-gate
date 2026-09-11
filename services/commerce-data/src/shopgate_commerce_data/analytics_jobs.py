@@ -38,6 +38,8 @@ MAX_ITEMS = 5_000
 MAX_DAYS = 180
 MAX_CSV_BYTES = 50 * 1024 * 1024
 MAX_CSV_ROWS = 500_000
+IMPORT_JOB_TYPE = "analytics_dataset_import"
+DASHBOARD_JOB_TYPE = "analytics_dashboard_generation"
 _ACTIVE_TASKS: set[asyncio.Task[None]] = set()
 
 
@@ -155,8 +157,8 @@ def _connect() -> psycopg.Connection[dict[str, Any]]:
     )
 
 
-def _job_id() -> str:
-    return f"analytics-import-{uuid4()}"
+def _job_id(prefix: str = "import") -> str:
+    return f"analytics-{prefix}-{uuid4()}"
 
 
 def _create_job(payload: dict[str, Any]) -> dict[str, Any]:
@@ -169,15 +171,45 @@ def _create_job(payload: dict[str, Any]) -> dict[str, Any]:
                 INSERT INTO commerce.platform_jobs
                   (id, job_type, queue, status, priority, progress, control, payload,
                    result, created_at, updated_at)
-                VALUES (%s, 'analytics_dataset_import', 'analytics', 'queued', 100,
+                VALUES (%s, %s, 'analytics', 'queued', 100,
                         0, 'run', %s, '{}'::jsonb, %s, %s)
                 """,
-                (job_id, Jsonb(payload), now, now),
+                (job_id, IMPORT_JOB_TYPE, Jsonb(payload), now, now),
             )
         connection.commit()
     return {
         "job_id": job_id,
         "dataset_id": payload["dataset_id"],
+        "status": "queued",
+        "progress": 0,
+        "created_at": now.isoformat(),
+    }
+
+
+def _create_dashboard_job(dataset_id: str, import_job_id: str) -> dict[str, Any]:
+    job_id = _job_id("dashboard")
+    now = datetime.now(UTC)
+    payload = {
+        "dataset_id": dataset_id,
+        "import_job_id": import_job_id,
+        "template_id": "analytics-bi",
+    }
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO commerce.platform_jobs
+                  (id, job_type, queue, status, priority, progress, control, payload,
+                   result, created_at, updated_at)
+                VALUES (%s, %s, 'analytics', 'queued', 100,
+                        0, 'run', %s, '{}'::jsonb, %s, %s)
+                """,
+                (job_id, DASHBOARD_JOB_TYPE, Jsonb(payload), now, now),
+            )
+        connection.commit()
+    return {
+        "job_id": job_id,
+        "dataset_id": dataset_id,
         "status": "queued",
         "progress": 0,
         "created_at": now.isoformat(),
@@ -229,9 +261,9 @@ def _get_job(job_id: str) -> dict[str, Any] | None:
             SELECT id, job_type, status, progress, payload, result, error,
                    started_at, completed_at, created_at, updated_at
             FROM commerce.platform_jobs
-            WHERE id = %s AND job_type = 'analytics_dataset_import'
+            WHERE id = %s AND job_type IN (%s, %s)
             """,
-            (job_id,),
+            (job_id, IMPORT_JOB_TYPE, DASHBOARD_JOB_TYPE),
         )
         row = cursor.fetchone()
     if not row:
@@ -250,12 +282,12 @@ def _list_jobs(dataset_id: str | None, limit: int) -> list[dict[str, Any]]:
                 SELECT id, job_type, status, progress, payload, result, error,
                        started_at, completed_at, created_at, updated_at
                 FROM commerce.platform_jobs
-                WHERE job_type = 'analytics_dataset_import'
+                WHERE job_type IN (%s, %s)
                   AND payload->>'dataset_id' = %s
                 ORDER BY created_at DESC
                 LIMIT %s
                 """,
-                (dataset_id, limit),
+                (IMPORT_JOB_TYPE, DASHBOARD_JOB_TYPE, dataset_id, limit),
             )
         else:
             cursor.execute(
@@ -263,11 +295,11 @@ def _list_jobs(dataset_id: str | None, limit: int) -> list[dict[str, Any]]:
                 SELECT id, job_type, status, progress, payload, result, error,
                        started_at, completed_at, created_at, updated_at
                 FROM commerce.platform_jobs
-                WHERE job_type = 'analytics_dataset_import'
+                WHERE job_type IN (%s, %s)
                 ORDER BY created_at DESC
                 LIMIT %s
                 """,
-                (limit,),
+                (IMPORT_JOB_TYPE, DASHBOARD_JOB_TYPE, limit),
             )
         rows = cursor.fetchall()
     for row in rows:
@@ -275,6 +307,87 @@ def _list_jobs(dataset_id: str | None, limit: int) -> list[dict[str, Any]]:
             if row.get(key) is not None:
                 row[key] = row[key].isoformat()
     return [dict(row) for row in rows]
+
+
+def _run_dashboard_job_sync(job_id: str, payload: dict[str, Any]) -> None:
+    """为当前数据集生成可追踪的 BI 配置清单，等待后续 Agent 预览编排。"""
+
+    _update_job(job_id, status="running", progress=0.2)
+    try:
+        with _connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT dataset_id, source_kind, source_name, window_start, window_end,
+                       version, schema_version
+                FROM commerce.dataset_contracts
+                WHERE dataset_id = %s
+                """,
+                (payload["dataset_id"],),
+            )
+            contract = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT id, severity, issue_count
+                FROM commerce.data_quality_scans
+                WHERE universe_id = %s AND scope = 'analytics_dataset'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (payload["dataset_id"],),
+            )
+            quality = cursor.fetchone()
+        if not contract:
+            raise RuntimeError(f"数据集不存在：{payload['dataset_id']}")
+        if not quality or quality["severity"] != "ok":
+            raise RuntimeError("数据质量扫描未通过，暂不生成看板配置。")
+        _update_job(job_id, status="running", progress=0.7)
+        manifest = {
+            "dataset_id": payload["dataset_id"],
+            "template_id": payload["template_id"],
+            "mode": "analytics_workbench_manifest",
+            "preview_ready": False,
+            "source_kind": contract["source_kind"],
+            "source_name": contract["source_name"],
+            "window": {
+                "start": contract["window_start"].isoformat(),
+                "end": contract["window_end"].isoformat(),
+            },
+            "contract_version": contract["version"],
+            "schema_version": contract["schema_version"],
+            "quality_scan_id": quality["id"],
+            "views": [
+                "overview",
+                "customers",
+                "channels",
+                "profit",
+                "inventory",
+                "lifecycle",
+                "elasticity",
+            ],
+            "next_step": "由 Agent 任务编排按 dataset_id 生成可持久化看板预览。",
+        }
+        _update_job(
+            job_id,
+            status="completed",
+            progress=1,
+            result={"dataset_id": payload["dataset_id"], "manifest": manifest},
+        )
+    except Exception as error:
+        _update_job(job_id, status="failed", progress=1, error=str(error))
+
+
+def _generate_dashboard_manifest(dataset_id: str, import_job_id: str) -> dict[str, Any]:
+    dashboard_job = _create_dashboard_job(dataset_id, import_job_id)
+    _run_dashboard_job_sync(dashboard_job["job_id"], {
+        "dataset_id": dataset_id,
+        "import_job_id": import_job_id,
+        "template_id": "analytics-bi",
+    })
+    final = _get_job(dashboard_job["job_id"])
+    return {
+        "job_id": dashboard_job["job_id"],
+        "status": final["status"] if final else "failed",
+    }
 
 
 def _run_job_sync(job_id: str, payload: dict[str, Any]) -> None:
@@ -301,6 +414,7 @@ def _run_job_sync(job_id: str, payload: dict[str, Any]) -> None:
             raise RuntimeError(f"数据质量扫描未通过：{'; '.join(quality['issues'])}")
 
         row_counts = dataset["contract"].get("row_counts", {})
+        dashboard = _generate_dashboard_manifest(payload["dataset_id"], job_id)
         _update_job(
             job_id,
             status="completed",
@@ -309,6 +423,8 @@ def _run_job_sync(job_id: str, payload: dict[str, Any]) -> None:
                 "dataset_id": payload["dataset_id"],
                 "quality_scan": quality,
                 "row_counts": row_counts,
+                "dashboard_job_id": dashboard["job_id"],
+                "dashboard_status": dashboard["status"],
             },
         )
     except Exception as error:
@@ -350,6 +466,7 @@ def _run_csv_job_sync(job_id: str, payload: dict[str, Any], path: Path) -> None:
         connection.commit()
         if quality["severity"] != "ok":
             raise RuntimeError(f"数据质量扫描未通过：{'; '.join(quality['issues'])}")
+        dashboard = _generate_dashboard_manifest(payload["dataset_id"], job_id)
         _update_job(
             job_id,
             status="completed",
@@ -359,6 +476,8 @@ def _run_csv_job_sync(job_id: str, payload: dict[str, Any], path: Path) -> None:
                 "quality_scan": quality,
                 "row_counts": dataset["contract"].get("row_counts", {}),
                 "behavior_source": payload["source_name"],
+                "dashboard_job_id": dashboard["job_id"],
+                "dashboard_status": dashboard["status"],
             },
         )
     except Exception as error:

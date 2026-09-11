@@ -280,8 +280,13 @@ export function DatasetSelector({
               const payload = asRecord(job.payload);
               const result = asRecord(job.result);
               const status = text(job.status, 'unknown');
+              const jobType = text(job.job_type);
               const statusLabel = status === 'completed' ? '已完成' : status === 'failed' ? '失败' : status === 'running' ? '进行中' : '排队中';
-              return <div key={text(job.id)} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-xs"><span className="font-medium">{text(payload?.dataset_id, '未命名数据集')}</span><span className={status === 'failed' ? 'text-destructive' : status === 'completed' ? 'text-emerald-700' : 'text-amber-700'}>{statusLabel} · {Math.round(number(job.progress) * 100)}%</span><span className="text-muted-foreground">{status === 'failed' ? text(job.error, '未记录失败原因') : result ? '已生成并完成质量扫描' : '任务状态已记录'}</span></div>;
+              const jobLabel = jobType === 'analytics_dashboard_generation' ? '看板配置' : '数据集导入';
+              const resultLabel = jobType === 'analytics_dashboard_generation'
+                ? (result ? '已生成分析配置，等待看板预览编排' : '任务状态已记录')
+                : (result ? '已生成并完成质量扫描' : '任务状态已记录');
+              return <div key={text(job.id)} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-xs"><span className="font-medium">{jobLabel} · {text(payload?.dataset_id, '未命名数据集')}</span><span className={status === 'failed' ? 'text-destructive' : status === 'completed' ? 'text-emerald-700' : 'text-amber-700'}>{statusLabel} · {Math.round(number(job.progress) * 100)}%</span><span className="text-muted-foreground">{status === 'failed' ? text(job.error, '未记录失败原因') : resultLabel}</span></div>;
             })}
           </div>
         </div>

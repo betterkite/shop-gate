@@ -92,6 +92,8 @@ def create_commerce_router() -> APIRouter:
                         "/api/v1/commerce/analytics/channel-campaign",
                         "/api/v1/commerce/analytics/profit",
                         "/api/v1/commerce/analytics/inventory",
+                        "/api/v1/commerce/analytics/lifecycle",
+                        "/api/v1/commerce/analytics/price-elasticity",
                     ],
                 },
             ],
@@ -276,5 +278,36 @@ def create_commerce_router() -> APIRouter:
             return await analytics.inventory_analytics(dataset_id, limit)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/lifecycle")
+    async def analytics_lifecycle(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.lifecycle_metrics(dataset_id, limit)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/price-elasticity")
+    async def analytics_price_elasticity(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.price_band_comparison(dataset_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/drilldown")
+    async def analytics_drilldown(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        dimension: Annotated[str, Query(min_length=1, max_length=20)],
+        value: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.analytics_drilldown(dataset_id, dimension, value, limit)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
 
     return router

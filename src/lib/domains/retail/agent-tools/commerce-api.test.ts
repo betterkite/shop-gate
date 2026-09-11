@@ -31,6 +31,17 @@ describe('commerce_api_get allowlist', () => {
     expect(called.searchParams.get('start')).toBe('2017-11-25');
   });
 
+  it('allows analytics drilldown for follow-up turns', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ context: { dimension: 'item', value: '1000000' } }));
+    const tool = createCommerceApiGetTool({ fetchImpl });
+    const result = await tool.execute!(
+      { path: '/api/v1/commerce/analytics/drilldown', query: { dataset_id: 'retail-demo-expanded-v1', dimension: 'item', value: '1000000' } },
+      TOOL_CONTEXT,
+    );
+    expect(result.ok).toBe(true);
+    expect(new URL(fetchImpl.mock.calls[0][0].toString()).pathname).toBe('/api/v1/commerce/analytics/drilldown');
+  });
+
   it('denies non-allowlisted paths and traversal', async () => {
     const fetchImpl = vi.fn();
     const tool = createCommerceApiGetTool({ fetchImpl });

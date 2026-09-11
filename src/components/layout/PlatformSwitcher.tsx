@@ -28,6 +28,7 @@ const PRODUCTS = [
   { href: "/", label: "经营工作台", description: "发起零售分析并管理工作空间", icon: Home, group: "research" },
   { href: "/commerce-platform", label: "商品运营", description: "商品池、类目结构与渠道口径", icon: BarChart3, group: "research" },
   { href: "/operations-briefing", label: "经营情报", description: "观察池、经营日报与交付", icon: FileChartColumn, group: "research" },
+  { href: "/analytics-workbench", label: "经营分析 BI", description: "用户、渠道、利润、库存与商品阶段", icon: BarChart3, group: "research" },
   { href: "/business-knowledge", label: "业务知识", description: "能力、规范与数据契约", icon: BookOpenCheck, group: "governance" },
   { href: "/skills", label: "能力中心", description: "Skills 市场、版本与 Studio", icon: Blocks, group: "governance" },
   { href: "/eval-platform", label: "评测平台", description: "契约、基准与端到端评测", icon: BrainCircuit, group: "governance" },

@@ -27,7 +27,7 @@ const ALLOWED_COMMERCE_API_PATHS = [
   /^\/api\/v1\/commerce\/inventory-risk$/,
   /^\/api\/v1\/commerce\/summary$/,
   /^\/api\/v1\/commerce\/capabilities$/,
-  /^\/api\/v1\/commerce\/analytics\/(overview|rfm|channel-campaign|profit|inventory)$/,
+  /^\/api\/v1\/commerce\/analytics\/(overview|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown)$/,
 ] as const;
 
 type QueryPrimitive = string | number | boolean;

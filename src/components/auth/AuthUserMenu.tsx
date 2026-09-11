@@ -24,6 +24,7 @@ type AuthUserMenuVariant = 'floating' | 'header';
 const SHARED_PAGE_HEADER_PREFIXES = [
   '/commerce-platform',
   '/operations-briefing',
+  '/analytics-workbench',
   '/business-knowledge',
   '/ops-platform',
 ] as const;

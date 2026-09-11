@@ -45,6 +45,9 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/analytics/channel-campaign`：渠道/活动会话、订单和转化。
 - `GET /api/v1/commerce/analytics/profit`：合成成本下的销售额、退款、毛利和毛利率。
 - `GET /api/v1/commerce/analytics/inventory`：库存结存、日销量、可售天数和库存健康标签。
+- `GET /api/v1/commerce/analytics/lifecycle`：按窗口内购买活跃度判断商品经营阶段。
+- `GET /api/v1/commerce/analytics/price-elasticity`：价格带对比；数据不足时明确不返回弹性系数。
+- `GET /api/v1/commerce/analytics/drilldown`：按用户、渠道、活动或商品继续查看上下文，并返回下一步问题建议。
 
 API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准。
 

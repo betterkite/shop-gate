@@ -345,3 +345,270 @@ async def inventory_analytics(dataset_id: str, limit: int = 20) -> dict[str, Any
         risk_counts=risk_counts,
         items=items,
     )
+
+
+async def lifecycle_metrics(dataset_id: str, limit: int = 20) -> dict[str, Any]:
+    """按订单首次/最近活跃时间给出商品经营阶段，不冒充真实上下架生命周期。"""
+
+    contract = await _contract(dataset_id)
+    window_start = date.fromisoformat(str(contract["window_start"]))
+    window_end = date.fromisoformat(str(contract["window_end"]))
+    rows = await fetch_all(
+        """
+        SELECT i.item_id, i.category_id,
+               MIN(o.ordered_at)::date AS first_order_date,
+               MAX(o.ordered_at)::date AS last_order_date,
+               COUNT(DISTINCT o.order_id) AS orders,
+               SUM(o.quantity) AS units,
+               SUM(o.quantity * o.selling_price - o.refund_amount) AS net_sales
+        FROM commerce.dataset_item_economics i
+        LEFT JOIN commerce.dataset_orders o
+          ON o.dataset_id = i.dataset_id AND o.item_id = i.item_id
+        WHERE i.dataset_id = %s
+        GROUP BY i.item_id, i.category_id
+        ORDER BY net_sales DESC NULLS LAST, i.item_id
+        """,
+        (dataset_id,),
+    )
+    stage_counts: dict[str, int] = {}
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        if row["first_order_date"] is None:
+            stage = "未启动"
+            active_days = None
+            days_since_last = None
+        else:
+            first_order = row["first_order_date"]
+            last_order = row["last_order_date"]
+            active_days = (last_order - first_order).days + 1
+            days_since_last = (window_end - last_order).days
+            if days_since_last > 14:
+                stage = "衰退风险"
+            elif (first_order - window_start).days >= max((window_end - window_start).days - 14, 0):
+                stage = "成长期"
+            elif active_days >= 14:
+                stage = "稳定期"
+            else:
+                stage = "成长期"
+        stage_counts[stage] = stage_counts.get(stage, 0) + 1
+        if len(items) < limit:
+            items.append(
+                {
+                    "item_id": row["item_id"],
+                    "category_id": row["category_id"],
+                    "stage": stage,
+                    "first_order_date": _iso(row["first_order_date"]),
+                    "last_order_date": _iso(row["last_order_date"]),
+                    "active_days": active_days,
+                    "days_since_last_order": days_since_last,
+                    "orders": int(row["orders"] or 0),
+                    "units": int(row["units"] or 0),
+                    "net_sales": round(_number(row["net_sales"]), 2),
+                }
+            )
+    return _response(
+        dataset_id,
+        contract,
+        metric_definition={
+            "stage": "根据窗口内首次购买、最近购买和活跃天数推断的经营阶段",
+            "boundary": "没有真实上架、下架和生命周期事件，因此不是商品真实生命周期",
+        },
+        stage_counts=stage_counts,
+        item_count=len(rows),
+        items=items,
+    )
+
+
+async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
+    """提供价格带对比；没有同商品多价格样本时不返回伪造的弹性系数。"""
+
+    contract = await _contract(dataset_id)
+    rows = await fetch_all(
+        """
+        WITH item_sales AS (
+          SELECT i.item_id, i.list_price, i.discount_rate,
+                 COUNT(DISTINCT o.order_id) AS orders,
+                 COALESCE(SUM(o.quantity), 0) AS units,
+                 COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales
+          FROM commerce.dataset_item_economics i
+          LEFT JOIN commerce.dataset_orders o
+            ON o.dataset_id = i.dataset_id AND o.item_id = i.item_id
+          WHERE i.dataset_id = %s
+          GROUP BY i.item_id, i.list_price, i.discount_rate
+        )
+        SELECT CASE
+                 WHEN list_price < 50 THEN '0-50'
+                 WHEN list_price < 200 THEN '50-200'
+                 WHEN list_price < 500 THEN '200-500'
+                 WHEN list_price < 1000 THEN '500-1000'
+                 ELSE '1000+'
+               END AS price_band,
+               COUNT(*) AS item_count,
+               SUM(orders) AS orders,
+               SUM(units) AS units,
+               SUM(net_sales) AS net_sales,
+               AVG(discount_rate) AS average_discount_rate
+        FROM item_sales
+        GROUP BY 1
+        ORDER BY MIN(list_price)
+        """,
+        (dataset_id,),
+    )
+    bands = [
+        {
+            **row,
+            "item_count": int(row["item_count"] or 0),
+            "orders": int(row["orders"] or 0),
+            "units": int(row["units"] or 0),
+            "net_sales": round(_number(row["net_sales"]), 2),
+            "average_discount_rate": round(_number(row["average_discount_rate"]), 4),
+        }
+        for row in rows
+    ]
+    return _response(
+        dataset_id,
+        contract,
+        status="insufficient_data_for_elasticity",
+        elasticity_estimate=None,
+        explanation="当前每个商品只有一个合成价格观察值，缺少同商品多价格时点或实验对照，无法计算价格弹性。",
+        required_for_estimation=[
+            "同一商品多个价格时点",
+            "对应销量或转化变化",
+            "活动/流量等干扰因素",
+        ],
+        price_band_comparison=bands,
+    )
+
+
+async def analytics_drilldown(
+    dataset_id: str,
+    dimension: str,
+    value: str,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """为多轮 Agent/页面下钻提供稳定的维度上下文和下一步提示。"""
+
+    contract = await _contract(dataset_id)
+    if dimension not in {"channel", "campaign", "item", "user"}:
+        raise ValueError("下钻维度必须是 channel、campaign、item 或 user")
+    if not value.strip():
+        raise ValueError("下钻值不能为空")
+
+    if dimension in {"channel", "campaign"}:
+        column = "channel_id" if dimension == "channel" else "campaign_id"
+        rows = await fetch_all(
+            f"""
+            SELECT o.{column} AS dimension_value,
+                   COUNT(DISTINCT o.order_id) AS orders,
+                   COUNT(DISTINCT o.user_id) AS users,
+                   COALESCE(SUM(o.quantity), 0) AS units,
+                   COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales
+            FROM commerce.dataset_orders o
+            WHERE o.dataset_id = %s AND o.{column} = %s
+            GROUP BY o.{column}
+            """,
+            (dataset_id, value),
+        )
+        results = [
+            {
+                **row,
+                "orders": int(row["orders"] or 0),
+                "users": int(row["users"] or 0),
+                "units": int(row["units"] or 0),
+                "net_sales": round(_number(row["net_sales"]), 2),
+            }
+            for row in rows
+        ]
+        next_questions = [
+            "继续按商品查看销量和库存",
+            "查看该维度的毛利贡献",
+            "对比其他渠道或活动",
+        ]
+    elif dimension == "item":
+        try:
+            item_id = int(value)
+        except ValueError as error:
+            raise ValueError("商品下钻值必须是数字 item_id") from error
+        rows = await fetch_all(
+            """
+            WITH sales AS (
+              SELECT COUNT(DISTINCT order_id) AS orders,
+                     COUNT(DISTINCT user_id) AS users,
+                     COALESCE(SUM(quantity), 0) AS units,
+                     COALESCE(SUM(quantity * selling_price - refund_amount), 0) AS net_sales,
+                     MIN(ordered_at)::date AS first_order_date,
+                     MAX(ordered_at)::date AS last_order_date
+              FROM commerce.dataset_orders
+              WHERE dataset_id = %s AND item_id = %s
+            ), inventory AS (
+              SELECT closing_stock, sold_qty, snapshot_date
+              FROM commerce.dataset_inventory_snapshots
+              WHERE dataset_id = %s AND item_id = %s
+              ORDER BY snapshot_date DESC
+              LIMIT 1
+            )
+            SELECT %s AS item_id, s.*, i.closing_stock, i.sold_qty, i.snapshot_date
+            FROM sales s LEFT JOIN inventory i ON true
+            """,
+            (dataset_id, item_id, dataset_id, item_id, item_id),
+        )
+        results = [
+            {
+                **row,
+                "orders": int(row["orders"] or 0),
+                "users": int(row["users"] or 0),
+                "units": int(row["units"] or 0),
+                "net_sales": round(_number(row["net_sales"]), 2),
+                "closing_stock": int(row["closing_stock"] or 0),
+                "sold_qty": int(row["sold_qty"] or 0),
+                "first_order_date": _iso(row["first_order_date"]),
+                "last_order_date": _iso(row["last_order_date"]),
+                "snapshot_date": _iso(row["snapshot_date"]),
+            }
+            for row in rows
+        ]
+        next_questions = ["查看该商品所属渠道和活动", "比较该商品所在价格带", "查看同类目商品表现"]
+    else:
+        try:
+            user_id = int(value)
+        except ValueError as error:
+            raise ValueError("用户下钻值必须是数字 user_id") from error
+        rows = await fetch_all(
+            """
+            SELECT o.user_id, p.age_band, p.city_tier, p.member_level,
+                   COUNT(DISTINCT o.order_id) AS orders,
+                   COALESCE(SUM(o.quantity), 0) AS units,
+                   COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales,
+                   MIN(o.ordered_at)::date AS first_order_date,
+                   MAX(o.ordered_at)::date AS last_order_date
+            FROM commerce.dataset_orders o
+            LEFT JOIN commerce.dataset_user_profiles p
+              ON p.dataset_id = o.dataset_id AND p.user_id = o.user_id
+            WHERE o.dataset_id = %s AND o.user_id = %s
+            GROUP BY o.user_id, p.age_band, p.city_tier, p.member_level
+            """,
+            (dataset_id, user_id),
+        )
+        results = [
+            {
+                **row,
+                "orders": int(row["orders"] or 0),
+                "units": int(row["units"] or 0),
+                "net_sales": round(_number(row["net_sales"]), 2),
+                "first_order_date": _iso(row["first_order_date"]),
+                "last_order_date": _iso(row["last_order_date"]),
+            }
+            for row in rows
+        ]
+        next_questions = [
+            "查看该用户最近购买的商品",
+            "查看该用户来自哪个渠道",
+            "查看该用户的 RFM 分群",
+        ]
+    return _response(
+        dataset_id,
+        contract,
+        context={"dimension": dimension, "value": value},
+        results=results[:limit],
+        next_questions=next_questions,
+    )

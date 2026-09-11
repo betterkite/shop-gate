@@ -66,6 +66,18 @@ const WORKSPACE_LEASE_STATUSES = ['free', 'held', 'reconciling'] as const;
 
 type RuntimeTransactionClient = Prisma.TransactionClient;
 
+const RUNTIME_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 30_000,
+} as const;
+
+function runtimeTransaction<T>(
+  client: PrismaClient,
+  callback: (tx: RuntimeTransactionClient) => Promise<T>,
+): Promise<T> {
+  return client.$transaction(callback, RUNTIME_TRANSACTION_OPTIONS);
+}
+
 function isUniqueConflict(error: unknown): error is Prisma.PrismaClientKnownRequestError {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
@@ -570,7 +582,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     if (input.startedAt) assertValidDate(input.startedAt, 'run.startedAt');
 
     try {
-      const record = await this.client.$transaction(async (tx) => {
+      const record = await runtimeTransaction(this.client, async (tx) => {
         let actorUserId: string | null = null;
         if (input.requestId !== undefined) {
           const request = await tx.userRequest.findUnique({
@@ -662,7 +674,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     assertNonNegativeInteger(input.expectedVersion, 'expectedVersion');
     const leaseTtlMs = leaseDurationMs(input.leaseExpiresAt, callerNow, 'leaseExpiresAt');
 
-    return this.client.$transaction(async (tx) => {
+    return runtimeTransaction(this.client, async (tx) => {
       const current = await tx.agentRun.findUnique({ where: { id: input.runId } });
       if (!current) {
         throw new AgentRuntimeRepositoryError('NOT_FOUND', 'Agent run was not found.');
@@ -749,7 +761,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
   async heartbeat(input: HeartbeatAgentRunInput): Promise<AgentRunRecord> {
     const callerNow = input.now ?? this.clock();
     const leaseTtlMs = leaseDurationMs(input.leaseExpiresAt, callerNow, 'leaseExpiresAt');
-    return this.client.$transaction(async (tx) => {
+    return runtimeTransaction(this.client, async (tx) => {
       const binding = await tx.agentRun.findUnique({
         where: { id: input.runId },
         select: { projectId: true },
@@ -812,7 +824,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     if (existing) return this.resolveExistingEvent(input, payload, existing);
 
     try {
-      return await this.client.$transaction(async (tx) => {
+      return await runtimeTransaction(this.client, async (tx) => {
         const now = await databaseNow(tx);
         const result = await tx.agentRun.updateMany({
           where: {
@@ -901,7 +913,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
       input.publicState,
       'checkpoint public state'
     );
-    return this.client.$transaction(async (tx) => {
+    return runtimeTransaction(this.client, async (tx) => {
       const now = await databaseNow(tx);
       const result = await tx.agentRun.updateMany({
         where: {
@@ -958,7 +970,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     if (existing) return this.resolveExistingPreparation(input, existing);
 
     try {
-      return await this.client.$transaction(async (tx) => {
+      return await runtimeTransaction(this.client, async (tx) => {
         let projectId: string | undefined;
         if (input.effect === 'workspace_write' || input.effect === 'external_write') {
           const binding = await tx.agentRun.findUnique({
@@ -1086,7 +1098,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     }
 
     try {
-      return await this.client.$transaction(async (tx) => {
+      return await runtimeTransaction(this.client, async (tx) => {
         const now = await databaseNow(tx);
         const runUpdate = await tx.agentRun.updateMany({
           where: fenceWhere(input, now),
@@ -1149,7 +1161,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     input: CommitAgentWorkspaceMutationInput,
     commit: () => Promise<T>
   ): Promise<T> {
-    await this.client.$transaction(async (tx) => {
+    await runtimeTransaction(this.client, async (tx) => {
       const binding = await tx.agentRun.findUnique({
         where: { id: input.runId },
         select: { projectId: true },
@@ -1211,7 +1223,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
           'Workspace mutation commit authorization changed concurrently.'
         );
       }
-    }, { maxWait: 5_000, timeout: 5_000 });
+    });
 
     // The physical callback runs outside the DB transaction while the caller
     // holds the shared-filesystem resource lock. A committed authorization is
@@ -1232,7 +1244,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
       );
     }
     if (input.finishedAt) assertValidDate(input.finishedAt, 'run.finishedAt');
-    return this.client.$transaction(async (tx) => {
+    return runtimeTransaction(this.client, async (tx) => {
       const binding = await tx.agentRun.findUnique({
         where: { id: input.runId },
         select: { projectId: true },

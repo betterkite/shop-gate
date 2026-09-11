@@ -330,6 +330,16 @@ function inferCapabilityId(params: {
     params.requestedCapabilitySource === 'benchmark';
 
   if (params.requestedCapabilityId && requestedCapabilityIsAuthoritative) {
+    // The home-screen default is currently serialized as `manual` even when
+    // the user did not explicitly change the research tab. For answer-only
+    // requests, a high-confidence semantic inventory focus must win over that
+    // default so a question about stock health cannot fall back to funnel.
+    if (
+      params.queryRewrite.outputIntent === 'answer' &&
+      params.queryRewrite.analysisFocus.id === 'price_inventory'
+    ) {
+      return 'price_inventory';
+    }
     return params.requestedCapabilityId;
   }
 

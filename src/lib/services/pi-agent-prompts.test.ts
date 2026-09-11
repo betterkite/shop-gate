@@ -154,6 +154,36 @@ describe('PI Agent Shop Gate prompts', () => {
     ]));
   });
 
+  it('routes an answer-only inventory question past the default funnel tab', async () => {
+    const projectPath = await createProject();
+    const instruction = '请只回答：按全库口径分析库存健康，列出最需要优先关注的商品，不生成看板。';
+    await writeInitialRunPlan({
+      projectPath,
+      requestId: 'answer-only-inventory-routing',
+      capabilityId: 'traffic_funnel',
+      capabilitySource: 'manual',
+      instruction,
+      queryRewrite: {
+        ...(await technicalRewrite(instruction)),
+        analysisFocus: { id: 'price_inventory', label: '价格与库存' },
+        capabilityHint: 'traffic_funnel',
+        outputIntent: 'answer',
+        broadUniverse: true,
+      },
+    });
+
+    const runPlan = JSON.parse(
+      await fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'),
+    ) as {
+      capabilityId: string;
+      queryRewrite: { outputIntent: string };
+      visualization: { required: boolean };
+    };
+    expect(runPlan.capabilityId).toBe('price_inventory');
+    expect(runPlan.queryRewrite.outputIntent).toBe('answer');
+    expect(runPlan.visualization.required).toBe(false);
+  });
+
   it('rejects hollow evidence arrays even when marker keys and run ids exist', async () => {
     const projectPath = await createProject();
     const instruction = '生成贵州茅台技术分析看板';

@@ -26,6 +26,7 @@ type JsonRecord = Record<string, unknown>;
 const COMMERCE_API_BASE = (
   process.env.SHOPGATE_MARKET_API_URL ?? 'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
+const DEFAULT_ANALYTICS_DATASET_ID = process.env.SHOPGATE_RETAIL_ANALYTICS_DATASET_ID || 'retail-demo-expanded-v1';
 const FETCH_TIMEOUT_MS = 10_000;
 
 export interface PrefetchResult {
@@ -181,6 +182,49 @@ function planDatasetKeys(plan: RetailRunPlan): Set<string> {
     if (key) keys.add(key);
   }
   return keys;
+}
+
+async function fetchExpandedAnalyticsDatasets(params: {
+  rawDir: string;
+  rawFiles: string[];
+  warnings: string[];
+  sources: JsonRecord[];
+}): Promise<Record<string, JsonRecord>> {
+  const endpoints = [
+    ['analyticsOverview', '/api/v1/commerce/analytics/overview'],
+    ['analyticsLifecycle', '/api/v1/commerce/analytics/lifecycle'],
+    ['analyticsProfit', '/api/v1/commerce/analytics/profit'],
+    ['analyticsInventory', '/api/v1/commerce/analytics/inventory'],
+    ['analyticsChannels', '/api/v1/commerce/analytics/channel-campaign'],
+    ['analyticsElasticity', '/api/v1/commerce/analytics/price-elasticity'],
+  ] as const;
+  const datasets: Record<string, JsonRecord> = {};
+  for (const [key, endpoint] of endpoints) {
+    try {
+      const payload = await fetchCommerceJson(endpoint, { dataset_id: DEFAULT_ANALYTICS_DATASET_ID, limit: '20' });
+      datasets[key] = payload;
+      const filePath = path.join(params.rawDir, `${key}.json`);
+      await writeJson(filePath, payload);
+      params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
+      params.sources.push({
+        source: endpoint,
+        dataset: key,
+        endpoint: `${endpoint}?dataset_id=${DEFAULT_ANALYTICS_DATASET_ID}`,
+        status: 'success',
+        fetched_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      params.warnings.push(`${key} 预取失败：${error instanceof Error ? error.message : String(error)}`);
+      params.sources.push({
+        source: endpoint,
+        dataset: key,
+        endpoint: `${endpoint}?dataset_id=${DEFAULT_ANALYTICS_DATASET_ID}`,
+        status: 'failed',
+        fetched_at: new Date().toISOString(),
+      });
+    }
+  }
+  return datasets;
 }
 
 function isoDay(value: string): string {
@@ -533,6 +577,14 @@ export async function prefetchRetailDataForRunPlan(params: {
       channels,
       summary: asRecord(datasets.summary),
     });
+    if (params.plan.visualization?.templateId === 'analytics-bi') {
+      Object.assign(datasets, await fetchExpandedAnalyticsDatasets({
+        rawDir,
+        rawFiles,
+        warnings,
+        sources,
+      }));
+    }
   }
 
   const itemDailyRequired = params.plan.dataRequirements.some(

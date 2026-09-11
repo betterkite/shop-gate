@@ -11,6 +11,7 @@ import {
   retailDailyBriefPageTemplate,
   retailFunnelPageTemplate,
   retailPriceInventoryPageTemplate,
+  retailAnalyticsBiPageTemplate,
 } from '@/lib/utils/retail-scaffold-templates';
 
 import { PiAgentToolError, throwIfAborted } from '@/lib/agent/tools/errors';
@@ -34,6 +35,7 @@ type DashboardRenderer =
   | 'funnel-analysis'
   | 'catalog-structure'
   | 'price-inventory'
+  | 'analytics-bi'
   | 'daily-brief';
 
 interface DashboardDataPrerequisite {
@@ -224,6 +226,19 @@ function biOverviewReady(finalData: JsonRecord): boolean {
   return kpis.length >= 6 && daily.length >= 2 && actions.length >= 2;
 }
 
+function analyticsBiReady(finalData: JsonRecord): boolean {
+  const overview = datasetRecord(finalData, 'analyticsOverview');
+  const lifecycle = datasetRecord(finalData, 'analyticsLifecycle');
+  const profit = datasetRecord(finalData, 'analyticsProfit');
+  const inventory = datasetRecord(finalData, 'analyticsInventory');
+  return Boolean(
+    overview && nestedRecord(overview, 'metrics') &&
+    lifecycle && nestedRecord(lifecycle, 'stage_counts') &&
+    profit && nestedRecord(profit, 'total') &&
+    inventory && recordArray(inventory.items).length > 0,
+  );
+}
+
 function dailySummaryReady(finalData: JsonRecord): boolean {
   const summary = datasetRecord(finalData, 'summary');
   if (!summary) return false;
@@ -281,6 +296,16 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     ],
   },
   {
+    capabilityId: 'price_inventory',
+    renderer: 'analytics-bi',
+    templateId: 'analytics-bi',
+    requiredComponents: ['经营 KPI 总览', '分日经营趋势', '商品经营阶段', '渠道与利润拆解', '库存异常', '行动建议', '合成口径与数据缺口说明'],
+    dataPrerequisites: [
+      { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
+      { id: 'analytics_bi', description: 'P28 扩展分析数据集包含总览、生命周期、利润和库存结果', satisfiedBy: analyticsBiReady },
+    ],
+  },
+  {
     capabilityId: 'daily_brief',
     renderer: 'daily-brief',
     templateId: 'daily-brief',
@@ -302,6 +327,8 @@ function rendererTemplates(renderer: DashboardRenderer): { page: string; css: st
       return { page: retailCatalogPageTemplate(), css };
     case 'price-inventory':
       return { page: retailPriceInventoryPageTemplate(), css };
+    case 'analytics-bi':
+      return { page: retailAnalyticsBiPageTemplate(), css };
     case 'daily-brief':
       return { page: retailDailyBriefPageTemplate(), css };
     case 'base':
@@ -314,7 +341,11 @@ function resolveRetailDashboardCapability(params: {
   capabilityId: string;
   finalData: JsonRecord;
 }): DashboardCapability {
+  const requestedTemplateId = contractString(nestedRecord(params.finalData, 'visualization')?.template_id);
   const rendererEntry = SUPPORTED_RETAIL_RENDERERS.find(
+    (entry) => entry.capabilityId === params.capabilityId &&
+      (!requestedTemplateId || entry.templateId === requestedTemplateId),
+  ) ?? SUPPORTED_RETAIL_RENDERERS.find(
     (entry) => entry.capabilityId === params.capabilityId,
   );
   if (!rendererEntry) {

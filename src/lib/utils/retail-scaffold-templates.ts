@@ -529,6 +529,45 @@ export function retailPriceInventoryPageTemplate(): string {
   );
 }
 
+/** P28 扩展经营分析模板：复用零售 BI 视觉语言，增加生命周期、利润和数据边界。 */
+export function retailAnalyticsBiPageTemplate(): string {
+  return pageWrapper(
+    `const bi = asRecord(datasets.biOverview);
+  const meta = asRecord(datasets.meta);
+  const overview = asRecord(datasets.analyticsOverview);
+  const lifecycle = asRecord(datasets.analyticsLifecycle);
+  const profit = asRecord(datasets.analyticsProfit);
+  const inventory = asRecord(datasets.analyticsInventory);
+  const channels = asRecord(datasets.analyticsChannels);
+  const kpis = asArray(bi?.kpis).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const daily = asArray(bi?.daily).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const stageCounts = asRecord(lifecycle?.stage_counts) ?? {};
+  const profitRows = asArray(profit?.by_channel).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const channelRows = asArray(channels?.metrics).map(asRecord).filter((record): record is JsonRecord => record !== null);
+  const inventoryRows = asArray(inventory?.items).map(asRecord).filter((record): record is JsonRecord => record !== null).slice(0, 10);
+  const overviewMetrics = asRecord(overview?.metrics);
+  const totalProfit = asRecord(profit?.total);
+  return (
+    <main className="dashboard-shell" data-visual-language="retail-workbench">
+      <section className="hero-panel">
+        <h1>电商经营分析 BI 看板</h1>
+        <div className="meta-row"><span className="meta-item">窗口：{windowLabel(data.window)}</span><span className="meta-item">订单数：{displayNumber(overviewMetrics?.orders, 0)}</span><span className="meta-item">分析路径：总览 → 趋势 → 阶段 → 拆解 → 行动</span>{syntheticBadge()}</div>
+      </section>
+      <section className="insight-strip bi-kpi-strip">
+        {kpis.slice(0, 4).map((kpi, index) => <article className="metric-tile" key={'kpi-' + index}><span>{text(kpi.label)}</span><strong>{String(kpi.id) === 'buy_conversion' ? displayPercent(kpi.value) : String(kpi.id).includes('gmv') || String(kpi.id).includes('value') || String(kpi.id).includes('profit') ? displayMoney(kpi.value) : displayNumber(kpi.value, 0)}</strong><small>{text(kpi.source)}</small></article>)}
+        <article className="metric-tile"><span>估算毛利</span><strong>{displayMoney(totalProfit?.gross_profit)}</strong><small>演示成本口径，不是财务结算</small></article>
+      </section>
+      <section className="chart-zone"><h2>经营趋势：流量、转化与成交</h2>{daily.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(daily as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>趋势数据缺失。</p>}<p className="footnote">行为数据按窗口统计；成交金额、成本和毛利为演示或估算口径。</p></section>
+      <section className="chart-zone bi-two-column"><div><h2>商品经营阶段</h2><table className="dense-table"><thead><tr><th>阶段</th><th>商品数</th></tr></thead><tbody>{Object.entries(stageCounts).map(([label, value]) => <tr key={label}><td>{label}</td><td>{displayNumber(value, 0)}</td></tr>)}</tbody></table><p className="footnote">阶段根据窗口内首次购买、最近购买和活跃天数推断，不等于真实上下架生命周期。</p></div><div><h2>渠道与订单转化</h2><table className="dense-table"><thead><tr><th>渠道</th><th>会话</th><th>订单</th><th>订单转化率</th></tr></thead><tbody>{channelRows.map((row, index) => <tr key={'channel-' + index}><td>{text(row.channel_name)}</td><td>{displayNumber(row.sessions, 0)}</td><td>{displayNumber(row.orders, 0)}</td><td>{displayPercent(row.order_conversion)}</td></tr>)}</tbody></table></div></section>
+      <section className="chart-zone bi-two-column"><div><h2>渠道毛利拆解</h2><table className="dense-table"><thead><tr><th>渠道</th><th>销售额</th><th>毛利</th><th>毛利率</th></tr></thead><tbody>{profitRows.map((row, index) => <tr key={'profit-' + index}><td>{text(row.channel_name)}</td><td>{displayMoney(row.gross_sales)}</td><td>{displayMoney(row.gross_profit)}</td><td>{displayPercent(row.gross_margin)}</td></tr>)}</tbody></table></div><div><h2>库存健康样本</h2><table className="dense-table"><thead><tr><th>商品</th><th>库存</th><th>窗口销量</th><th>可售天数</th><th>判断</th></tr></thead><tbody>{inventoryRows.map((row, index) => <tr key={'inventory-' + index}><td>{text(row.item_id)}</td><td>{displayNumber(row.closing_stock, 0)}</td><td>{displayNumber(row.sold_units, 0)}</td><td>{displayNumber(row.days_cover, 1)} 天</td><td>{text(row.health_label)}</td></tr>)}</tbody></table></div></section>
+      <section className="action-strip bi-action-strip"><article><span>经营建议</span><strong>优先查看衰退风险和有库存但无销量的商品。</strong></article><article><span>数据边界</span><strong>用户、渠道、成本、退款和库存快照为合成数据。</strong></article><article><span>价格弹性</span><strong>当前缺少同商品多价格观察，不输出弹性系数。</strong></article></section>
+      <footer className="data-quality-footer"><span>数据更新时间：{windowLabel(data.window)}。</span><span>行为数据：{String(meta?.behavior_source ?? '') === 'synthetic' ? '演示行为数据' : '真实用户行为数据'}</span><span>扩展分析数据集：{text(overview?.dataset_id, '未声明')}</span>{syntheticBadge()}</footer>
+    </main>
+  );`,
+    'RetailAnalyticsBiDashboard',
+  );
+}
+
 /** 经营日报模板（retail.daily-brief）。 */
 export function retailDailyBriefPageTemplate(): string {
   return pageWrapper(

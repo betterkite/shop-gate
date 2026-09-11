@@ -13,6 +13,7 @@
 - 价格带对比：按价格带返回商品数、订单、销售件数和估算销售额；数据只有每个商品一个价格观察值时，明确不输出价格弹性系数；
 - 多轮下钻：支持 `channel`、`campaign`、`item`、`user` 四个维度，返回当前上下文、结果和下一步问题建议；
 - BI 工作台：新增 `/analytics-workbench`，把总览、用户分群、渠道活动、毛利、库存、商品阶段、价格带和下钻组织成统一的产品页面；
+- 生成式 BI 第一阶段：新增 `analytics-bi` P28 模板选择规则、扩展分析预取、scaffold renderer 和数据前置校验；普通库销比问题仍保持 `price-inventory` 模板；
 - 所有接口返回数据集契约、`synthetic=true` 和用户可理解的限制说明。
 
 ## 新增接口
@@ -50,18 +51,21 @@
 ## 门禁
 
 - commerce-data ruff：通过；
-- commerce-data pytest：`23 passed`；
+- commerce-data pytest：`24 passed`；
 - `npm run type-check`：通过；
-- `npm run check:docs`：待本轮最终门禁复跑；
+- `npm run check:scaffold-templates`：通过，6 个零售模板编译通过（含 `retailAnalyticsBi`）；
+- `npm run check:docs`：通过；
 - `npm run check:module-boundaries`：通过；
-- `npm run check:retail-e2e`：待本轮最终门禁复跑，既有 30 条 case、4 项能力不得回归；
-- 相关 Vitest：新增 Agent 下钻 allowlist 测试，待本轮最终门禁复跑。
+- `npm run check:retail-e2e`：通过，既有 30 条 case、4 项能力保持 `ready=1/1`；
+- 相关 Vitest：模板选择、下钻 allowlist 和既有查询改写共 `17 passed`。
 
 ## 当前边界
 
 当前切片已经提供可浏览的 BI 工作台和可复用的分析接口，但仍不宣称 P28 完成：
 
-1. `/analytics-workbench` 是固定路由的 BI 工作台，尚未接入生成任务产生的“总览→趋势→异常→拆解→行动”看板模板；
+1. `analytics-bi` 已接入生成任务的模板选择、扩展数据预取和渲染器，但还需要一次真实生成任务 E2E，确认 run plan、`dashboard-data.json`、页面 build 和预览全部使用 P28 数据；
 2. Agent 下钻接口已可用，但还需要真实聊天链路 E2E，验证“用户追问 → Agent 选择接口 → 保留上轮上下文 → 输出可理解结论”；
 3. 价格弹性仍因缺少同一商品多价格时点/实验对照而不能计算；
 4. 真实订单、成本、库存、活动平台回传仍属于后续数据接入范围。
+
+数据集选择器、导入完成后的自动刷新和可配置异步看板生成已单独登记为 `ISSUE-P31`，不在本轮 P28 分析接口切片中混入数据导入编排逻辑。

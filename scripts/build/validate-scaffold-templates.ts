@@ -19,6 +19,7 @@ import {
   retailDailyBriefPageTemplate,
   retailFunnelPageTemplate,
   retailPriceInventoryPageTemplate,
+  retailAnalyticsBiPageTemplate,
 } from '../../src/lib/utils/retail-scaffold-templates';
 
 const ROOT = process.cwd();
@@ -49,6 +50,11 @@ function extractTemplates(): TemplateEntry[] {
     {
       name: 'retailPriceInventory',
       pageContent: retailPriceInventoryPageTemplate(),
+      cssContent: retailBaseDashboardCssTemplate(),
+    },
+    {
+      name: 'retailAnalyticsBi',
+      pageContent: retailAnalyticsBiPageTemplate(),
       cssContent: retailBaseDashboardCssTemplate(),
     },
     {

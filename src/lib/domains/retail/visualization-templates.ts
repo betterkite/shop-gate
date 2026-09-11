@@ -116,6 +116,26 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     finalDataContract: ['window', 'plannedEntities', 'datasets.inventoryRisk'],
   },
   {
+    templateId: 'analytics-bi',
+    variantId: 'p28-expanded',
+    capabilityId: 'price_inventory',
+    name: '电商经营分析 BI 看板',
+    scenario: '总览、用户、渠道、利润、库存、商品阶段和数据边界的扩展经营分析',
+    variantName: 'P28 扩展分析',
+    variantScenario: '经营总览 + 趋势 + 商品阶段 + 渠道利润 + 库存异常 + 行动边界',
+    layout: 'hero + insight-strip + chart-zone + dense-table',
+    density: 'dense',
+    requiredComponents: ['经营 KPI 总览', '分日经营趋势', '商品经营阶段', '渠道与利润拆解', '库存异常', '行动建议', '合成口径与数据缺口说明'],
+    optionalComponents: ['用户分群', '价格带对比'],
+    panels: ['hero-panel', 'insight-strip:kpis', 'chart-zone:daily', 'chart-zone:lifecycle', 'chart-zone:profit', 'chart-zone:inventory', 'action-strip', 'data-quality-footer'],
+    firstViewport: ['hero-panel', 'insight-strip:kpis', 'chart-zone:daily'],
+    variantGuidance: ['扩展分析接口返回的用户、渠道、成本和库存字段必须保留合成边界。', '商品阶段只解释窗口内购买活跃度，不得表述为真实上下架生命周期。', '价格弹性数据不足时展示缺口，不生成伪造系数。'],
+    dataRequirements: ['datasets.biOverview', 'datasets.analyticsOverview', 'datasets.analyticsLifecycle', 'datasets.analyticsProfit', 'datasets.analyticsInventory'],
+    dataSignals: ['kpis', 'daily', 'lifecycle', 'channels', 'profit', 'inventory', 'actions', 'limitations'],
+    painPoints: ['扩展经营分析数据集为演示数据，不能替代真实财务和供应链结论'],
+    finalDataContract: ['window', 'plannedEntities', 'datasets.biOverview', 'datasets.analyticsOverview', 'datasets.analyticsLifecycle', 'datasets.analyticsProfit', 'datasets.analyticsInventory'],
+  },
+  {
     templateId: 'daily-brief',
     variantId: 'base',
     capabilityId: 'daily_brief',
@@ -169,9 +189,17 @@ export function serializeRetailVisualizationTemplate(
     dataSignals?: string[];
   } = {},
 ): RetailVisualizationTemplate & { matchReasons: string[] } {
-  const template = getRetailVisualizationTemplate(capabilityId);
+  const wantsExpandedAnalytics = capabilityId === 'price_inventory' && (
+    params.requestedVariantId === 'p28-expanded' ||
+    /经营分析|用户分群|生命周期|商品阶段|毛利|价格弹性|渠道活动/.test(params.instruction ?? '')
+  );
+  const template = wantsExpandedAnalytics
+    ? RETAIL_VISUALIZATION_TEMPLATES.find((candidate) => candidate.templateId === 'analytics-bi') ?? getRetailVisualizationTemplate(capabilityId)
+    : getRetailVisualizationTemplate(capabilityId);
   const matchReasons: string[] = [
-    `能力 ${template.capabilityId} 的默认模板（v1 单变体）。`,
+    wantsExpandedAnalytics
+      ? '任务包含 P28 扩展经营分析主题，选择 analytics-bi 模板。'
+      : `能力 ${template.capabilityId} 的默认模板。`,
   ];
   if (params.entityCount !== undefined) {
     matchReasons.push(
@@ -183,7 +211,6 @@ export function serializeRetailVisualizationTemplate(
   if (params.instruction && /环比|日报|异动/.test(params.instruction)) {
     matchReasons.push('指令包含环比/异动词，优先展示当日摘要与异动榜。');
   }
-  void params.requestedVariantId;
   const dataSignals = params.dataSignals?.length
     ? params.dataSignals
     : [...template.dataSignals];

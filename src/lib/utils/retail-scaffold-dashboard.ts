@@ -6,6 +6,7 @@ import {
   retailFunnelPageTemplate,
   retailCatalogPageTemplate,
   retailPriceInventoryPageTemplate,
+  retailAnalyticsBiPageTemplate,
   retailDailyBriefPageTemplate,
 } from './retail-scaffold-templates';
 
@@ -17,6 +18,7 @@ const RETAIL_TEMPLATE_BY_ID: Record<string, () => string> = {
   catalog_structure: retailCatalogPageTemplate,
   'price-inventory': retailPriceInventoryPageTemplate,
   price_inventory: retailPriceInventoryPageTemplate,
+  'analytics-bi': retailAnalyticsBiPageTemplate,
   'daily-brief': retailDailyBriefPageTemplate,
   daily_brief: retailDailyBriefPageTemplate,
 };

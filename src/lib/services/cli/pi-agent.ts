@@ -959,6 +959,7 @@ async function executePiAgentPhase(
     const systemPrompt = buildShopGateSystemPrompt({
       phase: skillPhase,
       preparedIntent,
+      outputIntent: runPlan?.queryRewrite?.outputIntent,
       skillManifest: skillBundle.systemContext,
     });
     const userPrompt = buildShopGateUserPrompt({

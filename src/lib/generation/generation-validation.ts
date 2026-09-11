@@ -1399,13 +1399,6 @@ export function runValidationAfterExecution(params: {
         errorMessage: failure,
       });
       await markUserRequestAsFailed(params.projectId, params.requestId, failure);
-      await finishGenerationQueueItem({
-        projectPath: params.projectPath,
-        projectId: params.projectId,
-        requestId: params.requestId,
-        status: "failed",
-        errorMessage: failure,
-      });
       await params.publishWorkspaceProgress({ stage: 5, failureReason: failure });
       streamManager.publish(params.projectId, {
         type: "status",
@@ -1416,7 +1409,9 @@ export function runValidationAfterExecution(params: {
           metadata: { terminalFailure: true, outputIntent: "answer" },
         },
       });
-      return;
+      throw classifiedError ?? (executionError instanceof Error
+        ? executionError
+        : new Error(failure));
     }
 
     await updateRetailGenerationStep({
@@ -1437,12 +1432,6 @@ export function runValidationAfterExecution(params: {
       summary: "只做问答模式完成，本次未修改或生成看板。",
       runStatus: "completed",
       metadata: { outputIntent: "answer" },
-    });
-    await finishGenerationQueueItem({
-      projectPath: params.projectPath,
-      projectId: params.projectId,
-      requestId: params.requestId,
-      status: "completed",
     });
     await markUserRequestAsCompleted(params.projectId, params.requestId);
     await params.publishWorkspaceProgress({ stage: 5, answerOnly: true });
@@ -1470,12 +1459,13 @@ export function runValidationAfterExecution(params: {
       );
     }
 
+    if (params.outputIntent === "answer") {
+      await completeAnswerOnly(executionError);
+      return;
+    }
+
     try {
-      if (params.outputIntent === "answer") {
-        await completeAnswerOnly(executionError);
-      } else {
-        await validateAndRepair(executionCandidate, executionError);
-      }
+      await validateAndRepair(executionCandidate, executionError);
     } catch (validationError) {
       console.error(
         "[API] Automatic validation after agent execution failed:",

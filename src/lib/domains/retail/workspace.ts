@@ -32,6 +32,11 @@ import {
   writeWorkspaceJsonAtomic,
 } from '@/lib/data-agent';
 import {
+  DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+  DATA_AGENT_VALIDATION_RELATIVE_PATH,
+  DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+} from '@/lib/data-agent/workspace-layout';
+import {
   createRetailDataAgentRegistry,
   RETAIL_AGENT_PROFILE_ID,
 } from '@/lib/domains/retail/agent-profile';
@@ -292,16 +297,21 @@ function shouldInheritPreviousPlanContext(params: {
   hasImageAttachments?: boolean;
 }): boolean {
   const previousEntities = uniqueEntityList(params.previousPlan?.entities);
+  const previousWasWholeCatalog = params.previousPlan?.queryRewrite?.broadUniverse === true;
   if (!params.previousPlan || params.previousPlan.status === 'needs_clarification') {
     return false;
   }
-  if (params.explicitEntities.length > 0 || previousEntities.length === 0) {
+  if (params.explicitEntities.length > 0 || (previousEntities.length === 0 && !previousWasWholeCatalog)) {
     return false;
   }
   if (!isDashboardRevisionInstruction(params.instruction)) {
     return false;
   }
-  if (hasExplicitInventoryIntent(params.instruction, params.hasImageAttachments) && params.previousPlan.capabilityId !== 'price_inventory') {
+  if (
+    hasExplicitInventoryIntent(params.instruction, params.hasImageAttachments) &&
+    params.previousPlan.capabilityId !== 'price_inventory' &&
+    !previousWasWholeCatalog
+  ) {
     return false;
   }
   return true;
@@ -323,12 +333,15 @@ function inferCapabilityId(params: {
     return params.requestedCapabilityId;
   }
 
-  if (!params.requestedCapabilityId && params.profileCapabilityId && params.profileCapabilitySource === 'manual') {
-    return params.profileCapabilityId;
-  }
-
+  // A natural-language focus inferred by Query Rewrite should override the
+  // home-screen default tab. Only an explicitly selected/manual capability or
+  // benchmark is authoritative enough to suppress this semantic routing.
   if (params.queryRewrite.analysisFocus.id === 'price_inventory') {
     return 'price_inventory';
+  }
+
+  if (!params.requestedCapabilityId && params.profileCapabilityId && params.profileCapabilitySource === 'manual') {
+    return params.profileCapabilityId;
   }
 
   if (params.queryRewrite.broadUniverse) {
@@ -491,7 +504,7 @@ export async function writeInitialRunPlan(params: {
   await ensureRetailWorkspace(params.projectPath);
   const profileSelection = await readDataAgentProfile(params.projectPath);
   const planningInstruction = stripOperationalInstructions(params.instruction) || params.instruction.trim();
-  const queryRewrite = params.queryRewrite ?? await rewriteRetailQuery(planningInstruction, {
+  let queryRewrite = params.queryRewrite ?? await rewriteRetailQuery(planningInstruction, {
     requestedCapabilityId:
       params.capabilitySource === 'manual' || params.capabilitySource === 'benchmark'
         ? params.capabilityId
@@ -510,11 +523,26 @@ export async function writeInitialRunPlan(params: {
     previousPlan: params.previousPlan,
     hasImageAttachments: params.hasImageAttachments,
   });
+  if (
+    inheritPreviousPlan &&
+    params.previousPlan?.queryRewrite?.broadUniverse === true &&
+    queryRewrite.targetCandidates.length === 0 &&
+    !queryRewrite.broadUniverse
+  ) {
+    queryRewrite = {
+      ...queryRewrite,
+      broadUniverse: true,
+    };
+  }
   const inheritedEntities = inheritPreviousPlan ? uniqueEntityList(params.previousPlan?.entities) : [];
   const inheritedCapabilityId = inheritPreviousPlan ? params.previousPlan?.capabilityId : null;
   const inferredCapabilityId = inferCapabilityId({
     requestedCapabilityId: params.capabilityId ?? inheritedCapabilityId,
-    requestedCapabilitySource: params.capabilityId ? params.capabilitySource : inheritedCapabilityId ? 'manual' : params.capabilitySource,
+    requestedCapabilitySource: params.capabilityId
+      ? params.capabilitySource
+      : inheritedCapabilityId
+        ? 'inherited'
+        : params.capabilitySource,
     profileCapabilityId: profileSelection?.selectedCapabilityId,
     profileCapabilitySource: profileSelection?.selectionSource,
     queryRewrite,
@@ -577,6 +605,24 @@ export async function writeInitialRunPlan(params: {
       ...(retailSettings.validationRules ?? []),
     ])
   );
+  const answerOnly = queryRewrite.outputIntent === 'answer';
+  const answerOnlyExcludedArtifacts = new Set([
+    DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+    DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+    DATA_AGENT_VALIDATION_RELATIVE_PATH,
+    'app/page.tsx',
+  ]);
+  const effectiveExpectedArtifacts = answerOnly
+    ? expectedArtifacts.filter((artifact) => !answerOnlyExcludedArtifacts.has(artifact))
+    : expectedArtifacts;
+  const effectiveValidationRules = answerOnly
+    ? [
+        '必须先解析商品/类目实体（或明确说明是全库口径），再获取真实行为或经营数据。',
+        '必须生成数据信源渠道和质量证据文件，并说明抽样窗口。',
+        '回答必须区分真实行为数据、计算结果和字段缺失限制。',
+        '只做问答时不得写入看板源码、启动构建、视觉验证或持久预览。',
+      ]
+    : validationRules;
   const visualizationTemplate = serializeRetailVisualizationTemplate(capability.id, {
     instruction: planningInstruction,
     // Planning 阶段只固定显式实体引用；名称候选只是澄清提示，不是已解析实体。
@@ -658,8 +704,8 @@ export async function writeInitialRunPlan(params: {
       : undefined,
     expectedArtifacts: clarification.required || refused
       ? ['.data-agent/retail-run-plan.json', '.data-agent/events.jsonl']
-      : expectedArtifacts,
-    validationRules,
+      : effectiveExpectedArtifacts,
+    validationRules: effectiveValidationRules,
     createdAt: now,
     updatedAt: now,
   };

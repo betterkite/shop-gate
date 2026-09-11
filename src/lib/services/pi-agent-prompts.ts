@@ -29,6 +29,7 @@ async function readJsonRecord(filePath: string): Promise<JsonRecord | null> {
 function buildCapabilityContext(
   runPlan: RetailRunPlan | null = null,
 ): string {
+  const answerOnlyIntent = runPlan?.queryRewrite?.outputIntent === 'answer';
   const runCapabilityId = runPlan?.requestedCapabilityId ?? runPlan?.capabilityId;
   const capability = getRetailCapability(runCapabilityId);
   const validationRules = runPlan?.validationRules?.length
@@ -58,12 +59,12 @@ function buildCapabilityContext(
 - 能力：${capability.id} / ${capability.name}；执行能力：${runPlan?.executionCapabilityId ?? capability.executionCapabilityId}
 - LLM：${runPlan?.llm?.provider ?? 'openai'} / ${runPlan?.llm?.model ?? 'local_qwen:qwen3.5-9b-q5km'}；Query Rewrite：${(runPlan?.llm?.queryRewrite.enabled ?? true) ? 'LLM-first' : 'disabled（失败关闭）'}
 - 标的：${runPlan?.entities?.join(', ') || '以只读运行计划为准'}
-- 页面模板：${visualization.templateId} / ${visualization.variantId}（${visualization.variantName}）
+- 页面模板：${answerOnlyIntent ? '本轮不生成看板' : `${visualization.templateId} / ${visualization.variantId}（${visualization.variantName}）`}
 - 布局与密度：${visualization.layout} / ${visualization.density}
 - 首屏：${visualization.firstViewport.join('；')}
 - 必备内容：${visualization.components.join('；')}
 - 变体指导：${visualization.guidance.join('；')}
-- 验收：${validationRules.join('；')}`;
+- 验收：${answerOnlyIntent ? '只读取 final/evidence 数据，返回中文结论与字段限制，不写入看板或启动预览。' : validationRules.join('；')}`;
 }
 
 export async function hasPlatformPreparedArtifacts(
@@ -349,10 +350,17 @@ ${modeConstraints}
 export interface ShopGateSystemPromptOptions {
   phase?: PiAgentSkillPhase;
   preparedIntent?: 'standard' | 'custom' | null;
+  outputIntent?: 'dashboard' | 'answer';
   skillManifest?: string;
 }
 
-function phaseContract(phase: PiAgentSkillPhase): string {
+function phaseContract(
+  phase: PiAgentSkillPhase,
+  outputIntent: 'dashboard' | 'answer' = 'dashboard',
+): string {
+  if (outputIntent === 'answer') {
+    return 'Answer-only contract: read only the prepared final/evidence artifacts, answer in Chinese, call submit_result with no artifacts, and do not mutate source/data/evidence files or create, validate, or preview a dashboard.';
+  }
   switch (phase) {
     case 'validation-repair':
       return 'Repair only the current failed checks and mutate only the paths exposed by the platform-compiled repair tool profile.';
@@ -384,7 +392,7 @@ You are Shop Gate's first-party workspace agent.
 - Platform owns build, preview, validation, and Mission acceptance. After the smallest coherent changes, call submit_result with a concise Chinese summary and changed paths; never claim validation success.
 
 ## Phase contract
-${phaseContract(phase)}
+${phaseContract(phase, options.outputIntent)}
 ${phase === 'workspace-generation' && options.preparedIntent ? `Prepared route: ${options.preparedIntent}.` : ''}
 
 ${options.skillManifest?.trim() || '# PI Agent Skill Manifest\nNo task skill capsule was loaded.'}`;

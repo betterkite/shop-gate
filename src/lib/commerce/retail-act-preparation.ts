@@ -211,6 +211,7 @@ export async function prepareRetailActGeneration(
           previousPlan: previousRunPlan,
           llmModel: selectedModel,
         });
+        const answerOnlyIntent = runPlan.queryRewrite?.outputIntent === "answer";
 
         const queryRewriteUsage = runPlan.queryRewrite?.execution.llm.usage;
         if (quotaActorUserId && queryRewriteQuotaReservationId) {
@@ -382,6 +383,7 @@ export async function prepareRetailActGeneration(
           });
           const clarificationContent = buildRetailClarificationMessage(
             runPlan.clarification,
+            runPlan.queryRewrite?.outputIntent,
           );
           const turnMetrics = await collectPiAgentTurnMetrics({
             projectId: project_id,
@@ -685,7 +687,7 @@ export async function prepareRetailActGeneration(
           await publishWorkspaceProgress({
             stage: 3,
             runPlan,
-            skillIds: ["dashboard-visualization"],
+            skillIds: answerOnlyIntent ? ["data-quality"] : ["dashboard-visualization"],
           });
         } else {
           const entities = runPlan.entities;
@@ -739,7 +741,7 @@ export async function prepareRetailActGeneration(
           await publishWorkspaceProgress({
             stage: 3,
             runPlan,
-            skillIds: ["dashboard-visualization"],
+            skillIds: answerOnlyIntent ? ["data-quality"] : ["dashboard-visualization"],
           });
           if (usePrefetchedSelectionDashboard) {
             dashboardVisualizationToolCallId =
@@ -758,7 +760,9 @@ export async function prepareRetailActGeneration(
                 },
               });
           }
-          await ensureRetailDashboardTemplateForAct(projectPath);
+          if (!answerOnlyIntent) {
+            await ensureRetailDashboardTemplateForAct(projectPath);
+          }
           if (usePrefetchedSelectionDashboard) {
             await publishRetailPipelineToolMessage({
               projectId: project_id,

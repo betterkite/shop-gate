@@ -229,17 +229,24 @@ export function assessRetailIntentForClarification(
   };
 }
 
-export function buildRetailClarificationMessage(clarification: RetailIntentClarification): string {
+export function buildRetailClarificationMessage(
+  clarification: RetailIntentClarification,
+  outputIntent: 'dashboard' | 'answer' = 'dashboard',
+): string {
   const questions = clarification.questions.length
     ? clarification.questions
     : ['请补充你想分析的对象、时间范围和关注方向。'];
 
   return [
-    '我需要先补充几个关键信息，再开始取数和生成看板：',
+    outputIntent === 'answer'
+      ? '我需要先补充几个关键信息，再开始取数和整理分析回答：'
+      : '我需要先补充几个关键信息，再开始取数和生成看板：',
     '',
     ...questions.map((question, index) => `${index + 1}. ${question}`),
     '',
-    '补充后我会先生成 run_plan，再获取真实数据、写入证据文件，最后生成可验证的可视化看板。',
+    outputIntent === 'answer'
+      ? '补充后我会先生成 run_plan，再获取真实数据、写入证据文件，最后只返回中文分析结论，不生成看板。'
+      : '补充后我会先生成 run_plan，再获取真实数据、写入证据文件，最后生成可验证的可视化看板。',
   ].join('\n');
 }
 

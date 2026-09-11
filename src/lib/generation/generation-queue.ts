@@ -309,19 +309,25 @@ async function executeGenerationDispatch<T>(
     });
     dispatch.assertHealthy();
     if (params.completeOnTaskSuccess !== false) {
-      await dispatch.run(() =>
+      await (typeof dispatch.runTerminal === "function" ? dispatch.runTerminal(() =>
         finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
           requestId: params.requestId,
           status: "completed",
         }),
-      );
+      ) : dispatch.run(() =>
+        finishGenerationQueueItem({
+          projectPath: params.projectPath,
+          projectId: params.projectId,
+          requestId: params.requestId,
+          status: "completed",
+        }),
+      ));
     }
     return result;
   } catch (error) {
-    await dispatch
-      .run(() =>
+    await (typeof dispatch.runTerminal === "function" ? dispatch.runTerminal(() =>
         finishGenerationQueueItem({
           projectPath: params.projectPath,
           projectId: params.projectId,
@@ -329,7 +335,15 @@ async function executeGenerationDispatch<T>(
           status: "failed",
           errorMessage: error instanceof Error ? error.message : String(error),
         }),
-      )
+      ) : dispatch.run(() =>
+        finishGenerationQueueItem({
+          projectPath: params.projectPath,
+          projectId: params.projectId,
+          requestId: params.requestId,
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : String(error),
+        }),
+      ))
       .catch((finishError) => {
         if (
           params.completeOnTaskFailure !== false &&
@@ -383,7 +397,6 @@ export async function finishGenerationQueueItem(params: {
       reason: params.errorMessage,
     });
   }
-  currentPiAgentGenerationDispatchSession()?.assertHealthy();
   const job = await finishPiAgentGenerationJob({
     projectId: params.projectId,
     requestId: params.requestId,

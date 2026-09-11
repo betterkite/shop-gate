@@ -183,6 +183,18 @@ export class PiAgentGenerationDispatchSession {
     return dispatchContext.run(this, task);
   }
 
+  /**
+   * A terminal dispatch write is fenced by the database job itself. Allow it
+   * to run after a transient heartbeat error so a completed request is not
+   * left stuck in `running`.
+   */
+  runTerminal<T>(task: () => Promise<T>): Promise<T> {
+    if (this.settled) {
+      throw new Error("Generation dispatch session is already settled.");
+    }
+    return dispatchContext.run(this, task);
+  }
+
   settle(): void {
     if (this.settled) return;
     this.stopHeartbeat();

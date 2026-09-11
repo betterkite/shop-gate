@@ -11,8 +11,20 @@ from datetime import date, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Path, Query
+from pydantic import BaseModel, Field
 
-from shopgate_commerce_data import analytics, retail
+from shopgate_commerce_data import analytics, analytics_jobs, retail
+
+
+class AnalyticsDatasetImportRequest(BaseModel):
+    """受控的合成经营分析数据集生成参数。"""
+
+    dataset_id: str = Field(min_length=1, max_length=120)
+    users: int = Field(default=1_000, ge=1, le=5_000)
+    items: int = Field(default=1_000, ge=1, le=5_000)
+    days: int = Field(default=30, ge=1, le=180)
+    seed: int = 20251203
+    end_day: str = Field(default="2025-12-03", min_length=10, max_length=10)
 
 
 def _parse_date(value: str | None, fallback: date | None) -> date | None:
@@ -38,6 +50,24 @@ def create_commerce_router() -> APIRouter:
         """扩展经营分析数据集契约，明确来源、版本和限制。"""
 
         return await retail.analytics_dataset_contracts(dataset_id)
+
+    @router.post("/datasets/import", status_code=202)
+    async def import_dataset(payload: AnalyticsDatasetImportRequest) -> dict[str, Any]:
+        """异步生成并扫描一个隔离的合成经营分析数据集。"""
+
+        try:
+            return await analytics_jobs.enqueue_dataset_import(payload.model_dump())
+        except analytics_jobs.AnalyticsDatasetImportError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.get("/datasets/import/{job_id}")
+    async def dataset_import_job(job_id: str) -> dict[str, Any]:
+        """返回数据集生成任务状态，供 BI 工作台轮询。"""
+
+        job = await analytics_jobs.get_dataset_import_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="数据集导入任务不存在。")
+        return job
 
     @router.get("/resolve")
     async def resolve(

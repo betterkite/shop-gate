@@ -33,6 +33,8 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /ready`：数据库与 Redis 就绪检查。
 - `GET /api/v1/commerce/meta`：数据窗口、来源和规模。
 - `GET /api/v1/commerce/datasets`：扩展经营分析数据集的版本、来源、合成字段和限制。
+- `POST /api/v1/commerce/datasets/import`：异步生成隔离的合成经营分析数据集并执行质量扫描；请求返回任务 ID。
+- `GET /api/v1/commerce/datasets/import/{job_id}`：查询生成任务状态、进度、质量扫描结果和失败原因。
 - `GET /api/v1/commerce/resolve`：商品/类目实体解析。
 - `GET /api/v1/commerce/capabilities`：零售能力发现。
 - `GET /api/v1/commerce/funnel`、`/funnel/daily`：流量与转化漏斗。

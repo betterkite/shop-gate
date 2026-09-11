@@ -1,0 +1,224 @@
+"""P31 经营分析数据集导入任务。
+
+Web 入口只允许生成受控的合成经营分析数据集；它复用 P27 的确定性生成器、
+数据替换和质量扫描逻辑，并把任务状态写入 ``commerce.platform_jobs``。
+CSV/第三方真实数据仍必须走离线连接器，不通过这个接口绕过来源和质量契约。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import re
+from datetime import UTC, date, datetime
+from typing import Any
+from uuid import uuid4
+
+import psycopg
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
+
+from shopgate_commerce_data.database_core import database_url_from_env
+from shopgate_commerce_data.import_cli import (
+    replace_synthetic_analytics_dataset,
+    scan_synthetic_analytics_dataset,
+)
+from shopgate_commerce_data.synthetic import synthetic_analytics_dataset
+
+DATASET_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
+MAX_USERS = 5_000
+MAX_ITEMS = 5_000
+MAX_DAYS = 180
+_ACTIVE_TASKS: set[asyncio.Task[None]] = set()
+
+
+class AnalyticsDatasetImportError(ValueError):
+    """用户提交的经营分析数据集导入参数不合法。"""
+
+
+def validate_import_request(payload: dict[str, Any]) -> dict[str, Any]:
+    dataset_id = str(payload.get("dataset_id", "")).strip()
+    if not DATASET_ID_PATTERN.fullmatch(dataset_id):
+        raise AnalyticsDatasetImportError(
+            "dataset_id 只能包含字母、数字、点、下划线和短横线，且长度不超过 120。"
+        )
+
+    def bounded_int(name: str, default: int, minimum: int, maximum: int) -> int:
+        raw = payload.get(name, default)
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as error:
+            raise AnalyticsDatasetImportError(f"{name} 必须是整数。") from error
+        if not minimum <= value <= maximum:
+            raise AnalyticsDatasetImportError(f"{name} 必须在 {minimum} 到 {maximum} 之间。")
+        return value
+
+    end_day_raw = str(payload.get("end_day", "2025-12-03")).strip()
+    try:
+        end_day = date.fromisoformat(end_day_raw)
+    except ValueError as error:
+        raise AnalyticsDatasetImportError("end_day 必须是 YYYY-MM-DD。") from error
+
+    try:
+        seed = int(payload.get("seed", 20251203))
+    except (TypeError, ValueError) as error:
+        raise AnalyticsDatasetImportError("seed 必须是整数。") from error
+
+    return {
+        "dataset_id": dataset_id,
+        "users": bounded_int("users", 1_000, 1, MAX_USERS),
+        "items": bounded_int("items", 1_000, 1, MAX_ITEMS),
+        "days": bounded_int("days", 30, 1, MAX_DAYS),
+        "seed": seed,
+        "end_day": end_day.isoformat(),
+    }
+
+
+def _connect() -> psycopg.Connection[dict[str, Any]]:
+    return psycopg.connect(
+        database_url_from_env(),
+        row_factory=dict_row,
+        autocommit=False,
+    )
+
+
+def _job_id() -> str:
+    return f"analytics-import-{uuid4()}"
+
+
+def _create_job(payload: dict[str, Any]) -> dict[str, Any]:
+    job_id = _job_id()
+    now = datetime.now(UTC)
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO commerce.platform_jobs
+                  (id, job_type, queue, status, priority, progress, control, payload,
+                   result, created_at, updated_at)
+                VALUES (%s, 'analytics_dataset_import', 'analytics', 'queued', 100,
+                        0, 'run', %s, '{}'::jsonb, %s, %s)
+                """,
+                (job_id, Jsonb(payload), now, now),
+            )
+        connection.commit()
+    return {
+        "job_id": job_id,
+        "dataset_id": payload["dataset_id"],
+        "status": "queued",
+        "progress": 0,
+        "created_at": now.isoformat(),
+    }
+
+
+def _update_job(
+    job_id: str,
+    *,
+    status: str,
+    progress: float,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    with _connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE commerce.platform_jobs
+                SET status = %s,
+                    progress = %s,
+                    result = COALESCE(%s, result),
+                    error = %s,
+                    started_at = CASE WHEN %s = 'running' AND started_at IS NULL
+                                      THEN now() ELSE started_at END,
+                    completed_at = CASE WHEN %s IN ('completed', 'failed')
+                                        THEN now() ELSE completed_at END,
+                    heartbeat_at = now(),
+                    updated_at = now()
+                WHERE id = %s
+                """,
+                (
+                    status,
+                    progress,
+                    Jsonb(result) if result is not None else None,
+                    error,
+                    status,
+                    status,
+                    job_id,
+                ),
+            )
+        connection.commit()
+
+
+def _get_job(job_id: str) -> dict[str, Any] | None:
+    with _connect() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, job_type, status, progress, payload, result, error,
+                   started_at, completed_at, created_at, updated_at
+            FROM commerce.platform_jobs
+            WHERE id = %s AND job_type = 'analytics_dataset_import'
+            """,
+            (job_id,),
+        )
+        row = cursor.fetchone()
+    if not row:
+        return None
+    for key in ("started_at", "completed_at", "created_at", "updated_at"):
+        if row.get(key) is not None:
+            row[key] = row[key].isoformat()
+    return dict(row)
+
+
+def _run_job_sync(job_id: str, payload: dict[str, Any]) -> None:
+    _update_job(job_id, status="running", progress=0.05)
+    connection: psycopg.Connection[dict[str, Any]] | None = None
+    try:
+        dataset = synthetic_analytics_dataset(
+            users=payload["users"],
+            items=payload["items"],
+            days=payload["days"],
+            seed=payload["seed"],
+            dataset_id=payload["dataset_id"],
+            end_day=datetime.fromisoformat(payload["end_day"]).replace(tzinfo=UTC),
+        )
+        _update_job(job_id, status="running", progress=0.45)
+        connection = _connect()
+        replace_synthetic_analytics_dataset(connection, dataset)
+        connection.commit()
+        _update_job(job_id, status="running", progress=0.75)
+
+        quality = scan_synthetic_analytics_dataset(connection, payload["dataset_id"])
+        connection.commit()
+        if quality["severity"] != "ok":
+            raise RuntimeError(f"数据质量扫描未通过：{'; '.join(quality['issues'])}")
+
+        row_counts = dataset["contract"].get("row_counts", {})
+        _update_job(
+            job_id,
+            status="completed",
+            progress=1,
+            result={
+                "dataset_id": payload["dataset_id"],
+                "quality_scan": quality,
+                "row_counts": row_counts,
+            },
+        )
+    except Exception as error:
+        if connection is not None:
+            connection.rollback()
+        _update_job(job_id, status="failed", progress=1, error=str(error))
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+async def enqueue_dataset_import(payload: dict[str, Any]) -> dict[str, Any]:
+    normalised = validate_import_request(payload)
+    job = await asyncio.to_thread(_create_job, normalised)
+    task = asyncio.create_task(asyncio.to_thread(_run_job_sync, job["job_id"], normalised))
+    _ACTIVE_TASKS.add(task)
+    task.add_done_callback(_ACTIVE_TASKS.discard)
+    return job
+
+
+async def get_dataset_import_job(job_id: str) -> dict[str, Any] | None:
+    return await asyncio.to_thread(_get_job, job_id)

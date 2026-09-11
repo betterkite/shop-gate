@@ -78,6 +78,30 @@ def inventory_health_label(closing_stock: int, average_daily_sold: float, days_c
     return "库存正常"
 
 
+LIFECYCLE_STAGES = ("未启动", "成长期", "稳定期", "衰退风险")
+
+
+def classify_lifecycle_stage(
+    window_start: date,
+    window_end: date,
+    first_order: date | None,
+    last_order: date | None,
+) -> tuple[str, int | None, int | None]:
+    """根据购买活跃度返回用户可理解的商品经营阶段。"""
+
+    if first_order is None or last_order is None:
+        return "未启动", None, None
+    active_days = (last_order - first_order).days + 1
+    days_since_last = (window_end - last_order).days
+    if days_since_last > 14:
+        return "衰退风险", active_days, days_since_last
+    if (first_order - window_start).days >= max((window_end - window_start).days - 14, 0):
+        return "成长期", active_days, days_since_last
+    if active_days >= 14:
+        return "稳定期", active_days, days_since_last
+    return "成长期", active_days, days_since_last
+
+
 async def analytics_overview(dataset_id: str) -> dict[str, Any]:
     contract = await _contract(dataset_id)
     rows = await fetch_all(
@@ -347,12 +371,19 @@ async def inventory_analytics(dataset_id: str, limit: int = 20) -> dict[str, Any
     )
 
 
-async def lifecycle_metrics(dataset_id: str, limit: int = 20) -> dict[str, Any]:
+async def lifecycle_metrics(
+    dataset_id: str,
+    limit: int = 20,
+    page: int = 1,
+    stage: str | None = None,
+) -> dict[str, Any]:
     """按订单首次/最近活跃时间给出商品经营阶段，不冒充真实上下架生命周期。"""
 
     contract = await _contract(dataset_id)
     window_start = date.fromisoformat(str(contract["window_start"]))
     window_end = date.fromisoformat(str(contract["window_end"]))
+    if stage is not None and stage not in LIFECYCLE_STAGES:
+        raise ValueError(f"商品阶段必须是：{'、'.join(LIFECYCLE_STAGES)}")
     rows = await fetch_all(
         """
         SELECT i.item_id, i.category_id,
@@ -370,42 +401,37 @@ async def lifecycle_metrics(dataset_id: str, limit: int = 20) -> dict[str, Any]:
         """,
         (dataset_id,),
     )
-    stage_counts: dict[str, int] = {}
-    items: list[dict[str, Any]] = []
+    stage_counts: dict[str, int] = {label: 0 for label in LIFECYCLE_STAGES}
+    classified_items: list[dict[str, Any]] = []
     for row in rows:
-        if row["first_order_date"] is None:
-            stage = "未启动"
-            active_days = None
-            days_since_last = None
-        else:
-            first_order = row["first_order_date"]
-            last_order = row["last_order_date"]
-            active_days = (last_order - first_order).days + 1
-            days_since_last = (window_end - last_order).days
-            if days_since_last > 14:
-                stage = "衰退风险"
-            elif (first_order - window_start).days >= max((window_end - window_start).days - 14, 0):
-                stage = "成长期"
-            elif active_days >= 14:
-                stage = "稳定期"
-            else:
-                stage = "成长期"
-        stage_counts[stage] = stage_counts.get(stage, 0) + 1
-        if len(items) < limit:
-            items.append(
-                {
-                    "item_id": row["item_id"],
-                    "category_id": row["category_id"],
-                    "stage": stage,
-                    "first_order_date": _iso(row["first_order_date"]),
-                    "last_order_date": _iso(row["last_order_date"]),
-                    "active_days": active_days,
-                    "days_since_last_order": days_since_last,
-                    "orders": int(row["orders"] or 0),
-                    "units": int(row["units"] or 0),
-                    "net_sales": round(_number(row["net_sales"]), 2),
-                }
-            )
+        row_stage, active_days, days_since_last = classify_lifecycle_stage(
+            window_start,
+            window_end,
+            row["first_order_date"],
+            row["last_order_date"],
+        )
+        stage_counts[row_stage] += 1
+        classified_items.append(
+            {
+                "item_id": row["item_id"],
+                "category_id": row["category_id"],
+                "stage": row_stage,
+                "first_order_date": _iso(row["first_order_date"]),
+                "last_order_date": _iso(row["last_order_date"]),
+                "active_days": active_days,
+                "days_since_last_order": days_since_last,
+                "orders": int(row["orders"] or 0),
+                "units": int(row["units"] or 0),
+                "net_sales": round(_number(row["net_sales"]), 2),
+            }
+        )
+    filtered_items = [
+        item for item in classified_items if stage is None or item["stage"] == stage
+    ]
+    page_count = max((len(filtered_items) + limit - 1) // limit, 1)
+    page = min(page, page_count)
+    start = (page - 1) * limit
+    items = filtered_items[start : start + limit]
     return _response(
         dataset_id,
         contract,
@@ -415,6 +441,11 @@ async def lifecycle_metrics(dataset_id: str, limit: int = 20) -> dict[str, Any]:
         },
         stage_counts=stage_counts,
         item_count=len(rows),
+        filtered_item_count=len(filtered_items),
+        selected_stage=stage,
+        page=page,
+        page_size=limit,
+        page_count=page_count,
         items=items,
     )
 

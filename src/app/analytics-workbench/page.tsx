@@ -26,6 +26,8 @@ type Props = {
     dataset_id?: string;
     dimension?: string;
     value?: string;
+    page?: string;
+    stage?: string;
   }>;
 };
 
@@ -62,6 +64,14 @@ const DIMENSION_LABELS: Record<string, string> = {
   channel: '渠道',
   campaign: '活动',
 };
+
+const LIFECYCLE_STAGE_OPTIONS = [
+  { value: '', label: '全部商品', description: '查看全部商品，按估算销售额排序。' },
+  { value: '未启动', label: '未启动', description: '窗口内还没有购买记录。' },
+  { value: '成长期', label: '成长期', description: '最近才开始有购买，或活跃时间还不长。' },
+  { value: '稳定期', label: '稳定期', description: '购买活跃已持续至少 14 天。' },
+  { value: '衰退风险', label: '衰退风险', description: '距离最近一次购买已超过 14 天。' },
+] as const;
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : null;
@@ -104,6 +114,16 @@ function hrefFor(view: Exclude<View, 'drilldown'>, datasetId: string): string {
   return `/analytics-workbench?view=${view}&dataset_id=${encodeURIComponent(datasetId)}`;
 }
 
+function lifecycleHref(datasetId: string, page: number, stage = ''): string {
+  const query = new URLSearchParams({
+    view: 'lifecycle',
+    dataset_id: datasetId,
+    page: String(page),
+  });
+  if (stage) query.set('stage', stage);
+  return `/analytics-workbench?${query.toString()}`;
+}
+
 function drilldownHref(datasetId: string, dimension: string, value: unknown): string {
   return `/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=${encodeURIComponent(dimension)}&value=${encodeURIComponent(String(value))}`;
 }
@@ -144,13 +164,25 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const params = await searchParams;
   const datasetId = params?.dataset_id || DEFAULT_DATASET_ID;
   const view = Object.keys(VIEW_LABELS).includes(params?.view || '') ? params?.view as Exclude<View, 'drilldown'> : 'overview';
+  const requestedLifecyclePage = Number.parseInt(params?.page || '1', 10);
+  const lifecyclePage = Number.isFinite(requestedLifecyclePage) && requestedLifecyclePage > 0 ? requestedLifecyclePage : 1;
+  const requestedLifecycleStage = params?.stage || '';
+  const lifecycleStage = LIFECYCLE_STAGE_OPTIONS.some((option) => option.value === requestedLifecycleStage)
+    ? requestedLifecycleStage
+    : '';
+  const lifecycleQuery = new URLSearchParams({
+    dataset_id: datasetId,
+    limit: '20',
+    page: String(lifecyclePage),
+  });
+  if (lifecycleStage) lifecycleQuery.set('stage', lifecycleStage);
   const [overview, rfm, channels, profit, inventory, lifecycle, elasticity] = await Promise.all([
     fetchAnalytics(`/api/v1/commerce/analytics/overview?dataset_id=${encodeURIComponent(datasetId)}`),
     fetchAnalytics(`/api/v1/commerce/analytics/rfm?dataset_id=${encodeURIComponent(datasetId)}&limit=20`),
     fetchAnalytics(`/api/v1/commerce/analytics/channel-campaign?dataset_id=${encodeURIComponent(datasetId)}`),
     fetchAnalytics(`/api/v1/commerce/analytics/profit?dataset_id=${encodeURIComponent(datasetId)}`),
     fetchAnalytics(`/api/v1/commerce/analytics/inventory?dataset_id=${encodeURIComponent(datasetId)}&limit=20`),
-    fetchAnalytics(`/api/v1/commerce/analytics/lifecycle?dataset_id=${encodeURIComponent(datasetId)}&limit=20`),
+    fetchAnalytics(`/api/v1/commerce/analytics/lifecycle?${lifecycleQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/price-elasticity?dataset_id=${encodeURIComponent(datasetId)}`),
   ]);
   const contract = asRecord(overview?.contract);
@@ -167,6 +199,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   if (params?.view === 'drilldown' && params.dimension && params.value) {
     drilldown = await fetchAnalytics(`/api/v1/commerce/analytics/drilldown?dataset_id=${encodeURIComponent(datasetId)}&dimension=${encodeURIComponent(params.dimension)}&value=${encodeURIComponent(params.value)}`);
   }
+  const lifecycleTotal = number(lifecycle?.filtered_item_count);
+  const lifecyclePageCount = Math.max(number(lifecycle?.page_count), 1);
+  const lifecycleCurrentPage = Math.max(number(lifecycle?.page) || 1, 1);
 
   return (
     <RetailPageShell
@@ -203,7 +238,24 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'inventory' ? <Panel title="库存健康" description="可售天数 = 结存库存 ÷ 平均日销量；无销量商品单独标记。"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">健康判断</th><th className="px-3 py-3">结存库存</th><th className="px-3 py-3">平均日销量</th><th className="px-3 py-3">可售天数</th><th className="px-3 py-3">窗口销量</th><th className="px-3 py-3">下钻</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(inventory?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.health_label)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.closing_stock)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.average_daily_sold, 2)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.days_cover, 1)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.sold_units)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>继续查看</Link></td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={inventory} /></div></Panel> : null}
 
-      {view === 'lifecycle' ? <Panel title="商品经营阶段" description="当前是基于购买活跃度的经营阶段，不等于真实上架/下架生命周期。"><div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">{Object.entries(asRecord(lifecycle?.stage_counts) ?? {}).map(([label, value]) => <Metric key={label} label={label} value={displayNumber(value)} hint="商品数" />)}</div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">阶段</th><th className="px-3 py-3">首次购买</th><th className="px-3 py-3">最近购买</th><th className="px-3 py-3">活跃天数</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">估算销售额</th><th className="px-3 py-3">下钻</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(lifecycle?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.stage)}</td><td className="px-3 py-3 text-sm">{text(row.first_order_date, '暂无购买')}</td><td className="px-3 py-3 text-sm">{text(row.last_order_date, '暂无购买')}</td><td className="px-3 py-3 text-sm">{row.active_days === null ? '-' : displayNumber(row.active_days)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>继续查看</Link></td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={lifecycle} /></div></Panel> : null}
+      {view === 'lifecycle' ? <Panel title="商品经营阶段" description="这里展示全部商品，每页 20 个。阶段是根据购买记录推断的经营状态，不等于真实上架或下架生命周期。">
+        <div className="mb-5 rounded-xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-sm font-semibold">选择要查看的阶段</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">点击下面的阶段即可筛选商品；数量是当前数据集中的全部商品数。</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {LIFECYCLE_STAGE_OPTIONS.map((option) => {
+              const active = lifecycleStage === option.value;
+              const count = option.value ? asRecord(lifecycle?.stage_counts)?.[option.label] : lifecycle?.item_count;
+              return <Link key={option.value || 'all'} href={lifecycleHref(datasetId, 1, option.value)} className={`rounded-xl border p-3 transition-colors ${active ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}><div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{option.label}</span><strong className="text-lg">{displayNumber(count)}</strong></div><p className="mt-1 text-[11px] leading-4 text-muted-foreground">{option.description}</p></Link>;
+            })}
+          </div>
+        </div>
+        <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950"><p className="font-semibold">判断规则</p><ul className="mt-2 grid gap-1 text-xs leading-5 sm:grid-cols-2"><li>未启动：窗口内没有购买记录。</li><li>成长期：最近 14 天才开始购买，或活跃时间还不长。</li><li>稳定期：购买活跃持续至少 14 天。</li><li>衰退风险：距离最近一次购买超过 14 天。</li></ul><p className="mt-2 text-xs leading-5 text-sky-900/80">这些规则只根据当前数据窗口内的购买记录判断；如果没有真实上架、下架、补货和停售事件，就不能把它当成商品真实生命周期。</p></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前查看：{lifecycleStage || '全部商品'}，共 {displayNumber(lifecycleTotal)} 个商品</span><span className="text-xs text-muted-foreground">第 {displayNumber(lifecycleCurrentPage)} / {displayNumber(lifecyclePageCount)} 页，每页 20 个</span></div>
+        <DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">阶段</th><th className="px-3 py-3">首次购买</th><th className="px-3 py-3">最近购买</th><th className="px-3 py-3">活跃天数</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">估算销售额</th><th className="px-3 py-3">下钻</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(lifecycle?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.stage)}</td><td className="px-3 py-3 text-sm">{text(row.first_order_date, '暂无购买')}</td><td className="px-3 py-3 text-sm">{text(row.last_order_date, '暂无购买')}</td><td className="px-3 py-3 text-sm">{row.active_days === null ? '-' : displayNumber(row.active_days)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>继续查看</Link></td></tr>)}</tbody></DataTable>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link href={lifecycleCurrentPage > 1 ? lifecycleHref(datasetId, lifecycleCurrentPage - 1, lifecycleStage) : lifecycleHref(datasetId, lifecycleCurrentPage, lifecycleStage)} aria-disabled={lifecycleCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${lifecycleCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="flex items-center gap-1 text-xs text-muted-foreground">第 {displayNumber(lifecycleCurrentPage)} 页，共 {displayNumber(lifecyclePageCount)} 页</div><Link href={lifecycleCurrentPage < lifecyclePageCount ? lifecycleHref(datasetId, lifecycleCurrentPage + 1, lifecycleStage) : lifecycleHref(datasetId, lifecycleCurrentPage, lifecycleStage)} aria-disabled={lifecycleCurrentPage >= lifecyclePageCount} className={`rounded-lg border px-3 py-2 text-sm ${lifecycleCurrentPage >= lifecyclePageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div>
+        <div className="mt-4"><Limitations payload={lifecycle} /></div>
+      </Panel> : null}
 
       {view === 'elasticity' ? <Panel title="价格带对比与价格弹性边界" description="价格带只能用于结构比较；当前数据不具备识别价格弹性的必要条件。"><div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>暂不计算价格弹性。</strong> {text(elasticity?.explanation)}<br />还需要：{asStringArray(elasticity?.required_for_estimation).join('、')}。</div><DataTable><thead className="mt-5 bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">价格带</th><th className="px-3 py-3">商品数</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售件数</th><th className="px-3 py-3">估算销售额</th><th className="px-3 py-3">平均折扣</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(elasticity?.price_band_comparison).map((row) => <tr key={String(row.price_band)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm font-semibold">¥{text(row.price_band)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.item_count)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.units)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.average_discount_rate)}</td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={elasticity} /></div></Panel> : null}
 

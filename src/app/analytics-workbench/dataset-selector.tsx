@@ -63,6 +63,8 @@ export function DatasetSelector({
   const [syncMessage, setSyncMessage] = useState('自动检查已开启');
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvImportMessage, setCsvImportMessage] = useState('');
   const [jobs, setJobs] = useState<JsonRecord[]>([]);
   const selected = contracts.find((contract) => text(contract.dataset_id) === selectedDatasetId);
 
@@ -109,6 +111,58 @@ export function DatasetSelector({
       setImportMessage(error instanceof Error ? error.message : '数据集导入失败。');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleCsvImport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCsvImporting(true);
+    setCsvImportMessage('正在上传 CSV 并执行质量扫描…');
+    const form = new FormData(event.currentTarget);
+    const file = form.get('file');
+    const datasetId = String(form.get('dataset_id') || '').trim();
+    const seed = Number(form.get('seed') || 20251203);
+    if (!(file instanceof File) || !file.size) {
+      setCsvImportMessage('请选择非空 CSV 文件。');
+      setCsvImporting(false);
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setCsvImportMessage('CSV 文件不能超过 50 MB。');
+      setCsvImporting(false);
+      return;
+    }
+    try {
+      const query = new URLSearchParams({ dataset_id: datasetId, seed: String(seed), filename: file.name });
+      const response = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/csv?${query.toString()}`, {
+        method: 'POST',
+        headers: { 'content-type': 'text/csv' },
+        body: file,
+      });
+      const created = await response.json().catch(() => ({}));
+      if (!response.ok || typeof created.job_id !== 'string') {
+        throw new Error(typeof created.detail === 'string' ? created.detail : 'CSV 导入任务创建失败。');
+      }
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+        const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}`, { cache: 'no-store' });
+        const status = await statusResponse.json().catch(() => ({}));
+        if (status.status === 'completed') {
+          setCsvImportMessage(`数据集 ${datasetId} 已导入；行为事件保留来源，补充字段已标记为合成。`);
+          signatureRef.current = '';
+          router.refresh();
+          return;
+        }
+        if (status.status === 'failed') {
+          throw new Error(typeof status.error === 'string' ? status.error : 'CSV 数据质量扫描未通过。');
+        }
+        if (attempt % 5 === 4) setCsvImportMessage(`CSV 导入进行中（${status.progress ?? 0}%）…`);
+      }
+      throw new Error('CSV 导入等待超时，请到最近的数据集任务中继续核查。');
+    } catch (error) {
+      setCsvImportMessage(error instanceof Error ? error.message : 'CSV 导入失败。');
+    } finally {
+      setCsvImporting(false);
     }
   };
 
@@ -206,10 +260,16 @@ export function DatasetSelector({
       <details className="mt-3 border-t border-border/60 pt-3">
         <summary className="cursor-pointer text-sm font-semibold">导入已有数据集（CSV）</summary>
         <div className="mt-2 rounded-xl border border-dashed border-border/80 bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
-          <p className="font-medium text-foreground">当前网页入口先展示导入契约，文件上传任务列入 P31 后续处理。</p>
+          <p className="font-medium text-foreground">上传标准行为事件 CSV，系统会保留行为来源，并为经营分析补齐带有合成标记的扩展字段。</p>
           <p className="mt-1">支持的行为事件 CSV 需要包含以下 5 列：<code>user_id</code>、<code>item_id</code>、<code>category_id</code>、<code>behavior_type</code>、<code>timestamp</code>；行为类型为 <code>pv</code>、<code>fav</code>、<code>cart</code>、<code>buy</code>，时间为 Unix 秒。</p>
-          <p className="mt-1">目前真实 CSV 仍通过离线连接器导入，导入后的价格、成本、渠道、订单和库存补充字段会明确标记为合成口径，不会把它们误报成真实交易数据。</p>
-          <p className="mt-2 font-medium text-amber-700">Web 上传、来源注册、质量扫描和当前数据集隔离完成后，这里才会开放“选择文件并导入”。</p>
+          <p className="mt-1">价格、成本、渠道、订单和库存补充字段会明确标记为合成口径，不会把它们误报成真实交易数据。单个文件不超过 50 MB。</p>
+          <form onSubmit={handleCsvImport} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <label className="lg:col-span-2"><span className="text-xs font-medium">数据集编号</span><input name="dataset_id" defaultValue="retail-uploaded-csv" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,119}" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
+            <label><span className="text-xs font-medium">补充字段随机种子</span><input name="seed" type="number" defaultValue="20251203" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
+            <label className="sm:col-span-2"><span className="text-xs font-medium">行为事件 CSV</span><input name="file" type="file" accept=".csv,text/csv" required className="mt-1 block w-full rounded-lg border border-border/70 bg-background px-2.5 py-1.5 text-sm file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs" /></label>
+            <div className="flex items-end lg:col-span-2"><button type="submit" disabled={csvImporting} className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{csvImporting ? '正在导入…' : '上传并导入 CSV'}</button></div>
+          </form>
+          {csvImportMessage ? <p className="mt-2 text-xs leading-5 text-muted-foreground" role="status">{csvImportMessage}</p> : null}
         </div>
       </details>
       {jobs.length ? (

@@ -101,7 +101,9 @@ uv run --project services/commerce-data \
 
 同一组参数会得到同一组结果，改动 `seed` 才会得到另一组可复现样本。它是演示数据生成参数，不是业务成员数，也不是外部数据集的标识。网页上的小规模用户数/商品数只用于快速验收；默认入口仍是 1,000 用户、1,000 商品、30 天。
 
-网页另外展示“导入已有数据集（CSV）”入口。当前入口先公开文件契约：CSV 必须包含 `user_id`、`item_id`、`category_id`、`behavior_type`、`timestamp` 五列；文件上传、真实来源注册和按 `dataset_id` 隔离的 Web 任务仍属于 P31 后续切片，在完成前真实 CSV 继续使用离线连接器。
+网页另外提供“导入已有数据集（CSV）”入口。CSV 必须包含 `user_id`、`item_id`、`category_id`、`behavior_type`、`timestamp` 五列；Web 任务会保留行为事件来源，并按 `dataset_id` 隔离写入扩展分析表。价格、成本、渠道、订单和库存是行为 CSV 不包含的扩展字段，系统会使用 `seed` 确定性补齐并在契约中标记为合成。当前单文件限制为 50 MB、最多 500,000 行；CSV 之外的格式和第三方来源仍使用离线连接器。
+
+对应接口为 `POST /api/v1/commerce/datasets/import/csv?dataset_id=...&seed=...&filename=...`，请求体直接发送 UTF-8 CSV（`Content-Type: text/csv`），返回的任务 ID 与合成数据生成任务共用状态查询和质量扫描。
 
 契约可以通过 API 查看：
 

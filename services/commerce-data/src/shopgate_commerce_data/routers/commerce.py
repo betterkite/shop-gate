@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from shopgate_commerce_data import analytics, analytics_jobs, retail
@@ -57,6 +57,23 @@ def create_commerce_router() -> APIRouter:
 
         try:
             return await analytics_jobs.enqueue_dataset_import(payload.model_dump())
+        except analytics_jobs.AnalyticsDatasetImportError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @router.post("/datasets/import/csv", status_code=202)
+    async def import_csv_dataset(
+        request: Request,
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        seed: Annotated[int, Query()] = 20251203,
+        filename: Annotated[str, Query(max_length=200)] = "upload.csv",
+    ) -> dict[str, Any]:
+        """上传标准行为事件 CSV，补齐扩展分析字段并异步质量扫描。"""
+
+        content = await request.body()
+        try:
+            return await analytics_jobs.enqueue_csv_dataset_import(
+                dataset_id, seed, filename, content
+            )
         except analytics_jobs.AnalyticsDatasetImportError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 

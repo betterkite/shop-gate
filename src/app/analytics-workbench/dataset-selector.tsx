@@ -190,8 +190,8 @@ export function DatasetSelector({
         <p className="mt-3 border-t border-border/60 pt-3 text-xs text-amber-700">当前数据集未出现在契约列表中，请先确认 commerce-data 已启动且数据集已注册。</p>
       )}
       <details className="mt-4 border-t border-border/60 pt-3">
-        <summary className="cursor-pointer text-sm font-semibold">导入新的合成经营分析数据集</summary>
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">这里只生成隔离的合成演示数据，并自动执行质量扫描；真实 CSV 和第三方数据仍需走离线连接器，不会在网页端绕过数据来源审核。</p>
+        <summary className="cursor-pointer text-sm font-semibold">生成合成经营分析数据集</summary>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">这里生成隔离的合成演示数据，并自动执行质量扫描；它适合演示和验收，不代表真实业务事实。</p>
         <form onSubmit={handleImport} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <label className="lg:col-span-2"><span className="text-xs font-medium">数据集编号</span><input name="dataset_id" defaultValue="retail-demo-new" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,119}" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
           <label><span className="text-xs font-medium">用户数</span><input name="users" type="number" min="1" max="5000" defaultValue="1000" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
@@ -202,6 +202,15 @@ export function DatasetSelector({
           <div className="flex items-end lg:col-span-2"><button type="submit" disabled={importing} className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{importing ? '正在导入…' : '开始导入并扫描'}</button></div>
         </form>
         {importMessage ? <p className="mt-2 text-xs leading-5 text-muted-foreground" role="status">{importMessage}</p> : null}
+      </details>
+      <details className="mt-3 border-t border-border/60 pt-3">
+        <summary className="cursor-pointer text-sm font-semibold">导入已有数据集（CSV）</summary>
+        <div className="mt-2 rounded-xl border border-dashed border-border/80 bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
+          <p className="font-medium text-foreground">当前网页入口先展示导入契约，文件上传任务列入 P31 后续处理。</p>
+          <p className="mt-1">支持的行为事件 CSV 需要包含以下 5 列：<code>user_id</code>、<code>item_id</code>、<code>category_id</code>、<code>behavior_type</code>、<code>timestamp</code>；行为类型为 <code>pv</code>、<code>fav</code>、<code>cart</code>、<code>buy</code>，时间为 Unix 秒。</p>
+          <p className="mt-1">目前真实 CSV 仍通过离线连接器导入，导入后的价格、成本、渠道、订单和库存补充字段会明确标记为合成口径，不会把它们误报成真实交易数据。</p>
+          <p className="mt-2 font-medium text-amber-700">Web 上传、来源注册、质量扫描和当前数据集隔离完成后，这里才会开放“选择文件并导入”。</p>
+        </div>
       </details>
       {jobs.length ? (
         <div className="mt-4 border-t border-border/60 pt-3">

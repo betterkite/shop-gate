@@ -2,6 +2,9 @@ import type { GenerationTerminalSnapshot } from '@/lib/generation/generation-ter
 
 export type PreviewReconciliationPlan =
   | {
+      action: 'answer_ready';
+    }
+  | {
       action: 'ready';
       previewUrl: string;
       shouldAdoptUrl: boolean;
@@ -49,6 +52,10 @@ export function planPreviewReconciliation(params: {
     snapshot.status === 'refused'
   ) {
     return { action: 'wait' };
+  }
+
+  if (snapshot.status === 'answer_ready') {
+    return { action: 'answer_ready' };
   }
 
   if (

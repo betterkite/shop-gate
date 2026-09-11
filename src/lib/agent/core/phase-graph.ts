@@ -4,12 +4,14 @@ export type PiAgentPreparedExecutionIntent = 'standard' | 'custom' | null;
 
 export type PiAgentExecutionLane =
   | 'deterministic_standard'
+  | 'model_answer_only'
   | 'model_custom'
   | 'model_repair'
   | 'model_data_preparation';
 
 export type PiAgentExecutionPhase =
   | 'deterministic-prepare'
+  | 'answer-only'
   | 'inspect-edit-submit'
   | 'failure-scoped-repair'
   | 'data-prepare-edit-submit';
@@ -18,6 +20,7 @@ export interface PiAgentPhaseGraphInput {
   profile: PiAgentExecutionProfile;
   platformPrepared: boolean;
   preparedIntent: PiAgentPreparedExecutionIntent;
+  outputIntent?: 'dashboard' | 'answer';
   hasAttachments: boolean;
   dashboardSpecReady: boolean;
 }
@@ -98,6 +101,27 @@ export function createPiAgentPhaseGraph(
         maxCacheMissInputTokens: 20_000,
         maxPreparedInputTokens: 20_000,
         maxCumulativePreparedInputTokens: 60_000,
+        progressStallTurns: 1,
+      },
+    );
+  }
+
+  if (input.outputIntent === 'answer' && !input.hasAttachments) {
+    return graph(
+      'model_answer_only',
+      'answer-only',
+      'model',
+      'medium',
+      {
+        // Answer-only runs read prepared evidence and submit a response. Keep
+        // this lane smaller than data preparation to prevent exploratory reads
+        // from consuming a dashboard-sized budget.
+        maxTurns: 6,
+        maxToolCalls: 12,
+        maxOutputTokens: 8_000,
+        maxCacheMissInputTokens: 24_000,
+        maxPreparedInputTokens: 24_000,
+        maxCumulativePreparedInputTokens: 144_000,
         progressStallTurns: 1,
       },
     );

@@ -17,6 +17,25 @@ describe('PI Agent PhaseGraph', () => {
     });
   });
 
+  it('routes answer-only requests to a bounded read-and-submit lane', () => {
+    expect(createPiAgentPhaseGraph({
+      profile: 'generation',
+      platformPrepared: true,
+      preparedIntent: null,
+      outputIntent: 'answer',
+      hasAttachments: false,
+      dashboardSpecReady: false,
+    })).toMatchObject({
+      lane: 'model_answer_only',
+      phase: 'answer-only',
+      budgets: {
+        maxTurns: 6,
+        maxToolCalls: 12,
+        maxCumulativePreparedInputTokens: 144_000,
+      },
+    });
+  });
+
   it.each([
     { hasAttachments: true, dashboardSpecReady: true },
     { hasAttachments: false, dashboardSpecReady: false },

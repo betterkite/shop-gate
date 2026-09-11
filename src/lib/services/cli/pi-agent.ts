@@ -735,6 +735,7 @@ async function executePiAgentPhase(
       profile,
       platformPrepared,
       preparedIntent,
+      outputIntent: answerOnlyIntent ? 'answer' : 'dashboard',
       hasAttachments: Boolean(images?.length),
       dashboardSpecReady: preparedAssessment.dashboardSpecReady,
     });
@@ -854,6 +855,7 @@ async function executePiAgentPhase(
         ? {
             profileAllowedWriteGlobs: [],
             includeDefaultWriteGlobs: false,
+            allowedMutationToolNames: [],
           }
         : runtimeProfileWriteGlobs
         ? {

@@ -1171,6 +1171,17 @@ const persistProjectPreferences = useCallback(
         attemptedRecoveryKey: previewAutoRecoveryAttemptRef.current,
       });
 
+      if (previewPlan.action === 'answer_ready') {
+        setIsRunning(false);
+        setAgentWorkComplete(true);
+        setRetailValidationState('unknown');
+        setRetailValidationMessage('分析回答已完成，本次未生成看板。');
+        setIsStartingPreview(false);
+        setPreviewInitializationMessage('只做问答已完成；如需看板，请切换到“生成看板”后重新提交。');
+        localStorage.setItem(`project_${projectId}_taskComplete`, 'true');
+        return;
+      }
+
       if (previewPlan.action === 'withhold_until_acceptance') {
         previewUrlRef.current = null;
         setPreviewUrl(null);

@@ -232,12 +232,14 @@ export async function assessPlatformPreparedArtifacts(
       else if (finalTemplate !== plannedTemplate) reasons.push('visualization_template_mismatch');
     }
   }
+  const answerOnly = authoritativePlan.queryRewrite?.outputIntent === 'answer';
   const plannedTemplate = stringValue(authoritativePlan.visualization?.templateId);
   const plannedVariant = stringValue(authoritativePlan.visualization?.variantId);
   let dashboardSpecReady = false;
   let dashboardSpecErrorCode: string | null = null;
   let dashboardSpecReasons: string[] = [];
   if (
+    !answerOnly &&
     finalData &&
     plannedTemplate &&
     plannedVariant &&
@@ -305,7 +307,9 @@ ${instruction.trim()}`;
   const answerOnlyIntent = runPlan?.queryRewrite?.outputIntent === 'answer';
   const modeConstraints = answerOnlyIntent
     ? `只做分析问答模式：
-- 只读取平台已经准备好的 final/evidence 数据，不能修改代码、数据文件、证据文件或生成看板。
+- ${prepared
+    ? '只读取平台已经准备好的 final/evidence 数据'
+    : '通过可用的只读数据接口补齐回答所需事实'}，不能修改代码、数据文件、证据文件或生成看板。
 - 用中文直接回答用户问题，引用商品编号和可核验指标；缺失字段必须明确说明。
 - 回答完成后必须调用 submit_result，artifacts 传空数组，summary 写入面向用户的结论；不要声称看板已生成。`
     : prepared && options.hasAttachments
@@ -359,7 +363,7 @@ function phaseContract(
   outputIntent: 'dashboard' | 'answer' = 'dashboard',
 ): string {
   if (outputIntent === 'answer') {
-    return 'Answer-only contract: read only the prepared final/evidence artifacts, answer in Chinese, call submit_result with no artifacts, and do not mutate source/data/evidence files or create, validate, or preview a dashboard.';
+    return 'Answer-only contract: use only read-only prepared evidence or typed data tools, answer in Chinese, call submit_result with no artifacts, and do not mutate source/data/evidence files or create, validate, or preview a dashboard.';
   }
   switch (phase) {
     case 'validation-repair':

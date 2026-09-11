@@ -307,7 +307,10 @@ async function executeGenerationDispatch<T>(
       stage: "agent_execution",
       task: () => dispatch.run(params.task),
     });
-    dispatch.assertHealthy();
+    // The task has already reached its own terminal boundary. A heartbeat
+    // failure that arrives after the task resolves must not turn a successful
+    // answer/dashboard run into a queue failure; the fenced terminal write
+    // below is the authoritative dispatch decision.
     if (params.completeOnTaskSuccess !== false) {
       await (typeof dispatch.runTerminal === "function" ? dispatch.runTerminal(() =>
         finishGenerationQueueItem({

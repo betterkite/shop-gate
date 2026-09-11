@@ -27,6 +27,30 @@ function snapshot(
 }
 
 describe('planPreviewReconciliation', () => {
+  it('clears a stale running UI state for a completed answer-only run', () => {
+    expect(planPreviewReconciliation({
+      projectId: 'project-1',
+      snapshot: {
+        requestId: 'request-1',
+        outputIntent: 'answer',
+        status: 'answer_ready',
+        terminal: true,
+        validationStatus: 'pending',
+        validationRunId: null,
+        validationMatchesCurrentRun: true,
+        missionAcceptanceRequired: false,
+        missionAcceptanceSatisfied: true,
+        acceptedReceiptId: null,
+        previewStatus: 'stopped',
+        previewUrl: null,
+        previewPort: null,
+        persistedPreviewUrl: null,
+        errorMessage: null,
+      },
+      currentPreviewUrl: null,
+      attemptedRecoveryKey: null,
+    })).toEqual({ action: 'answer_ready' });
+  });
   it('withholds even a contradictory ready URL until the Mission is accepted', () => {
     expect(
       planPreviewReconciliation({
@@ -43,7 +67,7 @@ describe('planPreviewReconciliation', () => {
     ).toEqual({ action: 'withhold_until_acceptance' });
   });
 
-  it('does not open a dashboard for an answer-only terminal state', () => {
+  it('settles the UI without opening a dashboard for an answer-only terminal state', () => {
     expect(
       planPreviewReconciliation({
         projectId: 'project-1',
@@ -58,7 +82,7 @@ describe('planPreviewReconciliation', () => {
         currentPreviewUrl: null,
         attemptedRecoveryKey: null,
       }),
-    ).toEqual({ action: 'wait' });
+    ).toEqual({ action: 'answer_ready' });
   });
 
   it.each(['failed', 'needs_revalidation', 'cancelled', 'needs_clarification', 'refused'] as const)(

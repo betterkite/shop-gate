@@ -1399,6 +1399,13 @@ export function runValidationAfterExecution(params: {
         errorMessage: failure,
       });
       await markUserRequestAsFailed(params.projectId, params.requestId, failure);
+      await finishGenerationQueueItem({
+        projectPath: params.projectPath,
+        projectId: params.projectId,
+        requestId: params.requestId,
+        status: "failed",
+        errorMessage: failure,
+      });
       await params.publishWorkspaceProgress({ stage: 5, failureReason: failure });
       streamManager.publish(params.projectId, {
         type: "status",
@@ -1434,6 +1441,12 @@ export function runValidationAfterExecution(params: {
       metadata: { outputIntent: "answer" },
     });
     await markUserRequestAsCompleted(params.projectId, params.requestId);
+    await finishGenerationQueueItem({
+      projectPath: params.projectPath,
+      projectId: params.projectId,
+      requestId: params.requestId,
+      status: "completed",
+    });
     await params.publishWorkspaceProgress({ stage: 5, answerOnly: true });
     streamManager.publish(params.projectId, {
       type: "status",

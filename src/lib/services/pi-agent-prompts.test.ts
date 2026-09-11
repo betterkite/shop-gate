@@ -184,6 +184,53 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(runPlan.visualization.required).toBe(false);
   });
 
+  it('does not require dashboard-only data prerequisites for answer-only runs', async () => {
+    const projectPath = await createProject();
+    const instruction = '请只回答库存健康，不生成看板。';
+    await writeInitialRunPlan({
+      projectPath,
+      requestId: 'answer-only-prepared-artifacts',
+      capabilityId: 'price_inventory',
+      capabilitySource: 'auto',
+      instruction,
+      queryRewrite: {
+        ...(await technicalRewrite(instruction)),
+        analysisFocus: { id: 'price_inventory', label: '价格与库存' },
+        outputIntent: 'answer',
+        broadUniverse: true,
+      },
+    });
+    await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
+    await fs.mkdir(path.join(projectPath, 'evidence'), { recursive: true });
+    await Promise.all([
+      fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), JSON.stringify({
+        runId: 'answer-only-prepared-artifacts',
+        window: { start: '2026-08-29', end: '2026-09-06' },
+        datasets: {
+          funnel: { window: { start: '2026-08-29', end: '2026-09-06' }, stages: [
+            { stage: 'pv', events: 100 }, { stage: 'fav', events: 20 },
+            { stage: 'cart', events: 10 }, { stage: 'buy', events: 5 },
+          ] },
+        },
+        visualization: { template_id: 'price-inventory' },
+      })),
+      fs.writeFile(path.join(projectPath, 'evidence', 'sources.json'), JSON.stringify({
+        runId: 'answer-only-prepared-artifacts',
+        sources: [{ source: 'test', endpoint: '/api/v1/commerce/funnel' }],
+      })),
+      fs.writeFile(path.join(projectPath, 'evidence', 'data_quality.json'), JSON.stringify({
+        runId: 'answer-only-prepared-artifacts',
+        status: 'ok',
+        datasets: [{ id: 'funnel' }],
+      })),
+    ]);
+
+    const assessment = await assessPlatformPreparedArtifacts(projectPath);
+    expect(assessment.ready).toBe(true);
+    expect(assessment.dashboardSpecReady).toBe(false);
+    expect(assessment.reasons).toEqual([]);
+  });
+
   it('rejects hollow evidence arrays even when marker keys and run ids exist', async () => {
     const projectPath = await createProject();
     const instruction = '生成贵州茅台技术分析看板';

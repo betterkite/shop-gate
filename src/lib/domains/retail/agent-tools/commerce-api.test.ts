@@ -42,6 +42,19 @@ describe('commerce_api_get allowlist', () => {
     expect(new URL(fetchImpl.mock.calls[0][0].toString()).pathname).toBe('/api/v1/commerce/analytics/drilldown');
   });
 
+  it('normalizes the legacy inventory alias to the canonical risk endpoint', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ inventory: [] }));
+    const tool = createCommerceApiGetTool({ fetchImpl });
+    const result = await tool.execute!(
+      { path: '/api/v1/commerce/inventory', query: { start: '2017-11-25' } },
+      TOOL_CONTEXT,
+    );
+    expect(result.ok).toBe(true);
+    expect(new URL(fetchImpl.mock.calls[0][0].toString()).pathname).toBe(
+      '/api/v1/commerce/inventory-risk',
+    );
+  });
+
   it('denies non-allowlisted paths and traversal', async () => {
     const fetchImpl = vi.fn();
     const tool = createCommerceApiGetTool({ fetchImpl });

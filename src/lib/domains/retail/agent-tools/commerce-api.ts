@@ -30,6 +30,12 @@ const ALLOWED_COMMERCE_API_PATHS = [
   /^\/api\/v1\/commerce\/analytics\/(overview|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown)$/,
 ] as const;
 
+const COMMERCE_API_PATH_ALIASES: Readonly<Record<string, string>> = {
+  // Keep a narrow compatibility bridge for agents that learned the shorter
+  // inventory name before the canonical inventory-risk endpoint was exposed.
+  '/api/v1/commerce/inventory': '/api/v1/commerce/inventory-risk',
+};
+
 type QueryPrimitive = string | number | boolean;
 type QueryValue = QueryPrimitive | QueryPrimitive[];
 type JsonPrimitive = string | number | boolean | null;
@@ -122,7 +128,8 @@ function buildCommerceApiUrl(apiPath: string, query: Record<string, QueryValue>)
     }
   }
 
-  const url = new URL(apiPath, COMMERCE_API_ORIGIN);
+  const canonicalPath = COMMERCE_API_PATH_ALIASES[apiPath] ?? apiPath;
+  const url = new URL(canonicalPath, COMMERCE_API_ORIGIN);
   if (url.origin !== COMMERCE_API_ORIGIN || !url.pathname.startsWith(COMMERCE_API_PREFIX)) {
     throw new PiAgentToolError('COMMERCE_API_PATH_DENIED', 'The API request must remain on the local /api/v1/ endpoint.');
   }
@@ -379,7 +386,7 @@ export function createCommerceApiGetTool(options: PiAgentRetailApiToolOptions = 
   let requestCount = 0;
   return {
     name: 'commerce_api_get',
-    description: 'GET retail commerce data from the fixed local http://127.0.0.1:8000/api/v1/ service (funnel, categories, items, inventory, daily summary). No other host or method is available.',
+    description: 'GET retail commerce data from the fixed local http://127.0.0.1:8000/api/v1/ service. Use exact read-only paths such as /api/v1/commerce/meta, /api/v1/commerce/funnel, /api/v1/commerce/categories/top, /api/v1/commerce/inventory-risk, and /api/v1/commerce/summary; /api/v1/commerce/inventory is accepted only as a compatibility alias for inventory-risk. No other host or method is available.',
     effect: 'read',
     idempotency: 'intrinsic',
     inputSchema: {

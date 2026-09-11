@@ -168,6 +168,41 @@ def _get_job(job_id: str) -> dict[str, Any] | None:
     return dict(row)
 
 
+def _list_jobs(dataset_id: str | None, limit: int) -> list[dict[str, Any]]:
+    with _connect() as connection, connection.cursor() as cursor:
+        if dataset_id:
+            cursor.execute(
+                """
+                SELECT id, job_type, status, progress, payload, result, error,
+                       started_at, completed_at, created_at, updated_at
+                FROM commerce.platform_jobs
+                WHERE job_type = 'analytics_dataset_import'
+                  AND payload->>'dataset_id' = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (dataset_id, limit),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT id, job_type, status, progress, payload, result, error,
+                       started_at, completed_at, created_at, updated_at
+                FROM commerce.platform_jobs
+                WHERE job_type = 'analytics_dataset_import'
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+        rows = cursor.fetchall()
+    for row in rows:
+        for key in ("started_at", "completed_at", "created_at", "updated_at"):
+            if row.get(key) is not None:
+                row[key] = row[key].isoformat()
+    return [dict(row) for row in rows]
+
+
 def _run_job_sync(job_id: str, payload: dict[str, Any]) -> None:
     _update_job(job_id, status="running", progress=0.05)
     connection: psycopg.Connection[dict[str, Any]] | None = None
@@ -222,3 +257,10 @@ async def enqueue_dataset_import(payload: dict[str, Any]) -> dict[str, Any]:
 
 async def get_dataset_import_job(job_id: str) -> dict[str, Any] | None:
     return await asyncio.to_thread(_get_job, job_id)
+
+
+async def list_dataset_import_jobs(
+    dataset_id: str | None = None, limit: int = 10,
+) -> list[dict[str, Any]]:
+    bounded_limit = max(1, min(limit, 50))
+    return await asyncio.to_thread(_list_jobs, dataset_id, bounded_limit)

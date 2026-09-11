@@ -60,6 +60,15 @@ def create_commerce_router() -> APIRouter:
         except analytics_jobs.AnalyticsDatasetImportError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
+    @router.get("/datasets/import")
+    async def dataset_import_jobs(
+        dataset_id: Annotated[str | None, Query(max_length=120)] = None,
+        limit: Annotated[int, Query(ge=1, le=50)] = 10,
+    ) -> list[dict[str, Any]]:
+        """返回最近的数据集导入任务，供工作台展示审计状态。"""
+
+        return await analytics_jobs.list_dataset_import_jobs(dataset_id, limit)
+
     @router.get("/datasets/import/{job_id}")
     async def dataset_import_job(job_id: str) -> dict[str, Any]:
         """返回数据集生成任务状态，供 BI 工作台轮询。"""

@@ -63,6 +63,7 @@ export function DatasetSelector({
   const [syncMessage, setSyncMessage] = useState('自动检查已开启');
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+  const [jobs, setJobs] = useState<JsonRecord[]>([]);
   const selected = contracts.find((contract) => text(contract.dataset_id) === selectedDatasetId);
 
   const handleImport = async (event: FormEvent<HTMLFormElement>) => {
@@ -140,6 +141,25 @@ export function DatasetSelector({
     };
   }, [apiBaseUrl, router]);
 
+  useEffect(() => {
+    let active = true;
+    const loadJobs = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import?limit=8`, { cache: 'no-store' });
+        if (!response.ok || !active) return;
+        setJobs(asArray(await response.json()));
+      } catch {
+        // The dataset selector remains usable when the optional task history is unavailable.
+      }
+    };
+    void loadJobs();
+    const interval = window.setInterval(loadJobs, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [apiBaseUrl]);
+
   return (
     <section className="mb-5 rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm" aria-label="经营分析数据集">
       <form method="get" className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -183,6 +203,20 @@ export function DatasetSelector({
         </form>
         {importMessage ? <p className="mt-2 text-xs leading-5 text-muted-foreground" role="status">{importMessage}</p> : null}
       </details>
+      {jobs.length ? (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <p className="text-sm font-semibold">最近的数据集任务</p>
+          <div className="mt-2 grid gap-2">
+            {jobs.map((job) => {
+              const payload = asRecord(job.payload);
+              const result = asRecord(job.result);
+              const status = text(job.status, 'unknown');
+              const statusLabel = status === 'completed' ? '已完成' : status === 'failed' ? '失败' : status === 'running' ? '进行中' : '排队中';
+              return <div key={text(job.id)} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-xs"><span className="font-medium">{text(payload?.dataset_id, '未命名数据集')}</span><span className={status === 'failed' ? 'text-destructive' : status === 'completed' ? 'text-emerald-700' : 'text-amber-700'}>{statusLabel} · {Math.round(number(job.progress) * 100)}%</span><span className="text-muted-foreground">{status === 'failed' ? text(job.error, '未记录失败原因') : result ? '已生成并完成质量扫描' : '任务状态已记录'}</span></div>;
+            })}
+          </div>
+        </div>
+      ) : null}
       <p className="mt-3 text-[11px] text-muted-foreground" role="status">{syncMessage}（每 15 秒检查一次导入或注册结果）</p>
     </section>
   );

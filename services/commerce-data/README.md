@@ -37,6 +37,7 @@ uv run shopgate-commerce-import aggregate-daily
 - `POST /api/v1/commerce/datasets/import/csv`：上传标准五列行为事件 CSV，保留行为来源，并为价格、成本、渠道、订单和库存补充字段标记合成口径。
 - `GET /api/v1/commerce/datasets/import/{job_id}`：查询生成任务状态、进度、质量扫描结果和失败原因。
 - `GET /api/v1/commerce/datasets/import`：列出最近的数据集生成任务，支持 `dataset_id` 和 `limit` 过滤。
+- `GET /api/v1/commerce/analytics/item-behavior`：按数据集返回商品级 PV、收藏、加购、购买和购买转化。
 - `GET /api/v1/commerce/resolve`：商品/类目实体解析。
 - `GET /api/v1/commerce/capabilities`：零售能力发现。
 - `GET /api/v1/commerce/funnel`、`/funnel/daily`：流量与转化漏斗。

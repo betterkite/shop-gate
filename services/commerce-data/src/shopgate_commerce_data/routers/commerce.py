@@ -144,6 +144,7 @@ def create_commerce_router() -> APIRouter:
                     "name": "用户、渠道、利润与库存分析",
                     "endpoints": [
                         "/api/v1/commerce/analytics/overview",
+                        "/api/v1/commerce/analytics/item-behavior",
                         "/api/v1/commerce/analytics/rfm",
                         "/api/v1/commerce/analytics/channel-campaign",
                         "/api/v1/commerce/analytics/profit",
@@ -294,6 +295,18 @@ def create_commerce_router() -> APIRouter:
     ) -> dict[str, Any]:
         try:
             return await analytics.analytics_overview(dataset_id)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/item-behavior")
+    async def analytics_item_behavior(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> dict[str, Any]:
+        """商品级 PV、收藏、加购、购买和购买转化。"""
+
+        try:
+            return await analytics.item_behavior_metrics(dataset_id, limit)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 

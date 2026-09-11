@@ -27,6 +27,7 @@
 - 运行态任务验收：`retail-demo-p31-acceptance`（10 用户、10 商品、3 天）从 `queued` 到 `completed`，质量扫描 `severity=ok`、`issue_count=0`，并返回 7 类扩展表的记录数。
 - 任务历史接口验收：`GET /api/v1/commerce/datasets/import?limit=8` 返回已持久化任务；网页导入表单的临时 5 用户/5 商品小任务仅用于快速 smoke，已清理对应数据集，未成为默认分析数据。
 - CSV 运行态验收：上传 4 条标准行为事件后任务成功完成，质量扫描 `severity=ok`、`issue_count=0`，结果返回 `behavior_source=userbehavior_csv`；临时 `retail-demo-csv-smoke` 数据集、质量记录和任务已清理。
+- 商品级行为验收：CSV 行为明细写入 `dataset_behavior_events` 并按 `dataset_id` 隔离，`GET /api/v1/commerce/analytics/item-behavior` 返回商品级 PV、收藏、加购、购买和购买转化；合成数据集的行为明细同样落入该表并标记 `synthetic=true`。
 - 生成规则验收：合成入口的 `seed` 只用于可复现生成；它会与 `dataset_id`、实体 ID、日期和生成阶段一起派生独立随机序列，分别生成行为、价格、成本、折扣、渠道、订单和库存，不会把 5 这样的验收参数当作系统默认成员数。
 
 ## 尚未完成
@@ -36,4 +37,3 @@
 1. CSV 之外的格式与第三方连接器，以及更细的真实来源注册；当前 Web 入口支持标准行为事件 CSV，其他来源仍走离线连接器；
 2. 按数据集配置异步生成看板；
 3. 导入/生成结果与看板生成之间的幂等编排、证据记录和用户可见任务中心；
-4. 商品级行为明细在扩展数据集中的持久化，用于支撑商品级 PV→购买转化分析。

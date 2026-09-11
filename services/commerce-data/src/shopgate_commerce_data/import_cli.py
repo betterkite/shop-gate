@@ -415,6 +415,16 @@ def replace_synthetic_analytics_dataset(
         )
         cursor.executemany(
             """
+            INSERT INTO commerce.dataset_behavior_events
+              (dataset_id, user_id, item_id, category_id, behavior_type,
+               event_ts, source, synthetic)
+            VALUES (%(dataset_id)s, %(user_id)s, %(item_id)s, %(category_id)s,
+                    %(behavior_type)s, %(event_ts)s, %(source)s, %(synthetic)s)
+            """,
+            dataset["behavior_events"],
+        )
+        cursor.executemany(
+            """
             INSERT INTO commerce.dataset_user_profiles
               (dataset_id, user_id, age_band, gender, city_tier, member_level,
                registered_at, source, synthetic)
@@ -498,6 +508,7 @@ def scan_synthetic_analytics_dataset(
     """检查扩展数据集的契约行数、来源标记和关键关联，并写入质量扫描结果。"""
 
     table_counts = {
+        "behavior_events": "dataset_behavior_events",
         "user_profiles": "dataset_user_profiles",
         "channels": "dataset_channels",
         "campaigns": "dataset_campaigns",
@@ -528,16 +539,17 @@ def scan_synthetic_analytics_dataset(
             if actual != expected:
                 issues.append(f"{table} 行数 {actual} 与契约 {expected} 不一致")
 
-        marked_tables = tuple(table_counts.values())
-        for table in marked_tables:
+        marked_tables = tuple(table_counts.items())
+        for name, table in marked_tables:
+            allow_observed = name == "behavior_events" and contract["source_kind"] != "synthetic"
             cursor.execute(
                 f"""
                 SELECT COUNT(*) AS count
                 FROM commerce.{table}
                 WHERE dataset_id = %s
-                  AND (source <> %s OR synthetic IS NOT TRUE)
+                  AND (source <> %s OR (synthetic IS NOT TRUE AND %s = false))
                 """,
-                (dataset_id, contract["source_name"]),
+                (dataset_id, contract["source_name"], allow_observed),
             )
             unmarked = int(cursor.fetchone()["count"])
             metrics[f"{table}_unmarked_rows"] = unmarked

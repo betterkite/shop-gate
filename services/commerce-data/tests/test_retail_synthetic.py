@@ -12,6 +12,7 @@ from shopgate_commerce_data.retail import (
     sell_through_ratio,
 )
 from shopgate_commerce_data.synthetic import (
+    analytics_dataset_from_behavior_events,
     batched_events,
     daily_demand_multiplier,
     sample_item_offset,
@@ -186,6 +187,36 @@ def test_analytics_dataset_is_isolated_and_traceable() -> None:
     assert contract["limitations"]
     assert all(row["synthetic"] for row in dataset["profiles"])
     assert all(row["synthetic"] for row in dataset["orders"])
+    assert contract["row_counts"]["behavior_events"] == len(dataset["behavior_events"])
+    assert all(row["synthetic"] for row in dataset["behavior_events"])
+
+
+def test_csv_behavior_dataset_persists_observed_events_and_handles_one_day() -> None:
+    events = [
+        {
+            "user_id": 7,
+            "item_id": 11,
+            "category_id": 3,
+            "behavior_type": "pv",
+            "event_ts": datetime(2025, 12, 3, 12, tzinfo=UTC),
+        },
+        {
+            "user_id": 7,
+            "item_id": 11,
+            "category_id": 3,
+            "behavior_type": "buy",
+            "event_ts": datetime(2025, 12, 3, 12, 1, tzinfo=UTC),
+        },
+    ]
+
+    dataset = analytics_dataset_from_behavior_events(
+        events, seed=42, dataset_id="test-csv-one-day"
+    )
+
+    assert dataset["contract"]["source_kind"] == "mixed"
+    assert dataset["contract"]["row_counts"]["behavior_events"] == 2
+    assert all(not row["synthetic"] for row in dataset["behavior_events"])
+    assert all(row["starts_at"] <= row["ends_at"] for row in dataset["campaigns"])
 
 
 def test_analytics_dataset_orders_and_inventory_have_valid_links() -> None:

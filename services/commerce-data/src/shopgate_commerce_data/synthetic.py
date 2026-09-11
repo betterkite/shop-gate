@@ -271,21 +271,27 @@ def synthetic_analytics_dataset(
             "campaign_id": "mid-month",
             "name": "月中促销",
             "campaign_type": "大促",
-            "starts_at": first_day.date() + timedelta(days=max(days // 3, 1)),
-            "ends_at": first_day.date() + timedelta(days=max(days // 3 + 3, 1)),
+            "starts_at": min(first_day.date() + timedelta(days=max(days // 3, 1)), last_day.date()),
+            "ends_at": min(
+                first_day.date() + timedelta(days=max(days // 3 + 3, 1)), last_day.date()
+            ),
         },
         {
             "campaign_id": "member-day",
             "name": "会员日",
             "campaign_type": "会员",
-            "starts_at": first_day.date() + timedelta(days=max(days // 2, 1)),
-            "ends_at": first_day.date() + timedelta(days=max(days // 2 + 1, 1)),
+            "starts_at": min(first_day.date() + timedelta(days=max(days // 2, 1)), last_day.date()),
+            "ends_at": min(
+                first_day.date() + timedelta(days=max(days // 2 + 1, 1)), last_day.date()
+            ),
         },
         {
             "campaign_id": "content-wave",
             "name": "内容活动",
             "campaign_type": "内容",
-            "starts_at": first_day.date() + timedelta(days=max(days * 2 // 3, 1)),
+            "starts_at": min(
+                first_day.date() + timedelta(days=max(days * 2 // 3, 1)), last_day.date()
+            ),
             "ends_at": last_day.date(),
         },
     ]
@@ -452,6 +458,7 @@ def synthetic_analytics_dataset(
         "window_end": last_day.date(),
         "generation_seed": seed,
         "row_counts": {
+            "behavior_events": len(events),
             "user_profiles": len(profiles),
             "channels": len(channels),
             "campaigns": len(campaigns),
@@ -485,6 +492,10 @@ def synthetic_analytics_dataset(
     }
     return {
         "contract": contract,
+        "behavior_events": [
+            {**event, "dataset_id": dataset_id, "source": source, "synthetic": True}
+            for event in events
+        ],
         "profiles": profiles,
         "channels": [
             {**row, "dataset_id": dataset_id, "source": source, "synthetic": True}
@@ -545,21 +556,21 @@ def analytics_dataset_from_behavior_events(
             "campaign_id": "mid-month",
             "name": "月中促销",
             "campaign_type": "大促",
-            "starts_at": first_day + timedelta(days=max(days // 3, 1)),
-            "ends_at": first_day + timedelta(days=max(days // 3 + 3, 1)),
+            "starts_at": min(first_day + timedelta(days=max(days // 3, 1)), last_day),
+            "ends_at": min(first_day + timedelta(days=max(days // 3 + 3, 1)), last_day),
         },
         {
             "campaign_id": "member-day",
             "name": "会员日",
             "campaign_type": "会员",
-            "starts_at": first_day + timedelta(days=max(days // 2, 1)),
-            "ends_at": first_day + timedelta(days=max(days // 2 + 1, 1)),
+            "starts_at": min(first_day + timedelta(days=max(days // 2, 1)), last_day),
+            "ends_at": min(first_day + timedelta(days=max(days // 2 + 1, 1)), last_day),
         },
         {
             "campaign_id": "content-wave",
             "name": "内容活动",
             "campaign_type": "内容",
-            "starts_at": first_day + timedelta(days=max(days * 2 // 3, 1)),
+            "starts_at": min(first_day + timedelta(days=max(days * 2 // 3, 1)), last_day),
             "ends_at": last_day,
         },
     ]
@@ -747,6 +758,10 @@ def analytics_dataset_from_behavior_events(
     }
     return {
         "contract": contract,
+        "behavior_events": [
+            {**event, "dataset_id": dataset_id, "source": source_name, "synthetic": False}
+            for event in events
+        ],
         "profiles": profiles,
         "channels": [
             {**row, "dataset_id": dataset_id, "source": source_name, "synthetic": True}

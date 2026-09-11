@@ -118,6 +118,7 @@ async def analytics_overview(dataset_id: str) -> dict[str, Any]:
         """,
         (dataset_id,),
     )
+
     quality = await fetch_all(
         """
         SELECT severity, issue_count, checked_rows, created_at
@@ -139,6 +140,53 @@ async def analytics_overview(dataset_id: str) -> dict[str, Any]:
         contract,
         metrics=metrics,
         quality=quality[0] if quality else {"severity": "unknown", "issue_count": None},
+    )
+
+
+async def item_behavior_metrics(dataset_id: str, limit: int = 20) -> dict[str, Any]:
+    """返回数据集内商品级行为漏斗，保留 PV 到购买的真实事件关系。"""
+
+    contract = await _contract(dataset_id)
+    rows = await fetch_all(
+        """
+        SELECT item_id, category_id,
+               COUNT(*) FILTER (WHERE behavior_type = 'pv') AS pv,
+               COUNT(*) FILTER (WHERE behavior_type = 'fav') AS fav,
+               COUNT(*) FILTER (WHERE behavior_type = 'cart') AS cart,
+               COUNT(*) FILTER (WHERE behavior_type = 'buy') AS buy,
+               COUNT(DISTINCT user_id) AS users
+        FROM commerce.dataset_behavior_events
+        WHERE dataset_id = %s
+        GROUP BY item_id, category_id
+        ORDER BY buy DESC, pv DESC, item_id
+        LIMIT %s
+        """,
+        (dataset_id, limit),
+    )
+    items = []
+    for row in rows:
+        pv = int(row["pv"] or 0)
+        buy = int(row["buy"] or 0)
+        items.append(
+            {
+                **row,
+                "pv": pv,
+                "fav": int(row["fav"] or 0),
+                "cart": int(row["cart"] or 0),
+                "buy": buy,
+                "users": int(row["users"] or 0),
+                "buy_conversion": round(buy / pv, 6) if pv else 0.0,
+            }
+        )
+    return _response(
+        dataset_id,
+        contract,
+        metric_definition={
+            "pv": "商品页面浏览事件数",
+            "buy": "商品购买事件数",
+            "buy_conversion": "购买事件 ÷ 页面浏览事件；没有浏览事件时为 0",
+        },
+        items=items,
     )
 
 

@@ -22,6 +22,30 @@ CREATE TABLE IF NOT EXISTS commerce.dataset_contracts (
 COMMENT ON TABLE commerce.dataset_contracts IS
   '零售分析数据集契约。记录来源、版本、窗口、生成规则、合成字段与限制，不得把合成数据描述为真实业务事实。';
 
+CREATE TABLE IF NOT EXISTS commerce.dataset_behavior_events (
+  event_id BIGSERIAL PRIMARY KEY,
+  dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL,
+  item_id BIGINT NOT NULL,
+  category_id BIGINT NOT NULL,
+  behavior_type TEXT NOT NULL CHECK (behavior_type IN ('pv', 'fav', 'cart', 'buy')),
+  event_ts TIMESTAMPTZ NOT NULL,
+  source TEXT NOT NULL,
+  synthetic BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE INDEX IF NOT EXISTS dataset_behavior_events_dataset_ts_idx
+  ON commerce.dataset_behavior_events (dataset_id, event_ts);
+
+CREATE INDEX IF NOT EXISTS dataset_behavior_events_item_ts_idx
+  ON commerce.dataset_behavior_events (dataset_id, item_id, event_ts);
+
+CREATE INDEX IF NOT EXISTS dataset_behavior_events_type_idx
+  ON commerce.dataset_behavior_events (dataset_id, behavior_type);
+
+COMMENT ON TABLE commerce.dataset_behavior_events IS
+  '按 dataset_id 隔离的商品行为明细；外部 CSV 行为可保留真实来源，合成演示行为标记 synthetic。';
+
 CREATE TABLE IF NOT EXISTS commerce.dataset_user_profiles (
   dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL,

@@ -85,6 +85,7 @@ uv run --project services/commerce-data \
 `commerce.items` 和 v1 日聚合。它只替换同一个 `dataset_id` 下的扩展数据，并写入：
 
 - `dataset_contracts`：版本、时间窗口、种子、行数、合成字段和限制；
+- `dataset_behavior_events`：按 `dataset_id` 隔离的行为明细，CSV 导入保留外部来源，合成生成标记为 synthetic；
 - `dataset_user_profiles`、`dataset_sessions`、`dataset_channels`、`dataset_campaigns`；
 - `dataset_item_economics`、`dataset_orders`、`dataset_inventory_snapshots`。
 

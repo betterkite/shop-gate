@@ -57,15 +57,18 @@
 - `npm run check:docs`：通过；
 - `npm run check:module-boundaries`：通过；
 - `npm run check:retail-e2e`：通过，既有 30 条 case、4 项能力保持 `ready=1/1`；
-- 相关 Vitest：模板选择、下钻 allowlist 和既有查询改写共 `17 passed`。
+- 相关 Vitest：模板选择、下钻 allowlist、模板意图和脚手架共 `30 passed`；
+- 真实生成任务 E2E：P28 R23 单例 `ready=1/1`，第二次修复后的完整重跑通过；run plan 选择 `analytics-bi/p28-expanded`，扩展分析数据 6 组写入 `dashboard-data.json`，Next build、预览 HTTP 200、数据证据、产物契约、页面绑定、桌面/移动视觉和 Mission receipt 全部通过；
+- 本次 E2E 首次失败暴露并修复两处验收缺陷：合法的零售合成经营主数据被误判为示例数据，以及 `price_inventory` 被硬编码要求 `price-inventory`；修复后保留了普通库存任务的原有约束，并新增 `analytics-bi` 的数据字段校验；
+- 生成截图复核发现商品编号数字被通用文本守卫显示为“—”，已修复模板数字展示并通过第二次 E2E 复核。
 
 ## 当前边界
 
 当前切片已经提供可浏览的 BI 工作台和可复用的分析接口，但仍不宣称 P28 完成：
 
-1. `analytics-bi` 已接入生成任务的模板选择、扩展数据预取和渲染器，但还需要一次真实生成任务 E2E，确认 run plan、`dashboard-data.json`、页面 build 和预览全部使用 P28 数据；
+1. `analytics-bi` 生成模板的单例真实生成任务 E2E 已通过；仍需要扩大到真实聊天入口和多轮任务，验证 Agent 会按用户追问选择正确分析能力，而不是只依赖固定 capability；
 2. Agent 下钻接口已可用，但还需要真实聊天链路 E2E，验证“用户追问 → Agent 选择接口 → 保留上轮上下文 → 输出可理解结论”；
 3. 价格弹性仍因缺少同一商品多价格时点/实验对照而不能计算；
-4. 真实订单、成本、库存、活动平台回传仍属于后续数据接入范围。
+4. 真实订单、成本、库存、活动平台回传仍属于后续数据接入范围；数据集选择器、导入后的自动刷新和异步看板生成已单列到 `ISSUE-P31`。
 
 数据集选择器、导入完成后的自动刷新和可配置异步看板生成已单独登记为 `ISSUE-P31`，不在本轮 P28 分析接口切片中混入数据导入编排逻辑。

@@ -139,7 +139,7 @@
       "id": "R23",
       "capabilityId": "price_inventory",
       "model": "deepseek-v4-flash",
-      "question": "窗口内价格带分布与库存健康度，生成价格库存看板。"
+      "question": "窗口内商品经营阶段、毛利、价格弹性和库存健康度如何？生成经营分析 BI 看板。"
     },
     {
       "id": "R24",

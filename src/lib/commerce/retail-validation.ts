@@ -24,6 +24,11 @@ import {
   scaffoldBasicNextApp,
 } from '@/lib/utils/scaffold';
 import {
+  hasAnyKeyDeep,
+  hasRetailPlaceholderSmell,
+  missingAnalyticsBiDataFields,
+} from './retail-validation-analytics';
+import {
   buildGeneratedProjectEnv,
   wrapGeneratedProjectCommand,
 } from '@/lib/security/generated-project-sandbox';
@@ -893,7 +898,7 @@ async function checkFinalDataFile(
         /quote|quotes|price|symbol|symbols|assets|comparison|secid|history|kline|financial|reports|announcement|source|fetched_at|quote_time|close|open|volume|amount|backtest|equity_curve|trades|strategy|drawdown|win_rate|营收|净利润|毛利率|roe|回测|净值|回撤|胜率|window|datasets|funnel|categories|itemDaily|inventoryRisk|summary|stat_date|stages|conversion|gmv|客单价|转化|加购|收藏|曝光|购买|类目|商品|库销比|动销/i.test(
           serialized
         );
-      const hasPlaceholderSmell = /mock|demo|example|placeholder|lorem|示例|样例|模拟|假数据/i.test(serialized);
+      const hasPlaceholderSmell = hasRetailPlaceholderSmell(parsed, serialized);
 
       if (!isNonEmptyJsonValue(parsed)) {
         errors.push(`${normalizeRelativePath(projectPath, filePath)} 没有可用数据。`);
@@ -1031,6 +1036,17 @@ async function checkFinalDataFile(
         }
       }
 
+      if (plannedTemplateId === 'analytics-bi') {
+        const missingAnalyticsData = missingAnalyticsBiDataFields(record);
+
+        if (missingAnalyticsData.length > 0) {
+          errors.push(
+            `${normalizeRelativePath(projectPath, filePath)} 缺少经营分析 BI 模板数据字段：${missingAnalyticsData.join('、')}。`
+          );
+          continue;
+        }
+      }
+
       return {
         status: 'passed',
         summary: `已找到可用最终数据文件：${normalizeRelativePath(projectPath, filePath)}。`,
@@ -1062,17 +1078,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value as Record<string, unknown>;
-}
-
-function hasAnyKeyDeep(value: unknown, keys: string[]): boolean {
-  if (Array.isArray(value)) {
-    return value.some((entry) => hasAnyKeyDeep(entry, keys));
-  }
-  const record = asRecord(value);
-  if (!record) {
-    return false;
-  }
-  return Object.entries(record).some(([key, nestedValue]) => keys.includes(key) || hasAnyKeyDeep(nestedValue, keys));
 }
 
 function pickString(value: unknown): string | null {
@@ -1360,6 +1365,11 @@ function hasExplicitTradingPlanIntent(taskText: string): boolean {
 export function inferExpectedTemplateFromTask(runPlan: Record<string, unknown> | null): string | null {
   if (!runPlan) {
     return null;
+  }
+
+  const requestedTemplateId = pickString(asRecord(runPlan.visualization)?.templateId);
+  if (requestedTemplateId === 'analytics-bi') {
+    return 'analytics-bi';
   }
 
   const capabilityId = pickString(runPlan.capabilityId);
@@ -1886,6 +1896,7 @@ async function checkDashboardBinding(
   if (expectedTemplateId && plannedTemplateId !== expectedTemplateId) {
     const expectedTemplateGuidance: Record<string, string> = {
       'price-inventory': '价格库存或滞销类任务必须走价库模板。',
+      'analytics-bi': '经营分析、商品阶段、毛利或价格弹性任务必须走经营分析 BI 模板。',
       'catalog-structure': '类目结构或对比类任务必须走类目结构模板。',
       'strategy-research': '策略假设与筛选研究必须走策略研究模板。',
       'daily-brief': '技术分析任务必须走技术择时模板。',
@@ -1977,6 +1988,10 @@ async function checkDashboardBinding(
       'daily-brief': {
         label: '经营日报模板',
         patterns: [/日报|经营摘要|GMV|转化|客单价|summary/, /环比|异动|类目|数据质量|数据窗口|更新时间/],
+      },
+      'analytics-bi': {
+        label: '经营分析 BI 模板',
+        patterns: [/经营分析|商品阶段|生命周期|毛利|价格弹性|库存|analytics-bi|analytics/i, /GMV|订单|转化|数据质量|数据窗口|更新时间/],
       },
     };
     const templateCheck = templateChecks[plannedTemplateId];
@@ -2129,6 +2144,10 @@ async function checkChartPresence(
     'daily-brief': {
       pattern: /日报|经营摘要|GMV|转化|客单价|环比|异动|summary/i,
       label: '经营日报摘要、环比或类目异动图表',
+    },
+    'analytics-bi': {
+      pattern: /经营分析|商品阶段|生命周期|毛利|价格弹性|库存|analytics-bi|analytics/i,
+      label: '经营分析 BI 的阶段、利润、库存或弹性图表',
     },
   };
   const retailChartRequirement = plannedTemplateId

@@ -53,7 +53,9 @@ function displayPercent(value: unknown, digits = 2): string {
 }
 
 function text(value: unknown, fallback = '-'): string {
-  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return fallback;
 }
 
 function behaviorLabel(value: unknown): string {

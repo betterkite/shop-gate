@@ -27,6 +27,15 @@ describe('validation template intent (retail)', () => {
     })).toBe('price-inventory');
   });
 
+  it('accepts the explicit P28 analytics BI template for expanded operations analysis', () => {
+    expect(inferExpectedTemplateFromTask({
+      capabilityId: 'price_inventory',
+      question: '商品经营阶段、毛利和价格弹性如何？生成经营分析 BI 看板。',
+      visualization: { templateId: 'analytics-bi' },
+      entities: [],
+    })).toBe('analytics-bi');
+  });
+
   it('uses catalog structure for an explicit comparison capability', () => {
     expect(inferExpectedTemplateFromTask({
       capabilityId: 'catalog_structure',

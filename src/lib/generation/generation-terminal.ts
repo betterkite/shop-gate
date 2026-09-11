@@ -6,6 +6,7 @@ import type { PreviewInfo } from '@/lib/services/preview';
 export type GenerationTerminalStatus =
   | 'idle'
   | 'running'
+  | 'answer_ready'
   | 'preview_pending'
   | 'needs_revalidation'
   | 'ready'
@@ -24,6 +25,8 @@ export type GenerationTerminalGenerationInput = {
   }>;
   error?: { message?: string | null } | null;
 } | null;
+
+export type GenerationOutputIntent = 'dashboard' | 'answer';
 
 type GenerationStateInput = GenerationTerminalGenerationInput;
 
@@ -47,6 +50,7 @@ type AcceptedMissionInput = Pick<
 
 export interface GenerationTerminalSnapshot {
   requestId: string | null;
+  outputIntent: GenerationOutputIntent | null;
   status: GenerationTerminalStatus;
   terminal: boolean;
   validationStatus: 'passed' | 'failed' | 'pending';
@@ -83,8 +87,10 @@ function generationIdFromState(
 
 export function requiresPiAgentMissionAcceptance(
   generation: GenerationTerminalGenerationInput,
+  outputIntent: GenerationOutputIntent | null = null,
 ): boolean {
   if (!generation) return false;
+  if (outputIntent === 'answer') return false;
   // Refusals and other non-delivery terminal states never produce a candidate.
   // Every state that can expose or recover a preview must prove that the
   // current PI Agent Mission accepted it. Unknown or incomplete persisted
@@ -126,8 +132,10 @@ export function deriveGenerationTerminalSnapshot(params: {
   preview: PreviewInput;
   acceptedMission?: AcceptedMissionInput;
   persistedPreviewUrl?: string | null;
+  outputIntent?: GenerationOutputIntent | null;
 }): GenerationTerminalSnapshot {
   const requestId = params.generation?.requestId ?? null;
+  const outputIntent = params.outputIntent ?? null;
   const validationRunId = params.validation?.runId ?? null;
   const validationMatchesCurrentRun = !params.generation
     ? true
@@ -151,6 +159,7 @@ export function deriveGenerationTerminalSnapshot(params: {
     params.preview.status === 'running' && Boolean(params.preview.url);
   const missionAcceptanceRequired = requiresPiAgentMissionAcceptance(
     params.generation,
+    outputIntent,
   );
   const missionAccepted = hasCurrentAcceptedMission(
     params.generation,
@@ -162,7 +171,7 @@ export function deriveGenerationTerminalSnapshot(params: {
     ? (params.acceptedMission?.acceptedReceiptId ?? null)
     : null;
   const previewUrl =
-    validationPassed && previewReady && missionAcceptanceSatisfied
+    outputIntent !== 'answer' && validationPassed && previewReady && missionAcceptanceSatisfied
       ? params.preview.url
       : null;
 
@@ -173,6 +182,12 @@ export function deriveGenerationTerminalSnapshot(params: {
     status = 'refused';
   } else if (params.generation?.status === 'needs_clarification') {
     status = 'needs_clarification';
+  } else if (outputIntent === 'answer') {
+    status = params.generation?.status === 'completed'
+      ? 'answer_ready'
+      : params.generation?.status === 'failed'
+        ? 'failed'
+        : 'running';
   } else if (
     params.generation?.status === 'failed' &&
     missionAcceptanceRequired &&
@@ -215,8 +230,9 @@ export function deriveGenerationTerminalSnapshot(params: {
 
   return {
     requestId,
+    outputIntent,
     status,
-    terminal: ['ready', 'needs_revalidation', 'failed', 'cancelled', 'needs_clarification', 'refused'].includes(status),
+    terminal: ['ready', 'answer_ready', 'needs_revalidation', 'failed', 'cancelled', 'needs_clarification', 'refused'].includes(status),
     validationStatus: validationPassed
       ? 'passed'
       : validationFailed
@@ -230,7 +246,7 @@ export function deriveGenerationTerminalSnapshot(params: {
     previewStatus: params.preview.status,
     previewUrl,
     previewPort:
-      validationPassed && previewReady && missionAcceptanceSatisfied
+      outputIntent !== 'answer' && validationPassed && previewReady && missionAcceptanceSatisfied
         ? params.preview.port
         : null,
     persistedPreviewUrl: params.persistedPreviewUrl ?? null,

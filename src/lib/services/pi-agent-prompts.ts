@@ -301,7 +301,13 @@ export async function buildShopGateTaskPrompt(
 ${instruction.trim()}`;
   }
   const capabilityContext = buildCapabilityContext(runPlan);
-  const modeConstraints = prepared && options.hasAttachments
+  const answerOnlyIntent = runPlan?.queryRewrite?.outputIntent === 'answer';
+  const modeConstraints = answerOnlyIntent
+    ? `只做分析问答模式：
+- 只读取平台已经准备好的 final/evidence 数据，不能修改代码、数据文件、证据文件或生成看板。
+- 用中文直接回答用户问题，引用商品编号和可核验指标；缺失字段必须明确说明。
+- 回答完成后必须调用 submit_result，artifacts 传空数组，summary 写入面向用户的结论；不要声称看板已生成。`
+    : prepared && options.hasAttachments
     ? `附件证据补充模式：
 - 保留平台已有 final/evidence，只通过图片提取 typed tool 补充附件事实、置信边界和人工确认缺口。
 - 只更新与图片证据直接相关的 final/evidence，再按 initial dashboard contract 定向编辑页面。

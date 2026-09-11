@@ -357,13 +357,30 @@ function inferCapabilityId(params: {
   return params.profileCapabilityId;
 }
 
-function buildAnalysisSteps(capabilityId: string, hasEntities: boolean, instruction: string): string[] {
+function buildAnalysisSteps(
+  capabilityId: string,
+  hasEntities: boolean,
+  instruction: string,
+  outputIntent: 'dashboard' | 'answer' = 'dashboard',
+): string[] {
   const common = [
     hasEntities
       ? '确认输入类目/商品实体（item:/cat: 或名称经 /resolve 解析）。'
       : '通过 /api/v1/commerce/resolve 解析用户问题中的类目/商品；无法解析时按全库口径或发起澄清。',
     '调用 /api/v1/commerce/meta，确认数据窗口与数据规模可用。',
   ];
+
+  if (outputIntent === 'answer') {
+    const answerDataStep = capabilityId === 'price_inventory'
+      ? '调用 /api/v1/commerce/inventory-risk 和相关漏斗接口，按库存、浏览、购买和转化指标整理回答。'
+      : '调用当前能力对应的数据接口，按用户问题整理可核验的分析回答。';
+    return [
+      ...common,
+      answerDataStep,
+      '明确真实行为数据、合成经营字段和数据窗口边界。',
+      '只返回中文分析结论与限制说明，不生成或修改看板。',
+    ];
+  }
 
   if (capabilityId === 'catalog_structure') {
     if (!hasEntities && isWholeCatalogInstruction(instruction)) {
@@ -603,7 +620,12 @@ export async function writeInitialRunPlan(params: {
         ]
       : [
           ...plannedCapabilityNotice(capability.id, executionCapability.id),
-          ...buildAnalysisSteps(capability.id, entities.length > 0, planningInstruction),
+          ...buildAnalysisSteps(
+            capability.id,
+            entities.length > 0,
+            planningInstruction,
+            queryRewrite.outputIntent,
+          ),
         ],
     visualization: {
       required:
@@ -712,7 +734,9 @@ export async function writeInitialRunPlan(params: {
       ? queryRewrite.safety.message ?? '任务已被安全策略拒绝。'
       : clarification.required
         ? `任务缺少关键输入，需要先向用户澄清：${clarification.questions.join('；')}`
-        : `已生成${capability.name}计划，下一步将按计划解析类目/商品实体、获取真实数据并生成可视化产物。`,
+        : queryRewrite.outputIntent === 'answer'
+          ? `已生成${capability.name}分析计划，下一步将按计划取数并返回分析回答，不生成看板。`
+          : `已生成${capability.name}计划，下一步将按计划解析类目/商品实体、获取真实数据并生成可视化产物。`,
     created_at: now,
   });
 

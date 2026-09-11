@@ -80,6 +80,7 @@ export function runValidationAfterExecution(params: {
   conversationId?: string | null;
   cliSource?: string | null;
   agentExecutionSuccessSummary?: string;
+  outputIntent?: "dashboard" | "answer";
   governedKnowledge?: GovernedKnowledgeCapsule | null;
   governedKnowledgePreparation?: GovernedKnowledgePreparation | null;
   governedKnowledgeTaskCategory?: string;
@@ -1355,6 +1356,107 @@ export function runValidationAfterExecution(params: {
     }
   };
 
+  const completeAnswerOnly = async (executionError?: unknown): Promise<void> => {
+    const classifiedError = executionError
+      ? classifyPiAgentExecutionError(executionError)
+      : null;
+    const message = classifiedError?.message ??
+      (executionError instanceof Error ? executionError.message : String(executionError ?? ""));
+
+    // Answer-only requests do not produce a dashboard candidate. Close the
+    // provisional Mission so it cannot later be mistaken for an unaccepted
+    // dashboard generation.
+    await cancelPiAgentMission({
+      missionId: activeMission.id,
+      projectId: params.projectId,
+      requestId: params.requestId,
+      message: "只做问答模式不生成看板，已关闭临时 Mission。",
+    }).catch((error) => {
+      if (!(error instanceof PiAgentMissionStateError)) {
+        console.error("[API] Failed to close answer-only Mission:", error);
+      }
+    });
+
+    if (executionError) {
+      const failure = message || "分析回答执行失败。";
+      await updateRetailGenerationStep({
+        projectPath: params.projectPath,
+        projectId: params.projectId,
+        requestId: params.requestId,
+        stepId: "agent_execution",
+        status: "failed",
+        summary: `只做问答执行失败：${failure}`,
+        errorMessage: failure,
+      });
+      await updateRetailGenerationStep({
+        projectPath: params.projectPath,
+        projectId: params.projectId,
+        requestId: params.requestId,
+        stepId: "completed",
+        status: "failed",
+        summary: `只做问答未完成：${failure}`,
+        runStatus: "failed",
+        errorMessage: failure,
+      });
+      await markUserRequestAsFailed(params.projectId, params.requestId, failure);
+      await finishGenerationQueueItem({
+        projectPath: params.projectPath,
+        projectId: params.projectId,
+        requestId: params.requestId,
+        status: "failed",
+        errorMessage: failure,
+      });
+      await params.publishWorkspaceProgress({ stage: 5, failureReason: failure });
+      streamManager.publish(params.projectId, {
+        type: "status",
+        data: {
+          status: "answer_failed",
+          message: `分析回答未完成：${failure}`,
+          requestId: params.requestId,
+          metadata: { terminalFailure: true, outputIntent: "answer" },
+        },
+      });
+      return;
+    }
+
+    await updateRetailGenerationStep({
+      projectPath: params.projectPath,
+      projectId: params.projectId,
+      requestId: params.requestId,
+      stepId: "agent_execution",
+      status: "success",
+      summary: "分析回答已完成，不生成看板。",
+      metadata: { outputIntent: "answer" },
+    });
+    await updateRetailGenerationStep({
+      projectPath: params.projectPath,
+      projectId: params.projectId,
+      requestId: params.requestId,
+      stepId: "completed",
+      status: "success",
+      summary: "只做问答模式完成，本次未修改或生成看板。",
+      runStatus: "completed",
+      metadata: { outputIntent: "answer" },
+    });
+    await finishGenerationQueueItem({
+      projectPath: params.projectPath,
+      projectId: params.projectId,
+      requestId: params.requestId,
+      status: "completed",
+    });
+    await markUserRequestAsCompleted(params.projectId, params.requestId);
+    await params.publishWorkspaceProgress({ stage: 5, answerOnly: true });
+    streamManager.publish(params.projectId, {
+      type: "status",
+      data: {
+        status: "answer_ready",
+        message: "分析回答已完成，本次未生成看板。",
+        requestId: params.requestId,
+        metadata: { outputIntent: "answer" },
+      },
+    });
+  };
+
   return (async () => {
     let executionCandidate: PiAgentCandidateSubmission | null = null;
     let executionError: unknown;
@@ -1369,7 +1471,11 @@ export function runValidationAfterExecution(params: {
     }
 
     try {
-      await validateAndRepair(executionCandidate, executionError);
+      if (params.outputIntent === "answer") {
+        await completeAnswerOnly(executionError);
+      } else {
+        await validateAndRepair(executionCandidate, executionError);
+      }
     } catch (validationError) {
       console.error(
         "[API] Automatic validation after agent execution failed:",

@@ -10,6 +10,7 @@ import {
 } from '@/lib/generation/generation-terminal';
 import { readGenerationState } from '@/lib/generation/generation-state';
 import { readRetailValidationReport } from '@/lib/commerce/retail-validation';
+import { readRetailRunPlan } from '@/lib/domains/retail/workspace';
 import { readPiAgentAcceptedMissionSnapshot } from '@/lib/services/pi-agent-mission-store';
 import { getProjectById } from '@/lib/services/project';
 
@@ -40,10 +41,11 @@ export async function GET(_request: Request, { params }: RouteContext) {
           process.env.PROJECTS_DIR || './data/projects',
           project_id,
         );
-    const [{ previewManager }, generation, validation] = await Promise.all([
+    const [{ previewManager }, generation, validation, runPlan] = await Promise.all([
       import('@/lib/services/preview'),
       readGenerationState(projectPath),
       readRetailValidationReport(projectPath),
+      readRetailRunPlan(projectPath),
     ]);
     const preview = await previewManager.getReconciledStatus(
       project_id,
@@ -51,7 +53,10 @@ export async function GET(_request: Request, { params }: RouteContext) {
       project.previewPort,
     );
     const acceptedMission =
-      generation?.requestId && requiresPiAgentMissionAcceptance(generation)
+      generation?.requestId && requiresPiAgentMissionAcceptance(
+        generation,
+        runPlan?.queryRewrite?.outputIntent ?? null,
+      )
         ? await readPiAgentAcceptedMissionSnapshot(
             project_id,
             generation.requestId,
@@ -63,6 +68,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
       preview,
       acceptedMission,
       persistedPreviewUrl: project.previewUrl,
+      outputIntent: runPlan?.queryRewrite?.outputIntent ?? null,
     });
 
     return NextResponse.json({ success: true, data: snapshot });

@@ -22,6 +22,7 @@ export type WorkspaceProgressOptions = {
   validationWarningCount?: number;
   failureReason?: string;
   cancelledReason?: string;
+  answerOnly?: boolean;
 };
 
 const OPERATIONAL_MARKERS = [
@@ -143,7 +144,9 @@ export function buildWorkspaceProgressMessage(options: WorkspaceProgressOptions)
       return [
         `**【进度 3/5】${WORKSPACE_PROGRESS_STAGE_LABELS[2]}**`,
         '',
-        '开始基于任务合同、已获取数据与可用 Skills 生成工作区；缺失字段会继续补齐或明确标注。',
+        options.runPlan?.queryRewrite?.outputIntent === 'answer'
+          ? '开始基于任务合同、已获取数据与可用 Skills 整理分析回答；本次不生成看板。'
+          : '开始基于任务合同、已获取数据与可用 Skills 生成工作区；缺失字段会继续补齐或明确标注。',
         ...(options.skillIds?.length
           ? ['', `当前 Skills：${listSummary(options.skillIds, '按任务合同选择', 6)}。`]
           : []),
@@ -172,6 +175,13 @@ export function buildWorkspaceProgressMessage(options: WorkspaceProgressOptions)
           '',
           `原因：${boundedText(options.failureReason, 320)}`,
         ].join('\n');
+      }
+      if (options.answerOnly) {
+        return [
+          '**【进度 5/5】分析回答已完成**',
+          '',
+          '只做问答模式已完成，本次仅返回分析结论，未修改或生成看板。',
+        ].join('\\n');
       }
       const details = [
         options.validationCheckCount !== undefined

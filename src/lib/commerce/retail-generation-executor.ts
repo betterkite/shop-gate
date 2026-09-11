@@ -394,6 +394,7 @@ async function executeRetailGeneration(
     missionSpec,
   });
   const relatedAgentRequestIds = new Set<string>([job.requestId]);
+  const outputIntent = runPlan.queryRewrite?.outputIntent ?? "dashboard";
   const publishWorkspaceProgress = createWorkspaceProgressPublisher({
     projectId: job.projectId,
     requestId: job.requestId,
@@ -487,6 +488,7 @@ async function executeRetailGeneration(
     agentExecutionSuccessSummary: payload.usePrefetchedSelectionDashboard
       ? "平台已完成本地零售数据预取和标准看板生成，跳过 Agent 生成并进入自动验证。"
       : undefined,
+    outputIntent,
     governedKnowledge,
     governedKnowledgePreparation: payload.governedKnowledgePreparation,
     governedKnowledgeTaskCategory: payload.governedKnowledgeTaskCategory,

@@ -78,6 +78,25 @@ describe('generation terminal snapshot', () => {
     });
   });
 
+  it('finishes an answer-only run without requiring validation or preview', () => {
+    const snapshot = deriveGenerationTerminalSnapshot({
+      generation: piAgentGeneration('answer-request'),
+      validation: null,
+      preview: preview('running', 'http://localhost:4100'),
+      outputIntent: 'answer',
+    });
+
+    expect(snapshot).toMatchObject({
+      status: 'answer_ready',
+      terminal: true,
+      outputIntent: 'answer',
+      missionAcceptanceRequired: false,
+      missionAcceptanceSatisfied: true,
+      previewUrl: null,
+      previewPort: null,
+    });
+  });
+
   it('fails closed for a PI Agent generation without an accepted receipt', () => {
     const snapshot = deriveGenerationTerminalSnapshot({
       generation: piAgentGeneration('request-1'),

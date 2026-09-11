@@ -8,6 +8,7 @@ function snapshot(
 ): GenerationTerminalSnapshot {
   return {
     requestId: 'request-1',
+    outputIntent: null,
     status: 'preview_pending',
     terminal: false,
     validationStatus: 'passed',
@@ -40,6 +41,24 @@ describe('planPreviewReconciliation', () => {
         attemptedRecoveryKey: null,
       }),
     ).toEqual({ action: 'withhold_until_acceptance' });
+  });
+
+  it('does not open a dashboard for an answer-only terminal state', () => {
+    expect(
+      planPreviewReconciliation({
+        projectId: 'project-1',
+        snapshot: snapshot({
+          status: 'answer_ready',
+          outputIntent: 'answer',
+          terminal: true,
+          validationStatus: 'pending',
+          missionAcceptanceRequired: false,
+          missionAcceptanceSatisfied: true,
+        }),
+        currentPreviewUrl: null,
+        attemptedRecoveryKey: null,
+      }),
+    ).toEqual({ action: 'wait' });
   });
 
   it.each(['failed', 'needs_revalidation', 'cancelled', 'needs_clarification', 'refused'] as const)(

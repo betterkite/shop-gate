@@ -703,6 +703,7 @@ async function executePiAgentPhase(
 
     const runPlan = await readRetailRunPlan(workspace);
     const capabilityId = runPlan?.requestedCapabilityId ?? runPlan?.capabilityId ?? null;
+    const answerOnlyIntent = runPlan?.queryRewrite?.outputIntent === 'answer';
     const [preparedAssessment, repairReport] = await Promise.all([
       assessPlatformPreparedArtifacts(workspace, runPlan),
       profile === 'repair' ? readRetailValidationReport(workspace) : Promise.resolve(null),
@@ -727,7 +728,7 @@ async function executePiAgentPhase(
       classifyPiAgentPreparedIntent(instruction) === 'standard' &&
       isRetailDashboardSpecCapabilitySupported(templateId, variantId) &&
       preparedAssessment.dashboardSpecReady;
-    const preparedIntent = profile === 'generation' && platformPrepared && !images?.length
+    const preparedIntent = profile === 'generation' && platformPrepared && !images?.length && !answerOnlyIntent
       ? standardCompilerEligible ? 'standard' as const : 'custom' as const
       : null;
     const phaseGraph = createPiAgentPhaseGraph({
@@ -788,10 +789,12 @@ async function executePiAgentPhase(
       : platformPrepared
         ? [
             ...(images?.length ? ['data-quality', 'image-extraction'] : []),
-            'dashboard-visualization',
+            ...(answerOnlyIntent
+              ? ['data-quality']
+              : ['dashboard-visualization']),
           ]
         : undefined;
-    const dashboardContractRequired = profile !== 'repair' || needsDashboardRepairSkill;
+    const dashboardContractRequired = !answerOnlyIntent && (profile !== 'repair' || needsDashboardRepairSkill);
     const repairWriteGlobs = repairReport
       ? retailValidationRepairWritableGlobs(repairReport)
       : undefined;
@@ -810,12 +813,12 @@ async function executePiAgentPhase(
       : preparedIntent
         ? [...RETAIL_PREPARED_SOURCE_WRITE_GLOBS]
         : undefined;
-    const canWriteDashboardSource = profile !== 'repair' || repairNeedsSourceWrites;
+    const canWriteDashboardSource = !answerOnlyIntent && (profile !== 'repair' || repairNeedsSourceWrites);
     // Validation repair has already received a deterministic platform repair
     // attempt. Do not expose the full renderer again to the model: if its
     // preconditions changed, the call can only fail deterministically and burn
     // another turn. Remaining source failures use one hash-guarded edit lane.
-    const includeDashboardSpec = profile !== 'repair' &&
+    const includeDashboardSpec = !answerOnlyIntent && profile !== 'repair' &&
       canWriteDashboardSource && preparedIntent === 'standard';
     const repairNeedsFileWrites = profile === 'repair' && Boolean(
       needsDataRepairSkill || repairWriteGlobs?.some((glob) => !glob.startsWith('app/')),
@@ -843,10 +846,16 @@ async function executePiAgentPhase(
           ]
         : [];
     const maxToolOutputChars = positiveIntegerEnv('PI_AGENT_TOOL_OUTPUT_CHARS', 6_000);
+    const answerOnlyReadOnly = answerOnlyIntent && !images?.length;
     const tools = createRetailPiAgentTools({
       workspaceRoot: workspace,
       profile,
-      ...(runtimeProfileWriteGlobs
+      ...(answerOnlyReadOnly
+        ? {
+            profileAllowedWriteGlobs: [],
+            includeDefaultWriteGlobs: false,
+          }
+        : runtimeProfileWriteGlobs
         ? {
             profileAllowedWriteGlobs: runtimeProfileWriteGlobs,
             includeDefaultWriteGlobs: false,
@@ -892,6 +901,7 @@ async function executePiAgentPhase(
         excludedSkillIds: [
           ...(!images?.length ? ['image-extraction'] : []),
           ...(runPlan?.entities?.length ? ['commerce-entity-resolver'] : []),
+          ...(answerOnlyIntent ? ['dashboard-visualization'] : []),
         ],
         templateId,
         variantId,
@@ -1081,7 +1091,7 @@ async function executePiAgentPhase(
       progressStallTurns: phaseGraph.budgets.progressStallTurns,
       timeoutMs: Math.max(1, deadlineAt - Date.now()),
       requireTerminalTool: true,
-      requireWorkspaceWriteBeforeTerminal: true,
+      requireWorkspaceWriteBeforeTerminal: !answerOnlyReadOnly,
       toolApprovalHandler: createPrismaPiAgentToolApprovalHandler(
         positiveIntegerEnv('PI_AGENT_APPROVAL_POLL_INTERVAL_MS', 500),
       ),
@@ -1297,7 +1307,8 @@ async function executePiAgentPhase(
                 ? {
                     runtime: 'pi',
                     isPiAgentCandidate: true,
-                    hidden_from_ui: true,
+                    hidden_from_ui: !answerOnlyIntent,
+                    ...(answerOnlyIntent ? { isPiAgentFinal: true } : {}),
                   }
                 : {
                     runtime: 'pi',
@@ -1480,7 +1491,8 @@ async function executePiAgentPhase(
         metadata: {
           runtime: 'pi',
           isPiAgentCandidate: true,
-          hidden_from_ui: true,
+          hidden_from_ui: !answerOnlyIntent,
+          ...(answerOnlyIntent ? { isPiAgentFinal: true } : {}),
         },
       }).catch((error) => {
         console.error('[PI Agent] Failed to persist terminal summary projection:', error);

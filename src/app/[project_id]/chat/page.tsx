@@ -313,6 +313,7 @@ export default function ChatPage() {
   const [isSseFallbackActive, setIsSseFallbackActive] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [mobileWorkspaceView, setMobileWorkspaceView] = useState<MobileWorkspaceView>('chat');
+  const userSelectedWorkspaceViewRef = useRef(false);
   const [chatPaneWidth, setChatPaneWidth] = useState(CHAT_PANE_DEFAULT_WIDTH);
   const [isChatPaneResizing, setIsChatPaneResizing] = useState(false);
   const chatPaneRef = useRef<HTMLDivElement>(null);
@@ -1079,7 +1080,7 @@ const persistProjectPreferences = useCallback(
         setPreviewUrl(terminalSnapshot.previewUrl);
         setPreviewInitializationMessage('预览已就绪');
         setShowPreview(true);
-        setMobileWorkspaceView('preview');
+        if (!userSelectedWorkspaceViewRef.current) setMobileWorkspaceView('preview');
         setCurrentRoute('/');
         return true;
       }
@@ -1132,7 +1133,7 @@ const persistProjectPreferences = useCallback(
       previewUrlRef.current = nextPreviewUrl;
       setPreviewUrl(nextPreviewUrl);
       setShowPreview(true);
-      setMobileWorkspaceView('preview');
+      if (!userSelectedWorkspaceViewRef.current) setMobileWorkspaceView('preview');
       setCurrentRoute('/');
       return true;
     } catch (error) {
@@ -1194,7 +1195,7 @@ const persistProjectPreferences = useCallback(
           setPreviewUrl(previewPlan.previewUrl);
         }
         setShowPreview(true);
-        setMobileWorkspaceView('preview');
+        if (!userSelectedWorkspaceViewRef.current) setMobileWorkspaceView('preview');
         setIsStartingPreview(false);
         setIsRunning(false);
         setPreviewInitializationMessage('预览已就绪');
@@ -1211,7 +1212,7 @@ const persistProjectPreferences = useCallback(
         setRetailValidationState('passed');
         setRetailValidationMessage('自动验证通过，正在恢复持久看板预览。');
         setShowPreview(true);
-        setMobileWorkspaceView('preview');
+        if (!userSelectedWorkspaceViewRef.current) setMobileWorkspaceView('preview');
         if (
           !previewAutoRecoverySuppressedRef.current &&
           !previewTerminalFailureRef.current &&
@@ -1338,7 +1339,7 @@ const persistProjectPreferences = useCallback(
         body: JSON.stringify({ intent: 'explicit-user-stop' }),
       });
       previewUrlRef.current = null;
-      setPreviewUrl(null);
+    setPreviewUrl(null);
     } catch (error) {
       console.error('Error stopping preview:', error);
     }
@@ -2206,7 +2207,15 @@ const persistProjectPreferences = useCallback(
     previewTerminalFailureRef.current = false;
     previewUrlRef.current = null;
     setPreviewUrl(null);
-    setPreviewInitializationMessage('正在准备数据和可视化看板，验证通过后自动展示...');
+    userSelectedWorkspaceViewRef.current = false;
+    if (effectiveMode === 'chat') {
+      setMobileWorkspaceView('chat');
+    }
+    setPreviewInitializationMessage(
+      effectiveMode === 'chat'
+        ? '正在准备数据并生成分析回答...'
+        : '正在准备数据和可视化看板，验证通过后自动展示...',
+    );
     const requestId = crypto.randomUUID();
     let tempUserMessageId: string | null = null;
     let requestAccepted = false;
@@ -2590,13 +2599,22 @@ const persistProjectPreferences = useCallback(
       return;
     }
 
+    if (status === 'answer_ready') {
+      setIsRunning(false);
+      setAgentWorkComplete(true);
+      setRetailValidationState('unknown');
+      setRetailValidationMessage('分析回答已完成，本次未生成看板。');
+      setPreviewInitializationMessage('只做问答已完成；如需看板，请切换到“生成看板”后重新提交。');
+      return;
+    }
+
     if (status === 'preview_starting') {
       setIsRunning(true);
       setRetailValidationState('passed');
       setRetailValidationMessage('自动验证通过，正在确认持久看板预览。');
       setPreviewInitializationMessage(message ?? '正在启动并确认持久看板预览...');
       setShowPreview(true);
-      setMobileWorkspaceView('preview');
+      if (!userSelectedWorkspaceViewRef.current) setMobileWorkspaceView('preview');
       return;
     }
 
@@ -2660,7 +2678,7 @@ const persistProjectPreferences = useCallback(
       setRetailRepairPlan(null);
       if (readyPreviewUrl) {
         setShowPreview(true);
-        setMobileWorkspaceView('preview');
+        if (!userSelectedWorkspaceViewRef.current) setMobileWorkspaceView('preview');
         setPreviewInitializationMessage('正在核对 Mission 验收凭据与最终预览...');
         void reconcileGenerationTerminal();
         return;
@@ -2911,7 +2929,7 @@ const persistProjectPreferences = useCallback(
                   {projectName || '正在载入项目...'}
                 </h1>
                 <span className="hidden rounded-full border border-border/70 bg-background/70 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground xl:inline-flex">
-                  QUANT STUDIO
+                  Shop Gate
                 </span>
               </div>
               <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
@@ -2977,6 +2995,7 @@ const persistProjectPreferences = useCallback(
                 type="button"
                 aria-pressed={active}
                 onClick={() => {
+                  userSelectedWorkspaceViewRef.current = true;
                   setMobileWorkspaceView(item.id);
                   if (item.id === 'preview') setShowPreview(true);
                   if (item.id === 'files') {
@@ -3186,6 +3205,7 @@ const persistProjectPreferences = useCallback(
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                       onClick={() => {
+                        userSelectedWorkspaceViewRef.current = true;
                         setShowPreview(true);
                         setMobileWorkspaceView('preview');
                       }}
@@ -3201,6 +3221,7 @@ const persistProjectPreferences = useCallback(
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                       onClick={() => {
+                        userSelectedWorkspaceViewRef.current = true;
                         setShowPreview(false);
                         setMobileWorkspaceView('files');
                         if (!hasTreeLoaded && !isTreeLoading) {

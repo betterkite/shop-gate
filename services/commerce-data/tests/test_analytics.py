@@ -1,12 +1,63 @@
 """P28 经营分析的可解释规则单测。"""
 
+import asyncio
 from datetime import date
 
+import pytest
+
 from shopgate_commerce_data.analytics import (
+    analytics_dataset_meta,
     classify_lifecycle_stage,
     classify_rfm,
     inventory_health_label,
 )
+
+
+def test_dataset_meta_preserves_isolated_dataset_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-upload",
+                "version": 1,
+                "source_kind": "mixed",
+                "source_name": "userbehavior_csv",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 3),
+                "generation_seed": 42,
+                "row_counts": {"behavior_events": 3},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [{
+            "first_event_ts": date(2025, 1, 1),
+            "last_event_ts": date(2025, 1, 3),
+            "event_count": 3,
+            "user_count": 2,
+            "item_count": 2,
+            "category_count": 1,
+            "source_count": 1,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_dataset_meta("retail-upload"))
+
+    assert result["dataset_id"] == "retail-upload"
+    assert result["first_event_ts"] == "2025-01-01"
+    assert result["last_event_ts"] == "2025-01-03"
+    assert result["behavior_source"] == "userbehavior_csv"
+    assert result["event_count"] == 3
 
 
 def test_rfm_labels_are_user_facing_and_stable() -> None:

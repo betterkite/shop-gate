@@ -185,6 +185,7 @@ function planDatasetKeys(plan: RetailRunPlan): Set<string> {
 }
 
 async function fetchExpandedAnalyticsDatasets(params: {
+  datasetId: string;
   rawDir: string;
   rawFiles: string[];
   warnings: string[];
@@ -201,7 +202,7 @@ async function fetchExpandedAnalyticsDatasets(params: {
   const datasets: Record<string, JsonRecord> = {};
   for (const [key, endpoint] of endpoints) {
     try {
-      const payload = await fetchCommerceJson(endpoint, { dataset_id: DEFAULT_ANALYTICS_DATASET_ID, limit: '20' });
+      const payload = await fetchCommerceJson(endpoint, { dataset_id: params.datasetId, limit: '20' });
       datasets[key] = payload;
       const filePath = path.join(params.rawDir, `${key}.json`);
       await writeJson(filePath, payload);
@@ -209,7 +210,7 @@ async function fetchExpandedAnalyticsDatasets(params: {
       params.sources.push({
         source: endpoint,
         dataset: key,
-        endpoint: `${endpoint}?dataset_id=${DEFAULT_ANALYTICS_DATASET_ID}`,
+        endpoint: `${endpoint}?dataset_id=${params.datasetId}`,
         status: 'success',
         fetched_at: new Date().toISOString(),
       });
@@ -218,7 +219,7 @@ async function fetchExpandedAnalyticsDatasets(params: {
       params.sources.push({
         source: endpoint,
         dataset: key,
-        endpoint: `${endpoint}?dataset_id=${DEFAULT_ANALYTICS_DATASET_ID}`,
+        endpoint: `${endpoint}?dataset_id=${params.datasetId}`,
         status: 'failed',
         fetched_at: new Date().toISOString(),
       });
@@ -453,14 +454,19 @@ export async function prefetchRetailDataForRunPlan(params: {
 
   let meta: JsonRecord | null = null;
   try {
-    meta = await fetchCommerceJson('/api/v1/commerce/meta');
+    const metaQuery: Record<string, string> = params.plan.datasetId
+      ? { dataset_id: params.plan.datasetId }
+      : {};
+    meta = await fetchCommerceJson('/api/v1/commerce/meta', metaQuery);
     const metaPath = path.join(rawDir, 'meta.json');
     await writeJson(metaPath, meta);
     rawFiles.push(path.relative(params.projectPath, metaPath).replaceAll(path.sep, '/'));
     sources.push({
       dataset: 'meta',
       source: '/api/v1/commerce/meta',
-      endpoint: '/api/v1/commerce/meta',
+      endpoint: params.plan.datasetId
+        ? `/api/v1/commerce/meta?dataset_id=${params.plan.datasetId}`
+        : '/api/v1/commerce/meta',
       artifact_path: 'data_file/raw/meta.json',
       status: 'success',
       fetched_at: new Date().toISOString(),
@@ -471,7 +477,9 @@ export async function prefetchRetailDataForRunPlan(params: {
     sources.push({
       source: '/api/v1/commerce/meta',
       dataset: 'meta',
-      endpoint: '/api/v1/commerce/meta',
+      endpoint: params.plan.datasetId
+        ? `/api/v1/commerce/meta?dataset_id=${params.plan.datasetId}`
+        : '/api/v1/commerce/meta',
       status: 'failed',
       fetched_at: new Date().toISOString(),
     });
@@ -579,6 +587,7 @@ export async function prefetchRetailDataForRunPlan(params: {
     });
     if (params.plan.visualization?.templateId === 'analytics-bi') {
       Object.assign(datasets, await fetchExpandedAnalyticsDatasets({
+        datasetId: params.plan.datasetId ?? DEFAULT_ANALYTICS_DATASET_ID,
         rawDir,
         rawFiles,
         warnings,

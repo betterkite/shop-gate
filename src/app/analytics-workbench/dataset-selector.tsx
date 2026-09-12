@@ -43,6 +43,8 @@ function datasetSignature(contracts: JsonRecord[]): string {
   })));
 }
 
+export const ACTIVE_RETAIL_DATASET_STORAGE_KEY = 'shopgate.active-retail-dataset-id';
+
 export function DatasetSelector({
   contracts,
   selectedDatasetId,
@@ -169,6 +171,10 @@ export function DatasetSelector({
   useEffect(() => {
     signatureRef.current = datasetSignature(contracts);
   }, [contracts]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ACTIVE_RETAIL_DATASET_STORAGE_KEY, selectedDatasetId);
+  }, [selectedDatasetId]);
 
   useEffect(() => {
     let active = true;

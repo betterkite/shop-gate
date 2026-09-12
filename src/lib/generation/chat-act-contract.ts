@@ -12,6 +12,11 @@ const projectAssetPathSchema = z.string().trim().min(1).max(2_048).refine((value
   return Boolean(filename) && !filename.includes('/') && filename !== '.' && filename !== '..';
 }, 'Attachment path must be a project-relative assets/<filename> path.');
 
+const retailDatasetIdSchema = z.string().trim().regex(
+  /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/,
+  'Dataset ID may contain only letters, numbers, dots, underscores and hyphens.',
+).optional();
+
 export const chatActImageAttachmentSchema = z.object({
   name: boundedOptionalText(256),
   path: projectAssetPathSchema,
@@ -28,6 +33,7 @@ export const chatActRequestSchema = z.object({
   isInitialPrompt: z.boolean().default(false),
   capabilityId: boundedOptionalText(128),
   capabilitySelectionSource: z.enum(['manual', 'default', 'inferred']).optional(),
+  datasetId: retailDatasetIdSchema,
 }).strict().refine((value) => (
   value.instruction.trim().length > 0 ||
   (value.displayInstruction?.trim().length ?? 0) > 0 ||

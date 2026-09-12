@@ -56,6 +56,8 @@ export interface RetailRunPlan {
   llm: ProjectLlmConfig;
   requestedCapabilityId?: string;
   executionCapabilityId?: string;
+  /** Agent 本轮预取所绑定的数据集；缺省时才允许使用环境默认数据集。 */
+  datasetId?: string;
   question: string;
   queryRewrite?: RetailQueryRewriteResult;
   /** 已解析实体的文本形式（item:<id> / cat:<id> / 名称提示）。 */
@@ -510,6 +512,7 @@ export async function writeInitialRunPlan(params: {
   previousPlan?: RetailRunPlan | null;
   queryRewrite?: RetailQueryRewriteResult;
   llmModel?: string | null;
+  datasetId?: string | null;
 }) {
   await ensureRetailWorkspace(params.projectPath);
   const profileSelection = await readDataAgentProfile(params.projectPath);
@@ -566,6 +569,7 @@ export async function writeInitialRunPlan(params: {
   const now = new Date().toISOString();
   const llm = getProjectLlmConfig(params.llmModel);
   const entities = explicitEntities.length > 0 ? explicitEntities : inheritedEntities;
+  const datasetId = params.datasetId?.trim() || (inheritPreviousPlan ? params.previousPlan?.datasetId : undefined);
   const plannedEntities = {
     categoryIds: queryRewrite.resolvedEntities
       .filter((item) => item.kind === 'category')
@@ -659,6 +663,7 @@ export async function writeInitialRunPlan(params: {
     llm,
     requestedCapabilityId: capability.id,
     executionCapabilityId: executionCapability.id,
+    ...(datasetId ? { datasetId } : {}),
     question: planningInstruction,
     queryRewrite,
     entities,

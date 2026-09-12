@@ -38,9 +38,13 @@ def create_commerce_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1/commerce", tags=["commerce"])
 
     @router.get("/meta")
-    async def meta() -> dict[str, Any]:
+    async def meta(
+        dataset_id: Annotated[str | None, Query(max_length=120)] = None,
+    ) -> dict[str, Any]:
         """数据集口径：窗口、规模与真实/合成来源计数。"""
 
+        if dataset_id:
+            return await analytics.analytics_dataset_meta(dataset_id)
         return await retail.dataset_meta()
 
     @router.get("/datasets")

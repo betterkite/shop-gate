@@ -45,6 +45,14 @@ import { buildQuestionInstruction } from '@/components/chat/question-composer';
 // No longer loading ProjectSettings (managed by global settings on main page)
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
+const ACTIVE_RETAIL_DATASET_STORAGE_KEY = 'shopgate.active-retail-dataset-id';
+const RETAIL_DATASET_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
+
+function readActiveRetailDatasetId(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const value = window.localStorage.getItem(ACTIVE_RETAIL_DATASET_STORAGE_KEY)?.trim();
+  return value && RETAIL_DATASET_ID_PATTERN.test(value) ? value : undefined;
+}
 
 const assistantBrandColors = ACTIVE_CLI_BRAND_COLORS;
 
@@ -510,6 +518,7 @@ export default function ChatPage() {
         conversationId: conversationId || undefined,
         requestId,
         selectedModel,
+        datasetId: readActiveRetailDatasetId(),
       };
 
       const r = await fetch(`${API_BASE}/api/chat/${projectId}/act`, {
@@ -2203,6 +2212,7 @@ const persistProjectPreferences = useCallback(
       cliPreference: preferredCli,
       model: selectedModel,
       mode: effectiveMode,
+      datasetId: readActiveRetailDatasetId(),
     });
 
     // Check for duplicate pending requests
@@ -2333,6 +2343,7 @@ const persistProjectPreferences = useCallback(
         conversationId: conversationId || undefined,
         requestId,
         selectedModel,
+        datasetId: readActiveRetailDatasetId(),
       };
 
       console.log('📸 Sending request to act API:', {

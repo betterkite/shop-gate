@@ -17,10 +17,12 @@ describe('chat act request contract', () => {
       isInitialPrompt: true,
       capabilityId: 'single-stock-diagnosis',
       capabilitySelectionSource: 'manual',
+      datasetId: 'retail-demo-p31',
     })).toMatchObject({
       requestId: 'request-1',
       capabilityId: 'single-stock-diagnosis',
       capabilitySelectionSource: 'manual',
+      datasetId: 'retail-demo-p31',
       images: [{ path: 'assets/holding.png' }],
       isInitialPrompt: true,
     });

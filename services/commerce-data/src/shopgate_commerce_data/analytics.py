@@ -46,6 +46,42 @@ async def _contract(dataset_id: str) -> dict[str, Any]:
     return {key: _iso(value) for key, value in row.items()}
 
 
+async def analytics_dataset_meta(dataset_id: str) -> dict[str, Any]:
+    """Return the window and scale for one isolated analytics dataset."""
+
+    contract = await _contract(dataset_id)
+    rows = await fetch_all(
+        """
+        SELECT MIN(event_ts) AS first_event_ts,
+               MAX(event_ts) AS last_event_ts,
+               COUNT(*) AS event_count,
+               COUNT(DISTINCT user_id) AS user_count,
+               COUNT(DISTINCT item_id) AS item_count,
+               COUNT(DISTINCT category_id) AS category_count,
+               COUNT(DISTINCT source) AS source_count
+        FROM commerce.dataset_behavior_events
+        WHERE dataset_id = %s
+        """,
+        (dataset_id,),
+    )
+    row = rows[0] if rows else {}
+    return {
+        "dataset_id": dataset_id,
+        "first_event_ts": _iso(row.get("first_event_ts")) or contract.get("window_start"),
+        "last_event_ts": _iso(row.get("last_event_ts")) or contract.get("window_end"),
+        "event_count": row.get("event_count", 0),
+        "user_count": row.get("user_count", 0),
+        "item_count": row.get("item_count", 0),
+        "category_count": row.get("category_count", 0),
+        "source_count": row.get("source_count", 0),
+        "behavior_source": contract.get("source_name"),
+        "source_kind": contract.get("source_kind"),
+        "synthetic_fields": contract.get("synthetic_fields", []),
+        "window_start": contract.get("window_start"),
+        "window_end": contract.get("window_end"),
+    }
+
+
 def _response(dataset_id: str, contract: dict[str, Any], **payload: Any) -> dict[str, Any]:
     return {
         "dataset_id": dataset_id,

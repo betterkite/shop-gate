@@ -31,7 +31,7 @@ uv run shopgate-commerce-import aggregate-daily
 
 - `GET /health`：进程存活检查。
 - `GET /ready`：数据库与 Redis 就绪检查。
-- `GET /api/v1/commerce/meta`：数据窗口、来源和规模。
+- `GET /api/v1/commerce/meta`：数据窗口、来源和规模；传 `dataset_id` 时读取指定扩展数据集。
 - `GET /api/v1/commerce/datasets`：扩展经营分析数据集的版本、来源、合成字段和限制。
 - `POST /api/v1/commerce/datasets/import`：异步生成隔离的合成经营分析数据集并执行质量扫描；请求返回任务 ID。
 - `POST /api/v1/commerce/datasets/import/csv`：上传标准五列行为事件 CSV，保留行为来源，并为价格、成本、渠道、订单和库存补充字段标记合成口径。

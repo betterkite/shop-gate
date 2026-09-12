@@ -30,6 +30,7 @@
 - CSV 运行态验收：上传 4 条标准行为事件后任务成功完成，质量扫描 `severity=ok`、`issue_count=0`，结果返回 `behavior_source=userbehavior_csv`；临时 `retail-demo-csv-smoke` 数据集、质量记录和任务已清理。
 - 商品级行为验收：CSV 行为明细写入 `dataset_behavior_events` 并按 `dataset_id` 隔离，`GET /api/v1/commerce/analytics/item-behavior` 返回商品级 PV、收藏、加购、购买和购买转化；合成数据集的行为明细同样落入该表并标记 `synthetic=true`。
 - 看板编排验收：数据集导入完成后任务历史出现独立“看板配置”任务，状态为已完成，结果带 `template_id=analytics-bi`、7 个工作台视图、质量扫描 ID 和 `preview_ready=false`；这一步只生成可追踪配置，不覆盖用户正在查看的其他数据集。
+- Agent 数据集上下文验收：工作台选择的数据集写入浏览器上下文；后续聊天请求携带合法 `datasetId`，写入 run plan，并由扩展分析预取统一传给 `analytics/*` 接口，避免回退到 `retail-demo-expanded-v1`。
 - 生成规则验收：合成入口的 `seed` 只用于可复现生成；它会与 `dataset_id`、实体 ID、日期和生成阶段一起派生独立随机序列，分别生成行为、价格、成本、折扣、渠道、订单和库存，不会把 5 这样的验收参数当作系统默认成员数。
 
 ## 尚未完成

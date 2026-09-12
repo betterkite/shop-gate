@@ -176,7 +176,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | --- | --- | --- |
 | `/health` | `GET` | 进程存活检查，不探测下游依赖 |
 | `/ready` | `GET` | 数据库与 Redis 就绪检查；required 依赖失败返回 503 |
-| `/api/v1/commerce/meta` | `GET` | 数据集口径：窗口、规模与真实/合成来源计数 |
+| `/api/v1/commerce/meta` | `GET` | 数据集口径：窗口、规模与真实/合成来源计数；传 `dataset_id` 时返回指定扩展数据集 |
 | `/api/v1/commerce/datasets` | `GET` | 扩展经营分析数据集契约；可用 `dataset_id` 过滤，返回版本、生成规则、合成字段和限制 |
 | `/api/v1/commerce/datasets/import` | `POST` | 受控生成隔离的合成经营分析数据集，异步执行质量扫描并返回任务 ID |
 | `/api/v1/commerce/datasets/import/csv` | `POST` | 上传标准五列行为事件 CSV，保留行为来源并异步补齐合成经营分析字段；`dataset_id`、`seed`、`filename` 使用查询参数 |

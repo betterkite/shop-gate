@@ -180,6 +180,12 @@ def inventory_health_label(closing_stock: int, average_daily_sold: float, days_c
 
 
 INVENTORY_HEALTH_LABELS = ("库存正常", "库存积压", "缺货风险", "有库存但无销量")
+REPLENISHMENT_PRIORITIES = (
+    "优先评估补货",
+    "建议评估补货",
+    "暂不建议补货",
+    "无销量先观察",
+)
 
 
 LIFECYCLE_STAGES = ("未启动", "成长期", "稳定期", "衰退风险")
@@ -847,6 +853,7 @@ async def replenishment_forecast(
     value: str | None = None,
     lead_time_days: int = 7,
     target_days: int = 30,
+    priority: str | None = None,
 ) -> dict[str, Any]:
     """按库存、日均销量和显式假设给出补货参考，不生成采购指令。"""
 
@@ -854,6 +861,9 @@ async def replenishment_forecast(
         raise ValueError("供货周期必须在 1 到 90 天之间")
     if not 1 <= target_days <= 180:
         raise ValueError("目标覆盖天数必须在 1 到 180 天之间")
+    if priority is not None and priority not in REPLENISHMENT_PRIORITIES:
+        raise ValueError(f"补货判断必须是：{'、'.join(REPLENISHMENT_PRIORITIES)}")
+    priority_filter = priority
     inventory = await inventory_analytics(
         dataset_id,
         limit=100_000,
@@ -919,12 +929,16 @@ async def replenishment_forecast(
             int(row["item_id"]),
         )
     )
-    page_count = max((len(forecast_items) + limit - 1) // limit, 1)
+    filtered_items = [
+        item for item in forecast_items
+        if priority_filter is None or item["replenishment_priority"] == priority_filter
+    ]
+    page_count = max((len(filtered_items) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
     items = [
         {key: value for key, value in row.items() if key != "_priority_rank"}
-        for row in forecast_items[start : start + limit]
+        for row in filtered_items[start : start + limit]
     ]
     return {
         **inventory,
@@ -942,6 +956,7 @@ async def replenishment_forecast(
         },
         "summary": {
             "item_count": len(forecast_items),
+            "filtered_item_count": len(filtered_items),
             "priority_counts": priority_counts,
             "reference_replenishment_item_count": sum(
                 1 for row in forecast_items
@@ -952,6 +967,7 @@ async def replenishment_forecast(
         "page": page,
         "page_size": limit,
         "page_count": page_count,
+        "selected_priority": priority_filter,
         "items": items,
     }
 

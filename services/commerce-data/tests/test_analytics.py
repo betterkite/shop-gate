@@ -427,6 +427,30 @@ def test_replenishment_forecast_uses_explicit_coverage_assumptions(
     assert result["items"][0]["replenishment_priority"] == "优先评估补货"
     assert result["items"][1]["replenishment_priority"] == "暂不建议补货"
 
+    filtered = asyncio.run(
+        replenishment_forecast(
+            "retail-replenishment",
+            limit=20,
+            priority="优先评估补货",
+        )
+    )
+
+    assert calls == 4
+    assert filtered["summary"]["item_count"] == 3
+    assert filtered["summary"]["filtered_item_count"] == 1
+    assert filtered["selected_priority"] == "优先评估补货"
+    assert [item["item_id"] for item in filtered["items"]] == [1000]
+
+
+def test_replenishment_forecast_rejects_unknown_priority() -> None:
+    with pytest.raises(ValueError, match="补货判断必须是"):
+        asyncio.run(
+            replenishment_forecast(
+                "retail-replenishment",
+                priority="未知判断",
+            )
+        )
+
 
 def test_rfm_segments_paginates_all_customers_without_losing_segments(
     monkeypatch: pytest.MonkeyPatch,

@@ -34,6 +34,7 @@ type Props = {
     stage?: string;
     segment?: string;
     health?: string;
+    priority?: string;
   }>;
 };
 
@@ -89,6 +90,7 @@ const LIFECYCLE_STAGE_OPTIONS = [
 
 const RFM_SEGMENT_OPTIONS = ['流失风险', '高价值', '新近购买', '稳定复购'] as const;
 const INVENTORY_HEALTH_OPTIONS = ['库存正常', '库存积压', '缺货风险', '有库存但无销量'] as const;
+const REPLENISHMENT_PRIORITY_OPTIONS = ['优先评估补货', '建议评估补货', '暂不建议补货', '无销量先观察'] as const;
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : null;
@@ -173,13 +175,20 @@ function inventoryHref(
   return `/analytics-workbench?${query.toString()}`;
 }
 
-function replenishmentHref(datasetId: string, page: number, dimension?: string, value?: string): string {
+function replenishmentHref(
+  datasetId: string,
+  page: number,
+  dimension?: string,
+  value?: string,
+  priority?: string,
+): string {
   const query = new URLSearchParams({
     view: 'replenishment',
     dataset_id: datasetId,
     page: String(page),
   });
   addFilterQuery(query, dimension, value);
+  if (priority) query.set('priority', priority);
   return `/analytics-workbench?${query.toString()}`;
 }
 
@@ -357,16 +366,29 @@ function RetentionSummary({ payload }: { payload: JsonRecord | null }) {
   </>;
 }
 
-function ReplenishmentSummary({ payload }: { payload: JsonRecord | null }) {
+function ReplenishmentSummary({
+  payload,
+  datasetId,
+  filterDimension,
+  filterValue,
+  selectedPriority,
+}: {
+  payload: JsonRecord | null;
+  datasetId: string;
+  filterDimension?: string;
+  filterValue?: string;
+  selectedPriority?: string;
+}) {
   const summary = asRecord(payload?.summary);
   const assumptions = asRecord(payload?.assumptions);
   const priorityCounts = asRecord(summary?.priority_counts);
   const items = asArray(payload?.items);
   return <>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Metric label="优先评估商品" value={displayNumber(priorityCounts?.['优先评估补货'])} hint="可用库存可能覆盖不了供货周期" />
-      <Metric label="建议评估商品" value={displayNumber(priorityCounts?.['建议评估补货'])} hint="库存低于目标覆盖天数" />
-      <Metric label="参考补货商品" value={displayNumber(summary?.reference_replenishment_item_count)} hint="按当前假设计算出正的参考补货量" />
+      {REPLENISHMENT_PRIORITY_OPTIONS.map((priority) => <Link key={priority} scroll={false} href={replenishmentHref(datasetId, 1, filterDimension, filterValue, priority)} className={`rounded-2xl border p-4 shadow-sm ${selectedPriority === priority ? 'border-primary bg-primary/10' : 'border-border/70 bg-card/85 hover:border-primary/50'}`}><p className="text-xs font-medium text-muted-foreground">{priority}</p><p className="mt-2 text-2xl font-semibold tracking-tight">{displayNumber(priorityCounts?.[priority])}</p><p className="mt-1 text-xs text-muted-foreground">点击查看对应商品</p></Link>)}
+    </div>
+    <div className="mt-3 grid grid-cols-2 gap-3">
+      <Metric label="参考补货商品数" value={displayNumber(summary?.reference_replenishment_item_count)} hint="按当前假设算出正的参考补货量" />
       <Metric label="参考补货件数" value={displayNumber(summary?.total_reference_replenishment_units)} hint="仅用于估算，不是采购数量" />
     </div>
     <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
@@ -387,7 +409,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       view: params?.view || 'overview',
       dataset_id: text(datasetContracts[0].dataset_id),
     });
-    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health'] as const) {
+    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health', 'priority'] as const) {
       if (params?.[key]) canonicalQuery.set(key, params[key]);
     }
     redirect(`/analytics-workbench?${canonicalQuery.toString()}`);
@@ -418,6 +440,10 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const inventoryHealth = INVENTORY_HEALTH_OPTIONS.includes(requestedInventoryHealth as (typeof INVENTORY_HEALTH_OPTIONS)[number])
     ? requestedInventoryHealth
     : '';
+  const requestedReplenishmentPriority = params?.priority?.trim() || '';
+  const replenishmentPriority = REPLENISHMENT_PRIORITY_OPTIONS.includes(requestedReplenishmentPriority as (typeof REPLENISHMENT_PRIORITY_OPTIONS)[number])
+    ? requestedReplenishmentPriority
+    : '';
   const lifecycleQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -435,6 +461,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     limit: '20',
     page: String(replenishmentPage),
   });
+  if (replenishmentPriority) replenishmentQuery.set('priority', replenishmentPriority);
   const customerQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -486,6 +513,8 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       ? customerHref(datasetId, 1, scopeDimension, scopeValue, customerSegment)
       : key === 'inventory'
         ? inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, inventoryHealth)
+        : key === 'replenishment'
+          ? replenishmentHref(datasetId, 1, itemScopeDimension, scopeValue, replenishmentPriority)
         : hrefFor(key, datasetId, scopeDimension, scopeValue),
     label,
     active: view === key,
@@ -501,7 +530,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const inventoryTotal = number(inventoryHealth ? inventory?.filtered_item_count : inventory?.item_count);
   const inventoryPageCount = Math.max(number(inventory?.page_count), 1);
   const inventoryCurrentPage = Math.max(number(inventory?.page) || 1, 1);
-  const replenishmentTotal = number(replenishment?.summary && asRecord(replenishment.summary)?.item_count);
+  const replenishmentTotal = number(replenishmentPriority
+    ? asRecord(replenishment?.summary)?.filtered_item_count
+    : asRecord(replenishment?.summary)?.item_count);
   const replenishmentPageCount = Math.max(number(replenishment?.page_count), 1);
   const replenishmentCurrentPage = Math.max(number(replenishment?.page) || 1, 1);
   const customerTotal = number(customerSegment ? (rfm?.filtered_customer_count ?? rfm?.customer_count) : rfm?.customer_count);
@@ -559,10 +590,10 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'inventory' ? <Panel title="库存健康" description="这里展示全部商品，每页 20 个。可售天数 = 结存库存 ÷ 平均日销量；没有销量的商品会单独标记。点击下面的判断标签可以筛选对应商品。"><div className="mb-5 rounded-xl border border-border/60 bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">按库存判断查看</p><span className="text-xs text-muted-foreground">数量是当前范围内的商品数</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><Link scroll={false} href={inventoryHref(datasetId, 1, itemScopeDimension, scopeValue)} className={`rounded-xl border p-3 ${!inventoryHealth ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}><p className="text-sm font-semibold">全部商品</p><p className="mt-1 text-lg font-semibold">{displayNumber(inventory?.item_count)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看完整库存列表</p></Link>{INVENTORY_HEALTH_OPTIONS.map((label) => <Link key={label} scroll={false} href={inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, label)} className={`rounded-xl border p-3 ${inventoryHealth === label ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}><p className="text-sm font-semibold">{label}</p><p className="mt-1 text-lg font-semibold">{displayNumber(asRecord(inventory?.risk_counts)?.[label])}</p><p className="mt-1 text-[11px] text-muted-foreground">查看对应商品明细</p></Link>)}</div></div><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前查看：{inventoryHealth || '全部商品'}；第 {displayNumber(inventoryCurrentPage)} / {displayNumber(inventoryPageCount)} 页，共 {displayNumber(inventoryTotal)} 个商品</span><span className="text-xs text-muted-foreground">按结存库存从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">库存判断</th><th className="px-3 py-3">结存库存</th><th className="px-3 py-3">平均日销量</th><th className="px-3 py-3">可售天数</th><th className="px-3 py-3">窗口销量</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(inventory?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.health_label)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.closing_stock)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.average_daily_sold, 2)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.days_cover, 1)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.sold_units)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>查看商品明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={inventoryCurrentPage > 1 ? inventoryHref(datasetId, inventoryCurrentPage - 1, itemScopeDimension, scopeValue, inventoryHealth) : inventoryHref(datasetId, inventoryCurrentPage, itemScopeDimension, scopeValue, inventoryHealth)} aria-disabled={inventoryCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(inventoryCurrentPage)} 页，共 {displayNumber(inventoryPageCount)} 页</div><Link scroll={false} href={inventoryCurrentPage < inventoryPageCount ? inventoryHref(datasetId, inventoryCurrentPage + 1, itemScopeDimension, scopeValue, inventoryHealth) : inventoryHref(datasetId, inventoryCurrentPage, itemScopeDimension, scopeValue, inventoryHealth)} aria-disabled={inventoryCurrentPage >= inventoryPageCount} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage >= inventoryPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={inventory} /></div></Panel> : null}
 
-      {view === 'replenishment' ? <Panel title="补货参考" description="按库存、日均销量和可解释的供货假设排序，帮助你先找出需要进一步核实的商品。">
-        <ReplenishmentSummary payload={replenishment} />
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(replenishmentCurrentPage)} 页，共 {displayNumber(replenishmentPageCount)} 页；全部商品 {displayNumber(replenishmentTotal)} 个</span><span className="text-xs text-muted-foreground">按补货优先级和参考补货量排序，每页 20 个</span></div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={replenishmentCurrentPage > 1 ? replenishmentHref(datasetId, replenishmentCurrentPage - 1, itemScopeDimension, scopeValue) : replenishmentHref(datasetId, replenishmentCurrentPage, itemScopeDimension, scopeValue)} aria-disabled={replenishmentCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${replenishmentCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(replenishmentCurrentPage)} 页，共 {displayNumber(replenishmentPageCount)} 页</div><Link scroll={false} href={replenishmentCurrentPage < replenishmentPageCount ? replenishmentHref(datasetId, replenishmentCurrentPage + 1, itemScopeDimension, scopeValue) : replenishmentHref(datasetId, replenishmentCurrentPage, itemScopeDimension, scopeValue)} aria-disabled={replenishmentCurrentPage >= replenishmentPageCount} className={`rounded-lg border px-3 py-2 text-sm ${replenishmentCurrentPage >= replenishmentPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div>
+      {view === 'replenishment' ? <Panel title="补货参考" description="按库存、日均销量和可解释的供货假设排序，帮助你先找出需要进一步核实的商品。点击上方判断可筛选对应商品。">
+        <ReplenishmentSummary payload={replenishment} datasetId={datasetId} filterDimension={itemScopeDimension} filterValue={scopeValue} selectedPriority={replenishmentPriority} />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前查看：{replenishmentPriority || '全部商品'}；第 {displayNumber(replenishmentCurrentPage)} / {displayNumber(replenishmentPageCount)} 页，共 {displayNumber(replenishmentTotal)} 个商品</span><span className="text-xs text-muted-foreground">按补货优先级和参考补货量排序，每页 20 个</span></div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={replenishmentCurrentPage > 1 ? replenishmentHref(datasetId, replenishmentCurrentPage - 1, itemScopeDimension, scopeValue, replenishmentPriority) : replenishmentHref(datasetId, replenishmentCurrentPage, itemScopeDimension, scopeValue, replenishmentPriority)} aria-disabled={replenishmentCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${replenishmentCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(replenishmentCurrentPage)} 页，共 {displayNumber(replenishmentPageCount)} 页</div><Link scroll={false} href={replenishmentCurrentPage < replenishmentPageCount ? replenishmentHref(datasetId, replenishmentCurrentPage + 1, itemScopeDimension, scopeValue, replenishmentPriority) : replenishmentHref(datasetId, replenishmentCurrentPage, itemScopeDimension, scopeValue, replenishmentPriority)} aria-disabled={replenishmentCurrentPage >= replenishmentPageCount} className={`rounded-lg border px-3 py-2 text-sm ${replenishmentCurrentPage >= replenishmentPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div>
         <div className="mt-4"><Limitations payload={replenishment} /></div>
       </Panel> : null}
 

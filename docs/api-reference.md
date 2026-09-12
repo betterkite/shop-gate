@@ -199,6 +199,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/analytics/channel-campaign` | `GET` | 渠道/活动的会话、用户、订单和订单转化，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/profit` | `GET` | 合成成本下的销售额、退款、成本、毛利和毛利率，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/inventory` | `GET` | 库存结存、平均日销量、可售天数和健康标签，必填 `dataset_id`，`limit` ≤100；可选 `health` 精确筛选库存正常、库存积压、缺货风险或有库存但无销量 |
+| `/api/v1/commerce/analytics/replenishment` | `GET` | 按供货周期和目标覆盖天数给出补货参考，必填 `dataset_id`；可选 `priority` 精确筛选优先评估补货、建议评估补货、暂不建议补货或无销量先观察 |
 | `/api/v1/commerce/analytics/lifecycle` | `GET` | 按窗口内首购/最近购买/活跃天数判断商品经营阶段，必填 `dataset_id`，`limit` ≤100 |
 | `/api/v1/commerce/analytics/price-elasticity` | `GET` | 价格带和成交价格关系参考；有显式实验分组时返回购买率差异，缺少对应样本时返回数据缺口说明 |
 

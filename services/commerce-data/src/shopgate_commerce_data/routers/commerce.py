@@ -402,6 +402,7 @@ def create_commerce_router() -> APIRouter:
         value: Annotated[str | None, Query(max_length=120)] = None,
         lead_time_days: Annotated[int, Query(ge=1, le=90)] = 7,
         target_days: Annotated[int, Query(ge=1, le=180)] = 30,
+        priority: Annotated[str | None, Query(max_length=30)] = None,
     ) -> dict[str, Any]:
         try:
             return await analytics.replenishment_forecast(
@@ -412,6 +413,7 @@ def create_commerce_router() -> APIRouter:
                 value,
                 lead_time_days,
                 target_days,
+                priority,
             )
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error

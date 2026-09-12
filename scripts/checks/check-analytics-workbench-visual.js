@@ -17,6 +17,7 @@ const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=$
 const inventoryHealthUrl = `${inventoryUrl}&health=${encodeURIComponent('缺货风险')}`;
 const scopedInventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const replenishmentUrl = baseUrl + '/analytics-workbench?view=replenishment&dataset_id=' + encodeURIComponent(datasetId) + '&page=1';
+const replenishmentPriorityUrl = `${replenishmentUrl}&priority=${encodeURIComponent('优先评估补货')}`;
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const customerSegmentUrl = `${customerUrl}&segment=${encodeURIComponent('新近购买')}`;
 const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
@@ -35,6 +36,18 @@ function fail(message, details = []) {
   console.error(`\n❌ 经营分析 BI 视觉检查失败：${message}`);
   for (const detail of details) console.error(`- ${detail}`);
   process.exitCode = 1;
+}
+
+async function gotoWithRetry(page, url, options) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await page.goto(url, options);
+    } catch (error) {
+      if (!String(error?.message || error).includes('ERR_ABORTED') || attempt === 2) throw error;
+      await page.waitForTimeout(250 * (attempt + 1));
+    }
+  }
+  return null;
 }
 
 async function inspectProfile(browser, storageState, profile) {
@@ -77,7 +90,7 @@ async function inspectProfile(browser, storageState, profile) {
   });
 
   try {
-    const response = await page.goto(drilldownUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    const response = await gotoWithRetry(page, drilldownUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (!response?.ok() || new URL(page.url()).pathname === '/login') {
       return { profile: profile.id, problems: [`页面请求或登录失败：HTTP ${response?.status() ?? '无响应'}`] };
     }
@@ -108,7 +121,7 @@ async function inspectProfile(browser, storageState, profile) {
     problems.push(...failedResources.map((item) => `${profile.id}: 资源失败 ${item}`));
     problems.push(...pageErrors.map((item) => `${profile.id}: 页面错误 ${item}`));
 
-    const scopedOverviewResponse = await page.goto(scopedOverviewUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    const scopedOverviewResponse = await gotoWithRetry(page, scopedOverviewUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (!scopedOverviewResponse?.ok() || new URL(page.url()).pathname === '/login') {
       problems.push(`${profile.id}: 筛选后的总览页请求或登录失败`);
     } else {
@@ -150,7 +163,7 @@ async function inspectProfile(browser, storageState, profile) {
       await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });
     }
 
-    const inventoryResponse = await page.goto(inventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    const inventoryResponse = await gotoWithRetry(page, inventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (!inventoryResponse?.ok() || new URL(page.url()).pathname === '/login') {
       problems.push(`${profile.id}: 库存页请求或登录失败`);
     } else {
@@ -166,7 +179,7 @@ async function inspectProfile(browser, storageState, profile) {
           detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看商品明细')),
         };
       });
-      const inventoryPage2Response = await page.goto(inventoryUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
+      const inventoryPage2Response = await gotoWithRetry(page, inventoryUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
       if (!inventoryPage2Response?.ok()) problems.push(`${profile.id}: 库存第 2 页请求失败`);
       await page.locator('main').getByRole('heading', { name: '库存健康', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
       const secondPageFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
@@ -178,14 +191,15 @@ async function inspectProfile(browser, storageState, profile) {
       const inventoryScreenshotPath = path.join(outputDir, `inventory-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: inventoryScreenshotPath, fullPage: true });
 
-      const scopedInventoryResponse = await page.goto(scopedInventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const scopedInventoryResponse = await gotoWithRetry(page, scopedInventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!scopedInventoryResponse?.ok()) problems.push(`${profile.id}: 商品筛选库存页请求失败`);
       const scopedInventoryNextHref = await page.locator('a').filter({ hasText: '下一页' }).getAttribute('href').catch(() => null);
       if (!scopedInventoryNextHref?.includes('filter_dimension=item') || !scopedInventoryNextHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选库存翻页未保留筛选范围`);
 
-      const inventoryHealthResponse = await page.goto(inventoryHealthUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const inventoryHealthResponse = await gotoWithRetry(page, inventoryHealthUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!inventoryHealthResponse?.ok()) problems.push(`${profile.id}: 库存判断筛选页请求失败`);
       await page.locator('main').getByRole('heading', { name: '库存健康', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page.getByText('当前查看：缺货风险', { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
       const inventoryHealthState = await page.evaluate(() => {
         const text = document.body.innerText;
         const rows = [...document.querySelectorAll('table tbody tr')];
@@ -197,7 +211,7 @@ async function inspectProfile(browser, storageState, profile) {
       });
       if (!inventoryHealthState.selected || !inventoryHealthState.allRowsMatch || !inventoryHealthState.linksKeepHealth) problems.push(`${profile.id}: 库存判断筛选未生效或翻页未保留判断条件`);
 
-      const replenishmentResponse = await page.goto(replenishmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const replenishmentResponse = await gotoWithRetry(page, replenishmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!replenishmentResponse?.ok()) {
         problems.push(profile.id + ': 补货参考页请求失败');
       } else {
@@ -205,7 +219,7 @@ async function inspectProfile(browser, storageState, profile) {
         const replenishmentState = await page.evaluate(() => {
           const text = document.body.innerText;
           return {
-            summary: text.includes('优先评估商品') && text.includes('参考补货件数'),
+            summary: text.includes('优先评估补货') && text.includes('参考补货件数'),
             assumptions: text.includes('供货周期') && text.includes('目标覆盖'),
             pageSize: text.includes('每页 20 个'),
             rowCount: document.querySelectorAll('table tbody tr').length,
@@ -213,18 +227,32 @@ async function inspectProfile(browser, storageState, profile) {
             nextPage: text.includes('下一页'),
           };
         });
-        const replenishmentPage2Response = await page.goto(replenishmentUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
+        const replenishmentPage2Response = await gotoWithRetry(page, replenishmentUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
         if (!replenishmentPage2Response?.ok()) problems.push(profile.id + ': 补货参考第 2 页请求失败');
         await page.locator('main').getByRole('heading', { name: '补货参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondReplenishmentFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
         if (!replenishmentState.summary || !replenishmentState.assumptions) problems.push(profile.id + ': 补货参考页缺少摘要或假设说明');
         if (!replenishmentState.pageSize || !replenishmentState.nextPage || replenishmentState.rowCount < 20) problems.push(profile.id + ': 补货参考页缺少每页 20 个或翻页内容');
         if (!secondReplenishmentFirstRow || secondReplenishmentFirstRow === replenishmentState.firstRow) problems.push(profile.id + ': 补货参考第 2 页未展示不同商品');
+        const replenishmentPriorityResponse = await gotoWithRetry(page, replenishmentPriorityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!replenishmentPriorityResponse?.ok()) problems.push(`${profile.id}: 补货判断筛选页请求失败`);
+        await page.locator('main').getByRole('heading', { name: '补货参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.getByText('当前查看：优先评估补货', { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
+        const replenishmentPriorityState = await page.evaluate(() => {
+          const text = document.body.innerText;
+          const rows = [...document.querySelectorAll('table tbody tr')];
+          return {
+            selected: text.includes('当前查看：优先评估补货'),
+            allRowsMatch: rows.length === 0 || rows.every((row) => row.textContent?.includes('优先评估补货')),
+            linksKeepPriority: [...document.querySelectorAll('a')].filter((link) => link.textContent?.includes('下一页')).every((link) => link.getAttribute('href')?.includes('priority=')),
+          };
+        });
+        if (!replenishmentPriorityState.selected || !replenishmentPriorityState.allRowsMatch || !replenishmentPriorityState.linksKeepPriority) problems.push(`${profile.id}: 补货判断筛选未生效或翻页未保留判断条件`);
         const replenishmentScreenshotPath = path.join(outputDir, 'replenishment-' + profile.id + '-' + timestamp + '.png');
         await page.screenshot({ path: replenishmentScreenshotPath, fullPage: true });
       }
 
-      const customerResponse = await page.goto(customerUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const customerResponse = await gotoWithRetry(page, customerUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!customerResponse?.ok()) {
         problems.push(`${profile.id}: 用户分群页请求失败`);
       } else {
@@ -239,7 +267,7 @@ async function inspectProfile(browser, storageState, profile) {
             detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看用户明细')),
           };
         });
-        const customerPage2Response = await page.goto(customerUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
+        const customerPage2Response = await gotoWithRetry(page, customerUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
         if (!customerPage2Response?.ok()) problems.push(`${profile.id}: 用户分群第 2 页请求失败`);
         await page.locator('main').getByRole('heading', { name: '用户分群（RFM）', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondCustomerFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
@@ -251,8 +279,9 @@ async function inspectProfile(browser, storageState, profile) {
         const customerScreenshotPath = path.join(outputDir, `customers-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: customerScreenshotPath, fullPage: true });
 
-        const customerSegmentResponse = await page.goto(customerSegmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        const customerSegmentResponse = await gotoWithRetry(page, customerSegmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         if (!customerSegmentResponse?.ok()) problems.push(`${profile.id}: 指定用户分群页请求失败`);
+        await page.getByText('当前分群：新近购买', { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
         const customerSegmentState = await page.evaluate(() => ({
           label: document.body.innerText.includes('当前分群：新近购买'),
           rows: document.querySelectorAll('table tbody tr').length,
@@ -262,7 +291,7 @@ async function inspectProfile(browser, storageState, profile) {
         if (!customerSegmentState.nextHref.includes('segment=')) problems.push(`${profile.id}: 用户分群翻页未保留分群条件`);
       }
 
-      const retentionResponse = await page.goto(retentionUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const retentionResponse = await gotoWithRetry(page, retentionUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!retentionResponse?.ok()) {
         problems.push(`${profile.id}: 用户留存页请求失败`);
       } else {
@@ -282,7 +311,7 @@ async function inspectProfile(browser, storageState, profile) {
         await page.screenshot({ path: retentionScreenshotPath, fullPage: true });
       }
 
-      const profitResponse = await page.goto(profitUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const profitResponse = await gotoWithRetry(page, profitUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!profitResponse?.ok()) {
         problems.push(`${profile.id}: 毛利分析页请求失败`);
       } else {
@@ -294,7 +323,7 @@ async function inspectProfile(browser, storageState, profile) {
         if (!profitState.detailLink || !profitState.detailHref) problems.push(`${profile.id}: 毛利分析缺少渠道明细链接`);
       }
 
-      const elasticityResponse = await page.goto(elasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const elasticityResponse = await gotoWithRetry(page, elasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!elasticityResponse?.ok()) {
         problems.push(`${profile.id}: 价格弹性页请求失败`);
       } else {
@@ -309,7 +338,7 @@ async function inspectProfile(browser, storageState, profile) {
             nextPage: text.includes('下一页'),
           };
         });
-        const elasticityPage2Response = await page.goto(elasticityUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
+        const elasticityPage2Response = await gotoWithRetry(page, elasticityUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
         if (!elasticityPage2Response?.ok()) problems.push(`${profile.id}: 价格弹性第 2 页请求失败`);
         await page.locator('main').getByRole('heading', { name: '价格带对比与价格弹性参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondElasticityFirstRow = await page.locator('table').first().locator('tbody tr').first().textContent().catch(() => '');

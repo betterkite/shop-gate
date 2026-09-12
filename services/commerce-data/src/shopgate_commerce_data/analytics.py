@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+from urllib.parse import quote
 
 from shopgate_commerce_data.retail import fetch_all
 
@@ -820,6 +821,10 @@ async def analytics_drilldown(
         dataset_id,
         contract,
         context={"dimension": dimension, "value": value},
+        context_url=(
+            "/analytics-workbench?view=drilldown&dataset_id="
+            f"{quote(dataset_id)}&dimension={quote(dimension)}&value={quote(value)}"
+        ),
         results=results[:limit],
         next_questions=next_questions,
     )

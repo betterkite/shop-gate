@@ -120,6 +120,7 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(prompt).toContain('当前分析上下文：数据集 未固定');
     expect(prompt).toContain('实体 cat:10051');
     expect(prompt).toContain('时间范围 最近120个交易日');
+    expect(prompt).toContain('筛选范围 未固定');
     expect(prompt).toContain('不增加买入区间、止损、目标价、仓位');
     expect(prompt).not.toContain('commerce_api_get');
     expect(prompt).not.toContain('commerce_extract_uploaded_image');
@@ -201,6 +202,12 @@ describe('PI Agent Shop Gate prompts', () => {
       datasetId: 'retail-demo-p28-elasticity-v1',
       queryRewrite: await technicalRewrite(firstInstruction),
     });
+    await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
+    await fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), JSON.stringify({
+      runId: previousPlan.runId,
+      datasetId: 'retail-demo-p28-elasticity-v1',
+      datasets: { funnel: { filter: { dimension: 'item', value: '1000009' } } },
+    }));
 
     const followUpInstruction = '这个类目里哪个商品购买转化率最低？';
     await writeInitialRunPlan({
@@ -243,6 +250,7 @@ describe('PI Agent Shop Gate prompts', () => {
         timeRange: string | null;
         inherited: boolean;
         sourceRunId?: string;
+        scope?: { dimension: string; value: string; source: string };
       };
       clarification?: { required?: boolean };
     };
@@ -257,6 +265,7 @@ describe('PI Agent Shop Gate prompts', () => {
       timeRange: '最近120个交易日',
       inherited: true,
       sourceRunId: 'contextual-drilldown-first',
+      scope: { dimension: 'item', value: '1000009', source: 'previous-final-data' },
     });
     expect(runPlan.clarification?.required).not.toBe(true);
   });

@@ -47,6 +47,14 @@ import {
 
 type RunPlanStatus = 'pending' | 'planned' | 'needs_clarification' | 'refused';
 
+export type RetailAnalysisDimension = 'item' | 'category' | 'channel' | 'campaign' | 'user';
+
+export interface RetailAnalysisScope {
+  dimension: RetailAnalysisDimension;
+  value: string;
+  source: 'previous-final-data';
+}
+
 export interface RetailRunPlan {
   schemaVersion: 1;
   runId: string;
@@ -74,6 +82,7 @@ export interface RetailRunPlan {
     timeRange: string | null;
     inherited: boolean;
     sourceRunId?: string;
+    scope?: RetailAnalysisScope;
   };
   /** 计划实体范围；空数组 = 全库口径。 */
   plannedEntities: { categoryIds: number[]; itemIds: number[] };
@@ -534,6 +543,42 @@ export async function readRetailRunPlan(projectPath: string): Promise<RetailRunP
   return readJsonFile<RetailRunPlan>(path.join(projectPath, RETAIL_RUN_PLAN_RELATIVE_PATH));
 }
 
+async function readPreviousFinalScope(
+  projectPath: string,
+  previousPlan: RetailRunPlan | null,
+  datasetId: string | undefined,
+): Promise<RetailAnalysisScope | undefined> {
+  if (!previousPlan?.runId) return undefined;
+  try {
+    const finalData = JSON.parse(
+      await fs.readFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), 'utf8'),
+    ) as unknown;
+    if (!finalData || typeof finalData !== 'object' || Array.isArray(finalData)) return undefined;
+    const record = finalData as Record<string, unknown>;
+    if (record.runId !== previousPlan.runId) return undefined;
+    if (datasetId && record.datasetId !== datasetId) return undefined;
+    const datasets = record.datasets;
+    if (!datasets || typeof datasets !== 'object' || Array.isArray(datasets)) return undefined;
+    const funnel = (datasets as Record<string, unknown>).funnel;
+    if (!funnel || typeof funnel !== 'object' || Array.isArray(funnel)) return undefined;
+    const filter = (funnel as Record<string, unknown>).filter;
+    if (!filter || typeof filter !== 'object' || Array.isArray(filter)) return undefined;
+    const dimension = (filter as Record<string, unknown>).dimension;
+    const value = (filter as Record<string, unknown>).value;
+    if (
+      !['item', 'category', 'channel', 'campaign', 'user'].includes(String(dimension)) ||
+      (typeof value !== 'string' && typeof value !== 'number')
+    ) return undefined;
+    return {
+      dimension: dimension as RetailAnalysisDimension,
+      value: String(value),
+      source: 'previous-final-data',
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function writeInitialRunPlan(params: {
   projectId?: string;
   projectPath: string;
@@ -614,6 +659,9 @@ export async function writeInitialRunPlan(params: {
   const requestedTimeRange =
     queryRewrite.timeRange?.label ??
     (inheritPreviousPlan ? params.previousPlan?.timeRange ?? null : null);
+  const inheritedScope = inheritPreviousPlan
+    ? params.previousPlan?.context?.scope ?? await readPreviousFinalScope(params.projectPath, params.previousPlan, datasetId)
+    : undefined;
   const baseClarification = assessRetailIntentForClarification({
     instruction: planningInstruction,
     capabilityId: capability.id,
@@ -711,6 +759,7 @@ export async function writeInitialRunPlan(params: {
       ...(inheritPreviousPlan && params.previousPlan?.runId
         ? { sourceRunId: params.previousPlan.runId }
         : {}),
+      ...(inheritedScope ? { scope: inheritedScope } : {}),
     },
     timeRange,
     dataRequirements,

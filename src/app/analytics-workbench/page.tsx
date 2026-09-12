@@ -21,7 +21,7 @@ const API_BASE_URL = (
 const DEFAULT_DATASET_ID = process.env.SHOPGATE_RETAIL_ANALYTICS_DATASET_ID || 'retail-demo-expanded-v1';
 
 type JsonRecord = Record<string, unknown>;
-type View = 'overview' | 'customers' | 'retention' | 'channels' | 'profit' | 'inventory' | 'lifecycle' | 'elasticity' | 'drilldown';
+type View = 'overview' | 'customers' | 'retention' | 'channels' | 'profit' | 'inventory' | 'replenishment' | 'lifecycle' | 'elasticity' | 'drilldown';
 type Props = {
   searchParams?: Promise<{
     view?: string;
@@ -42,6 +42,7 @@ const VIEW_LABELS: Record<Exclude<View, 'drilldown'>, string> = {
   channels: '渠道活动',
   profit: '毛利分析',
   inventory: '库存健康',
+  replenishment: '补货参考',
   lifecycle: '商品阶段',
   elasticity: '价格带',
 };
@@ -148,6 +149,15 @@ function lifecycleHref(datasetId: string, page: number, stage = ''): string {
 function inventoryHref(datasetId: string, page: number): string {
   const query = new URLSearchParams({
     view: 'inventory',
+    dataset_id: datasetId,
+    page: String(page),
+  });
+  return `/analytics-workbench?${query.toString()}`;
+}
+
+function replenishmentHref(datasetId: string, page: number): string {
+  const query = new URLSearchParams({
+    view: 'replenishment',
     dataset_id: datasetId,
     page: String(page),
   });
@@ -317,6 +327,26 @@ function RetentionSummary({ payload }: { payload: JsonRecord | null }) {
   </>;
 }
 
+function ReplenishmentSummary({ payload }: { payload: JsonRecord | null }) {
+  const summary = asRecord(payload?.summary);
+  const assumptions = asRecord(payload?.assumptions);
+  const priorityCounts = asRecord(summary?.priority_counts);
+  const items = asArray(payload?.items);
+  return <>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Metric label="优先评估商品" value={displayNumber(priorityCounts?.['优先评估补货'])} hint="可用库存可能覆盖不了供货周期" />
+      <Metric label="建议评估商品" value={displayNumber(priorityCounts?.['建议评估补货'])} hint="库存低于目标覆盖天数" />
+      <Metric label="参考补货商品" value={displayNumber(summary?.reference_replenishment_item_count)} hint="按当前假设计算出正的参考补货量" />
+      <Metric label="参考补货件数" value={displayNumber(summary?.total_reference_replenishment_units)} hint="仅用于估算，不是采购数量" />
+    </div>
+    <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="font-semibold">这是一份补货参考，不是立即补货指令</p>
+      <p className="mt-1 text-xs leading-5">当前假设：供货周期 {displayNumber(assumptions?.lead_time_days)} 天，目标覆盖 {displayNumber(assumptions?.target_days)} 天，共观察 {displayNumber(assumptions?.coverage_days)} 天。参考补货量 = 日均销量 ×（供货周期 + 目标覆盖天数）- 可用库存，最低按 0 计算；还要结合真实采购周期、在途库存和供应商约束确认。</p>
+    </div>
+    {items.length ? <div className="mt-5"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">判断</th><th className="px-3 py-3">可用库存</th><th className="px-3 py-3">可售天数</th><th className="px-3 py-3">目标周期需求</th><th className="px-3 py-3">参考补货量</th><th className="px-3 py-3">判断说明</th></tr></thead><tbody className="divide-y divide-border/60">{items.map((item) => <tr key={String(item.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(text(payload?.dataset_id), 'item', item.item_id)}>商品 {text(item.item_id)}</Link></td><td className="px-3 py-3 text-sm font-semibold">{text(item.replenishment_priority)}</td><td className="px-3 py-3 text-sm">{displayNumber(item.available_stock)}</td><td className="px-3 py-3 text-sm">{displayNumber(item.available_days_cover, 1)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(item.forecast_units_for_target, 1)}</td><td className="px-3 py-3 text-sm font-semibold">{displayNumber(item.reference_replenishment_units)}</td><td className="px-3 py-3 text-xs leading-5 text-muted-foreground">{text(item.reason)}</td></tr>)}</tbody></DataTable></div> : <p className="mt-5 text-sm text-muted-foreground">当前数据集没有可展示的补货参考。</p>}
+  </>;
+}
+
 export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const params = await searchParams;
   const datasetContracts = await fetchDatasetContracts();
@@ -343,6 +373,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const lifecyclePage = view === 'lifecycle' ? safePage : 1;
   const requestedInventoryPage = Number.parseInt(params?.page || '1', 10);
   const inventoryPage = view === 'inventory' ? (Number.isFinite(requestedInventoryPage) && requestedInventoryPage > 0 ? requestedInventoryPage : 1) : 1;
+  const replenishmentPage = view === 'replenishment' ? (Number.isFinite(requestedInventoryPage) && requestedInventoryPage > 0 ? requestedInventoryPage : 1) : 1;
   const customerPage = view === 'customers' ? safePage : 1;
   const elasticityPage = view === 'elasticity' ? safePage : 1;
   const requestedLifecycleStage = params?.stage || '';
@@ -359,6 +390,11 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     dataset_id: datasetId,
     limit: '20',
     page: String(inventoryPage),
+  });
+  const replenishmentQuery = new URLSearchParams({
+    dataset_id: datasetId,
+    limit: '20',
+    page: String(replenishmentPage),
   });
   const customerQuery = new URLSearchParams({
     dataset_id: datasetId,
@@ -378,6 +414,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   addScope(scopeQuery, scopeDimension, scopeValue);
   addScope(customerQuery, scopeDimension, scopeValue);
   addScope(inventoryQuery, scopeDimension, scopeValue, ['item', 'category']);
+  addScope(replenishmentQuery, scopeDimension, scopeValue, ['item', 'category']);
   addScope(lifecycleQuery, scopeDimension, scopeValue, ['item', 'category']);
   addScope(elasticityQuery, scopeDimension, scopeValue, ['item', 'category']);
   const trendQuery = new URLSearchParams({ dataset_id: datasetId });
@@ -387,13 +424,14 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     trendQuery.set('dimension', trendDimension);
     trendQuery.set('value', trendValue);
   }
-  const [overview, rfm, retention, channels, profit, inventory, lifecycle, elasticity] = await Promise.all([
+  const [overview, rfm, retention, channels, profit, inventory, replenishment, lifecycle, elasticity] = await Promise.all([
     fetchAnalytics(`/api/v1/commerce/analytics/overview?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/rfm?${customerQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/retention?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/channel-campaign?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/profit?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/inventory?${inventoryQuery.toString()}`),
+    fetchAnalytics(`/api/v1/commerce/analytics/replenishment?${replenishmentQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/lifecycle?${lifecycleQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/price-elasticity?${elasticityQuery.toString()}`),
   ]);
@@ -418,6 +456,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const inventoryTotal = number(inventory?.item_count);
   const inventoryPageCount = Math.max(number(inventory?.page_count), 1);
   const inventoryCurrentPage = Math.max(number(inventory?.page) || 1, 1);
+  const replenishmentTotal = number(replenishment?.summary && asRecord(replenishment.summary)?.item_count);
+  const replenishmentPageCount = Math.max(number(replenishment?.page_count), 1);
+  const replenishmentCurrentPage = Math.max(number(replenishment?.page) || 1, 1);
   const customerTotal = number(rfm?.customer_count);
   const customerPageCount = Math.max(number(rfm?.page_count), 1);
   const customerCurrentPage = Math.max(number(rfm?.page) || 1, 1);
@@ -472,6 +513,13 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       {view === 'profit' ? <Panel title="毛利分析" description="毛利 = 销售额 - 成本；这里是演示数据估算，不是财务结算报表。"><div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5"><Metric label="销售额" value={displayMoney(asRecord(profit?.total)?.gross_sales)} hint="订单价格合计" /><Metric label="退款" value={displayMoney(asRecord(profit?.total)?.refunds)} hint="演示退款金额" /><Metric label="成本" value={displayMoney(asRecord(profit?.total)?.cost)} hint="演示商品成本" /><Metric label="毛利" value={displayMoney(asRecord(profit?.total)?.gross_profit)} hint="销售额减退款和成本" /><Metric label="毛利率" value={displayPercent(asRecord(profit?.total)?.gross_margin)} hint="毛利 ÷ 销售额" /></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售额</th><th className="px-3 py-3">退款</th><th className="px-3 py-3">成本</th><th className="px-3 py-3">毛利</th><th className="px-3 py-3">毛利率</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(profit?.by_channel).map((row) => <tr key={String(row.channel_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">{text(row.channel_name)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.gross_sales)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.refunds)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.cost)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.gross_profit)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.gross_margin)}</td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={profit} /></div></Panel> : null}
 
       {view === 'inventory' ? <Panel title="库存健康" description="这里展示数据集中的全部商品，每页 20 个。可售天数 = 结存库存 ÷ 平均日销量；没有销量的商品会单独标记。"><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(inventoryCurrentPage)} 页，共 {displayNumber(inventoryPageCount)} 页；全部商品 {displayNumber(inventoryTotal)} 个</span><span className="text-xs text-muted-foreground">按结存库存从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">库存判断</th><th className="px-3 py-3">结存库存</th><th className="px-3 py-3">平均日销量</th><th className="px-3 py-3">可售天数</th><th className="px-3 py-3">窗口销量</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(inventory?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.health_label)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.closing_stock)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.average_daily_sold, 2)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.days_cover, 1)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.sold_units)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>查看商品明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={inventoryCurrentPage > 1 ? inventoryHref(datasetId, inventoryCurrentPage - 1) : inventoryHref(datasetId, inventoryCurrentPage)} aria-disabled={inventoryCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(inventoryCurrentPage)} 页，共 {displayNumber(inventoryPageCount)} 页</div><Link scroll={false} href={inventoryCurrentPage < inventoryPageCount ? inventoryHref(datasetId, inventoryCurrentPage + 1) : inventoryHref(datasetId, inventoryCurrentPage)} aria-disabled={inventoryCurrentPage >= inventoryPageCount} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage >= inventoryPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={inventory} /></div></Panel> : null}
+
+      {view === 'replenishment' ? <Panel title="补货参考" description="按库存、日均销量和可解释的供货假设排序，帮助你先找出需要进一步核实的商品。">
+        <ReplenishmentSummary payload={replenishment} />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(replenishmentCurrentPage)} 页，共 {displayNumber(replenishmentPageCount)} 页；全部商品 {displayNumber(replenishmentTotal)} 个</span><span className="text-xs text-muted-foreground">按补货优先级和参考补货量排序，每页 20 个</span></div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={replenishmentCurrentPage > 1 ? replenishmentHref(datasetId, replenishmentCurrentPage - 1) : replenishmentHref(datasetId, replenishmentCurrentPage)} aria-disabled={replenishmentCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${replenishmentCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(replenishmentCurrentPage)} 页，共 {displayNumber(replenishmentPageCount)} 页</div><Link scroll={false} href={replenishmentCurrentPage < replenishmentPageCount ? replenishmentHref(datasetId, replenishmentCurrentPage + 1) : replenishmentHref(datasetId, replenishmentCurrentPage)} aria-disabled={replenishmentCurrentPage >= replenishmentPageCount} className={`rounded-lg border px-3 py-2 text-sm ${replenishmentCurrentPage >= replenishmentPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div>
+        <div className="mt-4"><Limitations payload={replenishment} /></div>
+      </Panel> : null}
 
       {view === 'lifecycle' ? <Panel title="商品经营阶段" description="这里展示全部商品，每页 20 个。阶段是根据购买记录推断的经营状态，不等于真实上架或下架生命周期。">
         <div className="mb-5 rounded-xl border border-border/60 bg-muted/20 p-4">

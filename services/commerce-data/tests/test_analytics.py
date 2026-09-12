@@ -15,6 +15,7 @@ from shopgate_commerce_data.analytics import (
     inventory_analytics,
     inventory_health_label,
     price_band_comparison,
+    replenishment_forecast,
     retention_metrics,
     rfm_segments,
 )
@@ -334,6 +335,82 @@ def test_inventory_analytics_paginates_all_items_without_losing_counts(
     assert result["page_count"] == 3
     assert [item["item_id"] for item in result["items"]] == list(range(1020, 1040))
     assert sum(result["risk_counts"].values()) == 45
+
+
+def test_replenishment_forecast_uses_explicit_coverage_assumptions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-replenishment",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "replenishment_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": ["stock"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [
+            {
+                "item_id": 1000,
+                "snapshot_date": date(2025, 1, 31),
+                "closing_stock": 20,
+                "reserved_qty": 0,
+                "average_daily_sold": 10,
+                "sold_units": 310,
+            },
+            {
+                "item_id": 1001,
+                "snapshot_date": date(2025, 1, 31),
+                "closing_stock": 100,
+                "reserved_qty": 0,
+                "average_daily_sold": 0,
+                "sold_units": 0,
+            },
+            {
+                "item_id": 1002,
+                "snapshot_date": date(2025, 1, 31),
+                "closing_stock": 100,
+                "reserved_qty": 0,
+                "average_daily_sold": 1,
+                "sold_units": 31,
+            },
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(
+        replenishment_forecast(
+            "retail-replenishment",
+            limit=20,
+            lead_time_days=7,
+            target_days=30,
+        )
+    )
+
+    assert calls == 2
+    assert result["assumptions"]["coverage_days"] == 37
+    assert result["summary"]["priority_counts"]["优先评估补货"] == 1
+    assert result["summary"]["priority_counts"]["无销量先观察"] == 1
+    assert result["summary"]["reference_replenishment_item_count"] == 1
+    assert result["items"][0]["item_id"] == 1000
+    assert result["items"][0]["available_days_cover"] == 2.0
+    assert result["items"][0]["reference_replenishment_units"] == 350
+    assert result["items"][0]["replenishment_priority"] == "优先评估补货"
+    assert result["items"][1]["replenishment_priority"] == "暂不建议补货"
 
 
 def test_rfm_segments_paginates_all_customers_without_losing_segments(

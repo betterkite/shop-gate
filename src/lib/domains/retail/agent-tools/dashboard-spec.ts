@@ -232,12 +232,14 @@ function analyticsBiReady(finalData: JsonRecord): boolean {
   const retention = datasetRecord(finalData, 'analyticsRetention');
   const profit = datasetRecord(finalData, 'analyticsProfit');
   const inventory = datasetRecord(finalData, 'analyticsInventory');
+  const replenishment = datasetRecord(finalData, 'analyticsReplenishment');
   return Boolean(
     overview && nestedRecord(overview, 'metrics') &&
     lifecycle && nestedRecord(lifecycle, 'stage_counts') &&
     retention && nestedRecord(retention, 'summary') && recordArray(retention.cohorts).length > 0 &&
     profit && nestedRecord(profit, 'total') &&
-    inventory && recordArray(inventory.items).length > 0,
+    inventory && recordArray(inventory.items).length > 0 &&
+    replenishment && recordArray(replenishment.items).length > 0,
   );
 }
 

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from math import ceil
 from typing import Any
 from urllib.parse import quote
 
@@ -812,6 +813,123 @@ async def inventory_analytics(
         risk_counts=risk_counts,
         items=items,
     )
+
+
+async def replenishment_forecast(
+    dataset_id: str,
+    limit: int = 20,
+    page: int = 1,
+    dimension: str | None = None,
+    value: str | None = None,
+    lead_time_days: int = 7,
+    target_days: int = 30,
+) -> dict[str, Any]:
+    """按库存、日均销量和显式假设给出补货参考，不生成采购指令。"""
+
+    if not 1 <= lead_time_days <= 90:
+        raise ValueError("供货周期必须在 1 到 90 天之间")
+    if not 1 <= target_days <= 180:
+        raise ValueError("目标覆盖天数必须在 1 到 180 天之间")
+    inventory = await inventory_analytics(
+        dataset_id,
+        limit=100_000,
+        page=1,
+        dimension=dimension,
+        value=value,
+    )
+    all_items = inventory.get("items", [])
+    priority_rank = {
+        "优先评估补货": 0,
+        "建议评估补货": 1,
+        "暂不建议补货": 2,
+        "无销量先观察": 3,
+    }
+    forecast_items: list[dict[str, Any]] = []
+    priority_counts = {label: 0 for label in priority_rank}
+    total_reference_units = 0
+    coverage_days = lead_time_days + target_days
+    for row in all_items:
+        average_daily_sold = _number(row.get("average_daily_sold"))
+        closing_stock = int(row.get("closing_stock") or 0)
+        reserved_qty = int(row.get("reserved_qty") or 0)
+        available_stock = max(closing_stock - reserved_qty, 0)
+        available_days_cover = (
+            available_stock / average_daily_sold if average_daily_sold > 0 else 0.0
+        )
+        if average_daily_sold <= 0:
+            priority = "无销量先观察"
+            reference_units = 0
+            reason = "窗口内没有销量，先检查商品页、价格和曝光，不能据此补货。"
+        else:
+            forecast_units = average_daily_sold * coverage_days
+            reference_units = max(0, ceil(forecast_units - available_stock))
+            if available_stock <= 0 or available_days_cover < lead_time_days:
+                priority = "优先评估补货"
+                reason = "按当前销量，可用库存可能无法覆盖供货周期。"
+            elif available_days_cover < coverage_days:
+                priority = "建议评估补货"
+                reason = "库存可以覆盖供货周期，但还未达到目标覆盖天数。"
+            else:
+                priority = "暂不建议补货"
+                reason = "当前可用库存预计可以覆盖供货周期和目标缓冲。"
+        priority_counts[priority] += 1
+        total_reference_units += reference_units
+        forecast_items.append(
+            {
+                **row,
+                "available_stock": available_stock,
+                "available_days_cover": round(available_days_cover, 2),
+                "forecast_units_for_target": round(
+                    average_daily_sold * coverage_days, 2
+                ),
+                "reference_replenishment_units": reference_units,
+                "replenishment_priority": priority,
+                "reason": reason,
+                "_priority_rank": priority_rank[priority],
+            }
+        )
+    forecast_items.sort(
+        key=lambda row: (
+            row["_priority_rank"],
+            -int(row["reference_replenishment_units"]),
+            int(row["item_id"]),
+        )
+    )
+    page_count = max((len(forecast_items) + limit - 1) // limit, 1)
+    page = min(max(page, 1), page_count)
+    start = (page - 1) * limit
+    items = [
+        {key: value for key, value in row.items() if key != "_priority_rank"}
+        for row in forecast_items[start : start + limit]
+    ]
+    return {
+        **inventory,
+        "metric_definition": {
+            "available_stock": "结存库存 - 预留库存，最低按 0 计算",
+            "forecast_units_for_target": "日均销量 ×（供货周期 + 目标覆盖天数）",
+            "reference_replenishment_units": "目标周期预计需求 - 可用库存，最低按 0 计算",
+            "replenishment_priority": "结合库存覆盖天数和显式假设给出的补货参考，不是采购指令",
+        },
+        "assumptions": {
+            "lead_time_days": lead_time_days,
+            "target_days": target_days,
+            "coverage_days": coverage_days,
+            "formula": "max(0, 日均销量 ×（供货周期 + 目标覆盖天数）- 可用库存)",
+        },
+        "summary": {
+            "item_count": len(forecast_items),
+            "priority_counts": priority_counts,
+            "reference_replenishment_item_count": sum(
+                1 for row in forecast_items
+                if row["reference_replenishment_units"] > 0
+            ),
+            "total_reference_replenishment_units": total_reference_units,
+        },
+        "page": page,
+        "page_size": limit,
+        "page_count": page_count,
+        "items": items,
+    }
 
 
 async def lifecycle_metrics(

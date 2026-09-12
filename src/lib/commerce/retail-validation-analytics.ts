@@ -29,6 +29,7 @@ export function missingAnalyticsBiDataFields(value: JsonRecord | null): string[]
     asRecord(datasets?.analyticsRetention) ? null : 'datasets.analyticsRetention',
     asRecord(datasets?.analyticsProfit) ? null : 'datasets.analyticsProfit',
     Array.isArray(asRecord(datasets?.analyticsInventory)?.items) ? null : 'datasets.analyticsInventory.items',
+    Array.isArray(asRecord(datasets?.analyticsReplenishment)?.items) ? null : 'datasets.analyticsReplenishment.items',
     Array.isArray(asRecord(datasets?.analyticsChannels)?.metrics) ? null : 'datasets.analyticsChannels.metrics',
   ].filter((item): item is string => Boolean(item));
 }

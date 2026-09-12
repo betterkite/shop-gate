@@ -389,6 +389,29 @@ def create_commerce_router() -> APIRouter:
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
+    @router.get("/analytics/replenishment")
+    async def analytics_replenishment(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        page: Annotated[int, Query(ge=1, le=500)] = 1,
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
+        lead_time_days: Annotated[int, Query(ge=1, le=90)] = 7,
+        target_days: Annotated[int, Query(ge=1, le=180)] = 30,
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.replenishment_forecast(
+                dataset_id,
+                limit,
+                page,
+                dimension,
+                value,
+                lead_time_days,
+                target_days,
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
     @router.get("/analytics/lifecycle")
     async def analytics_lifecycle(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],

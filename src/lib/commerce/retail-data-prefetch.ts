@@ -197,6 +197,7 @@ async function fetchExpandedAnalyticsDatasets(params: {
     ['analyticsRetention', '/api/v1/commerce/analytics/retention'],
     ['analyticsProfit', '/api/v1/commerce/analytics/profit'],
     ['analyticsInventory', '/api/v1/commerce/analytics/inventory'],
+    ['analyticsReplenishment', '/api/v1/commerce/analytics/replenishment'],
     ['analyticsChannels', '/api/v1/commerce/analytics/channel-campaign'],
     ['analyticsElasticity', '/api/v1/commerce/analytics/price-elasticity'],
   ] as const;

@@ -206,6 +206,7 @@ async function authenticate(context: BrowserContext): Promise<void> {
   try {
     await page.goto(`${baseUrl}/login`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (new URL(page.url()).pathname === '/login') {
+      await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
       await page.getByLabel('账号或邮箱').fill(login);
       await page.getByLabel('密码').fill(password);
       await page.getByRole('button', { name: '登录' }).click();

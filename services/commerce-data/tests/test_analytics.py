@@ -538,6 +538,78 @@ def test_price_band_comparison_reports_estimated_elasticity_for_multiple_prices(
     assert result["item_elasticities"][0]["price_points"] == 2
 
 
+def test_price_band_comparison_reports_experiment_reference_when_groups_are_explicit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p28-experiment",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "experiment_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 28,
+                "row_counts": {"price_experiment_observations": 4},
+                "synthetic_fields": ["price_experiment_observations"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return []
+        if calls == 3:
+            return []
+        return [
+            {
+                "experiment_id": "exp-1",
+                "observation_date": date(2025, 1, 1),
+                "item_id": 1001,
+                "category_id": 10,
+                "variant": "control",
+                "selling_price": 100,
+                "exposed_users": 100,
+                "purchasers": 10,
+                "units": 11,
+                "assignment_unit": "user",
+                "allocation_method": "synthetic_randomized_user_assignment",
+                "synthetic": True,
+            },
+            {
+                "experiment_id": "exp-1",
+                "observation_date": date(2025, 1, 1),
+                "item_id": 1001,
+                "category_id": 10,
+                "variant": "treatment",
+                "selling_price": 90,
+                "exposed_users": 100,
+                "purchasers": 14,
+                "units": 15,
+                "assignment_unit": "user",
+                "allocation_method": "synthetic_randomized_user_assignment",
+                "synthetic": True,
+            },
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(price_band_comparison("retail-p28-experiment"))
+
+    assert calls == 4
+    assert result["experiment_status"] == "synthetic_experiment_reference"
+    assert result["eligible_experiment_count"] == 1
+    assert result["experiment_results"][0]["absolute_conversion_lift"] == 0.04
+    assert "合成记录不能替代真实线上实验" in result["experiment_explanation"]
+
+
 def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_prices(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

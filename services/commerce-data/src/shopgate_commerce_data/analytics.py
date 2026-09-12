@@ -1161,6 +1161,128 @@ async def price_band_comparison(
             "对应销量或转化变化",
             "活动/流量等干扰因素",
         ]
+
+    # 只有契约明确声明实验观察时才查询新表。这样旧数据集和普通 CSV
+    # 数据集可以安全复用接口，并明确落到“没有实验数据”的状态。
+    row_counts = contract.get("row_counts") or {}
+    synthetic_fields = contract.get("synthetic_fields") or []
+    experiment_declared = (
+        "price_experiment_observations" in row_counts
+        or "price_experiment_observations" in synthetic_fields
+    )
+    experiment_results: list[dict[str, Any]] = []
+    if experiment_declared:
+        experiment_rows = await fetch_all(
+            """
+            SELECT e.experiment_id, e.observation_date, e.item_id, i.category_id,
+                   e.variant, e.selling_price, e.exposed_users, e.purchasers,
+                   e.units, e.assignment_unit, e.allocation_method, e.synthetic
+            FROM commerce.dataset_price_experiment_observations e
+            JOIN commerce.dataset_item_economics i
+              ON i.dataset_id = e.dataset_id AND i.item_id = e.item_id
+            WHERE e.dataset_id = %s
+              AND e.exposed_users > 0
+              AND e.selling_price > 0
+            """
+            + scope_clause
+            + """
+            ORDER BY e.experiment_id, e.item_id, e.observation_date, e.variant
+            """,
+            (dataset_id, *scope_params),
+        )
+        grouped: dict[str, dict[str, Any]] = {}
+        for row in experiment_rows:
+            experiment_id = str(row["experiment_id"])
+            experiment = grouped.setdefault(
+                experiment_id,
+                {
+                    "experiment_id": experiment_id,
+                    "items": set(),
+                    "dates": set(),
+                    "variants": {},
+                    "synthetic": bool(row.get("synthetic", True)),
+                    "allocation_method": row.get("allocation_method"),
+                    "assignment_unit": row.get("assignment_unit"),
+                },
+            )
+            variant = str(row["variant"])
+            aggregate = experiment["variants"].setdefault(
+                variant,
+                {"exposed_users": 0, "purchasers": 0, "units": 0, "prices": []},
+            )
+            experiment["items"].add(int(row["item_id"]))
+            experiment["dates"].add(str(row["observation_date"]))
+            aggregate["exposed_users"] += int(row["exposed_users"] or 0)
+            aggregate["purchasers"] += int(row["purchasers"] or 0)
+            aggregate["units"] += int(row["units"] or 0)
+            aggregate["prices"].append(_number(row["selling_price"]))
+
+        for experiment in grouped.values():
+            control = experiment["variants"].get("control")
+            treatment = experiment["variants"].get("treatment")
+            if not control or not treatment:
+                continue
+            control_rate = (
+                control["purchasers"] / control["exposed_users"]
+                if control["exposed_users"]
+                else 0.0
+            )
+            treatment_rate = (
+                treatment["purchasers"] / treatment["exposed_users"]
+                if treatment["exposed_users"]
+                else 0.0
+            )
+            relative_lift = (treatment_rate - control_rate) / control_rate if control_rate else None
+            experiment_results.append(
+                {
+                    "experiment_id": experiment["experiment_id"],
+                    "item_count": len(experiment["items"]),
+                    "observation_days": len(experiment["dates"]),
+                    "control_price": round(sum(control["prices"]) / len(control["prices"]), 2),
+                    "treatment_price": round(
+                        sum(treatment["prices"]) / len(treatment["prices"]), 2
+                    ),
+                    "control_exposed_users": control["exposed_users"],
+                    "treatment_exposed_users": treatment["exposed_users"],
+                    "control_purchasers": control["purchasers"],
+                    "treatment_purchasers": treatment["purchasers"],
+                    "control_conversion_rate": round(control_rate, 6),
+                    "treatment_conversion_rate": round(treatment_rate, 6),
+                    "absolute_conversion_lift": round(treatment_rate - control_rate, 6),
+                    "relative_conversion_lift": (
+                        round(relative_lift, 6) if relative_lift is not None else None
+                    ),
+                    "allocation_method": experiment["allocation_method"],
+                    "assignment_unit": experiment["assignment_unit"],
+                    "synthetic": experiment["synthetic"],
+                }
+            )
+    if experiment_results:
+        experiment_status = "synthetic_experiment_reference" if any(
+            result["synthetic"] for result in experiment_results
+        ) else "experimental_reference"
+        experiment_explanation = (
+            "存在明确的对照组、处理组、价格、曝光人数和购买人数，可计算两组购买率差异。"
+            "当前结果仍需结合随机分组证据、实验周期和业务约束复核；合成记录不能替代真实线上实验。"
+            if experiment_status == "synthetic_experiment_reference"
+            else (
+                "存在明确实验分组和曝光人数，可计算两组购买率差异；"
+                "结果仍需结合实验设计和业务约束复核。"
+            )
+        )
+        experiment_required_for_estimation: list[str] = []
+    else:
+        experiment_status = "insufficient_data_for_experiment"
+        experiment_explanation = (
+            "当前数据没有同时包含对照组和处理组的价格实验观察，不能计算实验组购买率差异，"
+            "也不能把观察性价格关系解释成因果结论。"
+        )
+        experiment_required_for_estimation = [
+            "明确的对照组和处理组",
+            "每组曝光人数",
+            "每组购买人数或购买率",
+            "分组方式与实验时间范围",
+        ]
     page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
@@ -1181,6 +1303,11 @@ async def price_band_comparison(
         page_count=page_count,
         explanation=explanation,
         required_for_estimation=required_for_estimation,
+        experiment_status=experiment_status,
+        experiment_results=experiment_results,
+        eligible_experiment_count=len(experiment_results),
+        experiment_explanation=experiment_explanation,
+        experiment_required_for_estimation=experiment_required_for_estimation,
         price_band_comparison=bands,
     )
 

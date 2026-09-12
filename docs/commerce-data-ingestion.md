@@ -87,7 +87,7 @@ uv run --project services/commerce-data \
 - `dataset_contracts`：版本、时间窗口、种子、行数、合成字段和限制；
 - `dataset_behavior_events`：按 `dataset_id` 隔离的行为明细，CSV 导入保留外部来源，合成生成标记为 synthetic；
 - `dataset_user_profiles`、`dataset_sessions`、`dataset_channels`、`dataset_campaigns`；
-- `dataset_item_economics`、`dataset_orders`、`dataset_inventory_snapshots`。
+- `dataset_item_economics`、`dataset_orders`、`dataset_inventory_snapshots`；合成经营分析数据集还可包含 `dataset_price_experiment_observations`，用于标记对照/处理组价格实验模拟，不能当作真实因果证据。
 
 默认数据集约 1,000 用户、1,000 商品、30 天库存快照。订单从合成 `buy` 事件派生，成本、折扣、退款、履约和库存状态均为合成；后续 P28 只能在页面中明确这些边界后使用。重复执行同一 `dataset_id` 会幂等替换该数据集，不影响其他数据集。
 

@@ -184,6 +184,14 @@ def test_analytics_dataset_is_isolated_and_traceable() -> None:
     assert contract["row_counts"]["user_profiles"] == 50
     assert contract["row_counts"]["item_economics"] == 20
     assert contract["row_counts"]["inventory_snapshots"] == 80
+    assert contract["row_counts"]["price_experiment_observations"] == len(
+        dataset["price_experiment_observations"]
+    )
+    assert contract["row_counts"]["price_experiment_observations"] > 0
+    assert all(
+        row["variant"] in {"control", "treatment"}
+        for row in dataset["price_experiment_observations"]
+    )
     assert contract["limitations"]
     assert all(row["synthetic"] for row in dataset["profiles"])
     assert all(row["synthetic"] for row in dataset["orders"])
@@ -215,6 +223,8 @@ def test_csv_behavior_dataset_persists_observed_events_and_handles_one_day() -> 
 
     assert dataset["contract"]["source_kind"] == "mixed"
     assert dataset["contract"]["row_counts"]["behavior_events"] == 2
+    assert dataset["price_experiment_observations"] == []
+    assert "price_experiment_observations" not in dataset["contract"]["row_counts"]
     assert all(not row["synthetic"] for row in dataset["behavior_events"])
     assert all(row["starts_at"] <= row["ends_at"] for row in dataset["campaigns"])
 

@@ -141,6 +141,31 @@ CREATE INDEX IF NOT EXISTS dataset_orders_time_idx
 CREATE INDEX IF NOT EXISTS dataset_orders_item_idx
   ON commerce.dataset_orders (dataset_id, item_id, ordered_at);
 
+CREATE TABLE IF NOT EXISTS commerce.dataset_price_experiment_observations (
+  dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
+  experiment_id TEXT NOT NULL,
+  observation_date DATE NOT NULL,
+  item_id BIGINT NOT NULL,
+  variant TEXT NOT NULL CHECK (variant IN ('control', 'treatment')),
+  selling_price NUMERIC(10, 2) NOT NULL CHECK (selling_price >= 0),
+  exposed_users INT NOT NULL CHECK (exposed_users >= 0),
+  purchasers INT NOT NULL CHECK (purchasers >= 0),
+  units INT NOT NULL CHECK (units >= 0),
+  assignment_unit TEXT NOT NULL CHECK (assignment_unit IN ('user', 'session')),
+  allocation_method TEXT NOT NULL,
+  source TEXT NOT NULL,
+  synthetic BOOLEAN NOT NULL DEFAULT true,
+  PRIMARY KEY (dataset_id, experiment_id, observation_date, item_id, variant),
+  CHECK (purchasers <= exposed_users),
+  CHECK (units >= purchasers)
+);
+
+CREATE INDEX IF NOT EXISTS dataset_price_experiment_item_idx
+  ON commerce.dataset_price_experiment_observations (dataset_id, item_id, observation_date);
+
+COMMENT ON TABLE commerce.dataset_price_experiment_observations IS
+  '价格实验观察：明确保存对照/处理组、价格、曝光人数和购买人数；合成实验只能用于演示，不等同于真实因果证据。';
+
 CREATE TABLE IF NOT EXISTS commerce.dataset_inventory_snapshots (
   dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
   snapshot_date DATE NOT NULL,

@@ -122,6 +122,7 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 | `dataset_item_economics` | 标价、成本、折扣 | 成本和折扣为合成，不等于财务成本 |
 | `dataset_orders` | 订单、成交价、退款、履约状态 | 由合成行为派生，不能用于收入确认 |
 | `dataset_inventory_snapshots` | 商品日库存、入库、销售、预留、结存 | 无真实仓库流水，不能单独下补货结论 |
+| `dataset_price_experiment_observations` | 价格实验的对照/处理组、价格、曝光人数、购买人数和分组方式 | 合成实验只能展示购买率差异参考；没有真实分组证据时不能解释为因果结论 |
 
 这些表都带 `dataset_id`、`source`、`synthetic`。导入命令和重跑语义见 [commerce-data 接入说明](commerce-data-ingestion.md) 的扩展数据集章节。
 

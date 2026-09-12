@@ -89,7 +89,7 @@
 ### 零售控制台
 
 `GET /api/v1/commerce/analytics/{overview|trend|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown}`
-提供 P28 经营分析数据；`/analytics-workbench` 将这些结果组织成总览、分群、渠道、利润、库存、商品阶段、价格带和下钻视图。`trend` 支持沿商品、类目、渠道或活动范围刷新日趋势；价格弹性在缺少同一商品多价格观察时只返回价格带对比和数据缺口，不伪造弹性系数。
+提供 P28 经营分析数据；`/analytics-workbench` 将这些结果组织成总览、分群、渠道、利润、库存、商品阶段、价格带和下钻视图。`trend` 支持沿商品、类目、渠道或活动范围刷新日趋势；价格弹性在缺少同一商品多价格观察时只返回价格带对比和数据缺口，不伪造弹性系数；契约登记了对照/处理组价格实验观察时，响应还会返回两组购买率差异，并明确合成实验边界。
 
 | 路由 | 方法 | 调用方 | 责任 |
 | --- | --- | --- | --- |
@@ -200,7 +200,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/analytics/profit` | `GET` | 合成成本下的销售额、退款、成本、毛利和毛利率，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/inventory` | `GET` | 库存结存、平均日销量、可售天数和健康标签，必填 `dataset_id`，`limit` ≤100 |
 | `/api/v1/commerce/analytics/lifecycle` | `GET` | 按窗口内首购/最近购买/活跃天数判断商品经营阶段，必填 `dataset_id`，`limit` ≤100 |
-| `/api/v1/commerce/analytics/price-elasticity` | `GET` | 价格带对比；缺少同商品多价格样本时返回无法计算弹性的说明 |
+| `/api/v1/commerce/analytics/price-elasticity` | `GET` | 价格带和成交价格关系参考；有显式实验分组时返回购买率差异，缺少对应样本时返回数据缺口说明 |
 
 关键数据：
 

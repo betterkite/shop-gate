@@ -488,6 +488,21 @@ def replace_synthetic_analytics_dataset(
             """,
             dataset["orders"],
         )
+        price_experiment_observations = dataset.get("price_experiment_observations", [])
+        if price_experiment_observations:
+            cursor.executemany(
+                """
+                INSERT INTO commerce.dataset_price_experiment_observations
+                  (dataset_id, experiment_id, observation_date, item_id, variant,
+                   selling_price, exposed_users, purchasers, units, assignment_unit,
+                   allocation_method, source, synthetic)
+                VALUES (%(dataset_id)s, %(experiment_id)s, %(observation_date)s,
+                        %(item_id)s, %(variant)s, %(selling_price)s, %(exposed_users)s,
+                        %(purchasers)s, %(units)s, %(assignment_unit)s,
+                        %(allocation_method)s, %(source)s, %(synthetic)s)
+                """,
+                price_experiment_observations,
+            )
         cursor.executemany(
             """
             INSERT INTO commerce.dataset_inventory_snapshots
@@ -516,6 +531,7 @@ def scan_synthetic_analytics_dataset(
         "item_economics": "dataset_item_economics",
         "orders": "dataset_orders",
         "inventory_snapshots": "dataset_inventory_snapshots",
+        "price_experiment_observations": "dataset_price_experiment_observations",
     }
     issues: list[str] = []
     metrics: dict[str, Any] = {}
@@ -529,6 +545,9 @@ def scan_synthetic_analytics_dataset(
             raise SystemExit(f"数据集不存在：{dataset_id}")
         expected_counts = contract["row_counts"] or {}
         for key, table in table_counts.items():
+            if key not in expected_counts:
+                # 兼容在价格实验表加入前生成的旧数据集契约。
+                continue
             cursor.execute(
                 f"SELECT COUNT(*) AS count FROM commerce.{table} WHERE dataset_id = %s",
                 (dataset_id,),
@@ -539,7 +558,9 @@ def scan_synthetic_analytics_dataset(
             if actual != expected:
                 issues.append(f"{table} 行数 {actual} 与契约 {expected} 不一致")
 
-        marked_tables = tuple(table_counts.items())
+        marked_tables = tuple(
+            (name, table) for name, table in table_counts.items() if name in expected_counts
+        )
         for name, table in marked_tables:
             allow_observed = name == "behavior_events" and contract["source_kind"] != "synthetic"
             cursor.execute(

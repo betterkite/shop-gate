@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 BRAND_POOL_SIZE = 200
@@ -232,6 +232,70 @@ def batched_events(
         yield batch
 
 
+def synthetic_price_experiment_observations(
+    item_economics: list[dict[str, Any]],
+    first_day: date,
+    days: int,
+    seed: int,
+    dataset_id: str,
+    source: str,
+) -> list[dict[str, Any]]:
+    """生成可复核的价格实验模拟观察，不把成交观察伪装成因果事实。
+
+    这是一个小而明确的演示实验：前 100 个商品各有一个对照价和一个处理价，
+    每天记录两组的曝光人数、购买人数和购买件数。没有保存用户级分组，所以
+    下游只能把结果展示为“实验模拟参考”，不能据此宣称真实线上实验结论。
+    """
+
+    experiment_items = sorted(item_economics, key=lambda row: int(row["item_id"]))[:100]
+    experiment_days = min(max(days, 1), 14)
+    experiment_id = f"{dataset_id}-price-experiment-v1"
+    rows: list[dict[str, Any]] = []
+    for item_index, item in enumerate(experiment_items):
+        list_price = float(item["list_price"])
+        base_price = round(list_price * (1 - float(item["discount_rate"])), 2)
+        treatment_price = round(max(1.0, base_price * 0.9), 2)
+        for day_offset in range(experiment_days):
+            observation_date = first_day + timedelta(days=day_offset)
+            day_factor = 1 + (day_offset % 5) * 0.025
+            base_rate = (0.018 + (item_index % 9) * 0.0025) * day_factor
+            for variant, selling_price, lift in (
+                ("control", base_price, 1.0),
+                ("treatment", treatment_price, 1.18),
+            ):
+                rng = _rng(
+                    seed,
+                    dataset_id,
+                    "price-experiment",
+                    item["item_id"],
+                    observation_date,
+                    variant,
+                )
+                exposed_users = rng.randint(90, 150)
+                expected_purchasers = exposed_users * base_rate * lift
+                noise = rng.gauss(0.0, max(0.5, expected_purchasers * 0.08))
+                purchasers = min(exposed_users, max(0, round(expected_purchasers + noise)))
+                units = purchasers + (1 if purchasers and rng.random() < 0.12 else 0)
+                rows.append(
+                    {
+                        "dataset_id": dataset_id,
+                        "experiment_id": experiment_id,
+                        "observation_date": observation_date,
+                        "item_id": int(item["item_id"]),
+                        "variant": variant,
+                        "selling_price": selling_price,
+                        "exposed_users": exposed_users,
+                        "purchasers": purchasers,
+                        "units": units,
+                        "assignment_unit": "user",
+                        "allocation_method": "synthetic_randomized_user_assignment",
+                        "source": source,
+                        "synthetic": True,
+                    }
+                )
+    return rows
+
+
 def synthetic_analytics_dataset(
     users: int = 1_000,
     items: int = DEFAULT_ITEM_POOL_SIZE,
@@ -338,6 +402,14 @@ def synthetic_analytics_dataset(
             }
         )
     economics_by_item = {row["item_id"]: row for row in item_economics}
+    price_experiment_observations = synthetic_price_experiment_observations(
+        item_economics,
+        first_day.date(),
+        days,
+        seed,
+        dataset_id,
+        source,
+    )
     events = list(
         synthetic_behavior_events(
             users=users,
@@ -459,7 +531,7 @@ def synthetic_analytics_dataset(
         "window_start": first_day.date(),
         "window_end": last_day.date(),
         "generation_seed": seed,
-        "row_counts": {
+    "row_counts": {
             "behavior_events": len(events),
             "user_profiles": len(profiles),
             "channels": len(channels),
@@ -468,6 +540,7 @@ def synthetic_analytics_dataset(
             "item_economics": len(item_economics),
             "orders": len(orders),
             "inventory_snapshots": len(inventories),
+            "price_experiment_observations": len(price_experiment_observations),
         },
         "synthetic_fields": [
             "user_profiles",
@@ -480,12 +553,14 @@ def synthetic_analytics_dataset(
             "refund_amount",
             "fulfillment_status",
             "inventory_snapshots",
+            "price_experiment_observations",
         ],
         "limitations": [
             "仅用于演示数据分析，不代表真实用户、订单、库存或财务事实",
             "订单由合成行为 buy 事件派生，不能用于真实收入确认或财务结算；价格弹性仅用于演示",
             "渠道和活动归因是确定性模拟，不是广告平台回传或实验结果",
             "库存快照没有真实仓库流水，不能单独作为补货结论",
+            "价格实验观察是合成随机分组模拟，只有对照/处理组字段齐全；不能替代真实线上实验或因果证据",
         ],
         "generation_rule": (
             "以显式 seed、dataset_id 和实体 ID 独立播种；行为按周内需求和头腰尾商品分布生成，"
@@ -508,9 +583,10 @@ def synthetic_analytics_dataset(
             for row in campaigns
         ],
         "sessions": sessions,
-        "item_economics": item_economics,
-        "orders": orders,
-        "inventories": inventories,
+            "item_economics": item_economics,
+            "orders": orders,
+            "inventories": inventories,
+        "price_experiment_observations": price_experiment_observations,
     }
 
 
@@ -619,6 +695,7 @@ def analytics_dataset_from_behavior_events(
             }
         )
     economics_by_item = {row["item_id"]: row for row in item_economics}
+    price_experiment_observations: list[dict[str, Any]] = []
 
     sessions: list[dict[str, Any]] = []
     session_by_user_day: dict[tuple[int, str], dict[str, Any]] = {}
@@ -754,6 +831,7 @@ def analytics_dataset_from_behavior_events(
             "合成价格、成本和订单扩展不能用于真实收入确认或财务结算；价格弹性仅用于演示",
             "渠道和活动归因是确定性模拟，不是广告平台回传或实验结果",
             "库存快照没有真实仓库流水，不能单独作为补货结论",
+            "当前上传行为事件没有价格实验分组，因此不能输出实验级价格弹性或因果结论",
         ],
         "generation_rule": (
             "保留 CSV 行为事件；以显式 seed、dataset_id、实体 ID 和日期确定性补齐画像、"
@@ -776,7 +854,8 @@ def analytics_dataset_from_behavior_events(
             for row in campaigns
         ],
         "sessions": sessions,
-        "item_economics": item_economics,
-        "orders": orders,
-        "inventories": inventories,
+            "item_economics": item_economics,
+            "orders": orders,
+            "inventories": inventories,
+        "price_experiment_observations": price_experiment_observations,
     }

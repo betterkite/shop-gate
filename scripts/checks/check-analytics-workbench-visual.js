@@ -9,6 +9,7 @@ const rootDir = path.join(__dirname, '..', '..');
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'analytics-workbench');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const baseUrl = (process.env.ANALYTICS_WORKBENCH_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const commerceApiBase = (process.env.SHOPGATE_MARKET_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28-elasticity-v1';
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
 const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
@@ -44,6 +45,24 @@ async function inspectProfile(browser, storageState, profile) {
   const page = await context.newPage();
   const pageErrors = [];
   const failedResources = [];
+  const problems = [];
+  let scopedExpected = null;
+  try {
+    const [overviewResponse, profitResponse] = await Promise.all([
+      fetch(`${commerceApiBase}/api/v1/commerce/analytics/overview?dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`),
+      fetch(`${commerceApiBase}/api/v1/commerce/analytics/profit?dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`),
+    ]);
+    if (overviewResponse.ok && profitResponse.ok) {
+      const overview = await overviewResponse.json();
+      const profit = await profitResponse.json();
+      scopedExpected = {
+        orders: Number(overview?.metrics?.orders ?? NaN),
+        grossProfit: Number(profit?.total?.gross_profit ?? NaN),
+      };
+    }
+  } catch (error) {
+    problems.push(`${profile.id}: 无法读取当前商品范围验收基准：${error instanceof Error ? error.message : String(error)}`);
+  }
   page.on('pageerror', (error) => pageErrors.push(clean(error.message)));
   page.on('response', (response) => {
     if (response.status() < 400) return;
@@ -76,7 +95,6 @@ async function inspectProfile(browser, storageState, profile) {
     fs.mkdirSync(outputDir, { recursive: true });
     const screenshotPath = path.join(outputDir, `${profile.id}-${timestamp}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
-    const problems = [];
     if (state.pageOverflow) problems.push(`${profile.id}: 页面出现横向溢出`);
     if (!state.trend) problems.push(`${profile.id}: 缺少当前下钻范围趋势`);
     if (!state.scope) problems.push(`${profile.id}: 缺少商品筛选上下文`);
@@ -91,7 +109,7 @@ async function inspectProfile(browser, storageState, profile) {
       problems.push(`${profile.id}: 筛选后的总览页请求或登录失败`);
     } else {
       await page.getByText('当前筛选：商品 1000009', { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
-      const scopedOverview = await page.evaluate(() => {
+      const scopedOverview = await page.evaluate((expected) => {
         const text = document.body.innerText;
         const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
         const ordersIndex = lines.findIndex((line) => line === '订单数');
@@ -99,15 +117,15 @@ async function inspectProfile(browser, storageState, profile) {
         const scopedCustomerLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         return {
           scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
-          scopedOrders: ordersValue === '19',
-          scopedProfit: text.includes('¥24,748.55'),
+          scopedOrders: Number.isFinite(expected?.orders) && Number(ordersValue.replaceAll(',', '')) === expected.orders,
+          scopedProfit: Number.isFinite(expected?.grossProfit) && text.includes('¥' + new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(expected.grossProfit)),
           scopedCustomerLink,
           channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
           channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
           inventoryPanel: text.includes('库存健康'),
           lifecyclePanel: text.includes('商品阶段'),
         };
-      });
+      }, scopedExpected);
       if (!scopedOverview.scopeNotice) problems.push(`${profile.id}: 筛选总览缺少当前范围说明`);
       if (!scopedOverview.scopedOrders) problems.push(`${profile.id}: 筛选总览订单数未按商品范围更新`);
       if (!scopedOverview.scopedProfit) problems.push(`${profile.id}: 筛选总览毛利未按商品范围更新`);

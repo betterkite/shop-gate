@@ -189,6 +189,29 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(runPlan.visualization.required).toBe(false);
   });
 
+  it('binds a dataset explicitly named in the user question', async () => {
+    const projectPath = await createProject();
+    const instruction = '请只回答：在数据集 retail-demo-p28-elasticity-v1 中，商品 1000009 的购买转化率是多少？不要生成看板。';
+    await writeInitialRunPlan({
+      projectPath,
+      requestId: 'explicit-dataset-instruction',
+      capabilityId: 'traffic_funnel',
+      capabilitySource: 'manual',
+      instruction,
+      queryRewrite: {
+        ...(await technicalRewrite(instruction)),
+        outputIntent: 'answer',
+        broadUniverse: false,
+      },
+    });
+
+    const runPlan = JSON.parse(
+      await fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'),
+    ) as { datasetId?: string; context?: { datasetId?: string | null } };
+    expect(runPlan.datasetId).toBe('retail-demo-p28-elasticity-v1');
+    expect(runPlan.context?.datasetId).toBe('retail-demo-p28-elasticity-v1');
+  });
+
   it('inherits the previous entity and dataset for a contextual drilldown question', async () => {
     const projectPath = await createProject();
     const firstInstruction = '生成贵州茅台最近120个交易日的技术分析看板。';
@@ -252,6 +275,7 @@ describe('PI Agent Shop Gate prompts', () => {
         sourceRunId?: string;
         scope?: { dimension: string; value: string; source: string };
       };
+      plannedEntities: { categoryIds: number[]; itemIds: number[] };
       clarification?: { required?: boolean };
     };
 
@@ -267,6 +291,7 @@ describe('PI Agent Shop Gate prompts', () => {
       sourceRunId: 'contextual-drilldown-first',
       scope: { dimension: 'item', value: '1000009', source: 'previous-final-data' },
     });
+    expect(runPlan.plannedEntities).toEqual({ categoryIds: [10051], itemIds: [] });
     expect(runPlan.clarification?.required).not.toBe(true);
   });
 

@@ -180,6 +180,13 @@ function stripOperationalInstructions(instruction: string): string {
     .trim();
 }
 
+function extractExplicitRetailDatasetId(value: string): string | undefined {
+  const match = value.match(
+    /(?:数据集|dataset(?:[_\s-]?id)?|data\s+set)\s*[:：=]?\s*([A-Za-z0-9][A-Za-z0-9._-]{0,119})/iu,
+  );
+  return match?.[1];
+}
+
 function normalizeForIntent(instruction: string): string {
   return stripOperationalInstructions(instruction).replace(/\s+/g, '');
 }
@@ -647,8 +654,11 @@ export async function writeInitialRunPlan(params: {
   const now = new Date().toISOString();
   const llm = getProjectLlmConfig(params.llmModel);
   const entities = explicitEntities.length > 0 ? explicitEntities : inheritedEntities;
-  const datasetId = params.datasetId?.trim() || (inheritPreviousPlan ? params.previousPlan?.datasetId : undefined);
-  const plannedEntities = {
+  const datasetId =
+    params.datasetId?.trim() ||
+    extractExplicitRetailDatasetId(planningInstruction) ||
+    (inheritPreviousPlan ? params.previousPlan?.datasetId : undefined);
+  const resolvedPlannedEntities = {
     categoryIds: queryRewrite.resolvedEntities
       .filter((item) => item.kind === 'category')
       .map((item) => item.id),
@@ -656,11 +666,21 @@ export async function writeInitialRunPlan(params: {
       .filter((item) => item.kind === 'item')
       .map((item) => item.id),
   };
+  const inheritedPlannedEntities = inheritPreviousPlan
+    ? params.previousPlan?.plannedEntities
+    : undefined;
+  const plannedEntities =
+    resolvedPlannedEntities.categoryIds.length > 0 || resolvedPlannedEntities.itemIds.length > 0
+      ? resolvedPlannedEntities
+      : {
+          categoryIds: [...(inheritedPlannedEntities?.categoryIds ?? [])],
+          itemIds: [...(inheritedPlannedEntities?.itemIds ?? [])],
+        };
   const requestedTimeRange =
     queryRewrite.timeRange?.label ??
     (inheritPreviousPlan ? params.previousPlan?.timeRange ?? null : null);
   const inheritedScope = inheritPreviousPlan
-    ? params.previousPlan?.context?.scope ?? await readPreviousFinalScope(params.projectPath, params.previousPlan, datasetId)
+    ? params.previousPlan?.context?.scope ?? await readPreviousFinalScope(params.projectPath, params.previousPlan ?? null, datasetId)
     : undefined;
   const baseClarification = assessRetailIntentForClarification({
     instruction: planningInstruction,

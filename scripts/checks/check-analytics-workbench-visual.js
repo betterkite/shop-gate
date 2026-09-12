@@ -351,6 +351,7 @@ async function inspectProfile(browser, storageState, profile) {
           return {
             observations: /商品级价格观察（共\s+[\d,]+\s+个，每页 20 个）/.test(text),
             priceBandLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('price_band=')),
+            itemDetailLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=drilldown') && link.getAttribute('href')?.includes('dimension=item')),
             rowCount: tables[0]?.querySelectorAll('tbody tr').length || 0,
             firstRow: tables[0]?.querySelector('tbody tr')?.textContent?.trim() || '',
             nextPage: text.includes('下一页'),
@@ -362,6 +363,7 @@ async function inspectProfile(browser, storageState, profile) {
         const secondElasticityFirstRow = await page.locator('table').first().locator('tbody tr').first().textContent().catch(() => '');
         if (!firstElasticityPage.observations) problems.push(`${profile.id}: 价格弹性页缺少商品观察总数/分页说明`);
         if (!firstElasticityPage.priceBandLink) problems.push(`${profile.id}: 价格弹性页缺少价格带筛选入口`);
+        if (!firstElasticityPage.itemDetailLink) problems.push(`${profile.id}: 价格观察缺少商品明细入口`);
         if (!firstElasticityPage.nextPage) problems.push(`${profile.id}: 价格弹性页缺少翻页入口`);
         if (firstElasticityPage.rowCount < 20) problems.push(`${profile.id}: 价格弹性第一页不足 20 行`);
         if (!secondElasticityFirstRow || secondElasticityFirstRow === firstElasticityPage.firstRow) problems.push(`${profile.id}: 价格弹性第 2 页未展示不同商品`);

@@ -246,3 +246,53 @@ def test_item_drilldown_includes_behavior_funnel_evidence(
         "/analytics-workbench?view=drilldown&dataset_id=retail-p30"
         "&dimension=item&value=1001"
     )
+
+
+def test_category_drilldown_includes_behavior_funnel_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p30",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "p30_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 30,
+                "row_counts": {},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [{
+            "category_id": 10,
+            "orders": 12,
+            "users": 9,
+            "units": 15,
+            "net_sales": 1500,
+            "pv": 500,
+            "fav": 60,
+            "cart": 40,
+            "buy": 15,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_drilldown("retail-p30", "category", "10"))
+
+    row = result["results"][0]
+    assert row["category_id"] == 10
+    assert row["pv"] == 500
+    assert row["buy"] == 15
+    assert row["buy_conversion"] == 0.03
+    assert result["context_url"].endswith("dimension=category&value=10")

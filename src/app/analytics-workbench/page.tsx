@@ -70,6 +70,7 @@ const DIMENSION_LABELS: Record<string, string> = {
   user: '用户',
   channel: '渠道',
   campaign: '活动',
+  category: '类目',
 };
 
 const LIFECYCLE_STAGE_OPTIONS = [

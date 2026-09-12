@@ -679,12 +679,65 @@ async def analytics_drilldown(
     """为多轮 Agent/页面下钻提供稳定的维度上下文和下一步提示。"""
 
     contract = await _contract(dataset_id)
-    if dimension not in {"channel", "campaign", "item", "user"}:
-        raise ValueError("下钻维度必须是 channel、campaign、item 或 user")
+    if dimension not in {"channel", "campaign", "category", "item", "user"}:
+        raise ValueError("下钻维度必须是 channel、campaign、category、item 或 user")
     if not value.strip():
         raise ValueError("下钻值不能为空")
 
-    if dimension in {"channel", "campaign"}:
+    if dimension == "category":
+        try:
+            category_id = int(value)
+        except ValueError as error:
+            raise ValueError("类目下钻值必须是数字 category_id") from error
+        rows = await fetch_all(
+            """
+            WITH sales AS (
+              SELECT COUNT(DISTINCT o.order_id) AS orders,
+                     COUNT(DISTINCT o.user_id) AS users,
+                     COALESCE(SUM(o.quantity), 0) AS units,
+                     COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales
+              FROM commerce.dataset_orders o
+              JOIN commerce.dataset_item_economics i
+                ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
+              WHERE o.dataset_id = %s AND i.category_id = %s
+            ), behavior AS (
+              SELECT
+                COUNT(*) FILTER (WHERE behavior_type = 'pv') AS pv,
+                COUNT(*) FILTER (WHERE behavior_type = 'fav') AS fav,
+                COUNT(*) FILTER (WHERE behavior_type = 'cart') AS cart,
+                COUNT(*) FILTER (WHERE behavior_type = 'buy') AS buy
+              FROM commerce.dataset_behavior_events
+              WHERE dataset_id = %s AND category_id = %s
+            )
+            SELECT %s AS category_id, s.*, b.pv, b.fav, b.cart, b.buy
+            FROM sales s CROSS JOIN behavior b
+            """,
+            (dataset_id, category_id, dataset_id, category_id, category_id),
+        )
+        results = [
+            {
+                **row,
+                "orders": int(row["orders"] or 0),
+                "users": int(row["users"] or 0),
+                "units": int(row["units"] or 0),
+                "net_sales": round(_number(row["net_sales"]), 2),
+                "pv": int(row["pv"] or 0),
+                "fav": int(row["fav"] or 0),
+                "cart": int(row["cart"] or 0),
+                "buy": int(row["buy"] or 0),
+                "buy_conversion": round(
+                    int(row["buy"] or 0) / int(row["pv"] or 0), 6
+                    if int(row["pv"] or 0) > 0 else 0.0
+                ),
+            }
+            for row in rows
+        ]
+        next_questions = [
+            "查看该类目下浏览量最高的商品",
+            "比较该类目的购买转化率",
+            "查看该类目的库存风险",
+        ]
+    elif dimension in {"channel", "campaign"}:
         column = "channel_id" if dimension == "channel" else "campaign_id"
         rows = await fetch_all(
             f"""

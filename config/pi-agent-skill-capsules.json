@@ -59,14 +59,14 @@
       "priority": 70,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "在本地覆盖、时效和字段完整性之间选择可审计的数据来源。",
+      "objective": "在零售数据集、窗口和字段完整性之间选择可审计的经营数据来源。",
       "invariants": [
-        "本地已有覆盖时优先本地数据，不绕过 Shop Gate API。",
-        "每个数据集保留 source、endpoint、as_of、fetched_at 和质量状态。"
+        "所有分析必须绑定用户选择的 dataset_id，不得混用默认数据集。",
+        "每个数据集保留 source、endpoint、as_of、fetched_at、row_count 和质量状态。"
       ],
       "workflow": [
-        "先查询注册表或覆盖信息，再选择最小必要的数据端点。",
-        "对字段缺口记录补数来源、降级原因和不可用边界。"
+        "先发现数据集并读取 meta，再选择 overview、funnel、categories、inventory、lifecycle、profit 或 drilldown。",
+        "商品级缺口和窗口外限制必须记录到 evidence。"
       ],
       "doneWhen": ["来源选择和字段缺口均能被 evidence 追溯。"],
       "resources": []
@@ -75,13 +75,13 @@
       "priority": 95,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "把名称、代码、指数和 ETF 转成唯一标准标的。",
+      "objective": "把商品、类目、渠道和活动名称转成唯一标准零售实体。",
       "invariants": [
         "唯一候选自动继续；只有多个同优先级候选才允许澄清。",
-        "输出代码、市场、资产类型，并保持 run plan 标的顺序。"
+        "输出实体标识、实体类型和来源，并保持 run plan 顺序。"
       ],
-      "workflow": ["仅对尚未解析的输入调用 symbols/resolve，并复用已解析结果。"],
-      "doneWhen": ["所有可解析输入都有标准 symbol，无法解析项有明确原因。"],
+      "workflow": ["仅对尚未解析的输入调用 commerce/resolve，并复用已解析结果。"],
+      "doneWhen": ["所有可解析输入都有标准零售实体，无法解析项有明确原因。"],
       "resources": []
     },
     "image-extraction": {
@@ -104,15 +104,15 @@
       "priority": 110,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "通过 Shop Gate 只读 API 获取任务所需的实时行情和历史序列。",
+      "objective": "通过 Shop Gate 只读 API 获取任务所需的零售行为、商品和窗口数据。",
       "invariants": [
         "所有请求必须是 commerce_api_get 允许的 GET 端点。",
-        "趋势任务优先获取足够长度的 bars；失败时保留真实错误和数据缺口。",
-        "成交额、换手率和振幅缺失时不臆造。"
+        "所有请求必须带当前 dataset_id；失败时保留真实错误和数据缺口。",
+        "PV、UV、收藏、加购、购买和价格缺失时不臆造。"
       ],
       "workflow": [
-        "按 run plan 的 symbols、timeRange、period 和 adjustment 批量复用查询。",
-        "将原始响应整理进 final 数据，并把来源与样本量写入 evidence。"
+        "按 run plan 的 dataset_id、entity_ids 和 timeRange 复用查询。",
+        "将原始响应整理进 final 数据，并把来源、窗口和样本量写入 evidence。"
       ],
       "doneWhen": ["每个计划标的都有可用数据或可审计失败原因。"],
       "resources": []
@@ -121,25 +121,25 @@
       "priority": 90,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "获取并组织财报、财务衍生指标、公告和估值上下文。",
+      "objective": "获取并组织商品、类目、价格、库存和合成字段上下文。",
       "invariants": [
-        "保留报告期、来源和缺失字段，不混用年度、季度与 TTM 口径。",
-        "估值情景是研究假设，不是目标价承诺。"
+        "保留 dataset_id、窗口、来源和缺失字段，不混用数据集口径。",
+        "实际价格与合成价格分开，合成字段必须可见。"
       ],
-      "workflow": ["按任务需要调用 financials、fundamental indicators 和 announcements 的只读端点。"],
-      "doneWhen": ["关键财务指标能追溯到报告期和来源，缺失项对页面可见。"],
+      "workflow": ["按任务需要调用商品、类目、库存、生命周期和价格弹性只读端点。"],
+      "doneWhen": ["关键经营字段能追溯到窗口和来源，缺失项对页面可见。"],
       "resources": []
     },
     "commerce-metrics": {
       "priority": 90,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "生成与任务窗口一致的技术、收益、风险、相关性和流动性指标。",
+      "objective": "生成与任务窗口一致的漏斗、转化、GMV、动销、库销比和日趋势指标。",
       "invariants": [
-        "所有指标说明样本长度、窗口和复权口径。",
-        "比率不能直接累加，最大回撤必须来自价格或净值序列。"
+        "所有指标说明样本长度、窗口和公式。",
+        "分母为零时返回空值或无销量，不把缺失数据写成 0。"
       ],
-      "workflow": ["优先使用本地指标端点；仅对端点未提供但 final bars 足够的指标做确定性计算。"],
+      "workflow": ["优先使用当前数据集的分析端点；仅对端点未提供但明细足够的指标做确定性计算。"],
       "doneWhen": ["页面所需指标有数值、口径和样本不足说明。"],
       "resources": []
     },
@@ -147,13 +147,13 @@
       "priority": 100,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "取得可复现的回测参数、净值、回撤和交易明细。",
+      "objective": "校验可复现的零售漏斗、GMV、库存和商品分层规则。",
       "invariants": [
-        "回测必须基于本地 bars 和明确参数。",
-        "费用、滑点、停牌和分红等未建模因素必须可见。"
+        "规则必须绑定 dataset_id、窗口和真实输入字段。",
+        "合成字段、GMV估算、无销量和价格弹性数据不足必须可见。"
       ],
-      "workflow": ["调用允许的 backtest GET 端点，保留参数、样本区间和交易明细。"],
-      "doneWhen": ["收益、回撤、胜率、交易次数和限制可以被用户复核。"],
+      "workflow": ["调用零售分析 GET 端点并运行规则校验器，保留公式、样本和错误/告警。"],
+      "doneWhen": ["PV、购买、GMV、库存和阶段判断可被用户复核。"],
       "resources": []
     },
     "data-quality": {

@@ -1,4 +1,4 @@
 interface:
-  display_name: "行情数据"
-  short_description: "优先本地事实库获取并校验股票、指数和 ETF 行情"
-  default_prompt: "Use $commerce-market-data to fetch and validate the required local-first market data for this task."
+  display_name: "经营数据取数"
+  short_description: "读取并校验商品行为漏斗库存类目和经营窗口数据质量与来源"
+  default_prompt: "Use $commerce-market-data to fetch and validate the selected retail dataset and its operating evidence."

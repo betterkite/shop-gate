@@ -17,9 +17,9 @@ const PATTERNS: Array<{ id: string; pattern: RegExp; replacement: string }> = [
 const ALLOWED_CASE_FIELDS = [
   'capabilityId',
   'type',
-  'expectedSymbol',
-  'expectedSymbols',
-  'expectedAssetType',
+  'expectedDatasetId',
+  'expectedItemId',
+  'expectedCategoryId',
   'expectedTemplateId',
   'expectedVariantId',
   'expectedDatasets',

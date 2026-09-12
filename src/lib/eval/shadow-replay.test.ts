@@ -5,9 +5,9 @@ import { attestProductionReplayCase, buildProductionReplayCase, redactEvalPrompt
 describe('production shadow replay privacy', () => {
   it('redacts direct identifiers and retains only evaluation fields', () => {
     const prepared = buildProductionReplayCase({
-      question: '我的手机号是13800138000，邮箱 test@example.com，请分析600519',
-      capabilityId: 'fundamental_analysis',
-      expectedSymbol: '600519',
+      question: '我的手机号是13800138000，邮箱 test@example.com，请分析 item-001',
+      capabilityId: 'price_inventory',
+      expectedDatasetId: 'retail-demo',
       userId: 'secret-user',
     }, { hashKey: 'test-only-shadow-hash-key' });
     expect(prepared.question).toContain('[MOBILE]');
@@ -17,7 +17,7 @@ describe('production shadow replay privacy', () => {
   });
 
   it('detects residual direct identifiers', () => {
-    const redaction = redactEvalPrompt('分析股票', 'test-only-shadow-hash-key');
+    const redaction = redactEvalPrompt('分析商品', 'test-only-shadow-hash-key');
     const result = attestProductionReplayCase({
       question: '联系 13800138000',
       privacy: {

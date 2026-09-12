@@ -5,18 +5,18 @@ const REQUIRED_SCENARIOS = Object.freeze([
   'standard',
   'custom-no-card',
   'repair',
-  'technical',
-  'fundamental',
-  'portfolio',
+  'funnel',
+  'catalog',
+  'inventory',
   'cancellation-or-crash',
   'security-boundary',
 ]);
 
 const LIVE_MODEL_SCENARIOS = new Set([
   'custom-no-card',
-  'technical',
-  'fundamental',
-  'portfolio',
+  'funnel',
+  'catalog',
+  'inventory',
 ]);
 
 const EVIDENCE_CLASSES = new Set([
@@ -87,9 +87,9 @@ function assertScenarioCaseShape(name, testCase, problems) {
     }
   }
   const expectedCapability = {
-    technical: 'technical_analysis',
-    fundamental: 'fundamental_analysis',
-    portfolio: 'portfolio_risk',
+    funnel: 'traffic_funnel',
+    catalog: 'catalog_structure',
+    inventory: 'price_inventory',
   }[name];
   if (expectedCapability && testCase.capabilityId !== expectedCapability) {
     problems.push(`${testCase.id} 的 capabilityId 必须为 ${expectedCapability}。`);

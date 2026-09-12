@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Choose a deterministic local-first Shop Gate data route from known coverage."""
+"""Choose the smallest auditable Shop Gate retail endpoint for an operation."""
 
 from __future__ import annotations
 
@@ -11,185 +11,74 @@ from pathlib import Path
 from typing import Any
 
 
-SYMBOL_PATTERN = re.compile(r"^(?:\d{6})(?:\.(?:SH|SZ|BJ))?$", re.IGNORECASE)
-UNIVERSE_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
-OPERATIONS = {
-    "registry_discovery",
-    "universe_summary",
-    "universe_members",
-    "coverage_audit",
-    "historical_bars",
-    "realtime_quote",
-    "fundamentals",
-    "announcements",
+JsonRecord = dict[str, Any]
+DATASET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+ITEM_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+
+ROUTES = {
+    "dataset_discovery": ("/api/v1/commerce/datasets", "发现可用数据集"),
+    "dataset_meta": ("/api/v1/commerce/meta", "读取窗口、来源、行数和数据质量"),
+    "overview": ("/api/v1/commerce/analytics/overview", "读取经营总览"),
+    "funnel": ("/api/v1/commerce/analytics/funnel", "读取曝光、收藏、加购、购买漏斗"),
+    "categories": ("/api/v1/commerce/analytics/categories", "读取类目结构与排名"),
+    "inventory": ("/api/v1/commerce/analytics/inventory", "读取库存、动销和库销比"),
+    "lifecycle": ("/api/v1/commerce/analytics/lifecycle", "读取商品经营阶段"),
+    "price_elasticity": ("/api/v1/commerce/analytics/price-elasticity", "读取价格弹性与数据边界"),
+    "profit": ("/api/v1/commerce/analytics/profit", "读取收入、成本和毛利"),
+    "drilldown": ("/api/v1/commerce/analytics/drilldown", "读取可下钻的商品或类目证据"),
+    "item_events": ("/api/v1/commerce/items/{item_id}/events", "读取单商品窗口内行为明细"),
 }
 
 
-def read_input(value: str) -> dict[str, Any]:
-    if value == "-":
-        raw = sys.stdin.read()
-    else:
-        candidate = Path(value)
-        try:
-            is_file = candidate.is_file()
-        except OSError:
-            is_file = False
-        raw = candidate.read_text(encoding="utf-8") if is_file else value
-    parsed = json.loads(raw)
-    if not isinstance(parsed, dict):
-        raise ValueError("--input must resolve to a JSON object")
-    return parsed
-
-
-def string_list(value: Any, field: str) -> list[str]:
-    if value is None:
-        return []
-    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-        raise ValueError(f"{field} must be an array of strings")
-    return list(dict.fromkeys(item.strip() for item in value if item.strip()))
-
-
-def bool_field(record: dict[str, Any], field: str, default: bool) -> bool:
-    value = record.get(field, default)
-    if not isinstance(value, bool):
-        raise ValueError(f"{field} must be a boolean")
+def read_json(source: str) -> JsonRecord:
+    text = source if source.lstrip().startswith("{") else sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")
+    value = json.loads(text)
+    if not isinstance(value, dict):
+        raise ValueError("输入 JSON 必须是对象。")
     return value
 
 
-def normalize_symbol(value: Any) -> str:
-    if not isinstance(value, str) or not SYMBOL_PATTERN.fullmatch(value.strip()):
-        raise ValueError("symbol must be a six-digit code with an optional .SH/.SZ/.BJ suffix")
-    return value.strip().upper()
+def route(request: JsonRecord) -> JsonRecord:
+    operation = request.get("operation")
+    if not isinstance(operation, str) or operation not in ROUTES:
+        raise ValueError(f"operation 必须是以下之一：{', '.join(ROUTES)}")
+    endpoint, purpose = ROUTES[operation]
 
+    dataset_id = request.get("dataset_id")
+    if operation != "dataset_discovery":
+        if not isinstance(dataset_id, str) or not DATASET_ID.fullmatch(dataset_id):
+            raise ValueError("除 dataset_discovery 外，dataset_id 必须是安全的数据集标识。")
+        endpoint = f"{endpoint}?dataset_id={dataset_id}"
 
-def choose_route(payload: dict[str, Any]) -> dict[str, Any]:
-    operation = payload.get("operation")
-    if operation not in OPERATIONS:
-        raise ValueError(f"operation must be one of: {', '.join(sorted(OPERATIONS))}")
-
-    base = {
-        "schemaVersion": 1,
-        "operation": operation,
-        "policy": "local_first",
-        "registry_endpoint": "/api/v1/registry",
-        "warnings": [],
-    }
-    if operation == "registry_discovery":
-        return {**base, "decision": "registry", "endpoint": "/api/v1/registry", "next_skill": None}
-    if operation == "universe_summary":
-        return {
-            **base,
-            "decision": "local_universe_summary",
-            "endpoint": "/api/v1/research/universes/summary",
-            "next_skill": None,
-        }
-
-    universe_id = payload.get("universe_id")
-    if operation in {"universe_members", "coverage_audit"}:
-        if not isinstance(universe_id, str) or not UNIVERSE_PATTERN.fullmatch(universe_id):
-            raise ValueError("universe_id must contain only letters, numbers, dot, underscore, or hyphen")
-        if operation == "universe_members":
-            return {
-                **base,
-                "decision": "local_universe_members",
-                "endpoint": f"/api/v1/research/universes/{universe_id}/members",
-                "next_skill": None,
-            }
-        return {
-            **base,
-            "decision": "full_coverage_audit",
-            "endpoint": f"/api/v1/research/data-coverage?universe_id={universe_id}",
-            "next_skill": "data-quality",
-            "warnings": ["全池覆盖审计可能返回大量数据；不要把它作为普通对话的默认前置请求。"],
-        }
-
-    symbol = normalize_symbol(payload.get("symbol"))
-    if operation == "realtime_quote":
-        return {
-            **base,
-            "decision": "realtime_capability",
-            "endpoint": f"/api/v1/quotes/realtime/{symbol}",
-            "next_skill": "commerce-market-data",
-        }
-    if operation == "fundamentals":
-        return {
-            **base,
-            "decision": "registered_capability",
-            "endpoint": None,
-            "next_skill": "commerce-master-data",
-            "requires_registry_lookup": True,
-        }
-    if operation == "announcements":
-        return {
-            **base,
-            "decision": "registered_capability",
-            "endpoint": None,
-            "next_skill": "commerce-master-data",
-            "requires_registry_lookup": True,
-        }
-
-    coverage = payload.get("local_coverage", {})
-    if not isinstance(coverage, dict):
-        raise ValueError("local_coverage must be an object")
-    available = bool_field(coverage, "available", False)
-    covers_range = bool_field(coverage, "covers_range", False)
-    missing_fields = string_list(coverage.get("missing_fields"), "local_coverage.missing_fields")
-    required_fields = string_list(payload.get("required_fields"), "required_fields")
-    required_gaps = sorted(set(required_fields).intersection(missing_fields))
-    if available and covers_range and not required_gaps:
-        return {
-            **base,
-            "decision": "local_historical_bars",
-            "endpoint": f"/api/v1/research/bars/{symbol}",
-            "next_skill": None,
-            "required_field_gaps": [],
-        }
-
-    providers = payload.get("provider_availability", {})
-    if not isinstance(providers, dict):
-        raise ValueError("provider_availability must be an object")
-    for name, enabled in providers.items():
-        if name not in {"eastmoney", "baostock", "akshare", "tencent"} or not isinstance(enabled, bool):
-            raise ValueError("provider_availability accepts boolean eastmoney, baostock, akshare, and tencent fields")
-
-    fallback = "unavailable"
-    endpoint = None
-    warnings: list[str] = []
-    if providers.get("eastmoney"):
-        fallback = "external_history_capability"
-    elif providers.get("baostock"):
-        fallback = "baostock_ingestion"
-        endpoint = "/api/v1/ingestion/baostock/history"
-    elif providers.get("akshare"):
-        fallback = "akshare_ingestion"
-        endpoint = "/api/v1/ingestion/akshare/history"
-    elif providers.get("tencent"):
-        fallback = "tencent_ohlcv_only"
-        warnings.append("腾讯兜底通常不含成交额和换手率，不能覆盖已有增强字段。")
-    else:
-        warnings.append("本地覆盖不足且没有声明可用 provider；停止并报告真实数据缺口。")
+    item_id = request.get("item_id")
+    if operation == "item_events":
+        if not isinstance(item_id, str) or not ITEM_ID.fullmatch(item_id):
+            raise ValueError("item_events 必须提供安全的 item_id。")
+        endpoint = endpoint.format(item_id=item_id)
 
     return {
-        **base,
-        "decision": fallback,
+        "status": "selected",
+        "operation": operation,
+        "dataset_id": dataset_id if isinstance(dataset_id, str) else None,
+        "item_id": item_id if isinstance(item_id, str) else None,
+        "decision": "local_retail_analytics",
         "endpoint": endpoint,
-        "next_skill": "commerce-market-data" if fallback != "unavailable" else None,
-        "requires_local_reread_after_ingestion": fallback not in {"unavailable", "tencent_ohlcv_only"},
-        "required_field_gaps": required_gaps,
-        "warnings": warnings,
+        "purpose": purpose,
+        "next_skill": "commerce-market-data" if operation in {"overview", "funnel", "categories", "inventory", "lifecycle", "price_elasticity", "profit", "drilldown", "item_events"} else "commerce-data-registry",
+        "evidence_required": ["dataset_id", "source", "as_of", "fetched_at", "row_count", "data_quality"],
+        "external_provider_allowed": False,
     }
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Select a deterministic local-first Shop Gate data route.")
-    parser.add_argument("--input", required=True, help="JSON object literal, JSON file path, or '-' for stdin.")
+    parser = argparse.ArgumentParser(description="为 Shop Gate 零售任务选择可审计的数据端点。")
+    parser.add_argument("--input", required=True, help="JSON 对象、JSON 文件路径或 -（stdin）。")
     args = parser.parse_args()
     try:
-        result = choose_route(read_input(args.input))
-    except (OSError, json.JSONDecodeError, ValueError) as error:
-        print(json.dumps({"ok": False, "error": str(error)}, ensure_ascii=False), file=sys.stderr)
+        print(json.dumps(route(read_json(args.input)), ensure_ascii=False, indent=2))
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+        print(f"select_data_route: {error}", file=sys.stderr)
         return 2
-    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 

@@ -1,40 +1,27 @@
 ---
 name: commerce-rule-review
-description: Validate and explain reproducible retail category/assortment/pricing rules against the window. Use for rule review, evidence, and explicit limitations.
+description: Validate and explain reproducible retail operating rules, metric consistency, and data-quality boundaries.
 ---
 
-# Shop Gate 规则/策略验证
+# Shop Gate 零售规则验证
 
-基于已校验的本地 bars 执行回测，保存参数、数据口径和逐日净值证据。回测结果用于研究，不是未来收益承诺。
+验证漏斗、GMV、库存和商品分层规则是否与输入数据一致，输出可复核的结果和用户友好的限制说明。
 
 ## 执行流程
 
-1. 解析标的，先读取 `/api/v1/research/bars/{symbol}` 并确认本地样本区间、周期和复权。
-2. 固化策略参数、费用、信号时点和成交假设；均线交叉必须满足 `fast_window < slow_window`。
-3. 在调用 `/api/v1/backtests/ma-crossover/{symbol}` 或本地确定性计算前，读取 [references/backtest-contract.md](references/backtest-contract.md)。
-4. 保存原始响应，并把 `summary`、`equity_curve`、`trades`、`data_quality` 与 `localBarsCoverage` 合并到最终数据。
-5. 在展示收益或生成页面前执行：
+1. 确认 `dataset_id`、时间窗口和数据来源。
+2. 读取 [retail-rule-contract.md](references/retail-rule-contract.md)，再执行：
 
 ```bash
-python3 scripts/validate_backtest.py --input data_file/raw/<run_id>/backtest.json
+python3 scripts/validate_retail_rules.py data_file/final/dashboard-data.json
 ```
 
-6. 校验失败时不得声称回测完成；校验通过后仍要披露未建模项与数据限制。
+3. 校验 PV≥收藏/加购/购买、购买量≤PV、GMV=购买量×实际价格，以及库存和销量的分母边界。
+4. 把错误、告警、公式、样本和缺失字段写入 evidence；校验失败时不得声称分析完成。
 
-## 按需资源
+## 解释边界
 
-- [references/backtest-contract.md](references/backtest-contract.md)：实现/审查信号、成交、费用、收益、回撤、交易配对或结果解释时必须读取。
-- [scripts/validate_backtest.py](scripts/validate_backtest.py)：检查参数、时间顺序、净值、回撤、持仓、交易明细和摘要一致性。
-
-## Workspace 回答协作
-
-- 继承平台五阶段进度，不重复阶段标题、识别表或 Todo。
-- 只贡献策略、参数、样本区间、费用、收益、回撤、交易数和未建模限制。
-- 不输出隐藏推理、完整工具参数或占位式执行文案。
-
-## 完成门槛
-
-- 数据来源为已确认的本地 bars，样本区间、周期、复权和费用明确。
-- 结果同时包含 `summary`、非空 `equity_curve`、`trades` 与 `data_quality`。
-- 校验器返回 `ok: true`，摘要与曲线末值一致。
-- 明确披露滑点、停牌、涨跌停、分红再投资和冲击成本是否建模。
+- 规则是经营分析口径，不是自动补货或确定性经营决策。
+- “需关注库存商品数”表示达到关注规则的商品数量，必须把触发规则写给用户。
+- 价格弹性需要多个价格点和可比较购买量；数据不足时只说明缺口。
+- 不进行回测，不输出净值、交易明细、收益承诺或金融风险结论。

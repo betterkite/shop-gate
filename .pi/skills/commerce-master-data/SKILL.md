@@ -1,46 +1,29 @@
 ---
 name: commerce-master-data
-description: Describe retail item/category master data (price, stock, attributes, synthetic labeling) and basic operating metrics. Use for master-data context and price/inventory evidence.
+description: Describe retail product and category master data, price, stock, attributes, and the source boundary of synthetic fields.
 ---
 
 # Shop Gate 商品主数据
 
-把财务报表、衍生指标、公告事件和估值情景组织为统一、可核验的基本面证据。
+组织商品、类目、价格、库存、渠道、活动和用户维度，供经营分析和看板使用。
 
 ## 执行流程
 
-1. 用 `commerce-entity-resolver` 确认标准代码；只处理 run plan 中的标的。
-2. 读取 `/fundamentals/financials/{symbol}`、`/indicators/fundamental/{symbol}` 与 `/events/announcements/{symbol}` 的真实返回。
-3. 对齐报告期、披露时间、单位、百分比口径和来源；现金流优先读取正式的 `operating_cash_flow_per_share` 与 `operating_cash_flow_per_share_yoy`，不要依赖 provider 私有 raw，也不要把不同口径拼成同一趋势。
-4. 仅在用户询问估值、持有依据或情景空间时运行估值脚本；把假设与事实分开。
-5. 写入 `financials`、`fundamentalIndicators`、`announcements`、`valuation`，并同步来源与 data quality。
-6. 让页面呈现事实、期间、来源、缺口和情景假设；不要输出收益承诺。
-
-## 按需加载参考
-
-- 当合并多个基本面数据集、比较跨期财务、解释公告或生成估值时，读取 [基本面统一合同与失败模式](references/fundamentals-contract.md)。
-- 单纯调用确定性估值脚本且输入已经过合同校验时，不必加载整份参考。
-
-## 确定性脚本
-
-从文件读取并保持现有调用兼容：
+1. 先确认当前 `dataset_id` 和窗口，再读取商品/类目主数据。
+2. 保留 `item_id`、名称、类目、价格、库存、属性、来源和更新时间。
+3. 区分实际字段与合成字段；合成字段必须在页面和 evidence 中明示，不能伪装成真实业务事实。
+4. 需要商品阶段或分层时运行：
 
 ```bash
-python3 scripts/valuation_scenarios.py data_file/final/dashboard-data.json
+python3 scripts/product_segments.py data_file/final/dashboard-data.json
 ```
 
-从 stdin 读取并向 stdout 输出 JSON：
+5. 价格弹性只在存在多个价格点与可比较购买量时计算；否则输出数据不足和需要补充的字段。
 
-```bash
-python3 scripts/valuation_scenarios.py - < data_file/final/dashboard-data.json
-```
+主数据字段和合成数据边界见 [master-data-contract.md](references/master-data-contract.md)。
 
-可继续用 `-o/--output` 写文件。EPS、PE 或价格不足时保留 warning 和空 scenarios，不补造数字。
+## 禁止事项
 
-## Workspace 协作与质量门
-
-- 继承平台阶段；只贡献标的、报告期、财务/事件事实、估值假设、来源和缺失字段。
-- 不输出隐藏推理、完整工具参数、占位进度或重复 Todo。
-- 拒绝把公告标题当正文、把单期累计数当单季数、把估值情景当预测结论。
-- 对缺失报告期、单位、来源、时间戳或标的不一致返回 warning/error，不静默降级。
-- 对经营现金流与净利润增速的比较，必须使用同一报告期并同时展示两个输入值；缺少可比上期时返回限制说明，不自行推算。
+- 不读取财报、公告、EPS、PE、估值或投资组合。
+- 不用估算价格覆盖真实价格。
+- 不把库存关注数直接解释为必须补货；应同时呈现库存、销量、浏览和购买转化。

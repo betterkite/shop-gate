@@ -1,4 +1,4 @@
 interface:
-  display_name: "证券标识解析"
-  short_description: "将名称、简称和代码解析为唯一标准证券标识并处理歧义"
-  default_prompt: "Use $commerce-entity-resolver to resolve the user security identifiers before any market-data lookup."
+  display_name: "零售实体解析"
+  short_description: "将商品类目渠道活动名称解析为稳定标识并处理同名歧义"
+  default_prompt: "Use $commerce-entity-resolver to resolve the retail product or category identifiers before querying data."

@@ -210,6 +210,15 @@
     "commerce-data-registry": {
       "releases": [
         {
+          "version": "1.1.0",
+          "date": "2026-09-12",
+          "summary": "将数据注册与路由完全切换为零售数据集和经营分析端点。",
+          "changes": [
+            "替换金融数据覆盖、provider 降级和 K 线路由。",
+            "新增 dataset_id、窗口、来源和商品级证据边界。"
+          ]
+        },
+        {
           "version": "1.0.1",
           "date": "2026-09-07",
           "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
@@ -305,6 +314,15 @@
     },
     "commerce-entity-resolver": {
       "releases": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-12",
+          "summary": "将实体解析切换为商品、类目、渠道和活动标识。",
+          "changes": [
+            "移除证券代码、市场和资产类型排序逻辑。",
+            "同优先级零售实体继续要求用户澄清。"
+          ]
+        },
         {
           "version": "1.0.1",
           "date": "2026-09-07",
@@ -496,6 +514,15 @@
     "commerce-market-data": {
       "releases": [
         {
+          "version": "1.1.0",
+          "date": "2026-09-12",
+          "summary": "将取数和校验脚本切换为零售行为、商品和日指标。",
+          "changes": [
+            "移除 K 线、行情和 provider 补数合同。",
+            "新增行为漏斗顺序与商品级证据缺口校验。"
+          ]
+        },
+        {
           "version": "1.0.1",
           "date": "2026-09-07",
           "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
@@ -593,6 +620,15 @@
     "commerce-master-data": {
       "releases": [
         {
+          "version": "1.1.0",
+          "date": "2026-09-12",
+          "summary": "将主数据和分层脚本切换为商品、类目、价格与库存。",
+          "changes": [
+            "移除财报、公告和估值情景。",
+            "区分实际字段与合成字段，并补充商品经营阶段规则。"
+          ]
+        },
+        {
           "version": "1.0.1",
           "date": "2026-09-07",
           "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
@@ -688,6 +724,15 @@
     "commerce-metrics": {
       "releases": [
         {
+          "version": "1.1.0",
+          "date": "2026-09-12",
+          "summary": "将指标脚本切换为零售漏斗、库存和日趋势。",
+          "changes": [
+            "移除收益、技术、相关性和流动性计算。",
+            "新增转化、GMV、库销比、动销率和分母边界。"
+          ]
+        },
+        {
           "version": "1.0.1",
           "date": "2026-09-07",
           "summary": "SKILL.md 元数据零售化（description/标题对齐零售语义）。",
@@ -772,6 +817,15 @@
     },
     "commerce-rule-review": {
       "releases": [
+        {
+          "version": "1.1.0",
+          "date": "2026-09-12",
+          "summary": "将规则验证切换为零售行为、GMV、库存和商品分层合同。",
+          "changes": [
+            "移除回测、净值、交易和费用口径。",
+            "新增零售指标一致性、合成字段和数据不足告警。"
+          ]
+        },
         {
           "version": "1.0.1",
           "date": "2026-09-07",

@@ -1,4 +1,4 @@
 interface:
-  display_name: "基本面与事件"
-  short_description: "组织财报、财务指标、公告和估值情景的可追溯证据与限制说明"
-  default_prompt: "Use $commerce-master-data to assemble period-aware financial, event, and valuation evidence."
+  display_name: "商品主数据"
+  short_description: "组织商品类目价格库存属性及合成字段的来源边界说明与质量"
+  default_prompt: "Use $commerce-master-data to assemble auditable retail product, price, inventory, and category evidence."

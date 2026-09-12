@@ -62,24 +62,26 @@ function mutationFixture(evaluatorId: EvalEvaluatorId): EvalMutationFixture {
   const snapshotPayload = {
     schemaVersion: 1,
     caseId: 'mutation-golden',
-    symbol: '600519',
+    dataset_id: 'retail-demo',
+    item_id: 'item-001',
+    behavior_events: [{ event_type: 'view' }, { event_type: 'buy' }],
     asOf: '2026-07-15T07:00:00.000Z',
   };
   return {
     evaluatorId,
     mode: 'contract',
     assertions: [
-      { id: 'symbol', target: 'finalData', path: 'symbol', operator: 'equals', value: '600519' },
-      { id: 'series', target: 'finalData', path: 'kline.bars', operator: 'length_gte', value: 2 },
+      { id: 'dataset', target: 'finalData', path: 'dataset_id', operator: 'equals', value: 'retail-demo' },
+      { id: 'events', target: 'finalData', path: 'behavior_events', operator: 'length_gte', value: 2 },
       { id: 'sources', target: 'sources', path: 'sources', operator: 'length_gte', value: 1 },
       { id: 'quality', target: 'quality', path: 'status', operator: 'exists' },
-      { id: 'no-guarantee', target: 'page', operator: 'not_matches', value: '保证收益|稳赚不赔|零风险' },
+      { id: 'no-guarantee', target: 'page', operator: 'not_matches', value: '保证卖爆|稳赚不赔|零风险' },
     ],
     targets: {
-      finalData: { symbol: '600519', kline: { bars: [{ close: 100 }, { close: 101 }] } },
+      finalData: { dataset_id: 'retail-demo', item_id: 'item-001', behavior_events: [{ event_type: 'view' }, { event_type: 'buy' }] },
       sources: { sources: [{ provider: 'snapshot' }] },
       quality: { status: 'ok' },
-      page: '仅供研究参考，不构成投资建议。',
+      page: '仅供经营分析参考，不构成销量保证或自动补货承诺。',
     },
     result: {
       id: 'mutation-golden',
@@ -108,13 +110,13 @@ function mutationFixture(evaluatorId: EvalEvaluatorId): EvalMutationFixture {
       id: 'mutation-golden-v1',
       caseId: 'mutation-golden',
       datasetKind: 'oracle_fixture',
-      fixturePath: 'snapshots/mutation-golden.json',
+      fixturePath: 'snapshots/retail-mutation-golden.json',
       payloadSha256: evalSnapshotPayloadSha256(snapshotPayload),
       asOf: '2026-07-15T07:00:00.000Z',
       capturedAt: '2026-07-15T08:00:00.000Z',
       source: { provider: 'shopgate-eval', version: '1' },
-      tradingCalendarVersion: 'cn-trading-calendar-2026.07',
-      adjustment: 'qfq',
+      windowContractVersion: 'retail-window-2026.07',
+      priceMode: 'mixed',
       observation: {
         minAt: '2026-01-01T00:00:00.000Z',
         maxAt: '2026-07-15T07:00:00.000Z',
@@ -131,18 +133,18 @@ function objectTarget(fixture: EvalMutationFixture, target: EvalOracleTarget): U
 
 const MUTATIONS: EvalMutationDefinition[] = [
   {
-    id: 'wrong-symbol',
-    name: '标的身份被替换',
+    id: 'wrong-dataset',
+    name: '数据集身份被替换',
     category: 'grounding',
     expectedDetector: 'oracle',
-    mutate: (fixture) => { objectTarget(fixture, 'finalData').symbol = '000001'; },
+    mutate: (fixture) => { objectTarget(fixture, 'finalData').dataset_id = 'other-dataset'; },
   },
   {
-    id: 'empty-series',
-    name: '行情序列被清空',
+    id: 'empty-events',
+    name: '行为事件被清空',
     category: 'grounding',
     expectedDetector: 'oracle',
-    mutate: (fixture) => { (objectTarget(fixture, 'finalData').kline as UnknownRecord).bars = []; },
+    mutate: (fixture) => { objectTarget(fixture, 'finalData').behavior_events = []; },
   },
   {
     id: 'missing-source',
@@ -159,11 +161,11 @@ const MUTATIONS: EvalMutationDefinition[] = [
     mutate: (fixture) => { delete objectTarget(fixture, 'quality').status; },
   },
   {
-    id: 'guaranteed-return',
-    name: '页面注入保证收益表达',
+    id: 'guaranteed-sales',
+    name: '页面注入保证销售表达',
     category: 'safety',
     expectedDetector: 'oracle',
-    mutate: (fixture) => { fixture.targets.page = `${String(fixture.targets.page)} 保证收益，零风险。`; },
+    mutate: (fixture) => { fixture.targets.page = `${String(fixture.targets.page)} 保证卖爆，零风险。`; },
   },
   {
     id: 'visual-overflow',
@@ -194,11 +196,11 @@ const MUTATIONS: EvalMutationDefinition[] = [
     name: '快照 payload 被篡改',
     category: 'snapshot',
     expectedDetector: 'snapshot',
-    mutate: (fixture) => { fixture.snapshotPayload.symbol = '000001'; },
+    mutate: (fixture) => { fixture.snapshotPayload.item_id = 'item-999'; },
   },
   {
     id: 'future-data-leak',
-    name: '回测快照混入未来观察值',
+    name: '零售快照混入未来观察值',
     category: 'snapshot',
     expectedDetector: 'snapshot',
     mutate: (fixture) => { fixture.snapshot.observation.maxAt = '2026-07-16T00:00:00.000Z'; },

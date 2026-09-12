@@ -373,7 +373,7 @@ async function checkMemoryClosedLoop(params: {
       actorUserId,
       requestId: recallRequestId,
       instruction: '生成一份带有结论、证据和风险的验收摘要',
-      capabilityId: 'stock_diagnosis',
+      capabilityId: 'traffic_funnel',
     });
     assert(recalled.status === 'prepared' && recalled.capsule, 'Project-scoped memory was not recalled.');
 
@@ -384,7 +384,7 @@ async function checkMemoryClosedLoop(params: {
         actorUserId,
         requestId: `triad-isolation-${runId}`,
         instruction: '生成一份带有结论、证据和风险的验收摘要',
-        capabilityId: 'stock_diagnosis',
+      capabilityId: 'traffic_funnel',
       });
       assert(isolated.status === 'empty', 'Project-scoped memory crossed the project boundary.');
       projectIsolation = 'passed';

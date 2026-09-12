@@ -19,12 +19,11 @@ export const EVAL_RUNTIME_OPTIONS: CommerceEvalRuntimeOption[] = [
 ];
 
 export const EVAL_CAPABILITY_LABELS: Record<string, string> = {
-  fundamental_analysis: '基本面研究',
-  technical_analysis: '技术分析',
-  backtest_review: '策略回测',
-  asset_comparison: '标的对比',
-  portfolio_risk: '组合风控',
-  stock_diagnosis: '个股诊断',
+  traffic_funnel: '流量漏斗',
+  catalog_structure: '类目结构',
+  price_inventory: '价格库存',
+  daily_brief: '经营日报',
+  comparison: '商品对比',
 };
 
 export const EVAL_TYPE_LABELS: Record<string, string> = {

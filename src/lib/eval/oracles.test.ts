@@ -6,15 +6,15 @@ describe('evaluation factual oracles', () => {
   it('evaluates numeric, structural and forbidden-language assertions', () => {
     const result = evaluateOracleAssertions({
       assertions: [
-        { id: 'symbol', target: 'finalData', path: 'symbol', operator: 'equals', value: '600030' },
-        { id: 'bars', target: 'finalData', path: 'kline.bars', operator: 'length_gte', value: 2 },
+        { id: 'dataset', target: 'finalData', path: 'dataset_id', operator: 'equals', value: 'retail-demo' },
+        { id: 'events', target: 'finalData', path: 'behavior_events', operator: 'length_gte', value: 2 },
         { id: 'unsafe', target: 'page', operator: 'not_matches', value: '稳赚|保证收益' },
       ],
       targets: {
-        finalData: { symbol: '600030', kline: { bars: [{}, {}] } },
+        finalData: { dataset_id: 'retail-demo', behavior_events: [{}, {}] },
         sources: {},
         quality: {},
-        page: '本页面只提供研究信息，不构成投资建议。',
+        page: '本页面只提供经营信息，不构成销量保证。',
       },
     });
     expect(result).toMatchObject({ passed: true, warning: false });

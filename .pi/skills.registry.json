@@ -91,63 +91,60 @@
     {
       "id": "commerce-data-registry",
       "name": "数据注册与信源",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "查询后端数据能力、本地 TimescaleDB 覆盖、候选信源、缓存、主备源、字段补数和降级规则。",
+      "boundary": "发现零售数据集、窗口覆盖、字段质量、来源和最小经营分析端点。",
       "inputs": [
         ".data-agent/retail-run-plan.json",
-        "后端 /api/v1/registry",
-        "后端 /api/v1/research/universes/summary",
-        "后端 /api/v1/research/universes/{universe_id}/members",
-        "后端 /api/v1/research/data-coverage",
-        "后端 /api/v1/provider-candidates",
-        "docs/commerce-data-source-knowledge.md"
+        "GET /api/v1/commerce/datasets",
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/*",
+        "GET /api/v1/commerce/items/{item_id}/events"
       ],
       "outputs": [
-        "本地覆盖说明",
-        "数据源选择说明",
-        "候选源限制说明",
-        "字段补数计划"
+        "数据集覆盖说明",
+        "经营端点选择说明",
+        "字段质量与数据边界"
       ],
       "validation": [
-        "必须先说明本地库覆盖、source/provider、as_of、fetched_at 和 data_quality",
-        "历史 K 线补数必须说明字段来源和 provider 边界",
-        "本地库已有覆盖时不得优先调用外部历史接口"
+        "必须绑定 dataset_id 并说明 source、as_of、fetched_at、row_count 和 data_quality",
+        "商品级问题必须使用商品级证据，不能以聚合结果冒充明细",
+        "窗口外数据不得用于趋势"
       ],
       "scripts": [
         "scripts/select_data_route.py"
       ],
       "references": [
-        "references/registry-routing-contract.md"
+        "references/dataset-routing-contract.md"
       ],
       "description": "发现 commerce-data 覆盖、能力与正确后端端点。"
     },
     {
       "id": "commerce-entity-resolver",
       "name": "实体解析",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "把中文简称、代码、指数、ETF 转为标准证券代码、市场和资产类型。",
+      "boundary": "把商品、类目、渠道和活动名称解析为稳定零售实体标识。",
       "inputs": [
         "用户问题",
         "候选标的文本"
       ],
       "outputs": [
-        "symbols",
-        "resolvedSymbols"
+        "resolvedEntities",
+        "entityCandidates"
       ],
       "validation": [
-        "retail-run-plan.symbols 必须是代码字符串数组",
-        "同名 A 股唯一时必须自动选择并继续",
+        "实体标识必须是非空字符串并带有实体类型",
+        "唯一候选自动继续",
         "只有多个同优先级候选时才允许追问"
       ],
       "scripts": [
         "scripts/rank_candidates.py"
       ],
       "references": [
-        "references/symbol-resolution-contract.md"
+        "references/entity-resolution-contract.md"
       ],
       "description": "把商品/类目名称或标识解析到实体（item:/cat:）。"
     },
@@ -185,153 +182,150 @@
     {
       "id": "commerce-market-data",
       "name": "经营数据取数",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "本地 TimescaleDB K 线、实时行情、指数/ETF、批量行情、多源 fallback 和本地字段补数。",
+      "boundary": "读取并校验当前零售数据集的行为、商品、类目和日指标。",
       "inputs": [
-        "symbols",
+        "dataset_id",
         "timeRange",
-        "period",
-        "adjustment"
+        "entity_ids"
       ],
       "outputs": [
-        "local_coverage",
-        "quote",
-        "kline.bars",
-        "assets[]",
-        "field_enrichment"
+        "dataset_meta",
+        "behavior_events",
+        "analytics",
+        "data_quality"
       ],
       "endpoints": [
-        "GET /api/v1/analysis/context/{symbol}",
-        "GET /api/v1/research/universes/summary",
-        "GET /api/v1/research/data-coverage",
-        "GET /api/v1/research/universes/{universe_id}/members",
-        "GET /api/v1/research/bars/{symbol}",
-        "GET /api/v1/quotes/realtime/{symbol}",
-        "POST /api/v1/quotes/realtime",
-        "GET /api/v1/quotes/history/{symbol}",
-        "POST /api/v1/ingestion/baostock/history",
-        "POST /api/v1/ingestion/akshare/history",
-        "GET /api/v1/provider-candidates"
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/overview?dataset_id=...",
+        "GET /api/v1/commerce/analytics/funnel?dataset_id=...",
+        "GET /api/v1/commerce/analytics/categories?dataset_id=...",
+        "GET /api/v1/commerce/analytics/inventory?dataset_id=...",
+        "GET /api/v1/commerce/analytics/lifecycle?dataset_id=...",
+        "GET /api/v1/commerce/analytics/profit?dataset_id=...",
+        "GET /api/v1/commerce/items/{item_id}/events?dataset_id=..."
       ],
       "validation": [
-        "趋势类任务必须优先读取 /api/v1/research/bars/{symbol}",
-        "趋势类任务必须有 K 线或明确的 K 线错误面板",
-        "成交额、换手率和振幅缺失时必须说明补数状态"
+        "所有请求必须带当前 dataset_id",
+        "行为事件校验失败时不得生成确定性漏斗结论",
+        "商品级问题没有商品级事件时必须说明数据边界"
       ],
       "scripts": [
-        "scripts/validate_market_bars.py"
+        "scripts/validate_behavior_events.py"
       ],
       "references": [
-        "references/market-data-contract.md"
+        "references/behavior-data-contract.md"
       ],
       "description": "取零售行为与商品窗口数据，复用 commerce-data 后端接证据。"
     },
     {
       "id": "commerce-master-data",
       "name": "商品主数据",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "财务报表、财务衍生指标、公告和事件上下文。",
+      "boundary": "商品、类目、价格、库存、渠道、活动和用户维度的主数据。",
       "inputs": [
-        "symbols",
-        "reportPeriods"
+        "dataset_id",
+        "entity_ids",
+        "timeRange"
       ],
       "endpoints": [
-        "GET /api/v1/fundamentals/financials/{symbol}",
-        "GET /api/v1/indicators/fundamental/{symbol}",
-        "GET /api/v1/events/announcements/{symbol}"
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/lifecycle?dataset_id=...",
+        "GET /api/v1/commerce/analytics/price-elasticity?dataset_id=..."
       ],
       "outputs": [
-        "financials",
-        "fundamentalIndicators",
-        "announcements",
-        "valuation"
+        "products",
+        "categories",
+        "prices",
+        "inventory",
+        "synthetic_field_notes"
       ],
       "scripts": [
-        "scripts/valuation_scenarios.py"
+        "scripts/product_segments.py"
       ],
       "validation": [
-        "必须说明报告期、缺失字段和数据来源",
-        "经营现金流与净利润增速必须使用同一报告期和正式 API 字段",
-        "估值情景必须展示假设、缺失字段和非投资建议限制"
+        "必须说明 dataset_id、窗口、字段来源和缺失字段",
+        "实际价格与合成价格必须分开",
+        "价格弹性样本不足时必须明确返回数据不足"
       ],
       "references": [
-        "references/fundamentals-contract.md"
+        "references/master-data-contract.md"
       ],
       "description": "商品/类目主数据（价格/库存/属性，合成口径）与经营基础指标。"
     },
     {
       "id": "commerce-metrics",
       "name": "经营指标",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "技术指标、收益、波动、最大回撤、成交量、相关性、流动性和风险指标计算。",
+      "boundary": "确定性计算漏斗转化、GMV、动销率、库销比、商品阶段和日趋势。",
       "inputs": [
-        "kline.bars",
-        "assets[]"
+        "behavior_events",
+        "products",
+        "daily_metrics"
       ],
       "outputs": [
-        "technicalIndicators",
-        "computedMetrics",
-        "riskMetrics",
-        "correlation",
-        "liquidity",
-        "trendTemplate"
+        "funnelMetrics",
+        "inventoryHealth",
+        "productSegments",
+        "retailTrend"
       ],
       "endpoints": [
-        "GET /api/v1/indicators/technical/{symbol}"
+        "GET /api/v1/commerce/analytics/overview?dataset_id=..."
       ],
       "scripts": [
-        "scripts/correlation.py",
-        "scripts/liquidity.py",
-        "scripts/trend_template.py"
+        "scripts/funnel_metrics.py",
+        "scripts/inventory_health.py",
+        "scripts/retail_trend.py"
       ],
       "validation": [
         "必须明确样本长度和计算口径",
-        "多标的任务必须计算相关性或说明样本不足",
-        "流动性摘要必须说明成交额窗口和代理口径",
-        "调仓/趋势任务必须输出趋势模板或说明样本不足"
+        "每个指标必须说明公式、窗口和样本量",
+        "分母为零时返回空值或明确无销量",
+        "PV、UV、收藏、加购和购买不得混用"
       ],
       "references": [
-        "references/technical-risk-methodology.md"
+        "references/retail-metrics-methodology.md"
       ],
       "description": "计算转化/客单价/库销比/环比/动销等经营指标。"
     },
     {
       "id": "commerce-rule-review",
       "name": "规则/策略验证",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "基于本地 TimescaleDB K 线的策略参数、回测执行、净值曲线、回撤、交易明细和限制说明。",
+      "boundary": "验证零售漏斗、GMV、库存和商品分层规则的一致性与数据边界。",
       "inputs": [
-        "symbols",
-        "strategyParams",
-        "local kline.bars"
+        "dataset_id",
+        "behavior_events",
+        "products",
+        "analytics"
       ],
       "outputs": [
-        "backtest",
-        "trades",
-        "equityCurve",
-        "localBarsCoverage"
+        "rule_results",
+        "errors",
+        "warnings",
+        "data_quality"
       ],
       "endpoints": [
-        "GET /api/v1/research/bars/{symbol}",
-        "GET /api/v1/backtests/ma-crossover/{symbol}"
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/overview?dataset_id=..."
       ],
       "validation": [
-        "必须先确认本地 bars 覆盖",
-        "必须说明费用、样本、滑点和策略限制"
+        "必须先确认 dataset_id、窗口和来源",
+        "PV/购买/GMV/库存规则失败时必须阻止完成状态"
       ],
       "scripts": [
-        "scripts/validate_backtest.py"
+        "scripts/validate_retail_rules.py"
       ],
       "references": [
-        "references/backtest-contract.md"
+        "references/retail-rule-contract.md"
       ],
       "description": "对类目/选品/定价规则做可复现的窗口验证与复盘。"
     },

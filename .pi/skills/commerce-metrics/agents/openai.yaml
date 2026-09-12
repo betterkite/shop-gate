@@ -1,4 +1,4 @@
 interface:
-  display_name: "量化指标计算"
-  short_description: "确定性计算并校验收益、风险、相关性、流动性与趋势指标"
-  default_prompt: "Use $commerce-metrics to compute and validate deterministic metrics from the available market series."
+  display_name: "经营指标计算"
+  short_description: "计算漏斗转化GMV库销比动销率和商品经营趋势指标与口径"
+  default_prompt: "Use $commerce-metrics to compute deterministic retail operating metrics with clear formulas and limits."

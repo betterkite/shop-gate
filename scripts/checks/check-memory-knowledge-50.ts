@@ -311,7 +311,7 @@ async function runCase(input: {
       actorUserId: input.subject,
       requestId: memoryRequestId,
       instruction: `${input.item.id} ${input.item.question}`,
-      capabilityId: 'stock_diagnosis',
+      capabilityId: 'traffic_funnel',
     });
     const memory = recalled.status === 'prepared'
       ? await exposePersonalization({

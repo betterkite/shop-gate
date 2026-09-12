@@ -134,7 +134,7 @@ function taskTitle(campaign: string, item: TaskCase): string {
 }
 
 async function readDataset(): Promise<TaskDataset> {
-  const datasetName = option('dataset') ?? 'task-e2e-v1';
+  const datasetName = option('dataset') ?? 'task-e2e-retail-v1';
   const target = path.join(root, 'config', 'evals', `${datasetName}.json`);
   const dataset = JSON.parse(await fs.readFile(target, 'utf8')) as TaskDataset;
   assert(dataset.schemaVersion === 1, 'Unsupported task E2E dataset schema.');

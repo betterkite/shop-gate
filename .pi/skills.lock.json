@@ -45,45 +45,45 @@
       "fileCount": 4
     },
     "commerce-market-data": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "packagePath": ".pi/skill-packages/commerce-market-data.tgz",
-      "sourceSha256": "c42770618d944a12ea6e07a7dae714ba81524c19e2620b573b29d3258a132732",
-      "packageSha256": "7124adab6f6b80e1571335a96557abbd47d468dbffedd2997fe5f2034678a3ba",
+      "sourceSha256": "6779d135753df7b4b28efdab55dd7a7f157f68099d9168e5e669aafd005c6c32",
+      "packageSha256": "46e2a9aea1a41e87e0297be2f80380a1981a55d77c2d960265ce3c7807d3b5a1",
       "fileCount": 4
     },
     "commerce-master-data": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "packagePath": ".pi/skill-packages/commerce-master-data.tgz",
-      "sourceSha256": "3fd625bdc3229d457a82c177fcf312f2cb3f0f3976e7cfab86508327d02ff862",
-      "packageSha256": "78685cd9d459fbed807e1d9043a31359161bf392be41fd0ea1506e8a9023d220",
+      "sourceSha256": "1064cb9663bf9279bcbacd82030fcb83778cf7da2cc9c8b41532bdcfa26d31e2",
+      "packageSha256": "a08720f2d2226238d7ae1e9b80b0a439762dda5f27926e321616a5f40fd31999",
       "fileCount": 4
     },
     "commerce-rule-review": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "packagePath": ".pi/skill-packages/commerce-rule-review.tgz",
-      "sourceSha256": "48c9550eda09d768cbda58e4a00a5b7b91061b303808b43331c09d23b60d457b",
-      "packageSha256": "31aa7c65ecb9974a29cc1e145623d130887078c2e6ce8e4da8d0206b24d536db",
+      "sourceSha256": "45b30a07e865e2c77744668294c9791e84e394dc4c7908fd6f79f9a2d7af1837",
+      "packageSha256": "9fe886ce0cd86e4db31553b0d96fbf7f9fa8d7a814cc7611762adb244fd489f6",
       "fileCount": 4
     },
     "commerce-metrics": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "packagePath": ".pi/skill-packages/commerce-metrics.tgz",
-      "sourceSha256": "b35c870f43365cc45fabf2d8b928b51b4f39f9f91e54688cbd0f34a4f10cf073",
-      "packageSha256": "1a04b61510710f86a5c71e5629e56ffd2861a83f448dc588c173042ab25d0906",
+      "sourceSha256": "f16b25cca4672b892c3f900f7db7c8e0b5572fb1868c8c4f3cd7a295c29b6494",
+      "packageSha256": "15c9bbe3b603cdf061cd68a011f2ea60cc72573a04f1283074746eef17c7027a",
       "fileCount": 6
     },
     "commerce-data-registry": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "packagePath": ".pi/skill-packages/commerce-data-registry.tgz",
-      "sourceSha256": "574de93279e6fdfcdcbb8bb659bfe96e9b6df40127d713e8bddc550b6dfaa841",
-      "packageSha256": "5b86d23c0cd9d3c8d4a7000b856110d8a7c8c93191fa0254fed57923c6d57003",
+      "sourceSha256": "8b7a4c7b2cb4b26f24b41d9e92b7d82dd049725a92f962afc1f95cf35cc07824",
+      "packageSha256": "24a28b9b40f9e237aaeab6dfae04d1a67ab54897ec7835ce212fe8be664d4e57",
       "fileCount": 4
     },
     "commerce-entity-resolver": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "packagePath": ".pi/skill-packages/commerce-entity-resolver.tgz",
-      "sourceSha256": "36593c1b9be38418bb1f984c51e8964b8177ade28da37508645d3a1f17f2761a",
-      "packageSha256": "94ada24680a252b52813e80faa3c2e2f550aa76391d7dc35cfe585fea2acb05c",
+      "sourceSha256": "611fd91ace980f04240145c9c7bbecdef62e42ecf6521df95635507df908f666",
+      "packageSha256": "77c91ceaf8eb311b99570e9b71dfb9aa2b5ec9cdc3079ad34608506a5233b7e3",
       "fileCount": 4
     }
   }

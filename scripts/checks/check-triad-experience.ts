@@ -365,7 +365,7 @@ async function runMemoryCases(
     actorUserId: subject,
     requestId: `triad-memory-recall-${runId}`,
     instruction: '按我的回答结构、看板展示和证据偏好总结三方联调结果',
-    capabilityId: 'stock_diagnosis',
+    capabilityId: 'traffic_funnel',
   });
   assert(recall.status === 'prepared' && recall.capsule, 'Synthetic project memory was not recalled.');
   const isolated = await recallPersonalization({
@@ -373,7 +373,7 @@ async function runMemoryCases(
     actorUserId: subject,
     requestId: `triad-memory-isolation-${runId}`,
     instruction: '按我的回答结构、看板展示和证据偏好总结三方联调结果',
-    capabilityId: 'stock_diagnosis',
+    capabilityId: 'traffic_funnel',
   });
   await setPersonalMemoryEnabled(subject, false);
   const optedOut = await recallPersonalization({
@@ -381,7 +381,7 @@ async function runMemoryCases(
     actorUserId: subject,
     requestId: `triad-memory-optout-${runId}`,
     instruction: '按我的偏好总结三方联调结果',
-    capabilityId: 'stock_diagnosis',
+    capabilityId: 'traffic_funnel',
   });
   await setPersonalMemoryEnabled(subject, true);
   const exposed = await exposePersonalization({
@@ -644,7 +644,7 @@ async function runTriadCases(
         actorUserId: subject,
         requestId: `triad-combined-memory-${item.id.toLowerCase()}-${runId}`,
         instruction: item.question,
-        capabilityId: 'stock_diagnosis',
+        capabilityId: 'traffic_funnel',
       });
       memory = recall.status === 'prepared'
         ? await exposePersonalization({

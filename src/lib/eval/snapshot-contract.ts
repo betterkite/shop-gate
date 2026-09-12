@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
-export type EvalSnapshotDatasetKind = 'market_response' | 'oracle_fixture';
-export type EvalSnapshotAdjustment = 'none' | 'qfq' | 'hfq' | 'mixed';
+export type EvalSnapshotDatasetKind = 'retail_response' | 'oracle_fixture';
+export type EvalSnapshotPriceMode = 'actual' | 'synthetic' | 'mixed' | 'unknown';
 
 export interface EvalDataSnapshot {
   schemaVersion: 1;
@@ -16,8 +16,8 @@ export interface EvalDataSnapshot {
     provider: string;
     version: string;
   };
-  tradingCalendarVersion: string;
-  adjustment: EvalSnapshotAdjustment;
+  windowContractVersion: string;
+  priceMode: EvalSnapshotPriceMode;
   observation: {
     minAt: string;
     maxAt: string;
@@ -71,7 +71,7 @@ export function attestEvalDataSnapshot(
   if (typeof record.caseId === 'string' && record.caseId !== snapshot.caseId) {
     problems.push('fixture caseId 与 snapshot caseId 不一致');
   }
-  if (!['market_response', 'oracle_fixture'].includes(snapshot.datasetKind)) {
+  if (!['retail_response', 'oracle_fixture'].includes(snapshot.datasetKind)) {
     problems.push('snapshot datasetKind 无效');
   }
   if (!snapshot.fixturePath || snapshot.fixturePath.startsWith('/') || snapshot.fixturePath.includes('..')) {
@@ -85,9 +85,9 @@ export function attestEvalDataSnapshot(
   if (!snapshot.source?.provider || !snapshot.source?.version) {
     problems.push('snapshot 缺少 source provider/version');
   }
-  if (!snapshot.tradingCalendarVersion) problems.push('snapshot 缺少交易日历版本');
-  if (!['none', 'qfq', 'hfq', 'mixed'].includes(snapshot.adjustment)) {
-    problems.push('snapshot adjustment 无效');
+  if (!snapshot.windowContractVersion) problems.push('snapshot 缺少窗口合同版本');
+  if (!['actual', 'synthetic', 'mixed', 'unknown'].includes(snapshot.priceMode)) {
+    problems.push('snapshot priceMode 无效');
   }
 
   const asOf = parsedTime(snapshot.asOf);

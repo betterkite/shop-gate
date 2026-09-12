@@ -1,54 +1,25 @@
 ---
 name: commerce-entity-resolver
-description: Use this skill when the user mentions a product/category name or ambiguous identifier that must be resolved to an entity before data retrieval.
+description: Use this skill to resolve product, category, channel, and campaign names to stable retail entity identifiers before querying data.
 ---
 
-# Shop Gate 实体解析
+# Shop Gate 零售实体解析
 
-把 Query Rewrite 尚未确定的股票名称、简称、拼音或代码解析成标准证券代码和东方财富 `secid`。优先复用 `.data-agent/retail-query-rewrite.json.resolvedSymbols`，不得重复解析已经确认的标的。
+把用户提到的商品、类目、渠道或活动解析为 `item_id`、`category_id`、`channel_id` 或 `campaign_id`。优先复用 Query Rewrite 已核验的实体，不重复猜测。
 
-## 资源与候选裁决
+## 候选裁决
 
-解析返回多个市场或资产类型、或需要决定是否追问时，读取 [symbol-resolution-contract.md](references/symbol-resolution-contract.md)。其中定义候选字段、选择优先级和失败模式。
-
-把 API 响应中的 `query` 与 `results` 交给确定性脚本，避免简单取第一条：
+需要处理同名或多个候选时读取 [entity-resolution-contract.md](references/entity-resolution-contract.md)，然后调用：
 
 ```bash
-python .pi/skills/commerce-entity-resolver/scripts/rank_candidates.py \
-  --input '{"query":"中信证券","results":[{"symbol":"600030","name":"中信证券","asset_type":"stock","market":"SH","secid":"1.600030","source":"eastmoney"}]}'
+python3 scripts/rank_candidates.py --input '{"query":"轻薄羽绒服","results":[{"entity_id":"item-001","name":"轻薄羽绒服","kind":"item"}]}'
 ```
 
-`--input` 支持 JSON 对象、文件路径或 `-`（stdin）。脚本只向 stdout 输出 JSON，不联网、不写文件；无效输入非零退出。只有 `status=resolved` 时才使用 `selected`，`ambiguous` 必须展示 `clarification_candidates` 并追问。
+只有 `status=resolved` 才能继续取数；`ambiguous` 必须展示候选并请用户选择，`not_found` 必须给出找不到的原因。
 
-## Workspace 回答协作
+## 规则
 
-- 继承平台统一的五阶段进度；不自行重启阶段、重复进度标题、重复问题识别表或维护 Todo。
-- 只提供本 skill 已确认的可验证事实、真实缺口和下一步，不输出隐藏推理、完整工具参数或占位式 “Skill executing...”。
-- 本 skill 只贡献原始标识、标准代码、名称、市场、资产类型、候选歧义和解析状态；阶段编号与展示由平台统一维护。
-
-## API
-
-```bash
-curl -G 'http://127.0.0.1:8000/api/v1/symbols/resolve' \
-  --data-urlencode 'query=茅台' \
-  --data-urlencode 'count=5'
-curl -G 'http://127.0.0.1:8000/api/v1/symbols/resolve' \
-  --data-urlencode 'query=600519' \
-  --data-urlencode 'count=5'
-```
-
-## 工作流程
-
-1. 用户没有给出明确 6 位代码时，先调用本能力。
-2. 先比较规范化后的名称，再按 A 股、指数 / ETF、港股、债券的顺序选择，并记录 `symbol`、`name`、`market`、`secid`。
-3. 若有且只有一个同名 A 股，即使同时返回港股或债券候选，也直接选择该 A 股继续；例如“中信证券”优先解析为 `600030` / `SH` / `1.600030`。
-4. 只有多个同优先级证券都可能是用户目标时，才展示候选并追问；不得仅因为用户没给代码就中止。
-5. 后续行情、K 线、财务、公告查询使用解析后的 `symbol` 或 `secid`。
-6. `query` 包含中文时必须使用 `curl -G --data-urlencode`，不要把中文直接拼进 URL。
-
-## 禁止事项
-
-- 不要把中文股票名直接传给行情接口。
-- 不要把中文查询词直接拼接到 URL 查询串。
-- 不要把“中信证券”“杭钢股份”这类名称因为包含“证券”“股份”等词而判定为泛词。
-- 不要在存在多个同优先级候选时假定唯一结果。
+- 精确名称或标识优先，再按商品、类目、渠道、活动的实体类型排序。
+- 保留实体名称、标识、类型和来源，维护用户问题中的顺序。
+- 后续请求只能使用已解析的零售实体标识。
+- 不因名称中出现“证券”“股份”等旧金融词而改变零售实体判断。

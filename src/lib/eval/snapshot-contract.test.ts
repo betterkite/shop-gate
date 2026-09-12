@@ -7,7 +7,7 @@ import {
 } from './snapshot-contract';
 
 function fixture() {
-  const payload = { schemaVersion: 1, caseId: 'snapshot-case', symbol: '600519' };
+  const payload = { schemaVersion: 1, caseId: 'snapshot-case', dataset_id: 'retail-demo', item_id: 'item-001' };
   const snapshot: EvalDataSnapshot = {
     schemaVersion: 1,
     id: 'snapshot-case-v1',
@@ -18,8 +18,8 @@ function fixture() {
     asOf: '2026-07-15T07:00:00.000Z',
     capturedAt: '2026-07-15T08:00:00.000Z',
     source: { provider: 'shopgate-eval', version: '1' },
-    tradingCalendarVersion: 'cn-2026.07',
-    adjustment: 'qfq',
+    windowContractVersion: 'retail-window-2026.07',
+    priceMode: 'actual',
     observation: {
       minAt: '2026-01-01T00:00:00.000Z',
       maxAt: '2026-07-15T07:00:00.000Z',
@@ -43,7 +43,7 @@ describe('evaluation data snapshot contract', () => {
     const result = attestEvalDataSnapshot({
       ...snapshot,
       observation: { ...snapshot.observation, maxAt: '2026-07-16T00:00:00.000Z' },
-    }, { ...payload, symbol: '000001' }, {
+    }, { ...payload, item_id: 'item-002' }, {
       now: new Date('2026-07-17T00:00:00.000Z'),
     });
     expect(result.passed).toBe(false);

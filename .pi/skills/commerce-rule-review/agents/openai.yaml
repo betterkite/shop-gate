@@ -1,4 +1,4 @@
 interface:
-  display_name: "量化回测复盘"
-  short_description: "校验可复现回测的参数、净值、回撤、交易并输出限制说明"
-  default_prompt: "Use $commerce-rule-review to validate a reproducible backtest and summarize its evidence-backed limitations."
+  display_name: "零售规则校验"
+  short_description: "校验漏斗库存GMV和商品分层规则并输出用户可读限制"
+  default_prompt: "Use $commerce-rule-review to validate retail metric consistency and explain any data-quality boundary."

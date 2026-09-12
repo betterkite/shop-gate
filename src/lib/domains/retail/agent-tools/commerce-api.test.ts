@@ -42,6 +42,19 @@ describe('commerce_api_get allowlist', () => {
     expect(new URL(fetchImpl.mock.calls[0][0].toString()).pathname).toBe('/api/v1/commerce/analytics/drilldown');
   });
 
+  it('allows filtered analytics trends for chart-linked follow-ups', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ rows: [] }));
+    const tool = createCommerceApiGetTool({ fetchImpl });
+    const result = await tool.execute!(
+      { path: '/api/v1/commerce/analytics/trend', query: { dataset_id: 'retail-demo-p28-elasticity-v1', dimension: 'item', value: '1000009' } },
+      TOOL_CONTEXT,
+    );
+    expect(result.ok).toBe(true);
+    const called = new URL(fetchImpl.mock.calls[0][0].toString());
+    expect(called.pathname).toBe('/api/v1/commerce/analytics/trend');
+    expect(called.searchParams.get('dimension')).toBe('item');
+  });
+
   it('normalizes the legacy inventory alias to the canonical risk endpoint', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ inventory: [] }));
     const tool = createCommerceApiGetTool({ fetchImpl });

@@ -142,6 +142,7 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
       '/api/v1/commerce/analytics/inventory',
       '/api/v1/commerce/analytics/lifecycle',
       '/api/v1/commerce/analytics/price-elasticity',
+      '/api/v1/commerce/analytics/trend',
       '/api/v1/commerce/analytics/drilldown',
       '/analytics-workbench',
     ],

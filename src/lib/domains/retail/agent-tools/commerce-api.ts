@@ -27,7 +27,7 @@ const ALLOWED_COMMERCE_API_PATHS = [
   /^\/api\/v1\/commerce\/inventory-risk$/,
   /^\/api\/v1\/commerce\/summary$/,
   /^\/api\/v1\/commerce\/capabilities$/,
-  /^\/api\/v1\/commerce\/analytics\/(overview|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown)$/,
+  /^\/api\/v1\/commerce\/analytics\/(overview|trend|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown)$/,
 ] as const;
 
 const COMMERCE_API_PATH_ALIASES: Readonly<Record<string, string>> = {

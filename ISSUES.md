@@ -37,6 +37,7 @@
 | ISSUE-P29 | Skills 与评测语料功能级电商化 | P8/P9 | `commerce-market-data`、`commerce-master-data`、`commerce-rule-review`、`commerce-metrics`、`commerce-data-registry`、`commerce-entity-resolver` 的 scripts/body 不再依赖金融指标；judge/mutation/replay 使用零售语料；registry/lock/tgz/不可变快照同步 | open（命名和发布合同已完成，但部分金融计算逻辑和金融评测语料仍保留；必须在 P27 数据契约确定后实施） |
 | ISSUE-P30 | 电商 Agent 任务闭环与 BI 交互增强 | P17 | 支持自然语言多轮下钻、商品/类目/渠道筛选、图表联动、解释口径、行动建议和用户可理解的限制说明；不把缺失数据伪装成结论；新增真实零售 E2E 和视觉验收 | in-progress（承接金融 Agent 的多维比较、证据追踪、风险诊断和策略解释能力，但不恢复金融领域代码；已修复“只做问答仍生成看板”、生成完成后对话视图被轮询切回看板、问答模式显示 `dashboard-visualization`、跨能力全库上下文丢失、首页默认漏斗覆盖库存问答、Agent Runtime 5 秒事务超时、问答 durable job 保持 `running` 以及 answer-ready 后前端仍可继续排队等问题；真实 DeepSeek 单轮与第二轮追问已通过，第二轮在缺少商品级行为明细时正确给出数据边界；后续继续补齐图表联动、更多商品级证据和数据集联动） |
 | ISSUE-P31 | 电商数据集选择与导入后分析联动 | P17 | BI 工作台提供数据集选择器，展示窗口、来源、行数和合成字段；切换数据集后所有分析视图同步读取目标 `dataset_id`；数据集导入完成后自动刷新可用数据集与当前分析，按配置异步触发看板生成；刷新/生成结果有状态、失败原因和证据记录，不重复生成、不覆盖用户正在查看的其他数据集 | in-progress（已完成选择器、自动刷新、受控合成数据集导入、最近任务历史、标准行为事件 CSV Web 上传、`dataset_id` 隔离的行为明细持久化、商品级行为接口、导入后 `analytics-bi` 配置任务，并修复 Agent 预取硬编码旧数据集的问题：工作台选择会写入当前浏览器上下文，聊天任务将该 `datasetId` 固化到 run plan 和各扩展分析请求；CSV 之外的第三方连接器、配置清单到 Agent 持久看板预览的跨服务编排仍待后续片，验收记录见 [`docs/review/p31-dataset-linkage.md`](docs/review/p31-dataset-linkage.md)） |
+| ISSUE-P32 | 导入任务到 Agent 看板的跨服务持久化编排 | P17 | 数据集导入/更新后，在明确的 `project_id` 范围内消费 `analytics-bi` 配置清单；任务具备 outbox/幂等键、失败重试和证据链；Agent 生成并验证持久预览，任务中心可打开正确数据集且不覆盖其他项目或数据集 | open（P31 已生成并验证配置清单，但当前独立工作台没有项目绑定，不能安全猜测应启动哪个 Agent 项目；下一片先补项目绑定和跨服务事件合同，再接 Agent 生成、验证和持久预览 URL） |
 
 ## P0 结果与残留台账（2025-09-06，随阶段推进收敛）
 

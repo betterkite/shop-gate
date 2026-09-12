@@ -184,6 +184,118 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(runPlan.visualization.required).toBe(false);
   });
 
+  it('inherits the previous entity and dataset for a contextual drilldown question', async () => {
+    const projectPath = await createProject();
+    const firstInstruction = '生成贵州茅台最近120个交易日的技术分析看板。';
+    const previousPlan = await writeInitialRunPlan({
+      projectPath,
+      projectId: 'contextual-drilldown-project',
+      requestId: 'contextual-drilldown-first',
+      capabilityId: 'traffic_funnel',
+      capabilitySource: 'auto',
+      instruction: firstInstruction,
+      datasetId: 'retail-demo-p28-elasticity-v1',
+      queryRewrite: await technicalRewrite(firstInstruction),
+    });
+
+    const followUpInstruction = '这个类目里哪个商品购买转化率最低？';
+    await writeInitialRunPlan({
+      projectPath,
+      projectId: 'contextual-drilldown-project',
+      requestId: 'contextual-drilldown-follow-up',
+      capabilityId: 'catalog_structure',
+      capabilitySource: 'auto',
+      instruction: followUpInstruction,
+      previousPlan,
+      queryRewrite: await rewriteRetailQuery(followUpInstruction, {
+        semanticRewriter: async () => ({
+          ok: true as const,
+          provider: 'test',
+          model: 'test-model',
+          data: {
+            targetCandidates: [],
+            timeRange: null,
+            analysisFocusId: 'catalog' as const,
+            outputIntent: 'dashboard' as const,
+            answerOnlyEvidence: null,
+            broadUniverse: false,
+            broadUniverseEvidence: null,
+            confidence: 0.9,
+          },
+        }),
+      }),
+    });
+
+    const runPlan = JSON.parse(
+      await fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'),
+    ) as {
+      status: string;
+      entities: string[];
+      datasetId?: string;
+      timeRange: string | null;
+      clarification?: { required?: boolean };
+    };
+
+    expect(runPlan.status).toBe('planned');
+    expect(runPlan.entities).toEqual(['cat:10051']);
+    expect(runPlan.datasetId).toBe('retail-demo-p28-elasticity-v1');
+    expect(runPlan.timeRange).toBe('最近120个交易日');
+    expect(runPlan.clarification?.required).not.toBe(true);
+  });
+
+  it('does not inherit the previous entity when a follow-up names a new entity', async () => {
+    const projectPath = await createProject();
+    const firstInstruction = '生成贵州茅台最近120个交易日的技术分析看板。';
+    const previousPlan = await writeInitialRunPlan({
+      projectPath,
+      requestId: 'contextual-drilldown-explicit-first',
+      capabilityId: 'traffic_funnel',
+      capabilitySource: 'auto',
+      instruction: firstInstruction,
+      datasetId: 'retail-demo-p28-elasticity-v1',
+      queryRewrite: await technicalRewrite(firstInstruction),
+    });
+
+    const followUpInstruction = '分析家居类目里的商品购买转化率。';
+    const queryRewrite = await rewriteRetailQuery(followUpInstruction, {
+      semanticRewriter: async () => ({
+        ok: true as const,
+        provider: 'test',
+        model: 'test-model',
+        data: {
+          targetCandidates: ['家居类目'],
+          timeRange: null,
+          analysisFocusId: 'catalog' as const,
+          outputIntent: 'dashboard' as const,
+          answerOnlyEvidence: null,
+          broadUniverse: false,
+          broadUniverseEvidence: null,
+          confidence: 0.9,
+        },
+      }),
+      resolver: async () => ({
+        matches: [{ kind: 'category' as const, id: 10012, name: '家居类目12', confidence: 1 }],
+      }),
+    });
+
+    await writeInitialRunPlan({
+      projectPath,
+      requestId: 'contextual-drilldown-explicit-follow-up',
+      capabilityId: 'catalog_structure',
+      capabilitySource: 'auto',
+      instruction: followUpInstruction,
+      previousPlan,
+      queryRewrite,
+    });
+
+    const runPlan = JSON.parse(
+      await fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'),
+    ) as { entities: string[]; datasetId?: string };
+
+    expect(runPlan.entities).toEqual(['cat:10012']);
+    expect(runPlan.datasetId).toBeUndefined();
+  });
+
   it('does not require dashboard-only data prerequisites for answer-only runs', async () => {
     const projectPath = await createProject();
     const instruction = '请只回答库存健康，不生成看板。';

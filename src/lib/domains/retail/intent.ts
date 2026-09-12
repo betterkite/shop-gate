@@ -28,6 +28,8 @@ interface AssessRetailIntentParams {
   hasImageAttachments?: boolean;
   semanticFocusId?: string | null;
   wholeCatalog?: boolean;
+  /** 上一轮已有明确范围时，“哪个/哪些”可表示范围内排序，而非要求补充第二个对象。 */
+  inheritedContext?: boolean;
 }
 
 interface PreviousClarificationPlan {
@@ -186,7 +188,7 @@ export function assessRetailIntentForClarification(
     missing.push('target');
   }
 
-  if (isComparison && targetCount < 2 && !wholeCatalogRequest) {
+  if (isComparison && targetCount < 2 && !wholeCatalogRequest && !params.inheritedContext) {
     missing.push('comparison_scope');
   }
 

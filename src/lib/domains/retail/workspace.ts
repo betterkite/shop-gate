@@ -286,6 +286,25 @@ function isDashboardRevisionInstruction(instruction: string): boolean {
   return revisionSignals && commandSignals;
 }
 
+function isContextualFollowUpInstruction(instruction: string): boolean {
+  const normalized = normalizeForIntent(instruction);
+  if (!normalized) {
+    return false;
+  }
+
+  // 只对明确指向上一轮范围的追问继承上下文，避免把新的泛化问题误绑定到旧实体。
+  const referenceSignals =
+    /这个(?:类目|商品|渠道|活动|用户)?|该(?:类目|商品|渠道|活动|用户)?|其中|上述|刚才|上一轮|上一条|这里|这个范围/.test(
+      normalized
+    );
+  const followUpSignals =
+    /哪个|哪些|谁|为什么|如何|怎么|情况|表现|转化|浏览|加购|收藏|购买|销量|销售|库存|价格|利润|排名|对比|继续|再看|下钻|分析|详情/.test(
+      normalized
+    );
+
+  return referenceSignals && followUpSignals;
+}
+
 function hasExplicitVariantReselection(instruction: string): boolean {
   return /相关性|热力图|分散|流动性|成交额|换手|强弱|累计收益|收益曲线|净值曲线|折线图|排名|排序|候选|选股/.test(
     normalizeForIntent(instruction)
@@ -306,7 +325,10 @@ function shouldInheritPreviousPlanContext(params: {
   if (params.explicitEntities.length > 0 || (previousEntities.length === 0 && !previousWasWholeCatalog)) {
     return false;
   }
-  if (!isDashboardRevisionInstruction(params.instruction)) {
+  if (
+    !isDashboardRevisionInstruction(params.instruction) &&
+    !isContextualFollowUpInstruction(params.instruction)
+  ) {
     return false;
   }
   if (
@@ -589,6 +611,7 @@ export async function writeInitialRunPlan(params: {
     hasImageAttachments: params.hasImageAttachments,
     semanticFocusId: queryRewrite.analysisFocus.id,
     wholeCatalog: queryRewrite.broadUniverse,
+    inheritedContext: inheritPreviousPlan,
   });
   const clarification = mergeQueryRewriteClarification({
     base: baseClarification,

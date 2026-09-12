@@ -88,8 +88,8 @@
 
 ### 零售控制台
 
-`GET /api/v1/commerce/analytics/{overview|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown}`
-提供 P28 经营分析数据；`/analytics-workbench` 将这些结果组织成总览、分群、渠道、利润、库存、商品阶段、价格带和下钻视图。价格弹性在缺少同一商品多价格观察时只返回价格带对比和数据缺口，不伪造弹性系数。
+`GET /api/v1/commerce/analytics/{overview|trend|rfm|channel-campaign|profit|inventory|lifecycle|price-elasticity|drilldown}`
+提供 P28 经营分析数据；`/analytics-workbench` 将这些结果组织成总览、分群、渠道、利润、库存、商品阶段、价格带和下钻视图。`trend` 支持沿商品、类目、渠道或活动范围刷新日趋势；价格弹性在缺少同一商品多价格观察时只返回价格带对比和数据缺口，不伪造弹性系数。
 
 | 路由 | 方法 | 调用方 | 责任 |
 | --- | --- | --- | --- |
@@ -193,6 +193,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/channels` | `GET` | 店铺 tier 三档（standard/premium/flagship）聚合，gmv_share ≈ 0.35/0.34/0.32 |
 | `/api/v1/commerce/summary` | `GET` | 单日经营汇总，`date` 参数 |
 | `/api/v1/commerce/analytics/overview` | `GET` | 扩展数据集经营概览和最近质量扫描结果，必填 `dataset_id` |
+| `/api/v1/commerce/analytics/trend` | `GET` | 数据集日趋势；可选 `dimension` + `value` 按商品、类目、渠道或活动筛选，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/item-behavior` | `GET` | 数据集内商品级页面浏览、收藏、加购、购买和购买转化，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/rfm` | `GET` | 用户 RFM 分群和示例用户，必填 `dataset_id`，`limit` ≤100 |
 | `/api/v1/commerce/analytics/channel-campaign` | `GET` | 渠道/活动的会话、用户、订单和订单转化，必填 `dataset_id` |

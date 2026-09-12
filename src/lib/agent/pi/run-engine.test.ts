@@ -232,6 +232,60 @@ describe('PiAgentRunEngine', () => {
     ]);
   });
 
+  it('requires a tool and safely submits prose when a read-only provider ignores it', async () => {
+    const provider = new ScriptedProvider([[
+      {
+        type: 'response_start',
+        responseId: 'response-answer-only',
+        model: 'test-model',
+      },
+      { type: 'text_delta', delta: '商品 1000009 最近30天页面浏览量为 376，购买次数为 19。' },
+      usage({ input: 4, output: 12 }),
+      { type: 'finish', reason: 'stop', rawReason: 'stop' },
+    ]]);
+    const submit = vi.fn(async (input: unknown) => ({
+      ok: true as const,
+      data: input,
+    }));
+    const events: PiAgentEvent[] = [];
+    const engine = new PiAgentRunEngine({
+      provider,
+      model: 'test-model',
+      requireTerminalTool: true,
+      requireWorkspaceWriteBeforeTerminal: false,
+      tools: [{
+        name: 'submit_result',
+        description: 'Submit a read-only answer.',
+        inputSchema: objectSchema({
+          summary: { type: 'string' },
+          artifacts: { type: 'array' },
+          notes: { type: 'string' },
+        }),
+        effect: 'pure',
+        terminal: true,
+        execute: submit,
+      }],
+    });
+
+    const result = await engine.run({
+      runId: 'pi-answer-only-fallback',
+      messages: initialMessages,
+    }, (event) => {
+      events.push(event);
+    });
+
+    expect(result.status).toBe('completed');
+    expect(result.terminalToolCall?.name).toBe('submit_result');
+    expect(submit).toHaveBeenCalledWith({
+      summary: '商品 1000009 最近30天页面浏览量为 376，购买次数为 19。',
+      artifacts: [],
+      notes: '平台将只读问答文本收敛为候选结果。',
+    }, expect.any(Object));
+    expect(provider.requests[0].toolChoice).toBe('required');
+    expect(events.map((event) => event.type)).toContain('tool_started');
+    expect(events.map((event) => event.type)).toContain('tool_completed');
+  });
+
   it('runs approval only after the original arguments pass the PI schema', async () => {
     const provider = new ScriptedProvider([
       toolTurn([{

@@ -893,6 +893,12 @@ export class PiAgentRunEngine {
       this.tools.some((tool) => tool.terminal === true);
     const requireWorkspaceWriteBeforeTerminal =
       this.options.requireWorkspaceWriteBeforeTerminal ?? false;
+    // Answer-only runs expose only read tools plus the pure submit_result
+    // terminal. Requiring a tool choice prevents providers such as DeepSeek
+    // from ending on a prose-only response before the platform can record the
+    // answer as a candidate.
+    const requireReadOnlyTerminalChoice =
+      requireTerminalTool && !requireWorkspaceWriteBeforeTerminal;
     const handlers = normalizeHandlers(eventHandlers);
     const timeoutController = new AbortController();
     let timedOut = false;
@@ -1272,11 +1278,13 @@ export class PiAgentRunEngine {
             model: this.options.model,
             messages: providerMessages,
             tools: toolDefinitions,
-            toolChoice: request.reasoning?.enabled === true
-              ? undefined
-              : toolDefinitions.length
-                ? 'auto'
-                : undefined,
+            toolChoice: requireReadOnlyTerminalChoice
+              ? 'required'
+              : request.reasoning?.enabled === true
+                ? undefined
+                : toolDefinitions.length
+                  ? 'auto'
+                  : undefined,
             maxTokens: Math.min(
               maxTokensPerTurn,
               Math.max(1, limits.maxTokens - usage.outputTokens),
@@ -1828,6 +1836,76 @@ export class PiAgentRunEngine {
       }
     } finally {
       clearTimeout(timeout);
+    }
+
+    // A read-only answer is allowed to finish with useful prose when a
+    // provider ignores the required tool choice. Convert that prose through
+    // the real pure submit_result tool so durable events, parsing and
+    // candidate provenance remain identical to a model-issued submission.
+    if (
+      !terminalToolCall &&
+      stopStatus === null &&
+      requireReadOnlyTerminalChoice &&
+      output.trim()
+    ) {
+      const submitTool = this.toolsByName.get('submit_result');
+      if (
+        submitTool?.terminal === true &&
+        toolPolicy(submitTool).effect === 'pure'
+      ) {
+        const toolCall: PiAgentToolCall = {
+          id: `auto-submit-${randomUUID()}`,
+          name: 'submit_result',
+          arguments: canonicalJson({
+            summary: output.trim().slice(0, 8_000),
+            artifacts: [],
+            notes: '平台将只读问答文本收敛为候选结果。',
+          }),
+        };
+        const policy = toolPolicy(submitTool);
+        const operationId = createPiAgentOperationId(runId, turn, toolCall);
+        await emit({
+          type: 'tool_started',
+          turn,
+          toolCall,
+          operationId,
+          ...policy,
+        });
+        const execution = await executePiAgentTool({
+          tool: submitTool,
+          toolCall,
+          turn,
+          runId,
+          operationId,
+          signal,
+          now: Date.now,
+          commitWorkspaceMutation: request.commitWorkspaceMutation,
+        });
+        if (execution.result.ok && execution.terminal) {
+          await emit({
+            type: 'tool_completed',
+            turn,
+            toolCall,
+            operationId,
+            ...policy,
+            result: execution.result,
+            terminal: true,
+            durationMs: execution.durationMs,
+          });
+          terminalToolCall = toolCall;
+          terminalResult = execution.result;
+        } else if (!execution.result.ok) {
+          await emit({
+            type: 'tool_failed',
+            turn,
+            toolCall,
+            operationId,
+            ...policy,
+            result: execution.result,
+            durationMs: execution.durationMs,
+          });
+        }
+      }
     }
 
     const status: PiAgentRunStatus = terminalToolCall

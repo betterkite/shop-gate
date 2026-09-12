@@ -114,6 +114,7 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(prompt).toContain('精确 JSON Pointer');
     expect(prompt).toContain('批量源码锚点');
     expect(prompt).toContain('不重复取数或重写数据');
+    expect(prompt).toContain('打开当前下钻视图');
     expect(prompt).toContain('artifact=final_dashboard');
     expect(prompt).toContain('绝不推断 public/data/*.json');
     expect(prompt).toContain('不增加买入区间、止损、目标价、仓位');

@@ -347,6 +347,7 @@ ${modeConstraints}
 
 任务特有业务约束：
 - 接口字段缺失时显示真实缺口，绝不硬编码或臆造数据。
+- 使用 analytics/drilldown 或 analytics/trend 时，若返回 context_url 或 filter，回答中应提供“打开当前下钻视图”链接，并说明链接对应的数据集、维度和值；action_suggestions 是分析参考，不能写成已经执行的动作，next_questions 是可继续追问的问题。
 - 多标的必须覆盖全部 assets/comparison；单标的不得因名称别名被改成多标的。未明确要求时，不增加买入区间、止损、目标价、仓位或确定性收益建议。
 - A 股使用红涨绿跌；宽表只在自身容器滚动，移动端不得产生页面级横向溢出。`;
 }

@@ -242,6 +242,7 @@ def test_item_drilldown_includes_behavior_funnel_evidence(
     assert item["buy"] == 4
     assert item["buy_conversion"] == 0.04
     assert "查看该商品的浏览到购买转化" in result["next_questions"]
+    assert result["action_suggestions"]
     assert result["context_url"] == (
         "/analytics-workbench?view=drilldown&dataset_id=retail-p30"
         "&dimension=item&value=1001"
@@ -296,3 +297,4 @@ def test_category_drilldown_includes_behavior_funnel_evidence(
     assert row["buy"] == 15
     assert row["buy_conversion"] == 0.03
     assert result["context_url"].endswith("dimension=category&value=10")
+    assert result["action_suggestions"]

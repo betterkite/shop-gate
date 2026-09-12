@@ -737,6 +737,10 @@ async def analytics_drilldown(
             "比较该类目的购买转化率",
             "查看该类目的库存风险",
         ]
+        action_suggestions = [
+            "先查看该类目中浏览量高但购买较少的商品",
+            "再结合库存和价格带判断是商品页、价格还是库存问题",
+        ]
     elif dimension in {"channel", "campaign"}:
         column = "channel_id" if dimension == "channel" else "campaign_id"
         rows = await fetch_all(
@@ -766,6 +770,10 @@ async def analytics_drilldown(
             "继续按商品查看销量和库存",
             "查看该维度的毛利贡献",
             "对比其他渠道或活动",
+        ]
+        action_suggestions = [
+            "先查看该渠道或活动带来的商品和购买表现",
+            "结合订单转化率与估算销售额判断是否需要继续观察",
         ]
     elif dimension == "item":
         try:
@@ -833,6 +841,10 @@ async def analytics_drilldown(
             "查看同类目商品表现",
             "查看该商品的浏览到购买转化",
         ]
+        action_suggestions = [
+            "优先检查商品页、价格和活动信息是否影响购买",
+            "结合结存库存、窗口销量和购买转化判断库存问题",
+        ]
     else:
         try:
             user_id = int(value)
@@ -870,6 +882,10 @@ async def analytics_drilldown(
             "查看该用户来自哪个渠道",
             "查看该用户的 RFM 分群",
         ]
+        action_suggestions = [
+            "结合最近购买时间和购买次数判断是否需要触达",
+            "查看最近购买的商品，决定后续推荐或服务内容",
+        ]
     return _response(
         dataset_id,
         contract,
@@ -880,4 +896,5 @@ async def analytics_drilldown(
         ),
         results=results[:limit],
         next_questions=next_questions,
+        action_suggestions=action_suggestions,
     )

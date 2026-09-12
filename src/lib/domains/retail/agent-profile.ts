@@ -61,7 +61,7 @@ export const RETAIL_DOMAIN_PACK: DataAgentDomainPack = {
   version: '1.0.0',
   name: 'Retail Commerce',
   description:
-    '商品/类目实体解析、流量转化漏斗、类目结构、价格库存（合成口径）和经营日报能力。',
+    '商品/类目名称识别、流量与购买转化、类目结构、价格库存（合成口径）和经营日报能力。',
   capabilities: RETAIL_CAPABILITIES.map(capabilityDescriptor),
   resolverIds: ['retail.entity-resolver'],
   connectors: [{

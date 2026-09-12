@@ -210,7 +210,7 @@ const GUARANTEED_SALES_REQUEST_PATTERN =
 
 const FOCUS_LABELS: Record<RetailQueryFocusId, string> = {
   comprehensive: '综合经营诊断',
-  funnel: '流量与转化漏斗',
+  funnel: '流量与购买转化',
   catalog: '类目与商品结构',
   price_inventory: '价格与库存',
   daily_brief: '经营日报',

@@ -340,7 +340,7 @@ async function fetchFunnelDatasets(params: {
       }
       return { funnel, funnelDaily };
     } catch (error) {
-      params.warnings.push(`数据集漏斗预取失败：${error instanceof Error ? error.message : String(error)}`);
+      params.warnings.push(`数据集转化数据预取失败：${error instanceof Error ? error.message : String(error)}`);
       params.sources.push({
         source: '/api/v1/commerce/analytics/trend',
         dataset: 'funnel',
@@ -377,12 +377,12 @@ async function fetchFunnelDatasets(params: {
     }
     if (params.categoryIds.length > 1) {
       params.warnings.push(
-        'v1 漏斗接口按单类目过滤；多类目计划当前按合并口径返回，逐类目拆解在后续版本精化。',
+        'v1 转化接口按单类目过滤；多类目计划当前按合并口径返回，逐类目拆解在后续版本精化。',
       );
     }
     return { funnel, funnelDaily };
   } catch (error) {
-    params.warnings.push(`漏斗预取失败：${error instanceof Error ? error.message : String(error)}`);
+    params.warnings.push(`转化数据预取失败：${error instanceof Error ? error.message : String(error)}`);
     params.sources.push({
       source: '/api/v1/commerce/funnel',
       dataset: 'funnel',

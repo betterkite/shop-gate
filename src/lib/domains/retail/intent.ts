@@ -119,8 +119,8 @@ function buildQuestions(
   if (missing.includes('analysis_goal')) {
     questions.push(
       params.isComparison
-        ? '你更想对比转化漏斗、类目结构、价格库存，还是环比异动？'
-        : '你更关注转化漏斗、类目结构、价格库存，还是经营日报？'
+        ? '你更想对比浏览到购买的转化、类目结构、价格库存，还是环比异动？'
+        : '你更关注浏览到购买的转化、类目结构、价格库存，还是经营日报？'
     );
   }
 

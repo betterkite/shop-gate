@@ -9,7 +9,7 @@
 | 服务 | 默认地址 | 代码位置 | 责任 |
 | --- | --- | --- | --- |
 | Next.js 主应用 API | `http://localhost:3000/api/*` | `src/app/api/` | 项目、聊天、设置、评测、skills、运维和页面聚合数据 |
-| commerce-data 数据服务 | `http://127.0.0.1:8000/api/v1/*` | `services/commerce-data/src/shopgate_commerce_data/api.py` | 零售行为漏斗、商品/类目指标、库存风险、渠道聚合与经营汇总 |
+| commerce-data 数据服务 | `http://127.0.0.1:8000/api/v1/*` | `services/commerce-data/src/shopgate_commerce_data/api.py` | 浏览到购买的转化过程、商品/类目指标、库存风险、渠道聚合与经营汇总 |
 | 用户记忆服务 | `http://127.0.0.1:38089/*` | 独立 `evolvable-user-memory` 仓库 | 偏好证据、不可变修订、召回 Trace、上下文投影和可归因 Outcome |
 | 预览工作空间 | `http://localhost:4100+` | `data/projects/project-*` | AI 生成项目的 Next.js 预览，不承载平台状态 |
 
@@ -62,8 +62,8 @@
 
 ```json
 {
-  "instruction": "分析最近的类目流量与转化漏斗，并生成看板",
-  "displayInstruction": "分析最近的类目流量与转化漏斗，并生成看板",
+  "instruction": "分析最近的类目浏览到购买转化，并生成看板",
+  "displayInstruction": "分析最近的类目浏览到购买转化，并生成看板",
   "conversationId": "optional-conversation-id",
   "requestId": "optional-idempotent-request-id",
   "selectedModel": "deepseek-v4-flash",
@@ -184,8 +184,8 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/datasets/import` | `GET` | 列出最近的数据集生成任务，支持按 `dataset_id` 和 `limit` 过滤 |
 | `/api/v1/commerce/resolve` | `GET` | 实体解析：`item:<id>`/`cat:<id>` 显式形式 + 类目名/商品标题模糊匹配，`limit` ≤50 |
 | `/api/v1/commerce/capabilities` | `GET` | 零售能力发现信息（domain_pack=`retail.core`，含 synthetic_fields 清单） |
-| `/api/v1/commerce/funnel` | `GET` | 流量漏斗（pv/fav/cart/buy），支持 `start`/`end`/`category_id` |
-| `/api/v1/commerce/funnel/daily` | `GET` | 按日漏斗趋势，参数同 `/funnel` |
+| `/api/v1/commerce/funnel` | `GET` | 浏览到购买的转化过程（pv/fav/cart/buy），支持 `start`/`end`/`category_id`；`funnel` 是兼容接口路径 |
+| `/api/v1/commerce/funnel/daily` | `GET` | 按日查看浏览到购买的转化变化，参数同 `/funnel` |
 | `/api/v1/commerce/categories/top` | `GET` | 类目经营榜：`metric`（默认 gmv）+ `limit`（≤100） |
 | `/api/v1/commerce/items` | `GET` | 商品池分页：`page`/`page_size`（≤100）/`category_id`/`sort`（gmv\|pv\|buy\|price） |
 | `/api/v1/commerce/items/{item_id}/daily` | `GET` | 单商品日粒度行为与 GMV |

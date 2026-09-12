@@ -13,7 +13,7 @@ describe('question composer', () => {
     expect(questionOutputLabel('chat')).toBe('只做分析问答');
     expect(QUESTION_MODE_COPY.act.label).toBe('生成看板');
     expect(QUESTION_COMPOSER_COPY.defaultPlaceholder).toContain('经营分析需求');
-    expect(QUESTION_COMPOSER_COPY.modelRewriteHelper).toContain('不做关键词预判');
+    expect(QUESTION_COMPOSER_COPY.modelRewriteHelper).toContain('不在输入时擅自改写');
     expect(buildQuickQuestions('大位科技')[0]).toContain('大位科技');
     expect(buildQuickQuestions('分析大位科技最近20个交易日，生成经营看板')[0]).toContain('当前店铺/商品');
   });

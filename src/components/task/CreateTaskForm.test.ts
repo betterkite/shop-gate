@@ -25,9 +25,9 @@ const defaultProps: CreateTaskFormProps = {
   modelOptions: [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" }],
   selectedRole: {
     id: "traffic_funnel",
-    name: "流量与转化漏斗",
-    shortName: "漏斗",
-    description: "分析行为漏斗、分日趋势与分类目对比。",
+    name: "流量与购买转化",
+    shortName: "购买转化",
+    description: "分析浏览到购买的转化过程、分日趋势与分类目对比。",
     capabilityId: "traffic_funnel",
   },
 };

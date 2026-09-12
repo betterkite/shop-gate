@@ -128,11 +128,11 @@ const BASE_REQUIRED_SKILLS = [
 export const RETAIL_CAPABILITIES: RetailCapability[] = [
   {
     id: 'traffic_funnel',
-    name: '流量与转化漏斗',
-    shortName: '漏斗',
-    description: '围绕真实行为流完成 pv→fav→cart→buy 漏斗、分日趋势与分类目对比。',
-    inputHint: '例如：加购未购买的行为漏斗长什么样？哪个环节流失最大？生成漏斗看板。',
-    tags: ['行为流', '漏斗', '转化率', '分类目'],
+    name: '流量与购买转化',
+    shortName: '购买转化',
+    description: '分析页面浏览量（PV）、收藏（Fav）、加购（Cart）和购买（Buy）的数量变化、转化率与类目差异。',
+    inputHint: '例如：从浏览到购买各环节有多少？哪个环节流失最多？生成转化分析看板。',
+    tags: ['浏览行为', '加购', '购买', '转化率'],
     status: 'ready',
     groupId: 'core_analysis',
     agentType: 'commerce_analysis',
@@ -150,15 +150,15 @@ export const RETAIL_CAPABILITIES: RetailCapability[] = [
     validationRules: [
       '必须先解析商品/类目实体（或明确说明是全库口径），再获取真实行为数据。',
       '必须生成数据信源渠道和质量证据文件，并说明抽样窗口。',
-      '页面必须包含总漏斗、分日趋势、分类目对比和数据质量与更新时间；金额字段必须带合成口径标注。',
-      '可视化必须使用 funnel-analysis 模板，首屏露出漏斗、分日转化和分类目对比，不要生成营销式大标题页。',
+      '页面必须包含完整的浏览到购买转化过程、分日趋势、分类目对比和数据质量与更新时间；金额字段必须带合成口径标注。',
+      '可视化必须使用 funnel-analysis 模板，首屏展示浏览到购买的转化图、分日转化和分类目对比，不要生成营销式大标题页。',
       '生成后需要通过 Next.js build 与预览 HTTP 200 检查。',
     ],
     promptGuidance: [
-      '默认先做整体或分类目的转化漏斗诊断。',
+      '默认先分析整体或类目的浏览到购买转化情况。',
       '如果用户提到商品或类目名称，先通过 /resolve 解析为实体 ID，并保留原文字面证据。',
       '结论区分事实数据、计算结果和推断。',
-      '漏斗各阶段的转化率必须标注分母口径（事件数口径）。',
+      '每个行为阶段的转化率必须说明计算方式；行为次数可能包含同一用户的重复操作，不能直接当成用户数。',
     ],
   },
   {

@@ -44,7 +44,7 @@ describe('restoreRetailDashboardTemplate', () => {
         name: 'retail-funnel',
         page: retailFunnelPageTemplate(),
         css: retailBaseDashboardCssTemplate(),
-        required: ['流量与转化漏斗', '行为漏斗', '页面浏览量（PV）'],
+        required: ['流量与购买转化', '浏览到购买的转化过程', '页面浏览量（PV）'],
       },
       {
         name: 'retail-catalog',

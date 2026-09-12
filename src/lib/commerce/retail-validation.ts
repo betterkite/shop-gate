@@ -1982,7 +1982,7 @@ async function checkDashboardBinding(
         ],
       },
       'funnel-analysis': {
-        label: '行为漏斗模板',
+        label: '行为转化模板',
         patterns: [/漏斗|funnel|曝光|收藏|加购|购买|转化率/, /分日|趋势|数据质量|数据窗口|更新时间/],
       },
       'daily-brief': {
@@ -2089,7 +2089,7 @@ async function checkChartPresence(
     return {
       status: 'failed',
       summary: '未检测到有效图表实现。',
-      details: '页面至少应包含 SVG/canvas/图表组件，并展示漏斗、转化趋势、类目结构、价格库存或经营日报内容。',
+      details: '页面至少应包含 SVG/canvas/图表组件，并展示浏览到购买的转化过程、转化趋势、类目结构、价格库存或经营日报内容。',
     };
   }
 
@@ -2135,7 +2135,7 @@ async function checkChartPresence(
     },
     'funnel-analysis': {
       pattern: /funnel|漏斗|曝光|收藏|加购|购买|转化|分日/i,
-      label: '行为漏斗或分日转化趋势',
+      label: '浏览到购买的转化过程或分日转化趋势',
     },
     'price-inventory': {
       pattern: /inventory|库销比|价格带|库存|滞销|销量/i,

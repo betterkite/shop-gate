@@ -271,7 +271,7 @@ const SUPPORTED_RETAIL_RENDERERS: ReadonlyArray<{
     capabilityId: 'traffic_funnel',
     renderer: 'funnel-analysis',
     templateId: 'funnel-analysis',
-    requiredComponents: ['漏斗事件总览', '分日转化趋势', '分类目对比表', '数据质量说明'],
+    requiredComponents: ['行为阶段总览', '分日转化趋势', '分类目对比表', '数据质量说明'],
     dataPrerequisites: [
       { id: 'planned_entities', description: 'plannedEntities 声明完整', satisfiedBy: hasPlannedEntities },
       { id: 'funnel_stages', description: 'funnel 四阶段事件计数与独立用户触达率', satisfiedBy: funnelStagesReady },

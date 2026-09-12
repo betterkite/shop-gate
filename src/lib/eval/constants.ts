@@ -19,7 +19,7 @@ export const EVAL_RUNTIME_OPTIONS: CommerceEvalRuntimeOption[] = [
 ];
 
 export const EVAL_CAPABILITY_LABELS: Record<string, string> = {
-  traffic_funnel: '流量漏斗',
+  traffic_funnel: '流量与购买转化',
   catalog_structure: '类目结构',
   price_inventory: '价格库存',
   daily_brief: '经营日报',

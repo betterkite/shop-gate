@@ -194,6 +194,7 @@ async function inspectProfile(browser, storageState, profile) {
       }
 
       const form = document.querySelector('#task-input form');
+      const taskInputCopy = document.querySelector('#task-input')?.textContent || '';
       const content = document.querySelector('main.platform-content > div');
       const header = document.querySelector('header');
       const submit = document.querySelector('button[aria-label="提交任务"]');
@@ -245,6 +246,7 @@ async function inspectProfile(browser, storageState, profile) {
         viewport: { width: innerWidth, height: innerHeight },
         documentWidth: document.documentElement.scrollWidth,
         form: formBox,
+        taskInputCopy,
         content: contentBox,
         contentSideGutter: contentBox
           ? Number(((innerWidth - contentBox.width) / 2).toFixed(1))
@@ -263,6 +265,12 @@ async function inspectProfile(browser, storageState, profile) {
 
     const problems = [];
     if (!metrics.form) problems.push(`${profile.id}: 未找到主任务表单`);
+    if (!/加购后未购买|类目销售额结构|库存积压商品清单/.test(metrics.taskInputCopy || '')) {
+      problems.push(`${profile.id}: 主页示例没有展示用户化的经营分析入口`);
+    }
+    if (/漏斗|Resolver|标的原文|类目 GMV 结构|库销比滞销清单/.test(metrics.taskInputCopy || '')) {
+      problems.push(`${profile.id}: 主页输入区仍展示内部或不易理解的旧术语`);
+    }
     if (Math.abs(metrics.formCenterOffset ?? 999) > 2) {
       problems.push(`${profile.id}: 主任务表单未居中，偏移 ${metrics.formCenterOffset}px`);
     }

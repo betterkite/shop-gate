@@ -40,7 +40,7 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/analytics/item-behavior`：按数据集返回商品级 PV、收藏、加购、购买和购买转化。
 - `GET /api/v1/commerce/resolve`：商品/类目实体解析。
 - `GET /api/v1/commerce/capabilities`：零售能力发现。
-- `GET /api/v1/commerce/funnel`、`/funnel/daily`：流量与转化漏斗。
+- `GET /api/v1/commerce/funnel`、`/funnel/daily`：浏览到购买的转化过程与分日趋势（接口路径中的 `funnel` 为兼容字段名）。
 - `GET /api/v1/commerce/categories/top`、`/items`、`/items/{item_id}/daily`：类目和商品结构。
 - `GET /api/v1/commerce/inventory-risk`：库存风险 Top N（库销比）以及覆盖全量商品的库存健康 `health` 汇总。
 - `GET /api/v1/commerce/channels`：渠道聚合。

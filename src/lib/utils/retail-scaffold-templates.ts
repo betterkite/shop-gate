@@ -267,7 +267,7 @@ export function retailFunnelPageTemplate(): string {
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
-        <h1>流量与转化漏斗</h1>
+        <h1>流量与购买转化</h1>
         <div className="meta-row">
           <span className="meta-item">窗口：{windowText}</span>
           <span className="meta-item">口径：{scopeText}</span>
@@ -275,8 +275,8 @@ export function retailFunnelPageTemplate(): string {
         </div>
       </section>
       <section className="chart-zone">
-        <h2>行为漏斗（页面浏览量（PV） → 收藏（Fav） → 加购（Cart） → 购买（Buy））</h2>
-        {funnelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(funnelBars, '事件漏斗') }} /> : <p>漏斗数据缺失。</p>}
+        <h2>浏览到购买的转化过程（页面浏览量（PV） → 收藏（Fav） → 加购（Cart） → 购买（Buy））</h2>
+        {funnelBars.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgBars(funnelBars, '行为阶段转化图') }} /> : <p>转化数据缺失。</p>}
         <table className="dense-table">
           <thead><tr><th>阶段</th><th>事件数</th><th>独立用户数</th><th>事件相对上一阶段</th><th>用户触达率（相对 PV 用户）</th></tr></thead>
           <tbody>

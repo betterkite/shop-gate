@@ -446,7 +446,7 @@ function buildAnalysisSteps(
 
   if (outputIntent === 'answer') {
     const answerDataStep = capabilityId === 'price_inventory'
-      ? '调用 /api/v1/commerce/inventory-risk 和相关漏斗接口，按库存、浏览、购买和转化指标整理回答。'
+      ? '调用 /api/v1/commerce/inventory-risk 和相关转化接口，按库存、浏览、购买和转化指标整理回答。'
       : '调用当前能力对应的数据接口，按用户问题整理可核验的分析回答。';
     return [
       ...common,
@@ -503,11 +503,11 @@ function buildAnalysisSteps(
 
   return [
     ...common,
-    '调用 /api/v1/commerce/funnel 与 /funnel/daily 获取漏斗与分日趋势。',
+    '调用 /api/v1/commerce/funnel 与 /funnel/daily 获取浏览到购买的转化过程与分日趋势。',
     '分类目拆解转化差异并标注事件数口径。',
     '检查数据质量并写入 evidence/sources.json 与 evidence/data_quality.json。',
     '生成包含 datasets.funnel 与 datasets.funnelDaily 的最终数据文件。',
-    '生成流量转化漏斗看板并验证漏斗、分日趋势和更新时间。',
+    '生成流量与购买转化看板并验证转化过程、分日趋势和更新时间。',
   ];
 }
 

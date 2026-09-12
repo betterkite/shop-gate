@@ -87,18 +87,18 @@ const RESEARCH_STARTERS: Array<{
 }> = [
   {
     capabilityId: "traffic_funnel",
-    label: "加购未购买漏斗",
-    prompt: "加购未购买的行为漏斗长什么样？哪个环节流失最大，集中在哪些类目？",
+    label: "加购后未购买",
+    prompt: "从浏览、收藏、加购到购买的转化情况怎样？哪个环节流失最多，集中在哪些类目？",
   },
   {
     capabilityId: "catalog_structure",
-    label: "类目 GMV 结构",
-    prompt: "数据窗口内 GMV 最高的 5 个类目是哪些？给出各类目的转化率和客单价对比。",
+    label: "类目销售额结构",
+    prompt: "数据窗口内成交总额（GMV）最高的 5 个类目是哪些？给出各类目的购买转化率和平均每次购买金额对比。",
   },
   {
     capabilityId: "price_inventory",
-    label: "库销比滞销清单",
-    prompt: "库销比最差的 10 个商品是哪些？它们的流量转化情况如何？",
+    label: "库存积压商品清单",
+    prompt: "库存相对销量偏高的 10 个商品是哪些？它们的页面浏览量和购买转化率如何？",
   },
 ];
 
@@ -824,7 +824,7 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div role="tablist" aria-label="研究类型" className="mx-auto mt-3 flex max-w-full snap-x snap-mandatory justify-start gap-3 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] sm:justify-center [&::-webkit-scrollbar]:hidden">
+                <div role="tablist" aria-label="分析类型" className="mx-auto mt-3 flex max-w-full snap-x snap-mandatory justify-start gap-3 overflow-x-auto overscroll-x-contain px-1 [scrollbar-width:none] sm:justify-center [&::-webkit-scrollbar]:hidden">
                   {readyCapabilities.slice(0, 4).map((capability, index) => (
                     <button
                       key={capability.id}
@@ -873,9 +873,9 @@ export default function HomePage() {
                   </p>
                 ) : normalizedPrompt ? (
                   <div aria-live="polite" className="mx-auto mt-2.5 flex max-w-[70rem] flex-wrap items-center justify-center gap-1.5 text-[11px]">
-                    <span className="mr-1 inline-flex items-center gap-1 font-semibold text-muted-foreground"><Sparkles className="h-3 w-3 text-primary" />提交后由所选大模型解析</span>
-                    <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">标的原文保真</span>
-                    <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">Resolver 校验商品/类目实体</span>
+                    <span className="mr-1 inline-flex items-center gap-1 font-semibold text-muted-foreground"><Sparkles className="h-3 w-3 text-primary" />提交后由所选模型理解问题</span>
+                    <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">保留问题中的名称</span>
+                    <span className="inline-flex min-h-7 items-center rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">检查商品/类目名称</span>
                     <span className="inline-flex min-h-7 items-center gap-1 rounded-full border border-border/70 bg-background/75 px-2.5 text-foreground">{outputMode === "act" ? <LayoutDashboard className="h-3 w-3 text-primary" /> : <MessageSquare className="h-3 w-3 text-primary" />}{questionOutputLabel(outputMode)}</span>
                   </div>
                 ) : null}

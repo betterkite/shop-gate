@@ -117,7 +117,7 @@ def create_commerce_router() -> APIRouter:
             "capabilities": [
                 {
                     "id": "retail.traffic-funnel",
-                    "name": "流量与转化漏斗",
+                    "name": "流量与购买转化",
                     "endpoints": ["/api/v1/commerce/funnel", "/api/v1/commerce/funnel/daily"],
                 },
                 {

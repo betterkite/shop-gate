@@ -62,7 +62,7 @@ describe('workspace response protocol', () => {
 
     expect(content).toContain('【进度 1/5】正在理解问题');
     expect(content).toContain('| 维度 | 初步识别 | 状态 |');
-    expect(content).toContain('| 业务场景 | 流量与转化漏斗 | 明确 |');
+    expect(content).toContain('| 业务场景 | 流量与购买转化 | 明确 |');
     expect(content).toContain('| 分析对象 | cat:10051 | 明确 |');
     expect(content).toContain('| 时间范围 | 数据窗口内最近 9 天 | 平台默认 |');
     expect(content).toContain('用户原问句：这个类目最近转化怎么样');

@@ -295,6 +295,70 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(runPlan.clarification?.required).not.toBe(true);
   });
 
+  it('carries the previous ranked item set into a plural follow-up', async () => {
+    const projectPath = await createProject();
+    const firstInstruction = '按全库口径找出库销比最差的 10 个商品。';
+    const firstRewrite = await technicalRewrite(firstInstruction);
+    const previousPlan = await writeInitialRunPlan({
+      projectPath,
+      requestId: 'ranked-items-first',
+      capabilityId: 'price_inventory',
+      capabilitySource: 'auto',
+      instruction: firstInstruction,
+      datasetId: 'retail-demo-p28-elasticity-v1',
+      queryRewrite: {
+        ...firstRewrite,
+        targetCandidates: [],
+        resolvedEntities: [],
+        analysisFocus: { id: 'price_inventory', label: '价格与库存' },
+        outputIntent: 'answer',
+        broadUniverse: true,
+      },
+    });
+    await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
+    await fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), JSON.stringify({
+      runId: previousPlan.runId,
+      datasetId: 'retail-demo-p28-elasticity-v1',
+      datasets: {
+        inventoryRisk: {
+          items: [{ item_id: 1000009 }, { item_id: 1000010 }, { item_id: 1000011 }],
+        },
+      },
+    }));
+
+    const followUpInstruction = '这些商品的流量转化情况如何？';
+    await writeInitialRunPlan({
+      projectPath,
+      requestId: 'ranked-items-follow-up',
+      capabilityId: 'price_inventory',
+      capabilitySource: 'auto',
+      instruction: followUpInstruction,
+      previousPlan,
+      queryRewrite: {
+        ...firstRewrite,
+        originalQuery: followUpInstruction,
+        normalizedQuery: followUpInstruction,
+        rewrittenQuery: followUpInstruction,
+        targetCandidates: [],
+        resolvedEntities: [],
+        analysisFocus: { id: 'price_inventory', label: '价格与库存' },
+        outputIntent: 'answer',
+        broadUniverse: false,
+      },
+    });
+
+    const runPlan = JSON.parse(
+      await fs.readFile(path.join(projectPath, '.data-agent', 'retail-run-plan.json'), 'utf8'),
+    ) as {
+      entities: string[];
+      plannedEntities: { categoryIds: number[]; itemIds: number[] };
+      context: { inheritedItemIds?: number[] };
+    };
+    expect(runPlan.entities).toEqual(['item:1000009', 'item:1000010', 'item:1000011']);
+    expect(runPlan.plannedEntities).toEqual({ categoryIds: [], itemIds: [1000009, 1000010, 1000011] });
+    expect(runPlan.context.inheritedItemIds).toEqual([1000009, 1000010, 1000011]);
+  });
+
   it('does not inherit the previous entity when a follow-up names a new entity', async () => {
     const projectPath = await createProject();
     const firstInstruction = '生成贵州茅台最近120个交易日的技术分析看板。';

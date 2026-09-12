@@ -83,6 +83,7 @@ export interface RetailRunPlan {
     inherited: boolean;
     sourceRunId?: string;
     scope?: RetailAnalysisScope;
+    inheritedItemIds?: number[];
   };
   /** 计划实体范围；空数组 = 全库口径。 */
   plannedEntities: { categoryIds: number[]; itemIds: number[] };
@@ -321,7 +322,7 @@ function isContextualFollowUpInstruction(instruction: string): boolean {
 
   // 只对明确指向上一轮范围的追问继承上下文，避免把新的泛化问题误绑定到旧实体。
   const referenceSignals =
-    /这个(?:类目|商品|渠道|活动|用户)?|该(?:类目|商品|渠道|活动|用户)?|其中|上述|刚才|上一轮|上一条|这里|这个范围/.test(
+    /这个(?:类目|商品|渠道|活动|用户)?|这些(?:商品|产品)?|它们|该(?:类目|商品|渠道|活动|用户)?|其中|上述|刚才|上一轮|上一条|这里|这个范围/.test(
       normalized
     );
   const followUpSignals =
@@ -586,6 +587,57 @@ async function readPreviousFinalScope(
   }
 }
 
+function previousItemSetReference(instruction: string): boolean {
+  return /这些(?:商品|产品)|它们|上述(?:商品|产品)|这几(?:个)?(?:商品|产品)/.test(instruction);
+}
+
+function collectItemIds(value: unknown, ids: Set<number>, depth = 0): void {
+  if (depth > 3 || value === null || value === undefined) return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectItemIds(item, ids, depth + 1);
+    return;
+  }
+  if (typeof value !== 'object') return;
+  const record = value as Record<string, unknown>;
+  const rawItemId = record.item_id;
+  const itemId = typeof rawItemId === 'number'
+    ? rawItemId
+    : typeof rawItemId === 'string' && rawItemId.trim()
+      ? Number(rawItemId)
+      : NaN;
+  if (Number.isSafeInteger(itemId) && itemId > 0) ids.add(itemId);
+  for (const key of ['items', 'item_elasticities', 'item_pool', 'itemPool', 'top_items', 'rows']) {
+    if (key in record) collectItemIds(record[key], ids, depth + 1);
+  }
+}
+
+async function readPreviousFinalItemIds(
+  projectPath: string,
+  previousPlan: RetailRunPlan | null,
+  datasetId: string | undefined,
+): Promise<number[]> {
+  if (!previousPlan?.runId) return [];
+  try {
+    const finalData = JSON.parse(
+      await fs.readFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), 'utf8'),
+    ) as unknown;
+    if (!finalData || typeof finalData !== 'object' || Array.isArray(finalData)) return [];
+    const record = finalData as Record<string, unknown>;
+    if (record.runId !== previousPlan.runId) return [];
+    if (datasetId && record.datasetId !== datasetId) return [];
+    const datasets = record.datasets;
+    if (!datasets || typeof datasets !== 'object' || Array.isArray(datasets)) return [];
+    const datasetRecords = datasets as Record<string, unknown>;
+    const ids = new Set<number>();
+    for (const key of ['inventoryRisk', 'analyticsInventory', 'analyticsReplenishment', 'analyticsLifecycle', 'analyticsElasticity', 'elasticity', 'itemPool']) {
+      collectItemIds(datasetRecords[key], ids);
+    }
+    return [...ids].slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
 export async function writeInitialRunPlan(params: {
   projectId?: string;
   projectPath: string;
@@ -653,11 +705,19 @@ export async function writeInitialRunPlan(params: {
   const retailSettings = buildRetailProjectSettings(capability.id);
   const now = new Date().toISOString();
   const llm = getProjectLlmConfig(params.llmModel);
-  const entities = explicitEntities.length > 0 ? explicitEntities : inheritedEntities;
   const datasetId =
     params.datasetId?.trim() ||
     extractExplicitRetailDatasetId(planningInstruction) ||
     (inheritPreviousPlan ? params.previousPlan?.datasetId : undefined);
+  const inheritedItemIds = inheritPreviousPlan && previousItemSetReference(planningInstruction)
+    ? await readPreviousFinalItemIds(params.projectPath, params.previousPlan ?? null, datasetId)
+    : [];
+  const inheritedItemEntities = inheritedItemIds.map((itemId) => `item:${itemId}`);
+  const entities = explicitEntities.length > 0
+    ? explicitEntities
+    : inheritedEntities.length > 0
+      ? inheritedEntities
+      : inheritedItemEntities;
   const resolvedPlannedEntities = {
     categoryIds: queryRewrite.resolvedEntities
       .filter((item) => item.kind === 'category')
@@ -674,7 +734,9 @@ export async function writeInitialRunPlan(params: {
       ? resolvedPlannedEntities
       : {
           categoryIds: [...(inheritedPlannedEntities?.categoryIds ?? [])],
-          itemIds: [...(inheritedPlannedEntities?.itemIds ?? [])],
+          itemIds: inheritedItemIds.length > 0
+            ? inheritedItemIds
+            : [...(inheritedPlannedEntities?.itemIds ?? [])],
         };
   const requestedTimeRange =
     queryRewrite.timeRange?.label ??
@@ -780,6 +842,7 @@ export async function writeInitialRunPlan(params: {
         ? { sourceRunId: params.previousPlan.runId }
         : {}),
       ...(inheritedScope ? { scope: inheritedScope } : {}),
+      ...(inheritedItemIds.length > 0 ? { inheritedItemIds: [...inheritedItemIds] } : {}),
     },
     timeRange,
     dataRequirements,

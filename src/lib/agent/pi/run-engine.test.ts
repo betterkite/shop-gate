@@ -281,7 +281,7 @@ describe('PiAgentRunEngine', () => {
       artifacts: [],
       notes: '平台将只读问答文本收敛为候选结果。',
     }, expect.any(Object));
-    expect(provider.requests[0].toolChoice).toBe('required');
+    expect(provider.requests[0].toolChoice).toBe('auto');
     expect(events.map((event) => event.type)).toContain('tool_started');
     expect(events.map((event) => event.type)).toContain('tool_completed');
   });

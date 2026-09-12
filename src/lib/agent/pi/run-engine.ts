@@ -894,10 +894,10 @@ export class PiAgentRunEngine {
     const requireWorkspaceWriteBeforeTerminal =
       this.options.requireWorkspaceWriteBeforeTerminal ?? false;
     // Answer-only runs expose only read tools plus the pure submit_result
-    // terminal. Requiring a tool choice prevents providers such as DeepSeek
-    // from ending on a prose-only response before the platform can record the
-    // answer as a candidate.
-    const requireReadOnlyTerminalChoice =
+    // terminal. Providers differ in their support for forced tool-choice
+    // requests, so the engine keeps the provider-neutral choice policy and
+    // applies a local terminal fallback below when prose is returned.
+    const allowReadOnlyTerminalFallback =
       requireTerminalTool && !requireWorkspaceWriteBeforeTerminal;
     const handlers = normalizeHandlers(eventHandlers);
     const timeoutController = new AbortController();
@@ -1278,13 +1278,11 @@ export class PiAgentRunEngine {
             model: this.options.model,
             messages: providerMessages,
             tools: toolDefinitions,
-            toolChoice: requireReadOnlyTerminalChoice
-              ? 'required'
-              : request.reasoning?.enabled === true
-                ? undefined
-                : toolDefinitions.length
-                  ? 'auto'
-                  : undefined,
+            toolChoice: request.reasoning?.enabled === true
+              ? undefined
+              : toolDefinitions.length
+                ? 'auto'
+                : undefined,
             maxTokens: Math.min(
               maxTokensPerTurn,
               Math.max(1, limits.maxTokens - usage.outputTokens),
@@ -1845,7 +1843,7 @@ export class PiAgentRunEngine {
     if (
       !terminalToolCall &&
       stopStatus === null &&
-      requireReadOnlyTerminalChoice &&
+      allowReadOnlyTerminalFallback &&
       output.trim()
     ) {
       const submitTool = this.toolsByName.get('submit_result');

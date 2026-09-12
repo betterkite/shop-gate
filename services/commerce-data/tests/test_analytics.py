@@ -175,6 +175,50 @@ def test_analytics_trend_does_not_claim_unattributed_behavior_for_channel(
     }]
 
 
+def test_analytics_trend_keeps_parent_category_for_channel_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+    params_seen: list[tuple[object, ...]] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        params_seen.append(params)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-trend",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 1),
+            }]
+        return [{"stat_date": date(2025, 1, 1), "orders": 1, "net_sales": 88}]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(
+        analytics_trend("retail-trend", "channel", "organic", "category", "10")
+    )
+
+    assert calls == 2
+    assert "JOIN commerce.dataset_item_economics i" in queries[1]
+    assert "i.category_id = %s" in queries[1]
+    assert params_seen[1] == ("retail-trend", "organic", 10)
+    assert result["filter"] == {
+        "dimension": "channel",
+        "value": "organic",
+        "filter_dimension": "category",
+        "filter_value": "10",
+    }
+    assert result["context_url"].endswith(
+        "dimension=channel&value=organic&filter_dimension=category&filter_value=10"
+    )
+
+
 def test_dataset_meta_preserves_isolated_dataset_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -949,6 +993,60 @@ def test_item_drilldown_includes_behavior_funnel_evidence(
         "/analytics-workbench?view=drilldown&dataset_id=retail-p30"
         "&dimension=item&value=1001"
     )
+
+
+def test_channel_drilldown_keeps_parent_item_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+    params_seen: list[tuple[object, ...]] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        params_seen.append(params)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p30",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+            }]
+        return [{
+            "dimension_value": "organic",
+            "orders": 3,
+            "users": 2,
+            "units": 4,
+            "net_sales": 320,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(
+        analytics_drilldown("retail-p30", "channel", "organic", 20, "item", "1001")
+    )
+
+    assert calls == 2
+    assert "AND o.item_id = %s" in queries[1]
+    assert params_seen[1] == ("retail-p30", "organic", 1001)
+    assert result["context"] == {
+        "dimension": "channel",
+        "value": "organic",
+        "filter_dimension": "item",
+        "filter_value": "1001",
+    }
+    assert result["context_url"].endswith(
+        "dimension=channel&value=organic&filter_dimension=item&filter_value=1001"
+    )
+
+
+def test_drilldown_rejects_parent_scope_for_non_channel_dimensions() -> None:
+    with pytest.raises(ValueError, match="仅支持进入渠道或活动"):
+        asyncio.run(analytics_drilldown("retail-p30", "item", "1001", 20, "category", "10"))
 
 
 def test_category_drilldown_includes_behavior_funnel_evidence(

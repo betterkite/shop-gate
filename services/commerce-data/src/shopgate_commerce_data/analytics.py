@@ -269,6 +269,8 @@ async def analytics_trend(
     dataset_id: str,
     dimension: str | None = None,
     value: str | None = None,
+    filter_dimension: str | None = None,
+    filter_value: str | None = None,
 ) -> dict[str, Any]:
     """Return a daily trend that follows the optional workbench drilldown scope."""
 
@@ -277,12 +279,18 @@ async def analytics_trend(
         raise ValueError("趋势筛选必须同时提供 dimension 和 value")
     if dimension is not None and dimension not in allowed_dimensions:
         raise ValueError("趋势筛选只支持商品、类目、渠道或活动")
+    filter_dimension, filter_value, filter_normalized = _normalize_scope(
+        filter_dimension,
+        filter_value,
+        supported=ITEM_SCOPE_DIMENSIONS,
+    )
     contract = await _contract(dataset_id)
 
     behavior_clause = ""
     behavior_params: list[Any] = [dataset_id]
     order_clause = ""
     order_params: list[Any] = [dataset_id]
+    order_join = ""
     if dimension in {"item", "category"} and value is not None:
         try:
             numeric_value = int(value)
@@ -291,12 +299,29 @@ async def analytics_trend(
         behavior_column = "item_id" if dimension == "item" else "category_id"
         behavior_clause = f" AND {behavior_column} = %s"
         behavior_params.append(numeric_value)
-        order_clause = f" AND {behavior_column} = %s"
+        order_clause = f" AND o.{behavior_column} = %s"
         order_params.append(numeric_value)
     elif dimension in {"channel", "campaign"} and value is not None:
         order_column = "channel_id" if dimension == "channel" else "campaign_id"
-        order_clause = f" AND {order_column} = %s"
+        order_clause = f" AND o.{order_column} = %s"
         order_params.append(value)
+
+    if filter_dimension and filter_normalized is not None:
+        if filter_dimension == "category":
+            order_join = (
+                " JOIN commerce.dataset_item_economics i"
+                " ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id"
+            )
+            order_clause += " AND i.category_id = %s"
+        else:
+            order_clause += " AND o.item_id = %s"
+        order_params.append(filter_normalized)
+        if dimension == "item" and filter_dimension == "category":
+            behavior_clause += " AND category_id = %s"
+            behavior_params.append(filter_normalized)
+        elif dimension == "category" and filter_dimension == "item":
+            behavior_clause += " AND item_id = %s"
+            behavior_params.append(filter_normalized)
 
     behavior_rows: list[dict[str, Any]] = []
     if dimension not in {"channel", "campaign"}:
@@ -315,13 +340,16 @@ async def analytics_trend(
             tuple(behavior_params),
         )
     order_rows = await fetch_all(
-        f"""
-        SELECT ordered_at::date AS stat_date,
+        """
+        SELECT o.ordered_at::date AS stat_date,
                COUNT(DISTINCT order_id) AS orders,
                COALESCE(SUM(quantity * selling_price - refund_amount), 0) AS net_sales
-        FROM commerce.dataset_orders
-        WHERE dataset_id = %s{order_clause}
-        GROUP BY ordered_at::date
+        FROM commerce.dataset_orders o
+        """
+        + order_join
+        + f"""
+        WHERE o.dataset_id = %s{order_clause}
+        GROUP BY o.ordered_at::date
         ORDER BY stat_date
         """,
         tuple(order_params),
@@ -349,7 +377,15 @@ async def analytics_trend(
         cursor += timedelta(days=1)
 
     payload: dict[str, Any] = {
-        "filter": {"dimension": dimension, "value": value},
+        "filter": {
+            "dimension": dimension,
+            "value": value,
+            **(
+                {"filter_dimension": filter_dimension, "filter_value": filter_value}
+                if filter_dimension and filter_value
+                else {}
+            ),
+        },
         "metric_definition": {
             "pv": "页面浏览事件数；渠道/活动筛选未采集行为事件归因时为 0",
             "buy": "购买行为事件数",
@@ -362,6 +398,11 @@ async def analytics_trend(
         payload["context_url"] = (
             "/analytics-workbench?view=drilldown&dataset_id="
             f"{quote(dataset_id)}&dimension={quote(dimension)}&value={quote(value)}"
+            + (
+                f"&filter_dimension={quote(filter_dimension)}&filter_value={quote(filter_value)}"
+                if filter_dimension and filter_value
+                else ""
+            )
         )
     return _response(dataset_id, contract, **payload)
 
@@ -1383,14 +1424,23 @@ async def analytics_drilldown(
     dimension: str,
     value: str,
     limit: int = 20,
+    filter_dimension: str | None = None,
+    filter_value: str | None = None,
 ) -> dict[str, Any]:
     """为多轮 Agent/页面下钻提供稳定的维度上下文和下一步提示。"""
 
-    contract = await _contract(dataset_id)
     if dimension not in {"channel", "campaign", "category", "item", "user"}:
         raise ValueError("下钻维度必须是 channel、campaign、category、item 或 user")
     if not value.strip():
         raise ValueError("下钻值不能为空")
+    filter_dimension, filter_value, filter_normalized = _normalize_scope(
+        filter_dimension,
+        filter_value,
+        supported=ITEM_SCOPE_DIMENSIONS,
+    )
+    if filter_dimension and dimension not in {"channel", "campaign"}:
+        raise ValueError("父级筛选仅支持进入渠道或活动明细")
+    contract = await _contract(dataset_id)
 
     if dimension == "category":
         try:
@@ -1451,6 +1501,19 @@ async def analytics_drilldown(
         ]
     elif dimension in {"channel", "campaign"}:
         column = "channel_id" if dimension == "channel" else "campaign_id"
+        scope_join = ""
+        scope_clause = ""
+        scope_params: tuple[int | str, ...] = ()
+        if filter_dimension == "category" and filter_normalized is not None:
+            scope_join = (
+                " JOIN commerce.dataset_item_economics i"
+                " ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id"
+            )
+            scope_clause = " AND i.category_id = %s"
+            scope_params = (filter_normalized,)
+        elif filter_dimension == "item" and filter_normalized is not None:
+            scope_clause = " AND o.item_id = %s"
+            scope_params = (filter_normalized,)
         rows = await fetch_all(
             f"""
             SELECT o.{column} AS dimension_value,
@@ -1459,10 +1522,13 @@ async def analytics_drilldown(
                    COALESCE(SUM(o.quantity), 0) AS units,
                    COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales
             FROM commerce.dataset_orders o
-            WHERE o.dataset_id = %s AND o.{column} = %s
+            """
+            + scope_join
+            + f"""
+            WHERE o.dataset_id = %s AND o.{column} = %s{scope_clause}
             GROUP BY o.{column}
             """,
-            (dataset_id, value),
+            (dataset_id, value, *scope_params),
         )
         results = [
             {
@@ -1597,10 +1663,23 @@ async def analytics_drilldown(
     return _response(
         dataset_id,
         contract,
-        context={"dimension": dimension, "value": value},
+        context={
+            "dimension": dimension,
+            "value": value,
+            **(
+                {"filter_dimension": filter_dimension, "filter_value": filter_value}
+                if filter_dimension and filter_value
+                else {}
+            ),
+        },
         context_url=(
             "/analytics-workbench?view=drilldown&dataset_id="
             f"{quote(dataset_id)}&dimension={quote(dimension)}&value={quote(value)}"
+            + (
+                f"&filter_dimension={quote(filter_dimension)}&filter_value={quote(filter_value)}"
+                if filter_dimension and filter_value
+                else ""
+            )
         ),
         results=results[:limit],
         next_questions=next_questions,

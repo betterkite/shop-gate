@@ -13,6 +13,7 @@ const commerceApiBase = (process.env.SHOPGATE_MARKET_API_URL || 'http://127.0.0.
 const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28-elasticity-v1';
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
 const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
+const scopedChannelDrilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=channel&value=organic&filter_dimension=category&filter_value=10009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const inventoryHealthUrl = `${inventoryUrl}&health=${encodeURIComponent('缺货风险')}`;
 const scopedInventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
@@ -162,6 +163,21 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
       const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });
+    }
+
+    const scopedChannelResponse = await gotoWithRetry(page, scopedChannelDrilldownUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    if (!scopedChannelResponse?.ok() || new URL(page.url()).pathname === '/login') {
+      problems.push(`${profile.id}: 复合渠道明细页请求或登录失败`);
+    } else {
+      await page.locator('main').getByRole('heading', { name: '当前查看范围的日趋势', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      const scopedChannelState = await page.evaluate(() => {
+        const text = document.body.innerText;
+        return {
+          parentScope: text.includes('父级范围：类目 10009'),
+          contextLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('filter_dimension=category') && link.getAttribute('href')?.includes('filter_value=10009')),
+        };
+      });
+      if (!scopedChannelState.parentScope || !scopedChannelState.contextLink) problems.push(`${profile.id}: 渠道明细未保留商品/类目父级范围`);
     }
 
     const inventoryResponse = await gotoWithRetry(page, inventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });

@@ -46,7 +46,7 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/channels`：渠道聚合。
 - `GET /api/v1/commerce/summary`：经营日报快照。
 - `GET /api/v1/commerce/analytics/overview`：扩展数据集经营概览。
-- `GET /api/v1/commerce/analytics/trend`：按数据集或商品/类目/渠道/活动下钻范围返回日趋势。
+- `GET /api/v1/commerce/analytics/trend`：按数据集或商品/类目/渠道/活动下钻范围返回日趋势；渠道/活动下钻支持保留商品或类目父级范围。
 - `GET /api/v1/commerce/analytics/rfm`：用户购买新近度、频次和金额分群（RFM）；可按“流失风险 / 高价值 / 新近购买 / 稳定复购”筛选。
 - `GET /api/v1/commerce/analytics/channel-campaign`：渠道/活动会话、订单和转化。
 - `GET /api/v1/commerce/analytics/profit`：合成成本下的销售额、退款、毛利和毛利率。
@@ -54,7 +54,7 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/analytics/replenishment`：按供货周期和目标覆盖天数给出补货参考；支持按四类补货判断筛选。
 - `GET /api/v1/commerce/analytics/lifecycle`：按窗口内购买活跃度判断商品经营阶段；支持 `stage` 阶段筛选、`page` 分页和 `limit` 每页数量。
 - `GET /api/v1/commerce/analytics/price-elasticity`：价格带对比；支持按价格带筛选，有同一商品多个成交价格观察时返回价格与购买量关系参考；如果数据集登记了对照/处理组实验观察，还会返回两组购买率差异，否则明确返回实验数据缺口。
-- `GET /api/v1/commerce/analytics/drilldown`：按用户、渠道、活动或商品继续查看上下文，并返回下一步问题建议。
+- `GET /api/v1/commerce/analytics/drilldown`：按用户、渠道、活动、类目或商品继续查看上下文，并返回下一步问题建议；渠道/活动明细可保留商品或类目父级范围。
 
 API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准。
 

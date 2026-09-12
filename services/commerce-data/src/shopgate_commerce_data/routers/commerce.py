@@ -310,11 +310,15 @@ def create_commerce_router() -> APIRouter:
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
         dimension: Annotated[str | None, Query(max_length=20)] = None,
         value: Annotated[str | None, Query(max_length=120)] = None,
+        filter_dimension: Annotated[str | None, Query(max_length=20)] = None,
+        filter_value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         """返回可按下钻范围刷新的日趋势。"""
 
         try:
-            return await analytics.analytics_trend(dataset_id, dimension, value)
+            return await analytics.analytics_trend(
+                dataset_id, dimension, value, filter_dimension, filter_value
+            )
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -456,9 +460,13 @@ def create_commerce_router() -> APIRouter:
         dimension: Annotated[str, Query(min_length=1, max_length=20)],
         value: Annotated[str, Query(min_length=1, max_length=120)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        filter_dimension: Annotated[str | None, Query(max_length=20)] = None,
+        filter_value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.analytics_drilldown(dataset_id, dimension, value, limit)
+            return await analytics.analytics_drilldown(
+                dataset_id, dimension, value, limit, filter_dimension, filter_value
+            )
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 

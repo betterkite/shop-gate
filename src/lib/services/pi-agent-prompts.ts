@@ -54,11 +54,21 @@ function buildCapabilityContext(
       ? runPlan.visualization.panels
       : serializedTemplate.requiredComponents,
   };
+  const context = runPlan?.context;
+  const contextDataset = context?.datasetId ?? runPlan?.datasetId ?? '未固定（必须按实际返回声明口径）';
+  const contextEntities = context?.entities?.length
+    ? context.entities.join(', ')
+    : runPlan?.entities?.join(', ') || '全库口径';
+  const contextTimeRange = context?.timeRange ?? runPlan?.timeRange ?? '数据集窗口';
+  const contextSource = context?.inherited
+    ? `承接上一轮${context.sourceRunId ? `（${context.sourceRunId}）` : ''}`
+    : '本轮明确输入';
 
   return `任务合同：
 - 能力：${capability.id} / ${capability.name}；执行能力：${runPlan?.executionCapabilityId ?? capability.executionCapabilityId}
 - LLM：${runPlan?.llm?.provider ?? 'openai'} / ${runPlan?.llm?.model ?? 'local_qwen:qwen3.5-9b-q5km'}；Query Rewrite：${(runPlan?.llm?.queryRewrite.enabled ?? true) ? 'LLM-first' : 'disabled（失败关闭）'}
 - 标的：${runPlan?.entities?.join(', ') || '以只读运行计划为准'}
+- 当前分析上下文：数据集 ${contextDataset}；实体 ${contextEntities}；时间范围 ${contextTimeRange}；来源 ${contextSource}。只将其用于解析本轮指代，最终结论必须重新核对当前 final/evidence 或接口返回。
 - 页面模板：${answerOnlyIntent ? '本轮不生成看板' : `${visualization.templateId} / ${visualization.variantId}（${visualization.variantName}）`}
 - 布局与密度：${visualization.layout} / ${visualization.density}
 - 首屏：${visualization.firstViewport.join('；')}

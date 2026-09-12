@@ -117,6 +117,9 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(prompt).toContain('打开当前下钻视图');
     expect(prompt).toContain('artifact=final_dashboard');
     expect(prompt).toContain('绝不推断 public/data/*.json');
+    expect(prompt).toContain('当前分析上下文：数据集 未固定');
+    expect(prompt).toContain('实体 cat:10051');
+    expect(prompt).toContain('时间范围 最近120个交易日');
     expect(prompt).toContain('不增加买入区间、止损、目标价、仓位');
     expect(prompt).not.toContain('commerce_api_get');
     expect(prompt).not.toContain('commerce_extract_uploaded_image');
@@ -234,6 +237,13 @@ describe('PI Agent Shop Gate prompts', () => {
       entities: string[];
       datasetId?: string;
       timeRange: string | null;
+      context: {
+        datasetId: string | null;
+        entities: string[];
+        timeRange: string | null;
+        inherited: boolean;
+        sourceRunId?: string;
+      };
       clarification?: { required?: boolean };
     };
 
@@ -241,6 +251,13 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(runPlan.entities).toEqual(['cat:10051']);
     expect(runPlan.datasetId).toBe('retail-demo-p28-elasticity-v1');
     expect(runPlan.timeRange).toBe('最近120个交易日');
+    expect(runPlan.context).toEqual({
+      datasetId: 'retail-demo-p28-elasticity-v1',
+      entities: ['cat:10051'],
+      timeRange: '最近120个交易日',
+      inherited: true,
+      sourceRunId: 'contextual-drilldown-first',
+    });
     expect(runPlan.clarification?.required).not.toBe(true);
   });
 

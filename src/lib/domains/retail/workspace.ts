@@ -64,6 +64,17 @@ export interface RetailRunPlan {
   entities: string[];
   /** 具体数据窗口；planning 阶段可为 null，由 data_prefetch 以 /meta 精化。 */
   window: { start: string; end: string } | null;
+  /**
+   * 本轮可审计的分析上下文。它只保存范围指针，不保存模型私有思考或
+   * 用户长期偏好，用于多轮追问时稳定继承数据集、实体和时间口径。
+   */
+  context?: {
+    datasetId: string | null;
+    entities: string[];
+    timeRange: string | null;
+    inherited: boolean;
+    sourceRunId?: string;
+  };
   /** 计划实体范围；空数组 = 全库口径。 */
   plannedEntities: { categoryIds: number[]; itemIds: number[] };
   timeRange: string | null;
@@ -692,6 +703,15 @@ export async function writeInitialRunPlan(params: {
     entities,
     plannedEntities,
     window: null,
+    context: {
+      datasetId: datasetId ?? null,
+      entities: [...entities],
+      timeRange,
+      inherited: inheritPreviousPlan,
+      ...(inheritPreviousPlan && params.previousPlan?.runId
+        ? { sourceRunId: params.previousPlan.runId }
+        : {}),
+    },
     timeRange,
     dataRequirements,
     analysisSteps: refused

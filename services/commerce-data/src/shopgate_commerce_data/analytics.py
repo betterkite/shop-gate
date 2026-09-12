@@ -328,7 +328,11 @@ async def item_behavior_metrics(dataset_id: str, limit: int = 20) -> dict[str, A
     )
 
 
-async def rfm_segments(dataset_id: str, limit: int = 20) -> dict[str, Any]:
+async def rfm_segments(
+    dataset_id: str,
+    limit: int = 20,
+    page: int = 1,
+) -> dict[str, Any]:
     contract = await _contract(dataset_id)
     window_end = date.fromisoformat(str(contract["window_end"]))
     rows = await fetch_all(
@@ -350,28 +354,31 @@ async def rfm_segments(dataset_id: str, limit: int = 20) -> dict[str, Any]:
     )
     monetary_values = sorted(_number(row["monetary"]) for row in rows)
     p75 = monetary_values[int((len(monetary_values) - 1) * 0.75)] if monetary_values else 0
-    customers: list[dict[str, Any]] = []
+    all_customers: list[dict[str, Any]] = []
     segment_counts: dict[str, int] = {}
     for row in rows:
         recency = (window_end - row["last_order_date"]).days
         monetary = _number(row["monetary"])
         segment = classify_rfm(recency, int(row["frequency"]), monetary, p75)
         segment_counts[segment] = segment_counts.get(segment, 0) + 1
-        if len(customers) < limit:
-            customers.append(
-                {
-                    "user_id": row["user_id"],
-                    "last_order_date": row["last_order_date"].isoformat(),
-                    "recency_days": recency,
-                    "frequency": int(row["frequency"]),
-                    "units": int(row["units"] or 0),
-                    "monetary": round(monetary, 2),
-                    "segment": segment,
-                    "age_band": row["age_band"],
-                    "city_tier": row["city_tier"],
-                    "member_level": row["member_level"],
-                }
-            )
+        all_customers.append(
+            {
+                "user_id": row["user_id"],
+                "last_order_date": row["last_order_date"].isoformat(),
+                "recency_days": recency,
+                "frequency": int(row["frequency"]),
+                "units": int(row["units"] or 0),
+                "monetary": round(monetary, 2),
+                "segment": segment,
+                "age_band": row["age_band"],
+                "city_tier": row["city_tier"],
+                "member_level": row["member_level"],
+            }
+        )
+    page_count = max((len(all_customers) + limit - 1) // limit, 1)
+    page = min(max(page, 1), page_count)
+    start = (page - 1) * limit
+    customers = all_customers[start : start + limit]
     return _response(
         dataset_id,
         contract,
@@ -382,6 +389,9 @@ async def rfm_segments(dataset_id: str, limit: int = 20) -> dict[str, Any]:
         },
         monetary_p75=round(p75, 2),
         customer_count=len(rows),
+        page=page,
+        page_size=limit,
+        page_count=page_count,
         segment_counts=segment_counts,
         customers=customers,
     )
@@ -646,7 +656,11 @@ async def lifecycle_metrics(
     )
 
 
-async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
+async def price_band_comparison(
+    dataset_id: str,
+    limit: int = 20,
+    page: int = 1,
+) -> dict[str, Any]:
     """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
 
     contract = await _contract(dataset_id)
@@ -730,7 +744,7 @@ async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
         """,
         (dataset_id, dataset_id),
     )
-    item_elasticities = [
+    all_item_elasticities = [
         {
             "item_id": row["item_id"],
             "category_id": row["category_id"],
@@ -744,10 +758,10 @@ async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
         for row in elasticity_rows
     ]
     average_elasticity = (
-        sum(row["elasticity"] for row in item_elasticities) / len(item_elasticities)
-        if item_elasticities else None
+        sum(row["elasticity"] for row in all_item_elasticities) / len(all_item_elasticities)
+        if all_item_elasticities else None
     )
-    if item_elasticities:
+    if all_item_elasticities:
         status = "estimated"
         explanation = (
             "基于同一商品至少两个实际成交价格点与对应购买量，用对数回归估算需求弹性；"
@@ -765,6 +779,10 @@ async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
             "对应销量或转化变化",
             "活动/流量等干扰因素",
         ]
+    page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
+    page = min(max(page, 1), page_count)
+    start = (page - 1) * limit
+    item_elasticities = all_item_elasticities[start : start + limit]
     return _response(
         dataset_id,
         contract,
@@ -772,9 +790,12 @@ async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
         elasticity_estimate=(
             round(average_elasticity, 4) if average_elasticity is not None else None
         ),
-        estimation_method="log_demand_on_log_price" if item_elasticities else None,
+        estimation_method="log_demand_on_log_price" if all_item_elasticities else None,
         item_elasticities=item_elasticities,
-        eligible_item_count=len(item_elasticities),
+        eligible_item_count=len(all_item_elasticities),
+        page=page,
+        page_size=limit,
+        page_count=page_count,
         explanation=explanation,
         required_for_estimation=required_for_estimation,
         price_band_comparison=bands,

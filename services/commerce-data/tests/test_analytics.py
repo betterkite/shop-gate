@@ -14,6 +14,7 @@ from shopgate_commerce_data.analytics import (
     inventory_analytics,
     inventory_health_label,
     price_band_comparison,
+    rfm_segments,
 )
 
 
@@ -226,6 +227,59 @@ def test_inventory_analytics_paginates_all_items_without_losing_counts(
     assert sum(result["risk_counts"].values()) == 45
 
 
+def test_rfm_segments_paginates_all_customers_without_losing_segments(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-rfm",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "rfm_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": ["user_profiles"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [
+            {
+                "user_id": 2000 + index,
+                "last_order_date": date(2025, 1, 31),
+                "frequency": 1,
+                "units": 1,
+                "monetary": 100 + index,
+                "age_band": "25-34",
+                "city_tier": "二线",
+                "member_level": "普通",
+            }
+            for index in range(45)
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(rfm_segments("retail-rfm", limit=20, page=2))
+
+    assert calls == 2
+    assert result["customer_count"] == 45
+    assert result["page"] == 2
+    assert result["page_size"] == 20
+    assert result["page_count"] == 3
+    assert [customer["user_id"] for customer in result["customers"]] == list(range(2020, 2040))
+    assert sum(result["segment_counts"].values()) == 45
+
+
 def test_lifecycle_stage_rules_are_user_facing_and_stable() -> None:
     window_start = date(2025, 11, 4)
     window_end = date(2025, 12, 3)
@@ -336,6 +390,67 @@ def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_pric
     assert result["elasticity_estimate"] is None
     assert result["eligible_item_count"] == 0
     assert result["required_for_estimation"]
+
+
+def test_price_band_comparison_paginates_item_observations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p28-elasticity",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "elasticity_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 28,
+                "row_counts": {},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return [{
+                "price_band": "50-200",
+                "item_count": 45,
+                "orders": 45,
+                "units": 45,
+                "net_sales": 4_500,
+                "average_discount_rate": 0.1,
+            }]
+        return [
+            {
+                "item_id": 3000 + index,
+                "category_id": 10,
+                "price_points": 2,
+                "min_price": 90,
+                "max_price": 110,
+                "units": 8,
+                "orders": 8,
+                "elasticity": -1.25,
+            }
+            for index in range(45)
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(price_band_comparison("retail-p28-elasticity", limit=20, page=2))
+
+    assert calls == 3
+    assert result["eligible_item_count"] == 45
+    assert result["page"] == 2
+    assert result["page_size"] == 20
+    assert result["page_count"] == 3
+    assert [item["item_id"] for item in result["item_elasticities"]] == list(range(3020, 3040))
 
 
 def test_item_drilldown_includes_behavior_funnel_evidence(

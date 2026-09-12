@@ -332,9 +332,10 @@ def create_commerce_router() -> APIRouter:
     async def analytics_rfm(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        page: Annotated[int, Query(ge=1, le=500)] = 1,
     ) -> dict[str, Any]:
         try:
-            return await analytics.rfm_segments(dataset_id, limit)
+            return await analytics.rfm_segments(dataset_id, limit, page)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -382,9 +383,11 @@ def create_commerce_router() -> APIRouter:
     @router.get("/analytics/price-elasticity")
     async def analytics_price_elasticity(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        page: Annotated[int, Query(ge=1, le=500)] = 1,
     ) -> dict[str, Any]:
         try:
-            return await analytics.price_band_comparison(dataset_id)
+            return await analytics.price_band_comparison(dataset_id, limit, page)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 

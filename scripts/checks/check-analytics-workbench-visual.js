@@ -12,6 +12,8 @@ const baseUrl = (process.env.ANALYTICS_WORKBENCH_URL || 'http://localhost:3000')
 const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28-elasticity-v1';
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const profiles = [
   { id: 'desktop-light', viewport: { width: 1440, height: 900 }, hasTouch: false, isMobile: false },
   { id: 'mobile-light', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
@@ -108,6 +110,62 @@ async function inspectProfile(browser, storageState, profile) {
       if (!secondPageFirstRow || secondPageFirstRow === firstPage.firstRow) problems.push(`${profile.id}: 库存第 2 页未展示不同商品`);
       const inventoryScreenshotPath = path.join(outputDir, `inventory-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: inventoryScreenshotPath, fullPage: true });
+
+      const customerResponse = await page.goto(customerUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!customerResponse?.ok()) {
+        problems.push(`${profile.id}: 用户分群页请求失败`);
+      } else {
+        await page.getByRole('heading', { name: '用户分群（RFM）' }).waitFor({ state: 'visible', timeout: 20_000 });
+        const firstCustomerPage = await page.evaluate(() => {
+          const text = document.body.innerText;
+          return {
+            allCount: /全部用户\s+[\d,]+\s+个/.test(text),
+            pageSize: text.includes('每页 20 个'),
+            rowCount: document.querySelectorAll('table tbody tr').length,
+            firstRow: document.querySelector('table tbody tr')?.textContent?.trim() || '',
+            detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看用户明细')),
+          };
+        });
+        const customerPage2Response = await page.goto(customerUrl.replace('page=1', 'page=2'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!customerPage2Response?.ok()) problems.push(`${profile.id}: 用户分群第 2 页请求失败`);
+        await page.getByRole('heading', { name: '用户分群（RFM）' }).waitFor({ state: 'visible', timeout: 20_000 });
+        const secondCustomerFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
+        if (!firstCustomerPage.allCount) problems.push(`${profile.id}: 用户分群页缺少全部用户数量`);
+        if (!firstCustomerPage.pageSize) problems.push(`${profile.id}: 用户分群页缺少每页 20 个说明`);
+        if (firstCustomerPage.rowCount < 20) problems.push(`${profile.id}: 用户分群第一页不足 20 行`);
+        if (!firstCustomerPage.detailLink) problems.push(`${profile.id}: 用户分群页缺少查看明细入口`);
+        if (!secondCustomerFirstRow || secondCustomerFirstRow === firstCustomerPage.firstRow) problems.push(`${profile.id}: 用户分群第 2 页未展示不同用户`);
+        const customerScreenshotPath = path.join(outputDir, `customers-${profile.id}-${timestamp}.png`);
+        await page.screenshot({ path: customerScreenshotPath, fullPage: true });
+      }
+
+      const elasticityResponse = await page.goto(elasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!elasticityResponse?.ok()) {
+        problems.push(`${profile.id}: 价格弹性页请求失败`);
+      } else {
+        await page.getByRole('heading', { name: '价格带对比与价格弹性参考' }).waitFor({ state: 'visible', timeout: 20_000 });
+        const firstElasticityPage = await page.evaluate(() => {
+          const text = document.body.innerText;
+          const tables = [...document.querySelectorAll('table')];
+          return {
+            observations: /商品级价格观察（共\s+[\d,]+\s+个，每页 20 个）/.test(text),
+            rowCount: tables[0]?.querySelectorAll('tbody tr').length || 0,
+            firstRow: tables[0]?.querySelector('tbody tr')?.textContent?.trim() || '',
+            nextPage: text.includes('下一页'),
+          };
+        });
+        const elasticityPage2Response = await page.goto(elasticityUrl.replace('page=1', 'page=2'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!elasticityPage2Response?.ok()) problems.push(`${profile.id}: 价格弹性第 2 页请求失败`);
+        await page.getByRole('heading', { name: '价格带对比与价格弹性参考' }).waitFor({ state: 'visible', timeout: 20_000 });
+        const secondElasticityFirstRow = await page.locator('table').first().locator('tbody tr').first().textContent().catch(() => '');
+        if (!firstElasticityPage.observations) problems.push(`${profile.id}: 价格弹性页缺少商品观察总数/分页说明`);
+        if (!firstElasticityPage.nextPage) problems.push(`${profile.id}: 价格弹性页缺少翻页入口`);
+        if (firstElasticityPage.rowCount < 20) problems.push(`${profile.id}: 价格弹性第一页不足 20 行`);
+        if (!secondElasticityFirstRow || secondElasticityFirstRow === firstElasticityPage.firstRow) problems.push(`${profile.id}: 价格弹性第 2 页未展示不同商品`);
+        const elasticityScreenshotPath = path.join(outputDir, `elasticity-${profile.id}-${timestamp}.png`);
+        await page.screenshot({ path: elasticityScreenshotPath, fullPage: true });
+      }
+
       return { profile: profile.id, state, screenshotPath, inventoryScreenshotPath, problems };
     }
     return { profile: profile.id, state, screenshotPath, problems };

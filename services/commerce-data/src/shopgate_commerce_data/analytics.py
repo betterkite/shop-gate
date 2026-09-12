@@ -186,6 +186,7 @@ REPLENISHMENT_PRIORITIES = (
     "暂不建议补货",
     "无销量先观察",
 )
+PRICE_BANDS = ("0-50", "50-200", "200-500", "500-1000", "1000+")
 
 
 LIFECYCLE_STAGES = ("未启动", "成长期", "稳定期", "衰退风险")
@@ -1069,8 +1070,29 @@ async def price_band_comparison(
     page: int = 1,
     dimension: str | None = None,
     value: str | None = None,
+    price_band: str | None = None,
 ) -> dict[str, Any]:
     """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
+
+    if price_band is not None and price_band not in PRICE_BANDS:
+        raise ValueError(f"价格带必须是：{'、'.join(PRICE_BANDS)}")
+    price_band_clause = ""
+    price_band_params: tuple[int, ...] = ()
+    if price_band == "0-50":
+        price_band_clause = " AND i.list_price < %s"
+        price_band_params = (50,)
+    elif price_band == "50-200":
+        price_band_clause = " AND i.list_price >= %s AND i.list_price < %s"
+        price_band_params = (50, 200)
+    elif price_band == "200-500":
+        price_band_clause = " AND i.list_price >= %s AND i.list_price < %s"
+        price_band_params = (200, 500)
+    elif price_band == "500-1000":
+        price_band_clause = " AND i.list_price >= %s AND i.list_price < %s"
+        price_band_params = (500, 1000)
+    elif price_band == "1000+":
+        price_band_clause = " AND i.list_price >= %s"
+        price_band_params = (1000,)
 
     contract = await _contract(dataset_id)
     scope_clause, scope_params, scope = _order_scope(
@@ -1092,6 +1114,7 @@ async def price_band_comparison(
           WHERE i.dataset_id = %s
           """
         + scope_clause
+        + price_band_clause
         + """
           GROUP BY i.item_id, i.list_price, i.discount_rate
         )
@@ -1111,7 +1134,7 @@ async def price_band_comparison(
         GROUP BY 1
         ORDER BY MIN(list_price)
         """,
-        (dataset_id, *scope_params),
+        (dataset_id, *scope_params, *price_band_params),
     )
     bands = [
         {
@@ -1139,6 +1162,7 @@ async def price_band_comparison(
             AND o.payment_status = 'paid'
           """
         + scope_clause
+        + price_band_clause
         + """
           GROUP BY o.item_id, o.selling_price
         ), eligible AS (
@@ -1164,7 +1188,7 @@ async def price_band_comparison(
         WHERE e.elasticity IS NOT NULL
         ORDER BY e.elasticity ASC, e.item_id
         """,
-        (dataset_id, *scope_params, dataset_id),
+        (dataset_id, *scope_params, *price_band_params, dataset_id),
     )
     all_item_elasticities = [
         {
@@ -1225,10 +1249,11 @@ async def price_band_comparison(
               AND e.selling_price > 0
             """
             + scope_clause
+            + price_band_clause
             + """
             ORDER BY e.experiment_id, e.item_id, e.observation_date, e.variant
             """,
-            (dataset_id, *scope_params),
+            (dataset_id, *scope_params, *price_band_params),
         )
         grouped: dict[str, dict[str, Any]] = {}
         for row in experiment_rows:
@@ -1341,6 +1366,7 @@ async def price_band_comparison(
         page=page,
         page_size=limit,
         page_count=page_count,
+        selected_price_band=price_band,
         explanation=explanation,
         required_for_estimation=required_for_estimation,
         experiment_status=experiment_status,

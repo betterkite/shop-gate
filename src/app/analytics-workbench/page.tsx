@@ -35,6 +35,7 @@ type Props = {
     segment?: string;
     health?: string;
     priority?: string;
+    price_band?: string;
   }>;
 };
 
@@ -91,6 +92,7 @@ const LIFECYCLE_STAGE_OPTIONS = [
 const RFM_SEGMENT_OPTIONS = ['流失风险', '高价值', '新近购买', '稳定复购'] as const;
 const INVENTORY_HEALTH_OPTIONS = ['库存正常', '库存积压', '缺货风险', '有库存但无销量'] as const;
 const REPLENISHMENT_PRIORITY_OPTIONS = ['优先评估补货', '建议评估补货', '暂不建议补货', '无销量先观察'] as const;
+const PRICE_BAND_OPTIONS = ['0-50', '50-200', '200-500', '500-1000', '1000+'] as const;
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : null;
@@ -203,13 +205,20 @@ function customerHref(datasetId: string, page: number, dimension?: string, value
   return `/analytics-workbench?${query.toString()}`;
 }
 
-function elasticityHref(datasetId: string, page: number, dimension?: string, value?: string): string {
+function elasticityHref(
+  datasetId: string,
+  page: number,
+  dimension?: string,
+  value?: string,
+  priceBand?: string,
+): string {
   const query = new URLSearchParams({
     view: 'elasticity',
     dataset_id: datasetId,
     page: String(page),
   });
   addFilterQuery(query, dimension, value);
+  if (priceBand) query.set('price_band', priceBand);
   return `/analytics-workbench?${query.toString()}`;
 }
 
@@ -323,7 +332,7 @@ function TrendScopeSummary({ payload, dimension, value }: { payload: JsonRecord 
   </Panel>;
 }
 
-function ElasticitySummary({ payload, datasetId, filterDimension, filterValue }: { payload: JsonRecord | null; datasetId: string; filterDimension?: string; filterValue?: string }) {
+function ElasticitySummary({ payload, datasetId, filterDimension, filterValue, priceBand }: { payload: JsonRecord | null; datasetId: string; filterDimension?: string; filterValue?: string; priceBand?: string }) {
   const estimated = payload?.status === 'estimated';
   const experimentReady = payload?.experiment_status === 'synthetic_experiment_reference' || payload?.experiment_status === 'experimental_reference';
   const rows = asArray(payload?.item_elasticities);
@@ -337,7 +346,7 @@ function ElasticitySummary({ payload, datasetId, filterDimension, filterValue }:
       <p className="mt-1">{text(payload?.explanation)}</p>
       {estimated ? <p className="mt-1">平均价格弹性：<strong>{text(payload?.elasticity_estimate)}</strong>；可比较商品：{displayNumber(payload?.eligible_item_count)} 个。</p> : <p className="mt-1">还需要：{asStringArray(payload?.required_for_estimation).join('、')}。</p>}
     </div>
-    {estimated && rows.length > 0 ? <div className="mt-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">商品级价格观察（共 {displayNumber(total)} 个，每页 20 个）</p><span className="text-xs text-muted-foreground">第 {displayNumber(page)} / {displayNumber(pageCount)} 页</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">价格观察次数</th><th className="px-3 py-3">最低成交价</th><th className="px-3 py-3">最高成交价</th><th className="px-3 py-3">购买件数</th><th className="px-3 py-3">价格弹性参考</th></tr></thead><tbody className="divide-y divide-border/60">{rows.map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.price_points)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.min_price)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.max_price)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.units)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.elasticity)}</td></tr>)}</tbody></DataTable><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={page > 1 ? elasticityHref(datasetId, page - 1, filterDimension, filterValue) : elasticityHref(datasetId, page, filterDimension, filterValue)} aria-disabled={page <= 1} className={`rounded-lg border px-3 py-2 text-sm ${page <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><span className="text-xs text-muted-foreground">第 {displayNumber(page)} 页，共 {displayNumber(pageCount)} 页</span><Link scroll={false} href={page < pageCount ? elasticityHref(datasetId, page + 1, filterDimension, filterValue) : elasticityHref(datasetId, page, filterDimension, filterValue)} aria-disabled={page >= pageCount} className={`rounded-lg border px-3 py-2 text-sm ${page >= pageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><p className="mt-2 text-xs leading-5 text-muted-foreground">这里反映的是成交价格与购买量的演示关系，不是价格实验结论；调价前仍需结合活动、流量和利润一起判断。</p></div> : null}
+    {estimated && rows.length > 0 ? <div className="mt-4"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">商品级价格观察（共 {displayNumber(total)} 个，每页 20 个）</p><span className="text-xs text-muted-foreground">第 {displayNumber(page)} / {displayNumber(pageCount)} 页</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">价格观察次数</th><th className="px-3 py-3">最低成交价</th><th className="px-3 py-3">最高成交价</th><th className="px-3 py-3">购买件数</th><th className="px-3 py-3">价格弹性参考</th></tr></thead><tbody className="divide-y divide-border/60">{rows.map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.price_points)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.min_price)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.max_price)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.units)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.elasticity)}</td></tr>)}</tbody></DataTable><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={page > 1 ? elasticityHref(datasetId, page - 1, filterDimension, filterValue, priceBand) : elasticityHref(datasetId, page, filterDimension, filterValue, priceBand)} aria-disabled={page <= 1} className={`rounded-lg border px-3 py-2 text-sm ${page <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><span className="text-xs text-muted-foreground">第 {displayNumber(page)} 页，共 {displayNumber(pageCount)} 页</span><Link scroll={false} href={page < pageCount ? elasticityHref(datasetId, page + 1, filterDimension, filterValue, priceBand) : elasticityHref(datasetId, page, filterDimension, filterValue, priceBand)} aria-disabled={page >= pageCount} className={`rounded-lg border px-3 py-2 text-sm ${page >= pageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><p className="mt-2 text-xs leading-5 text-muted-foreground">这里反映的是成交价格与购买量的演示关系，不是价格实验结论；调价前仍需结合活动、流量和利润一起判断。</p></div> : null}
     <div className={`mt-5 rounded-xl border p-4 text-sm leading-6 ${experimentReady ? 'border-sky-200 bg-sky-50 text-sky-950' : 'border-slate-200 bg-slate-50 text-slate-800'}`}>
       <strong>{experimentReady ? '价格实验模拟参考' : '当前没有价格实验数据'}</strong>
       <p className="mt-1">{text(payload?.experiment_explanation, '当前数据没有对照组和处理组的曝光、购买记录，不能计算实验组与对照组的差异。')}</p>
@@ -409,7 +418,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       view: params?.view || 'overview',
       dataset_id: text(datasetContracts[0].dataset_id),
     });
-    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health', 'priority'] as const) {
+    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health', 'priority', 'price_band'] as const) {
       if (params?.[key]) canonicalQuery.set(key, params[key]);
     }
     redirect(`/analytics-workbench?${canonicalQuery.toString()}`);
@@ -444,6 +453,10 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const replenishmentPriority = REPLENISHMENT_PRIORITY_OPTIONS.includes(requestedReplenishmentPriority as (typeof REPLENISHMENT_PRIORITY_OPTIONS)[number])
     ? requestedReplenishmentPriority
     : '';
+  const requestedPriceBand = params?.price_band?.trim() || '';
+  const priceBand = PRICE_BAND_OPTIONS.includes(requestedPriceBand as (typeof PRICE_BAND_OPTIONS)[number])
+    ? requestedPriceBand
+    : '';
   const lifecycleQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -473,6 +486,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     limit: '20',
     page: String(elasticityPage),
   });
+  if (priceBand) elasticityQuery.set('price_band', priceBand);
   const scopeDimension = params?.filter_dimension && ['item', 'category', 'channel', 'campaign'].includes(params.filter_dimension)
     ? params.filter_dimension
     : undefined;
@@ -515,6 +529,8 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         ? inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, inventoryHealth)
         : key === 'replenishment'
           ? replenishmentHref(datasetId, 1, itemScopeDimension, scopeValue, replenishmentPriority)
+        : key === 'elasticity'
+          ? elasticityHref(datasetId, 1, itemScopeDimension, scopeValue, priceBand)
         : hrefFor(key, datasetId, scopeDimension, scopeValue),
     label,
     active: view === key,
@@ -616,7 +632,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         <div className="mt-4"><Limitations payload={lifecycle} /></div>
       </Panel> : null}
 
-      {view === 'elasticity' ? <Panel title="价格带对比与价格弹性参考" description="价格带用于比较商品价格结构；有多个成交价格观察时，额外展示价格与购买量的关系参考。"><ElasticitySummary payload={elasticity} datasetId={datasetId} filterDimension={itemScopeDimension} filterValue={scopeValue} /><div className="mt-5"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">价格带</th><th className="px-3 py-3">商品数</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售件数</th><th className="px-3 py-3">估算销售额</th><th className="px-3 py-3">平均折扣</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(elasticity?.price_band_comparison).map((row) => <tr key={String(row.price_band)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm font-semibold">¥{text(row.price_band)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.item_count)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.units)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.average_discount_rate)}</td></tr>)}</tbody></DataTable></div><div className="mt-4"><Limitations payload={elasticity} /></div></Panel> : null}
+      {view === 'elasticity' ? <Panel title="价格带对比与价格弹性参考" description="价格带用于比较商品价格结构；有多个成交价格观察时，额外展示价格与购买量的关系参考。点击价格带可查看该范围的商品观察。"><div className="mb-5 rounded-xl border border-border/60 bg-muted/20 p-4"><p className="text-sm font-semibold">选择价格带</p><p className="mt-1 text-xs leading-5 text-muted-foreground">价格带按商品标价划分；选择后，下面的商品价格观察和实验参考都会同步更新。</p><div className="mt-3 flex flex-wrap gap-2"><Link scroll={false} href={elasticityHref(datasetId, 1, itemScopeDimension, scopeValue)} className={`rounded-lg border px-3 py-2 text-sm ${!priceBand ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}>全部价格带</Link>{PRICE_BAND_OPTIONS.map((band) => <Link key={band} scroll={false} href={elasticityHref(datasetId, 1, itemScopeDimension, scopeValue, band)} className={`rounded-lg border px-3 py-2 text-sm ${priceBand === band ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}>¥{band}</Link>)}</div><p className="mt-3 text-xs text-muted-foreground">当前查看：{priceBand ? `¥${priceBand}` : '全部价格带'}</p></div><ElasticitySummary payload={elasticity} datasetId={datasetId} filterDimension={itemScopeDimension} filterValue={scopeValue} priceBand={priceBand} /><div className="mt-5"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">价格带</th><th className="px-3 py-3">商品数</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售件数</th><th className="px-3 py-3">估算销售额</th><th className="px-3 py-3">平均折扣</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(elasticity?.price_band_comparison).map((row) => <tr key={String(row.price_band)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm font-semibold"><Link scroll={false} className="text-primary hover:underline" href={elasticityHref(datasetId, 1, itemScopeDimension, scopeValue, text(row.price_band))}>¥{text(row.price_band)}</Link></td><td className="px-3 py-3 text-sm">{displayNumber(row.item_count)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.units)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.average_discount_rate)}</td></tr>)}</tbody></DataTable></div><div className="mt-4"><Limitations payload={elasticity} /></div></Panel> : null}
 
       {params?.view === 'drilldown' ? <div className="space-y-5"><TrendChart payload={trend} title="当前查看范围的日趋势" description="点击渠道、类目或商品后，趋势会按当前范围重新计算；渠道或活动没有对应行为记录时，页面浏览量会显示为 0。" /><Panel title="查看相关明细" description="下面展示当前筛选范围的结果，并提供回到总览或打开这份明细结果的入口。"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/35 p-4 text-sm"><span><span className="text-muted-foreground">当前查看条件：</span>{text(DIMENSION_LABELS[text(drilldown?.context && asRecord(drilldown.context)?.dimension)] || text(drilldown?.context && asRecord(drilldown.context)?.dimension))} = {text(drilldown?.context && asRecord(drilldown.context)?.value, params.value || '-')}</span><div className="flex flex-wrap gap-3">{params.dimension && params.value ? <Link href={filteredOverviewHref(datasetId, params.dimension, params.value)} className="font-semibold text-primary hover:underline">回到总览（保留当前筛选）</Link> : null}{typeof drilldown?.context_url === 'string' ? <Link href={drilldown.context_url} className="font-semibold text-primary hover:underline">打开这份明细结果</Link> : null}</div></div>{drilldown ? <DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground">{Object.keys(asArray(drilldown.results)[0] ?? {}).map((key) => <th key={key} className="px-3 py-3">{DRILLDOWN_LABELS[key] || key}</th>)}</tr></thead><tbody className="divide-y divide-border/60">{asArray(drilldown.results).map((row, index) => <tr key={index}>{Object.entries(row).map(([key, value]) => <td key={key} className="px-3 py-3 text-sm">{typeof value === 'number' && /conversion/i.test(key) ? displayPercent(value) : typeof value === 'number' && /sales|amount|profit|cost/i.test(key) ? displayMoney(value) : text(value)}</td>)}</tr>)}</tbody></DataTable> : <p className="mt-4 text-sm text-destructive">没有找到符合当前条件的结果。</p>}<div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted-foreground">可执行的分析建议</p><div className="grid gap-2 sm:grid-cols-2">{asStringArray(drilldown?.action_suggestions).map((action) => <span key={action} className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">{action}</span>)}</div></div><div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted-foreground">你还可以这样问</p><div className="flex flex-wrap gap-2">{asStringArray(drilldown?.next_questions).map((question) => <span key={question} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary">{question}</span>)}</div></div><div className="mt-4"><Limitations payload={drilldown} /></div></Panel></div> : null}
     </RetailPageShell>

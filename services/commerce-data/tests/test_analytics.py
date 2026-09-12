@@ -649,6 +649,71 @@ def test_price_band_comparison_reports_estimated_elasticity_for_multiple_prices(
     assert result["item_elasticities"][0]["price_points"] == 2
 
 
+def test_price_band_comparison_filters_band_and_elasticity_observations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-price-band",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "price_band_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 28,
+                "row_counts": {},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return [{
+                "price_band": "50-200",
+                "item_count": 2,
+                "orders": 8,
+                "units": 8,
+                "net_sales": 800,
+                "average_discount_rate": 0.1,
+            }]
+        return [{
+            "item_id": 1001,
+            "category_id": 10,
+            "price_points": 2,
+            "min_price": 90,
+            "max_price": 110,
+            "units": 8,
+            "orders": 8,
+            "elasticity": -1.25,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(price_band_comparison("retail-price-band", price_band="50-200"))
+
+    assert calls == 3
+    assert result["selected_price_band"] == "50-200"
+    assert result["price_band_comparison"][0]["price_band"] == "50-200"
+    assert result["eligible_item_count"] == 1
+    assert "i.list_price >= %s AND i.list_price < %s" in queries[1]
+    assert "i.list_price >= %s AND i.list_price < %s" in queries[2]
+
+
+def test_price_band_comparison_rejects_unknown_price_band() -> None:
+    with pytest.raises(ValueError, match="价格带必须是"):
+        asyncio.run(price_band_comparison("retail-price-band", price_band="未知价格带"))
+
+
 def test_price_band_comparison_reports_experiment_reference_when_groups_are_explicit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

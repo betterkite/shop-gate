@@ -22,6 +22,7 @@ const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${
 const customerSegmentUrl = `${customerUrl}&segment=${encodeURIComponent('新近购买')}`;
 const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const elasticityPriceBandUrl = `${elasticityUrl}&price_band=${encodeURIComponent('50-200')}`;
 const profitUrl = `${baseUrl}/analytics-workbench?view=profit&dataset_id=${encodeURIComponent(datasetId)}`;
 const profiles = [
   { id: 'desktop-light', viewport: { width: 1440, height: 900 }, hasTouch: false, isMobile: false },
@@ -333,6 +334,7 @@ async function inspectProfile(browser, storageState, profile) {
           const tables = [...document.querySelectorAll('table')];
           return {
             observations: /商品级价格观察（共\s+[\d,]+\s+个，每页 20 个）/.test(text),
+            priceBandLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('price_band=')),
             rowCount: tables[0]?.querySelectorAll('tbody tr').length || 0,
             firstRow: tables[0]?.querySelector('tbody tr')?.textContent?.trim() || '',
             nextPage: text.includes('下一页'),
@@ -343,9 +345,23 @@ async function inspectProfile(browser, storageState, profile) {
         await page.locator('main').getByRole('heading', { name: '价格带对比与价格弹性参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondElasticityFirstRow = await page.locator('table').first().locator('tbody tr').first().textContent().catch(() => '');
         if (!firstElasticityPage.observations) problems.push(`${profile.id}: 价格弹性页缺少商品观察总数/分页说明`);
+        if (!firstElasticityPage.priceBandLink) problems.push(`${profile.id}: 价格弹性页缺少价格带筛选入口`);
         if (!firstElasticityPage.nextPage) problems.push(`${profile.id}: 价格弹性页缺少翻页入口`);
         if (firstElasticityPage.rowCount < 20) problems.push(`${profile.id}: 价格弹性第一页不足 20 行`);
         if (!secondElasticityFirstRow || secondElasticityFirstRow === firstElasticityPage.firstRow) problems.push(`${profile.id}: 价格弹性第 2 页未展示不同商品`);
+        const elasticityPriceBandResponse = await gotoWithRetry(page, elasticityPriceBandUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!elasticityPriceBandResponse?.ok()) problems.push(`${profile.id}: 价格带筛选页请求失败`);
+        await page.locator('main').getByRole('heading', { name: '价格带对比与价格弹性参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.getByText('当前查看：¥50-200', { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
+        const elasticityPriceBandState = await page.evaluate(() => {
+          const tables = [...document.querySelectorAll('table')];
+          const bandRows = tables.at(-1)?.querySelectorAll('tbody tr') || [];
+          return {
+            selected: document.body.innerText.includes('当前查看：¥50-200'),
+            oneBand: bandRows.length === 0 || [...bandRows].every((row) => row.textContent?.includes('50-200')),
+          };
+        });
+        if (!elasticityPriceBandState.selected || !elasticityPriceBandState.oneBand) problems.push(`${profile.id}: 价格带筛选未生效或仍展示其他价格带`);
         const elasticityScreenshotPath = path.join(outputDir, `elasticity-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: elasticityScreenshotPath, fullPage: true });
       }

@@ -47,7 +47,7 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/summary`：经营日报快照。
 - `GET /api/v1/commerce/analytics/overview`：扩展数据集经营概览。
 - `GET /api/v1/commerce/analytics/trend`：按数据集或商品/类目/渠道/活动下钻范围返回日趋势。
-- `GET /api/v1/commerce/analytics/rfm`：用户购买新近度、频次和金额分群（RFM）。
+- `GET /api/v1/commerce/analytics/rfm`：用户购买新近度、频次和金额分群（RFM）；可按“流失风险 / 高价值 / 新近购买 / 稳定复购”筛选。
 - `GET /api/v1/commerce/analytics/channel-campaign`：渠道/活动会话、订单和转化。
 - `GET /api/v1/commerce/analytics/profit`：合成成本下的销售额、退款、毛利和毛利率。
 - `GET /api/v1/commerce/analytics/inventory`：库存结存、日销量、可售天数和库存健康标签。

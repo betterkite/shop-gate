@@ -466,6 +466,78 @@ def test_rfm_segments_paginates_all_customers_without_losing_segments(
     assert sum(result["segment_counts"].values()) == 45
 
 
+def test_rfm_segments_filters_selected_segment_after_classification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-rfm-filter",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "rfm_filter_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": ["user_profiles"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [
+            {
+                "user_id": 1,
+                "last_order_date": date(2025, 1, 31),
+                "frequency": 1,
+                "units": 1,
+                "monetary": 100,
+                "age_band": "25-34",
+                "city_tier": "二线",
+                "member_level": "普通",
+            },
+            {
+                "user_id": 2,
+                "last_order_date": date(2025, 1, 1),
+                "frequency": 1,
+                "units": 1,
+                "monetary": 80,
+                "age_band": "35-44",
+                "city_tier": "一线",
+                "member_level": "普通",
+            },
+            {
+                "user_id": 3,
+                "last_order_date": date(2025, 1, 31),
+                "frequency": 5,
+                "units": 5,
+                "monetary": 500,
+                "age_band": "25-34",
+                "city_tier": "一线",
+                "member_level": "银卡",
+            },
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(rfm_segments("retail-rfm-filter", segment_filter="新近购买"))
+
+    assert calls == 2
+    assert result["customer_count"] == 3
+    assert result["filtered_customer_count"] == 1
+    assert result["segment"] == "新近购买"
+    assert result["page_count"] == 1
+    assert [customer["user_id"] for customer in result["customers"]] == [1]
+    assert sum(result["segment_counts"].values()) == 3
+
+
 def test_lifecycle_stage_rules_are_user_facing_and_stable() -> None:
     window_start = date(2025, 11, 4)
     window_end = date(2025, 12, 3)

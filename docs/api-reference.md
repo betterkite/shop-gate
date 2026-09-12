@@ -195,7 +195,7 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/analytics/overview` | `GET` | 扩展数据集经营概览和最近质量扫描结果，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/trend` | `GET` | 数据集日趋势；可选 `dimension` + `value` 按商品、类目、渠道或活动筛选，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/item-behavior` | `GET` | 数据集内商品级页面浏览、收藏、加购、购买和购买转化，必填 `dataset_id` |
-| `/api/v1/commerce/analytics/rfm` | `GET` | 用户 RFM 分群和示例用户，必填 `dataset_id`，`limit` ≤100 |
+| `/api/v1/commerce/analytics/rfm` | `GET` | 用户 RFM 分群和示例用户，必填 `dataset_id`，`limit` ≤100；可选 `segment` 过滤流失风险、高价值、新近购买或稳定复购 |
 | `/api/v1/commerce/analytics/channel-campaign` | `GET` | 渠道/活动的会话、用户、订单和订单转化，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/profit` | `GET` | 合成成本下的销售额、退款、成本、毛利和毛利率，必填 `dataset_id` |
 | `/api/v1/commerce/analytics/inventory` | `GET` | 库存结存、平均日销量、可售天数和健康标签，必填 `dataset_id`，`limit` ≤100 |

@@ -166,6 +166,9 @@ def classify_rfm(recency_days: int, frequency: int, monetary: float, monetary_p7
     return "稳定复购"
 
 
+RFM_SEGMENTS = frozenset({"流失风险", "高价值", "新近购买", "稳定复购"})
+
+
 def inventory_health_label(closing_stock: int, average_daily_sold: float, days_cover: float) -> str:
     if closing_stock <= 0:
         return "缺货风险"
@@ -406,7 +409,10 @@ async def rfm_segments(
     page: int = 1,
     dimension: str | None = None,
     value: str | None = None,
+    segment_filter: str | None = None,
 ) -> dict[str, Any]:
+    if segment_filter and segment_filter not in RFM_SEGMENTS:
+        raise ValueError("segment 必须是流失风险、高价值、新近购买或稳定复购")
     contract = await _contract(dataset_id)
     window_end = date.fromisoformat(str(contract["window_end"]))
     scope_clause, scope_params, scope = _order_scope(dimension, value)
@@ -455,10 +461,15 @@ async def rfm_segments(
                 "member_level": row["member_level"],
             }
         )
-    page_count = max((len(all_customers) + limit - 1) // limit, 1)
+    filtered_customers = [
+        customer
+        for customer in all_customers
+        if not segment_filter or customer["segment"] == segment_filter
+    ]
+    page_count = max((len(filtered_customers) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
-    customers = all_customers[start : start + limit]
+    customers = filtered_customers[start : start + limit]
     return _response(
         dataset_id,
         contract,
@@ -470,6 +481,8 @@ async def rfm_segments(
         },
         monetary_p75=round(p75, 2),
         customer_count=len(rows),
+        filtered_customer_count=len(filtered_customers),
+        segment=segment_filter,
         page=page,
         page_size=limit,
         page_count=page_count,

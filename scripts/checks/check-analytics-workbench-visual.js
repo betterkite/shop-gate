@@ -17,6 +17,7 @@ const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=$
 const scopedInventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const replenishmentUrl = baseUrl + '/analytics-workbench?view=replenishment&dataset_id=' + encodeURIComponent(datasetId) + '&page=1';
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const customerSegmentUrl = `${customerUrl}&segment=${encodeURIComponent('新近购买')}`;
 const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const profitUrl = `${baseUrl}/analytics-workbench?view=profit&dataset_id=${encodeURIComponent(datasetId)}`;
@@ -122,7 +123,8 @@ async function inspectProfile(browser, storageState, profile) {
           scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
           scopedOrders: Number.isFinite(expected?.orders) && Number(ordersValue.replaceAll(',', '')) === expected.orders,
           scopedProfit: Number.isFinite(expected?.grossProfit) && text.includes('¥' + new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(expected.grossProfit)),
-          scopedCustomerLink,
+            scopedCustomerLink,
+          segmentLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('segment=')),
           lifecycleStageLink,
           channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
           channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
@@ -134,6 +136,7 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.scopedOrders) problems.push(`${profile.id}: 筛选总览订单数未按商品范围更新`);
       if (!scopedOverview.scopedProfit) problems.push(`${profile.id}: 筛选总览毛利未按商品范围更新`);
       if (!scopedOverview.scopedCustomerLink) problems.push(`${profile.id}: 筛选总览未保留用户分群范围链接`);
+      if (!scopedOverview.segmentLink) problems.push(`${profile.id}: 总览用户分群卡片未保留具体分群链接`);
       if (!scopedOverview.lifecycleStageLink) problems.push(`${profile.id}: 筛选总览商品阶段卡片未保留阶段筛选链接`);
       if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
       const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
@@ -226,6 +229,16 @@ async function inspectProfile(browser, storageState, profile) {
         if (!secondCustomerFirstRow || secondCustomerFirstRow === firstCustomerPage.firstRow) problems.push(`${profile.id}: 用户分群第 2 页未展示不同用户`);
         const customerScreenshotPath = path.join(outputDir, `customers-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: customerScreenshotPath, fullPage: true });
+
+        const customerSegmentResponse = await page.goto(customerSegmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!customerSegmentResponse?.ok()) problems.push(`${profile.id}: 指定用户分群页请求失败`);
+        const customerSegmentState = await page.evaluate(() => ({
+          label: document.body.innerText.includes('当前分群：新近购买'),
+          rows: document.querySelectorAll('table tbody tr').length,
+          nextHref: [...document.querySelectorAll('a')].find((link) => link.textContent?.includes('下一页'))?.getAttribute('href') || '',
+        }));
+        if (!customerSegmentState.label || customerSegmentState.rows === 0) problems.push(`${profile.id}: 指定用户分群页未按分群过滤`);
+        if (!customerSegmentState.nextHref.includes('segment=')) problems.push(`${profile.id}: 用户分群翻页未保留分群条件`);
       }
 
       const retentionResponse = await page.goto(retentionUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });

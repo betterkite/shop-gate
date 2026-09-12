@@ -32,6 +32,7 @@ type Props = {
     filter_value?: string;
     page?: string;
     stage?: string;
+    segment?: string;
   }>;
 };
 
@@ -84,6 +85,8 @@ const LIFECYCLE_STAGE_OPTIONS = [
   { value: '稳定期', label: '稳定期', description: '购买活跃已持续至少 14 天。' },
   { value: '衰退风险', label: '衰退风险', description: '距离最近一次购买已超过 14 天。' },
 ] as const;
+
+const RFM_SEGMENT_OPTIONS = ['流失风险', '高价值', '新近购买', '稳定复购'] as const;
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : null;
@@ -171,13 +174,14 @@ function replenishmentHref(datasetId: string, page: number, dimension?: string, 
   return `/analytics-workbench?${query.toString()}`;
 }
 
-function customerHref(datasetId: string, page: number, dimension?: string, value?: string): string {
+function customerHref(datasetId: string, page: number, dimension?: string, value?: string, segment?: string): string {
   const query = new URLSearchParams({
     view: 'customers',
     dataset_id: datasetId,
     page: String(page),
   });
   addFilterQuery(query, dimension, value);
+  if (segment) query.set('segment', segment);
   return `/analytics-workbench?${query.toString()}`;
 }
 
@@ -397,6 +401,10 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const lifecycleStage = LIFECYCLE_STAGE_OPTIONS.some((option) => option.value === requestedLifecycleStage)
     ? requestedLifecycleStage
     : '';
+  const requestedCustomerSegment = params?.segment?.trim() || '';
+  const customerSegment = RFM_SEGMENT_OPTIONS.includes(requestedCustomerSegment as (typeof RFM_SEGMENT_OPTIONS)[number])
+    ? requestedCustomerSegment
+    : '';
   const lifecycleQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -418,6 +426,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     limit: '20',
     page: String(customerPage),
   });
+  if (customerSegment) customerQuery.set('segment', customerSegment);
   const elasticityQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -459,7 +468,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const quality = asRecord(overview?.quality);
   const contractWindow = `${text(contract?.window_start)} ~ ${text(contract?.window_end)}`;
   const tabs = (Object.entries(VIEW_LABELS) as Array<[Exclude<View, 'drilldown'>, string]>).map(([key, label]) => ({
-    href: hrefFor(key, datasetId, scopeDimension, scopeValue),
+    href: key === 'customers'
+      ? customerHref(datasetId, 1, scopeDimension, scopeValue, customerSegment)
+      : hrefFor(key, datasetId, scopeDimension, scopeValue),
     label,
     active: view === key,
   }));
@@ -477,7 +488,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const replenishmentTotal = number(replenishment?.summary && asRecord(replenishment.summary)?.item_count);
   const replenishmentPageCount = Math.max(number(replenishment?.page_count), 1);
   const replenishmentCurrentPage = Math.max(number(replenishment?.page) || 1, 1);
-  const customerTotal = number(rfm?.customer_count);
+  const customerTotal = number(customerSegment ? (rfm?.filtered_customer_count ?? rfm?.customer_count) : rfm?.customer_count);
   const customerPageCount = Math.max(number(rfm?.page_count), 1);
   const customerCurrentPage = Math.max(number(rfm?.page) || 1, 1);
 
@@ -513,7 +524,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
           {trendDimension && trendValue ? <TrendScopeSummary payload={trend} dimension={trendDimension} value={trendValue} /> : null}
           <TrendChart payload={trend} title={trendDimension && trendValue ? `筛选范围趋势：${DIMENSION_LABELS[trendDimension] || trendDimension} ${trendValue}` : '全店日趋势'} description={trendDimension && trendValue ? '当前图表已跟随筛选条件刷新；右侧数字是真实数量，颜色只用于看变化方向。' : '按天查看页面浏览、购买行为和订单变化，先看整体走势，再进入渠道、类目或商品明细。'} />
           <div className="grid gap-5 lg:grid-cols-2">
-            <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('customers', datasetId, scopeDimension, scopeValue)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>
+            <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={customerHref(datasetId, 1, scopeDimension, scopeValue, label)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>
             <Panel title="库存健康" description="可售天数只用于识别库存结构，不直接等于补货指令。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(inventory?.risk_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('inventory', datasetId, scopeDimension === 'item' || scopeDimension === 'category' ? scopeDimension : undefined, scopeValue)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看库存明细 →</p></Link>)}</div></Panel>
           </div>
           <Panel title={scopeDimension === 'item' || scopeDimension === 'category' ? '筛选范围的渠道销售' : '渠道与活动贡献'} description={scopeDimension === 'item' || scopeDimension === 'category' ? '这里只按当前商品或类目关联的订单汇总渠道销售；数据没有商品级渠道曝光映射，因此不显示会话转化率。' : '这里是合成会话归因，不代表广告平台真实归因。点击渠道名称可查看该渠道的商品和购买表现。'}><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">{scopeDimension === 'item' || scopeDimension === 'category' ? '统计说明' : '订单转化率'}</th><th className="px-3 py-3">净销售额</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).slice(0, 6).map((row, index) => <tr key={`${String(row.channel_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>{text(row.channel_name)}</Link></td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '不提供' : displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '按订单关联渠道统计' : displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td></tr>)}</tbody></DataTable></Panel>
@@ -522,7 +533,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         </div>
       ) : null}
 
-      {view === 'customers' ? <Panel title="用户分群（RFM）" description="这里展示数据集中的全部有订单用户，每页 20 个；页面用“最近购买、购买次数、订单金额”解释用户分群。"><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页；全部用户 {displayNumber(customerTotal)} 个</span><span className="text-xs text-muted-foreground">按订单净金额从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">用户</th><th className="px-3 py-3">分群</th><th className="px-3 py-3">最近购买距今天数</th><th className="px-3 py-3">订单数</th><th className="px-3 py-3">订单净金额</th><th className="px-3 py-3">用户属性</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(rfm?.customers).map((row) => <tr key={String(row.user_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">用户 {text(row.user_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.segment)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.recency_days)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.frequency)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.monetary)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.age_band)} · {text(row.city_tier)} · {text(row.member_level)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'user', row.user_id)}>查看用户明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={customerCurrentPage > 1 ? customerHref(datasetId, customerCurrentPage - 1, scopeDimension, scopeValue) : customerHref(datasetId, customerCurrentPage, scopeDimension, scopeValue)} aria-disabled={customerCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页</div><Link scroll={false} href={customerCurrentPage < customerPageCount ? customerHref(datasetId, customerCurrentPage + 1, scopeDimension, scopeValue) : customerHref(datasetId, customerCurrentPage, scopeDimension, scopeValue)} aria-disabled={customerCurrentPage >= customerPageCount} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage >= customerPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={rfm} /></div></Panel> : null}
+      {view === 'customers' ? <Panel title="用户分群（RFM）" description="这里展示数据集中的全部有订单用户，每页 20 个；页面用“最近购买、购买次数、订单金额”解释用户分群。"><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>{customerSegment ? `当前分群：${customerSegment}；` : ''}当前显示第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页；{customerSegment ? `当前分群用户 ${displayNumber(customerTotal)} 个` : `全部用户 ${displayNumber(customerTotal)} 个`}</span><span className="text-xs text-muted-foreground">按订单净金额从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">用户</th><th className="px-3 py-3">分群</th><th className="px-3 py-3">最近购买距今天数</th><th className="px-3 py-3">订单数</th><th className="px-3 py-3">订单净金额</th><th className="px-3 py-3">用户属性</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(rfm?.customers).map((row) => <tr key={String(row.user_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">用户 {text(row.user_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.segment)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.recency_days)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.frequency)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.monetary)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.age_band)} · {text(row.city_tier)} · {text(row.member_level)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'user', row.user_id)}>查看用户明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={customerCurrentPage > 1 ? customerHref(datasetId, customerCurrentPage - 1, scopeDimension, scopeValue, customerSegment) : customerHref(datasetId, customerCurrentPage, scopeDimension, scopeValue, customerSegment)} aria-disabled={customerCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页</div><Link scroll={false} href={customerCurrentPage < customerPageCount ? customerHref(datasetId, customerCurrentPage + 1, scopeDimension, scopeValue, customerSegment) : customerHref(datasetId, customerCurrentPage, scopeDimension, scopeValue, customerSegment)} aria-disabled={customerCurrentPage >= customerPageCount} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage >= customerPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={rfm} /></div></Panel> : null}
 
       {view === 'retention' ? <Panel title="用户留存分析" description="按用户第一次购买所在周分组，观察之后各周是否再次购买；这不是登录留存，也不把页面浏览当成留存。"><RetentionSummary payload={retention} /><div className="mt-4"><Limitations payload={retention} /></div></Panel> : null}
 

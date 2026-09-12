@@ -7,6 +7,7 @@ import pytest
 
 from shopgate_commerce_data.analytics import (
     analytics_dataset_meta,
+    analytics_drilldown,
     classify_lifecycle_stage,
     classify_rfm,
     inventory_health_label,
@@ -185,3 +186,59 @@ def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_pric
     assert result["elasticity_estimate"] is None
     assert result["eligible_item_count"] == 0
     assert result["required_for_estimation"]
+
+
+def test_item_drilldown_includes_behavior_funnel_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p30",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "p30_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 30,
+                "row_counts": {},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [{
+            "item_id": 1001,
+            "orders": 3,
+            "users": 2,
+            "units": 4,
+            "net_sales": 396,
+            "closing_stock": 20,
+            "sold_qty": 4,
+            "first_order_date": date(2025, 1, 2),
+            "last_order_date": date(2025, 1, 25),
+            "snapshot_date": date(2025, 1, 31),
+            "pv": 100,
+            "fav": 12,
+            "cart": 8,
+            "buy": 4,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_drilldown("retail-p30", "item", "1001"))
+
+    item = result["results"][0]
+    assert item["pv"] == 100
+    assert item["fav"] == 12
+    assert item["cart"] == 8
+    assert item["buy"] == 4
+    assert item["buy_conversion"] == 0.04
+    assert "查看该商品的浏览到购买转化" in result["next_questions"]

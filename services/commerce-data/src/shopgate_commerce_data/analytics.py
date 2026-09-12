@@ -735,11 +735,20 @@ async def analytics_drilldown(
               WHERE dataset_id = %s AND item_id = %s
               ORDER BY snapshot_date DESC
               LIMIT 1
+            ), behavior AS (
+              SELECT
+                COUNT(*) FILTER (WHERE behavior_type = 'pv') AS pv,
+                COUNT(*) FILTER (WHERE behavior_type = 'fav') AS fav,
+                COUNT(*) FILTER (WHERE behavior_type = 'cart') AS cart,
+                COUNT(*) FILTER (WHERE behavior_type = 'buy') AS buy
+              FROM commerce.dataset_behavior_events
+              WHERE dataset_id = %s AND item_id = %s
             )
-            SELECT %s AS item_id, s.*, i.closing_stock, i.sold_qty, i.snapshot_date
-            FROM sales s LEFT JOIN inventory i ON true
+            SELECT %s AS item_id, s.*, i.closing_stock, i.sold_qty, i.snapshot_date,
+                   b.pv, b.fav, b.cart, b.buy
+            FROM sales s LEFT JOIN inventory i ON true CROSS JOIN behavior b
             """,
-            (dataset_id, item_id, dataset_id, item_id, item_id),
+            (dataset_id, item_id, dataset_id, item_id, dataset_id, item_id, item_id),
         )
         results = [
             {
@@ -753,10 +762,23 @@ async def analytics_drilldown(
                 "first_order_date": _iso(row["first_order_date"]),
                 "last_order_date": _iso(row["last_order_date"]),
                 "snapshot_date": _iso(row["snapshot_date"]),
+                "pv": int(row["pv"] or 0),
+                "fav": int(row["fav"] or 0),
+                "cart": int(row["cart"] or 0),
+                "buy": int(row["buy"] or 0),
+                "buy_conversion": round(
+                    int(row["buy"] or 0) / int(row["pv"] or 0), 6
+                    if int(row["pv"] or 0) > 0 else 0.0
+                ),
             }
             for row in rows
         ]
-        next_questions = ["查看该商品所属渠道和活动", "比较该商品所在价格带", "查看同类目商品表现"]
+        next_questions = [
+            "查看该商品所属渠道和活动",
+            "比较该商品所在价格带",
+            "查看同类目商品表现",
+            "查看该商品的浏览到购买转化",
+        ]
     else:
         try:
             user_id = int(value)

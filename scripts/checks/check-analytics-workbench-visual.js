@@ -14,10 +14,12 @@ const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
 const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const scopedInventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const replenishmentUrl = baseUrl + '/analytics-workbench?view=replenishment&dataset_id=' + encodeURIComponent(datasetId) + '&page=1';
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const profitUrl = `${baseUrl}/analytics-workbench?view=profit&dataset_id=${encodeURIComponent(datasetId)}`;
 const profiles = [
   { id: 'desktop-light', viewport: { width: 1440, height: 900 }, hasTouch: false, isMobile: false },
   { id: 'mobile-light', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
@@ -115,11 +117,13 @@ async function inspectProfile(browser, storageState, profile) {
         const ordersIndex = lines.findIndex((line) => line === '订单数');
         const ordersValue = ordersIndex >= 0 ? lines[ordersIndex + 1] : '';
         const scopedCustomerLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
+        const lifecycleStageLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=lifecycle') && link.getAttribute('href')?.includes('stage=') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         return {
           scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
           scopedOrders: Number.isFinite(expected?.orders) && Number(ordersValue.replaceAll(',', '')) === expected.orders,
           scopedProfit: Number.isFinite(expected?.grossProfit) && text.includes('¥' + new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(expected.grossProfit)),
           scopedCustomerLink,
+          lifecycleStageLink,
           channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
           channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
           inventoryPanel: text.includes('库存健康'),
@@ -130,6 +134,7 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.scopedOrders) problems.push(`${profile.id}: 筛选总览订单数未按商品范围更新`);
       if (!scopedOverview.scopedProfit) problems.push(`${profile.id}: 筛选总览毛利未按商品范围更新`);
       if (!scopedOverview.scopedCustomerLink) problems.push(`${profile.id}: 筛选总览未保留用户分群范围链接`);
+      if (!scopedOverview.lifecycleStageLink) problems.push(`${profile.id}: 筛选总览商品阶段卡片未保留阶段筛选链接`);
       if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
       const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });
@@ -162,6 +167,11 @@ async function inspectProfile(browser, storageState, profile) {
       if (!secondPageFirstRow || secondPageFirstRow === firstPage.firstRow) problems.push(`${profile.id}: 库存第 2 页未展示不同商品`);
       const inventoryScreenshotPath = path.join(outputDir, `inventory-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: inventoryScreenshotPath, fullPage: true });
+
+      const scopedInventoryResponse = await page.goto(scopedInventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!scopedInventoryResponse?.ok()) problems.push(`${profile.id}: 商品筛选库存页请求失败`);
+      const scopedInventoryNextHref = await page.locator('a').filter({ hasText: '下一页' }).getAttribute('href').catch(() => null);
+      if (!scopedInventoryNextHref?.includes('filter_dimension=item') || !scopedInventoryNextHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选库存翻页未保留筛选范围`);
 
       const replenishmentResponse = await page.goto(replenishmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!replenishmentResponse?.ok()) {
@@ -236,6 +246,18 @@ async function inspectProfile(browser, storageState, profile) {
         if (!retentionState.cohortTable) problems.push(`${profile.id}: 用户留存页缺少 cohort 表格`);
         const retentionScreenshotPath = path.join(outputDir, `retention-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: retentionScreenshotPath, fullPage: true });
+      }
+
+      const profitResponse = await page.goto(profitUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!profitResponse?.ok()) {
+        problems.push(`${profile.id}: 毛利分析页请求失败`);
+      } else {
+        await page.locator('main').getByRole('heading', { name: '毛利分析', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        const profitState = await page.evaluate(() => ({
+          detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看渠道明细')),
+          detailHref: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=drilldown') && link.getAttribute('href')?.includes('dimension=channel')),
+        }));
+        if (!profitState.detailLink || !profitState.detailHref) problems.push(`${profile.id}: 毛利分析缺少渠道明细链接`);
       }
 
       const elasticityResponse = await page.goto(elasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });

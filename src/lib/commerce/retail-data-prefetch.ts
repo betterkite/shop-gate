@@ -309,6 +309,7 @@ async function fetchFunnelDatasets(params: {
         start: params.start,
         end: params.end,
         filter: scope,
+        ...(typeof trend.context_url === 'string' ? { context_url: trend.context_url } : {}),
         stages: buildFunnelStages(counts),
         unique_users: {},
         source: 'analytics dataset API',
@@ -316,6 +317,7 @@ async function fetchFunnelDatasets(params: {
       const funnelDaily = {
         dataset_id: params.datasetId,
         window: { start: params.start, end: params.end },
+        ...(typeof trend.context_url === 'string' ? { context_url: trend.context_url } : {}),
         rows: trendRows,
       };
       for (const [key, payload, endpoint] of [

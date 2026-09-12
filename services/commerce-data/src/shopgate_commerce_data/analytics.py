@@ -263,18 +263,22 @@ async def analytics_trend(
         })
         cursor += timedelta(days=1)
 
-    return _response(
-        dataset_id,
-        contract,
-        filter={"dimension": dimension, "value": value},
-        metric_definition={
+    payload: dict[str, Any] = {
+        "filter": {"dimension": dimension, "value": value},
+        "metric_definition": {
             "pv": "页面浏览事件数；渠道/活动筛选未采集行为事件归因时为 0",
             "buy": "购买行为事件数",
             "orders": "订单数",
             "net_sales": "合成成交价减合成退款",
         },
-        rows=rows,
-    )
+        "rows": rows,
+    }
+    if dimension is not None and value is not None:
+        payload["context_url"] = (
+            "/analytics-workbench?view=drilldown&dataset_id="
+            f"{quote(dataset_id)}&dimension={quote(dimension)}&value={quote(value)}"
+        )
+    return _response(dataset_id, contract, **payload)
 
 
 async def item_behavior_metrics(dataset_id: str, limit: int = 20) -> dict[str, Any]:

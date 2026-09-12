@@ -62,6 +62,10 @@ def test_analytics_trend_returns_padded_daily_rows_for_item_scope(
 
     assert calls == 3
     assert result["filter"] == {"dimension": "item", "value": "1001"}
+    assert result["context_url"] == (
+        "/analytics-workbench?view=drilldown&dataset_id=retail-trend"
+        "&dimension=item&value=1001"
+    )
     assert [row["stat_date"] for row in result["rows"]] == [
         "2025-01-01", "2025-01-02", "2025-01-03"
     ]

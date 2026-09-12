@@ -26,6 +26,7 @@ export function missingAnalyticsBiDataFields(value: JsonRecord | null): string[]
   return [
     asRecord(datasets?.analyticsOverview) ? null : 'datasets.analyticsOverview',
     Array.isArray(asRecord(datasets?.analyticsLifecycle)?.items) ? null : 'datasets.analyticsLifecycle.items',
+    asRecord(datasets?.analyticsRetention) ? null : 'datasets.analyticsRetention',
     asRecord(datasets?.analyticsProfit) ? null : 'datasets.analyticsProfit',
     Array.isArray(asRecord(datasets?.analyticsInventory)?.items) ? null : 'datasets.analyticsInventory.items',
     Array.isArray(asRecord(datasets?.analyticsChannels)?.metrics) ? null : 'datasets.analyticsChannels.metrics',

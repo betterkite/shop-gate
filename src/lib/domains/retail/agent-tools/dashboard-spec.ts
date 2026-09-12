@@ -229,11 +229,13 @@ function biOverviewReady(finalData: JsonRecord): boolean {
 function analyticsBiReady(finalData: JsonRecord): boolean {
   const overview = datasetRecord(finalData, 'analyticsOverview');
   const lifecycle = datasetRecord(finalData, 'analyticsLifecycle');
+  const retention = datasetRecord(finalData, 'analyticsRetention');
   const profit = datasetRecord(finalData, 'analyticsProfit');
   const inventory = datasetRecord(finalData, 'analyticsInventory');
   return Boolean(
     overview && nestedRecord(overview, 'metrics') &&
     lifecycle && nestedRecord(lifecycle, 'stage_counts') &&
+    retention && nestedRecord(retention, 'summary') && recordArray(retention.cohorts).length > 0 &&
     profit && nestedRecord(profit, 'total') &&
     inventory && recordArray(inventory.items).length > 0,
   );

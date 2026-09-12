@@ -477,6 +477,106 @@ async def rfm_segments(
     )
 
 
+def _cohort_week(value: date) -> date:
+    return value - timedelta(days=value.weekday())
+
+
+async def retention_metrics(
+    dataset_id: str,
+    dimension: str | None = None,
+    value: str | None = None,
+) -> dict[str, Any]:
+    """按用户首次购买周计算后续购买留存，不把浏览事件误当成留存。"""
+
+    scope_clause, scope_params, scope = _order_scope(dimension, value)
+    contract = await _contract(dataset_id)
+    rows = await fetch_all(
+        """
+        SELECT o.user_id, o.ordered_at::date AS activity_date
+        FROM commerce.dataset_orders o
+        JOIN commerce.dataset_item_economics i
+          ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
+        WHERE o.dataset_id = %s
+        """
+        + scope_clause
+        + """
+        ORDER BY o.user_id, activity_date
+        """,
+        (dataset_id, *scope_params),
+    )
+    activity_by_user: dict[Any, set[date]] = {}
+    for row in rows:
+        activity_date = row.get("activity_date")
+        if isinstance(activity_date, datetime):
+            activity_date = activity_date.date()
+        if not isinstance(activity_date, date):
+            continue
+        activity_by_user.setdefault(row["user_id"], set()).add(activity_date)
+
+    window_start = date.fromisoformat(str(contract["window_start"]))
+    window_end = date.fromisoformat(str(contract["window_end"]))
+    max_period = min(((window_end - window_start).days // 7) + 1, 12)
+    cohorts: dict[date, set[Any]] = {}
+    period_users: dict[date, dict[int, set[Any]]] = {}
+    for user_id, activity_dates in activity_by_user.items():
+        first_order = min(activity_dates)
+        cohort = _cohort_week(first_order)
+        cohorts.setdefault(cohort, set()).add(user_id)
+        for activity_date in activity_dates:
+            activity_week = _cohort_week(activity_date)
+            period = (activity_week - cohort).days // 7
+            if 0 <= period < max_period:
+                period_users.setdefault(cohort, {}).setdefault(period, set()).add(user_id)
+
+    cohort_rows: list[dict[str, Any]] = []
+    eligible_cohorts = 0
+    eligible_users = 0
+    retained_users = 0
+    for cohort in sorted(cohorts):
+        cohort_size = len(cohorts[cohort])
+        has_full_week = cohort + timedelta(days=7) <= window_end
+        period_rows = []
+        for period in range(max_period):
+            users = len(period_users.get(cohort, {}).get(period, set()))
+            period_rows.append({
+                "period": period,
+                "label": "首周" if period == 0 else f"第 {period + 1} 周",
+                "users": users,
+                "rate": round(users / cohort_size, 6) if cohort_size else 0.0,
+            })
+        if has_full_week:
+            eligible_cohorts += 1
+            eligible_users += cohort_size
+            retained_users += len(period_users.get(cohort, {}).get(1, set()))
+        cohort_rows.append({
+            "cohort_week": cohort.isoformat(),
+            "cohort_users": cohort_size,
+            "periods": period_rows,
+        })
+
+    return _response(
+        dataset_id,
+        contract,
+        scope=scope,
+        metric_definition={
+            "cohort": "按用户首次购买所在周分组",
+            "retention": "后续周仍发生购买的用户数 ÷ 首购周用户数",
+            "eligible_7d": "首购周距窗口结束至少 7 天的用户，才纳入 7 日留存率",
+        },
+        summary={
+            "buyer_count": len(activity_by_user),
+            "cohort_count": len(cohort_rows),
+            "eligible_7d_cohorts": eligible_cohorts,
+            "eligible_7d_users": eligible_users,
+            "retained_7d_users": retained_users,
+            "retention_7d_rate": round(retained_users / eligible_users, 6)
+            if eligible_users else None,
+        },
+        cohorts=cohort_rows,
+        max_period=max_period,
+    )
+
+
 async def channel_campaign_metrics(
     dataset_id: str,
     dimension: str | None = None,

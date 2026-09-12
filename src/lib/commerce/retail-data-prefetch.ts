@@ -194,6 +194,7 @@ async function fetchExpandedAnalyticsDatasets(params: {
   const endpoints = [
     ['analyticsOverview', '/api/v1/commerce/analytics/overview'],
     ['analyticsLifecycle', '/api/v1/commerce/analytics/lifecycle'],
+    ['analyticsRetention', '/api/v1/commerce/analytics/retention'],
     ['analyticsProfit', '/api/v1/commerce/analytics/profit'],
     ['analyticsInventory', '/api/v1/commerce/analytics/inventory'],
     ['analyticsChannels', '/api/v1/commerce/analytics/channel-campaign'],

@@ -343,6 +343,17 @@ def create_commerce_router() -> APIRouter:
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
+    @router.get("/analytics/retention")
+    async def analytics_retention(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
+    ) -> dict[str, Any]:
+        try:
+            return await analytics.retention_metrics(dataset_id, dimension, value)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
     @router.get("/analytics/channel-campaign")
     async def analytics_channel_campaign(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],

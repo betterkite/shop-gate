@@ -21,7 +21,7 @@ const API_BASE_URL = (
 const DEFAULT_DATASET_ID = process.env.SHOPGATE_RETAIL_ANALYTICS_DATASET_ID || 'retail-demo-expanded-v1';
 
 type JsonRecord = Record<string, unknown>;
-type View = 'overview' | 'customers' | 'channels' | 'profit' | 'inventory' | 'lifecycle' | 'elasticity' | 'drilldown';
+type View = 'overview' | 'customers' | 'retention' | 'channels' | 'profit' | 'inventory' | 'lifecycle' | 'elasticity' | 'drilldown';
 type Props = {
   searchParams?: Promise<{
     view?: string;
@@ -38,6 +38,7 @@ type Props = {
 const VIEW_LABELS: Record<Exclude<View, 'drilldown'>, string> = {
   overview: '总览',
   customers: '用户分群',
+  retention: '用户留存',
   channels: '渠道活动',
   profit: '毛利分析',
   inventory: '库存健康',
@@ -297,6 +298,25 @@ function ElasticitySummary({ payload, datasetId }: { payload: JsonRecord | null;
   </>;
 }
 
+function RetentionSummary({ payload }: { payload: JsonRecord | null }) {
+  const summary = asRecord(payload?.summary);
+  const cohorts = asArray(payload?.cohorts);
+  const maxPeriod = Math.max(number(payload?.max_period), 1);
+  const retentionRate = summary?.retention_7d_rate == null
+    ? '暂无完整 7 日数据'
+    : displayPercent(summary.retention_7d_rate);
+  return <>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Metric label="首购用户数" value={displayNumber(summary?.buyer_count)} hint="窗口内发生过购买的去重用户" />
+      <Metric label="首购周数" value={displayNumber(summary?.cohort_count)} hint="按首次购买所在周分组" />
+      <Metric label="可计算 7 日留存用户" value={displayNumber(summary?.eligible_7d_users)} hint="首购周距窗口结束至少 7 天" />
+      <Metric label="7 日留存率" value={retentionRate} hint="第 2 周仍购买 ÷ 首购周用户" />
+    </div>
+    {cohorts.length ? <div className="mt-5"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">首购周</th><th className="px-3 py-3">首购用户</th>{Array.from({ length: maxPeriod }, (_, index) => <th key={index} className="px-3 py-3">{index === 0 ? '首周' : `第 ${index + 1} 周`}</th>)}</tr></thead><tbody className="divide-y divide-border/60">{cohorts.map((cohort) => { const periods = asArray(cohort.periods); return <tr key={String(cohort.cohort_week)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm font-semibold">{text(cohort.cohort_week)}</td><td className="px-3 py-3 text-sm">{displayNumber(cohort.cohort_users)}</td>{Array.from({ length: maxPeriod }, (_, index) => { const period = periods.find((row) => number(row.period) === index); return <td key={index} className="px-3 py-3 text-sm">{period ? `${displayPercent(period.rate)}（${displayNumber(period.users)}人）` : '—'}</td>; })}</tr>; })}</tbody></DataTable></div> : <p className="mt-5 text-sm text-muted-foreground">当前数据集没有可用于留存分析的购买记录。</p>}
+    <p className="mt-4 text-xs leading-5 text-muted-foreground">留存只根据购买事件判断：同一用户后续周再次购买，才算仍在留存。首购周距窗口结束不足 7 天的用户不会被纳入整体 7 日留存率，避免把未观察完整的用户误判为流失。</p>
+  </>;
+}
+
 export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const params = await searchParams;
   const datasetContracts = await fetchDatasetContracts();
@@ -367,9 +387,10 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     trendQuery.set('dimension', trendDimension);
     trendQuery.set('value', trendValue);
   }
-  const [overview, rfm, channels, profit, inventory, lifecycle, elasticity] = await Promise.all([
+  const [overview, rfm, retention, channels, profit, inventory, lifecycle, elasticity] = await Promise.all([
     fetchAnalytics(`/api/v1/commerce/analytics/overview?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/rfm?${customerQuery.toString()}`),
+    fetchAnalytics(`/api/v1/commerce/analytics/retention?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/channel-campaign?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/profit?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/inventory?${inventoryQuery.toString()}`),
@@ -443,6 +464,8 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       ) : null}
 
       {view === 'customers' ? <Panel title="用户分群（RFM）" description="这里展示数据集中的全部有订单用户，每页 20 个；页面用“最近购买、购买次数、订单金额”解释用户分群。"><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页；全部用户 {displayNumber(customerTotal)} 个</span><span className="text-xs text-muted-foreground">按订单净金额从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">用户</th><th className="px-3 py-3">分群</th><th className="px-3 py-3">最近购买距今天数</th><th className="px-3 py-3">订单数</th><th className="px-3 py-3">订单净金额</th><th className="px-3 py-3">用户属性</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(rfm?.customers).map((row) => <tr key={String(row.user_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">用户 {text(row.user_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.segment)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.recency_days)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.frequency)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.monetary)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.age_band)} · {text(row.city_tier)} · {text(row.member_level)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'user', row.user_id)}>查看用户明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={customerCurrentPage > 1 ? customerHref(datasetId, customerCurrentPage - 1) : customerHref(datasetId, customerCurrentPage)} aria-disabled={customerCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页</div><Link scroll={false} href={customerCurrentPage < customerPageCount ? customerHref(datasetId, customerCurrentPage + 1) : customerHref(datasetId, customerCurrentPage)} aria-disabled={customerCurrentPage >= customerPageCount} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage >= customerPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={rfm} /></div></Panel> : null}
+
+      {view === 'retention' ? <Panel title="用户留存分析" description="按用户第一次购买所在周分组，观察之后各周是否再次购买；这不是登录留存，也不把页面浏览当成留存。"><RetentionSummary payload={retention} /><div className="mt-4"><Limitations payload={retention} /></div></Panel> : null}
 
       {view === 'channels' ? <Panel title={scopeDimension === 'item' || scopeDimension === 'category' ? '筛选范围的渠道销售' : '渠道与活动归因'} description={scopeDimension === 'item' || scopeDimension === 'category' ? '这里只按当前商品或类目关联的订单汇总渠道销售；数据没有商品级渠道曝光映射，因此不显示会话转化率。' : '订单转化率 = 订单数 ÷ 会话数；这是演示会话归因，不是平台广告归因。'}><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">渠道类型</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">独立用户</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">{scopeDimension === 'item' || scopeDimension === 'category' ? '统计说明' : '订单转化率'}</th><th className="px-3 py-3">净销售额</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).map((row, index) => <tr key={`${String(row.channel_id)}-${String(row.campaign_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">{text(row.channel_name)}</td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.channel_type)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '不提供' : displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.users)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '按订单关联渠道统计' : displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>查看渠道明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={channels} /></div></Panel> : null}
 

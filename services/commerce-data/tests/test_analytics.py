@@ -15,6 +15,7 @@ from shopgate_commerce_data.analytics import (
     inventory_analytics,
     inventory_health_label,
     price_band_comparison,
+    retention_metrics,
     rfm_segments,
 )
 
@@ -225,6 +226,56 @@ def test_rfm_labels_are_user_facing_and_stable() -> None:
     assert classify_rfm(5, 6, 1000, 800) == "高价值"
     assert classify_rfm(7, 1, 30, 800) == "新近购买"
     assert classify_rfm(10, 2, 200, 800) == "稳定复购"
+
+
+def test_retention_metrics_builds_weekly_cohorts_from_repeat_purchases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-retention",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "retention_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 12),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": [],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [
+            {"user_id": 1, "activity_date": date(2025, 1, 1)},
+            {"user_id": 1, "activity_date": date(2025, 1, 8)},
+            {"user_id": 2, "activity_date": date(2025, 1, 2)},
+            {"user_id": 3, "activity_date": date(2025, 1, 8)},
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(retention_metrics("retail-retention", "category", "10"))
+
+    assert calls == 2
+    assert "i.category_id = %s" in queries[1]
+    assert result["scope"] == {"dimension": "category", "value": "10", "applied": True}
+    assert result["summary"]["buyer_count"] == 3
+    assert result["summary"]["cohort_count"] == 2
+    assert result["summary"]["eligible_7d_users"] == 2
+    assert result["summary"]["retained_7d_users"] == 1
+    assert result["summary"]["retention_7d_rate"] == 0.5
+    assert result["cohorts"][0]["periods"][0]["rate"] == 1.0
 
 
 def test_inventory_health_labels_explain_stock_state() -> None:

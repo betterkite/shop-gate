@@ -14,6 +14,7 @@ const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=$
 const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const profiles = [
   { id: 'desktop-light', viewport: { width: 1440, height: 900 }, hasTouch: false, isMobile: false },
@@ -169,6 +170,26 @@ async function inspectProfile(browser, storageState, profile) {
         if (!secondCustomerFirstRow || secondCustomerFirstRow === firstCustomerPage.firstRow) problems.push(`${profile.id}: 用户分群第 2 页未展示不同用户`);
         const customerScreenshotPath = path.join(outputDir, `customers-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: customerScreenshotPath, fullPage: true });
+      }
+
+      const retentionResponse = await page.goto(retentionUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!retentionResponse?.ok()) {
+        problems.push(`${profile.id}: 用户留存页请求失败`);
+      } else {
+        await page.getByRole('heading', { name: '用户留存分析' }).waitFor({ state: 'visible', timeout: 20_000 });
+        const retentionState = await page.evaluate(() => {
+          const text = document.body.innerText;
+          return {
+            definition: text.includes('第一次购买所在周') && text.includes('是否再次购买'),
+            metrics: text.includes('7 日留存率') && text.includes('首购用户数'),
+            cohortTable: text.includes('首购周') && document.querySelectorAll('table tbody tr').length > 0,
+          };
+        });
+        if (!retentionState.definition) problems.push(`${profile.id}: 用户留存页缺少口径说明`);
+        if (!retentionState.metrics) problems.push(`${profile.id}: 用户留存页缺少核心指标`);
+        if (!retentionState.cohortTable) problems.push(`${profile.id}: 用户留存页缺少 cohort 表格`);
+        const retentionScreenshotPath = path.join(outputDir, `retention-${profile.id}-${timestamp}.png`);
+        await page.screenshot({ path: retentionScreenshotPath, fullPage: true });
       }
 
       const elasticityResponse = await page.goto(elasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });

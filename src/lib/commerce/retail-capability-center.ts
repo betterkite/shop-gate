@@ -137,6 +137,7 @@ const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
     endpoints: [
       '/api/v1/commerce/datasets',
       '/api/v1/commerce/analytics/rfm',
+      '/api/v1/commerce/analytics/retention',
       '/api/v1/commerce/analytics/channel-campaign',
       '/api/v1/commerce/analytics/profit',
       '/api/v1/commerce/analytics/inventory',

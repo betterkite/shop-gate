@@ -499,7 +499,11 @@ async def profit_metrics(dataset_id: str) -> dict[str, Any]:
     )
 
 
-async def inventory_analytics(dataset_id: str, limit: int = 20) -> dict[str, Any]:
+async def inventory_analytics(
+    dataset_id: str,
+    limit: int = 20,
+    page: int = 1,
+) -> dict[str, Any]:
     contract = await _contract(dataset_id)
     rows = await fetch_all(
         """
@@ -519,11 +523,11 @@ async def inventory_analytics(dataset_id: str, limit: int = 20) -> dict[str, Any
                v.average_daily_sold, v.sold_units
         FROM latest l
         JOIN velocity v ON v.item_id = l.item_id
-        ORDER BY l.closing_stock DESC
+        ORDER BY l.closing_stock DESC, l.item_id
         """,
         (dataset_id, dataset_id),
     )
-    items: list[dict[str, Any]] = []
+    all_items: list[dict[str, Any]] = []
     risk_counts: dict[str, int] = {}
     for row in rows:
         closing_stock = int(row["closing_stock"] or 0)
@@ -531,19 +535,22 @@ async def inventory_analytics(dataset_id: str, limit: int = 20) -> dict[str, Any
         days_cover = closing_stock / max(average_daily_sold, 0.01)
         label = inventory_health_label(closing_stock, average_daily_sold, days_cover)
         risk_counts[label] = risk_counts.get(label, 0) + 1
-        if len(items) < limit:
-            items.append(
-                {
-                    "item_id": row["item_id"],
-                    "snapshot_date": row["snapshot_date"].isoformat(),
-                    "closing_stock": closing_stock,
-                    "reserved_qty": int(row["reserved_qty"] or 0),
-                    "sold_units": int(row["sold_units"] or 0),
-                    "average_daily_sold": round(average_daily_sold, 4),
-                    "days_cover": round(days_cover, 2),
-                    "health_label": label,
-                }
-            )
+        all_items.append(
+            {
+                "item_id": row["item_id"],
+                "snapshot_date": row["snapshot_date"].isoformat(),
+                "closing_stock": closing_stock,
+                "reserved_qty": int(row["reserved_qty"] or 0),
+                "sold_units": int(row["sold_units"] or 0),
+                "average_daily_sold": round(average_daily_sold, 4),
+                "days_cover": round(days_cover, 2),
+                "health_label": label,
+            }
+        )
+    page_count = max((len(all_items) + limit - 1) // limit, 1)
+    page = min(max(page, 1), page_count)
+    start = (page - 1) * limit
+    items = all_items[start : start + limit]
     return _response(
         dataset_id,
         contract,
@@ -552,6 +559,9 @@ async def inventory_analytics(dataset_id: str, limit: int = 20) -> dict[str, Any
             "health_label": "库存正常、库存积压、缺货风险或有库存但无销量",
         },
         item_count=len(rows),
+        page=page,
+        page_size=limit,
+        page_count=page_count,
         risk_counts=risk_counts,
         items=items,
     )

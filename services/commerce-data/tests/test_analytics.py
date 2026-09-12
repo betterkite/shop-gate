@@ -11,6 +11,7 @@ from shopgate_commerce_data.analytics import (
     analytics_trend,
     classify_lifecycle_stage,
     classify_rfm,
+    inventory_analytics,
     inventory_health_label,
     price_band_comparison,
 )
@@ -172,6 +173,57 @@ def test_inventory_health_labels_explain_stock_state() -> None:
     assert inventory_health_label(100, 0, 10000) == "有库存但无销量"
     assert inventory_health_label(1000, 10, 100) == "库存积压"
     assert inventory_health_label(20, 5, 4) == "库存正常"
+
+
+def test_inventory_analytics_paginates_all_items_without_losing_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-inventory",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "inventory_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 3),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": ["stock"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        return [
+            {
+                "item_id": 1000 + index,
+                "snapshot_date": date(2025, 1, 3),
+                "closing_stock": 100 + index,
+                "reserved_qty": 0,
+                "average_daily_sold": 2,
+                "sold_units": 6,
+            }
+            for index in range(45)
+        ]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(inventory_analytics("retail-inventory", limit=20, page=2))
+
+    assert calls == 2
+    assert result["item_count"] == 45
+    assert result["page"] == 2
+    assert result["page_size"] == 20
+    assert result["page_count"] == 3
+    assert [item["item_id"] for item in result["items"]] == list(range(1020, 1040))
+    assert sum(result["risk_counts"].values()) == 45
 
 
 def test_lifecycle_stage_rules_are_user_facing_and_stable() -> None:

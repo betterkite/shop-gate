@@ -76,6 +76,7 @@ import {
 } from '@/lib/services/user-requests';
 import { DEFAULT_RETAIL_CAPABILITY_ID } from '@/lib/domains/retail/capabilities';
 import { readRetailRunPlan } from '@/lib/domains/retail/workspace';
+import { appendRetailAnswerContext } from '@/lib/domains/retail/answer-context';
 import { serializeRetailVisualizationTemplate } from '@/lib/domains/retail/visualization-templates';
 import {
   retailValidationRepairWritableGlobs,
@@ -1485,7 +1486,11 @@ async function executePiAgentPhase(
       );
     }
 
-    const summary = getTerminalSummary(result);
+    const summary = await appendRetailAnswerContext({
+      summary: getTerminalSummary(result) ?? '',
+      workspaceRoot: workspace,
+      runPlan,
+    });
     if (summary && (assistantMessageCount === 0 || !lastAssistantContent.includes(summary))) {
       await persistAssistantMessage({
         projectId,

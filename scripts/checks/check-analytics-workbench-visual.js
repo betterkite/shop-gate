@@ -11,6 +11,7 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const baseUrl = (process.env.ANALYTICS_WORKBENCH_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28-elasticity-v1';
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
+const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
@@ -82,6 +83,37 @@ async function inspectProfile(browser, storageState, profile) {
     if (!state.keepFilterLink || !state.contextLink) problems.push(`${profile.id}: 缺少筛选保留或上下文链接`);
     problems.push(...failedResources.map((item) => `${profile.id}: 资源失败 ${item}`));
     problems.push(...pageErrors.map((item) => `${profile.id}: 页面错误 ${item}`));
+
+    const scopedOverviewResponse = await page.goto(scopedOverviewUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    if (!scopedOverviewResponse?.ok() || new URL(page.url()).pathname === '/login') {
+      problems.push(`${profile.id}: 筛选后的总览页请求或登录失败`);
+    } else {
+      await page.getByText('当前筛选：商品 1000009', { exact: false }).first().waitFor({ state: 'visible', timeout: 20_000 });
+      const scopedOverview = await page.evaluate(() => {
+        const text = document.body.innerText;
+        const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
+        const ordersIndex = lines.findIndex((line) => line === '订单数');
+        const ordersValue = ordersIndex >= 0 ? lines[ordersIndex + 1] : '';
+        const scopedCustomerLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
+        return {
+          scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
+          scopedOrders: ordersValue === '19',
+          scopedProfit: text.includes('¥24,748.55'),
+          scopedCustomerLink,
+          channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
+          channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
+          inventoryPanel: text.includes('库存健康'),
+          lifecyclePanel: text.includes('商品阶段'),
+        };
+      });
+      if (!scopedOverview.scopeNotice) problems.push(`${profile.id}: 筛选总览缺少当前范围说明`);
+      if (!scopedOverview.scopedOrders) problems.push(`${profile.id}: 筛选总览订单数未按商品范围更新`);
+      if (!scopedOverview.scopedProfit) problems.push(`${profile.id}: 筛选总览毛利未按商品范围更新`);
+      if (!scopedOverview.scopedCustomerLink) problems.push(`${profile.id}: 筛选总览未保留用户分群范围链接`);
+      if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
+      const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
+      await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });
+    }
 
     const inventoryResponse = await page.goto(inventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (!inventoryResponse?.ok() || new URL(page.url()).pathname === '/login') {

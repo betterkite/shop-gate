@@ -51,6 +51,8 @@ export function DatasetSelector({
   view,
   dimension,
   value,
+  filterDimension,
+  filterValue,
   apiBaseUrl,
 }: {
   contracts: JsonRecord[];
@@ -58,6 +60,8 @@ export function DatasetSelector({
   view: string;
   dimension?: string;
   value?: string;
+  filterDimension?: string;
+  filterValue?: string;
   apiBaseUrl: string;
 }) {
   const router = useRouter();
@@ -226,6 +230,8 @@ export function DatasetSelector({
         <input type="hidden" name="view" value={view} />
         {view === 'drilldown' && dimension ? <input type="hidden" name="dimension" value={dimension} /> : null}
         {view === 'drilldown' && value ? <input type="hidden" name="value" value={value} /> : null}
+        {view !== 'drilldown' && filterDimension && filterValue ? <input type="hidden" name="filter_dimension" value={filterDimension} /> : null}
+        {view !== 'drilldown' && filterDimension && filterValue ? <input type="hidden" name="filter_value" value={filterValue} /> : null}
         <label className="min-w-0 flex-1">
           <span className="text-sm font-semibold">分析数据集</span>
           <span className="mt-1 block text-xs leading-5 text-muted-foreground">切换后会重新读取当前视图的全部分析结果；不会把其他数据集的数据混入当前页面。</span>

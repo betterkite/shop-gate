@@ -120,8 +120,18 @@ function text(value: unknown, fallback = '-'): string {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
-function hrefFor(view: Exclude<View, 'drilldown'>, datasetId: string): string {
-  return `/analytics-workbench?view=${view}&dataset_id=${encodeURIComponent(datasetId)}`;
+function hrefFor(
+  view: Exclude<View, 'drilldown'>,
+  datasetId: string,
+  dimension?: string,
+  value?: string,
+): string {
+  const query = new URLSearchParams({ view, dataset_id: datasetId });
+  if (dimension && value) {
+    query.set('filter_dimension', dimension);
+    query.set('filter_value', value);
+  }
+  return `/analytics-workbench?${query.toString()}`;
 }
 
 function lifecycleHref(datasetId: string, page: number, stage = ''): string {
@@ -166,7 +176,31 @@ function drilldownHref(datasetId: string, dimension: string, value: unknown): st
 }
 
 function filteredOverviewHref(datasetId: string, dimension: string, value: unknown): string {
-  return `/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=${encodeURIComponent(dimension)}&filter_value=${encodeURIComponent(String(value))}`;
+  return hrefFor('overview', datasetId, dimension, String(value));
+}
+
+function addScope(
+  query: URLSearchParams,
+  dimension: string | undefined,
+  value: string | undefined,
+  supported: string[] = ['item', 'category', 'channel', 'campaign'],
+) {
+  if (dimension && value && supported.includes(dimension)) {
+    query.set('dimension', dimension);
+    query.set('value', value);
+  }
+}
+
+function ScopeNotice({ dimension, value, datasetId }: { dimension: string; value: string; datasetId: string }) {
+  const label = DIMENSION_LABELS[dimension] || dimension;
+  const itemScope = dimension === 'item' || dimension === 'category';
+  return <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p><strong>当前筛选：{label} {value}</strong>。总览、趋势、渠道/活动、利润和用户分群已按此范围重新计算。</p>
+      <Link href={hrefFor('overview', datasetId)} className="shrink-0 font-semibold text-primary hover:underline">清除筛选</Link>
+    </div>
+    <p className="mt-1 text-sky-900/80">{itemScope ? '商品或类目筛选还会同步库存健康、商品经营阶段和价格观察；渠道/活动部分只按筛选订单关联的渠道汇总，不提供商品级会话转化率。' : '渠道或活动筛选没有商品级库存、阶段和价格归因，这三部分仍显示整个数据集，避免制造不存在的关联。'}</p>
+  </div>;
 }
 
 async function fetchAnalytics(path: string): Promise<JsonRecord | null> {
@@ -316,18 +350,28 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     limit: '20',
     page: String(elasticityPage),
   });
+  const scopeDimension = params?.filter_dimension && ['item', 'category', 'channel', 'campaign'].includes(params.filter_dimension)
+    ? params.filter_dimension
+    : undefined;
+  const scopeValue = scopeDimension && params?.filter_value?.trim() ? params.filter_value : undefined;
+  const scopeQuery = new URLSearchParams({ dataset_id: datasetId });
+  addScope(scopeQuery, scopeDimension, scopeValue);
+  addScope(customerQuery, scopeDimension, scopeValue);
+  addScope(inventoryQuery, scopeDimension, scopeValue, ['item', 'category']);
+  addScope(lifecycleQuery, scopeDimension, scopeValue, ['item', 'category']);
+  addScope(elasticityQuery, scopeDimension, scopeValue, ['item', 'category']);
   const trendQuery = new URLSearchParams({ dataset_id: datasetId });
-  const trendDimension = params?.view === 'drilldown' ? params?.dimension : params?.filter_dimension;
-  const trendValue = params?.view === 'drilldown' ? params?.value : params?.filter_value;
+  const trendDimension = params?.view === 'drilldown' ? params?.dimension : scopeDimension;
+  const trendValue = params?.view === 'drilldown' ? params?.value : scopeValue;
   if (trendDimension && trendValue) {
     trendQuery.set('dimension', trendDimension);
     trendQuery.set('value', trendValue);
   }
   const [overview, rfm, channels, profit, inventory, lifecycle, elasticity] = await Promise.all([
-    fetchAnalytics(`/api/v1/commerce/analytics/overview?dataset_id=${encodeURIComponent(datasetId)}`),
+    fetchAnalytics(`/api/v1/commerce/analytics/overview?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/rfm?${customerQuery.toString()}`),
-    fetchAnalytics(`/api/v1/commerce/analytics/channel-campaign?dataset_id=${encodeURIComponent(datasetId)}`),
-    fetchAnalytics(`/api/v1/commerce/analytics/profit?dataset_id=${encodeURIComponent(datasetId)}`),
+    fetchAnalytics(`/api/v1/commerce/analytics/channel-campaign?${scopeQuery.toString()}`),
+    fetchAnalytics(`/api/v1/commerce/analytics/profit?${scopeQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/inventory?${inventoryQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/lifecycle?${lifecycleQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/price-elasticity?${elasticityQuery.toString()}`),
@@ -338,7 +382,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const quality = asRecord(overview?.quality);
   const contractWindow = `${text(contract?.window_start)} ~ ${text(contract?.window_end)}`;
   const tabs = (Object.entries(VIEW_LABELS) as Array<[Exclude<View, 'drilldown'>, string]>).map(([key, label]) => ({
-    href: hrefFor(key, datasetId),
+    href: hrefFor(key, datasetId, scopeDimension, scopeValue),
     label,
     active: view === key,
   }));
@@ -375,6 +419,8 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         view={params?.view === 'drilldown' ? 'drilldown' : view}
         dimension={params?.dimension}
         value={params?.value}
+        filterDimension={scopeDimension}
+        filterValue={scopeValue}
         apiBaseUrl={API_BASE_URL}
       />
 
@@ -382,23 +428,23 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'overview' ? (
         <div className="space-y-5">
-          {trendDimension && trendValue ? <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">当前筛选会刷新下方趋势图和筛选摘要；上方总览 KPI 及其他模块仍按整个数据集统计，避免把局部数据误认为全店经营总数。</div> : null}
+          {scopeDimension && scopeValue ? <ScopeNotice dimension={scopeDimension} value={scopeValue} datasetId={datasetId} /> : null}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5"><Metric label="订单数" value={displayNumber(metrics?.orders)} hint="扩展数据集订单记录" /><Metric label="有订单用户" value={displayNumber(metrics?.buyers)} hint="去重用户数" /><Metric label="销售件数" value={displayNumber(metrics?.units)} hint="订单商品数量" /><Metric label="估算销售额" value={displayMoney(metrics?.net_sales)} hint="演示数据的订单价格合计" /><Metric label="估算毛利" value={displayMoney(asRecord(profit?.total)?.gross_profit)} hint="估算销售额减演示成本" /></div>
           {trendDimension && trendValue ? <TrendScopeSummary payload={trend} dimension={trendDimension} value={trendValue} /> : null}
           <TrendChart payload={trend} title={trendDimension && trendValue ? `筛选范围趋势：${DIMENSION_LABELS[trendDimension] || trendDimension} ${trendValue}` : '全店日趋势'} description={trendDimension && trendValue ? '当前图表已跟随筛选条件刷新；右侧数字是真实数量，颜色只用于看变化方向。' : '按天查看页面浏览、购买行为和订单变化，先看整体走势，再进入渠道、类目或商品明细。'} />
           <div className="grid gap-5 lg:grid-cols-2">
-            <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('customers', datasetId)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>
-            <Panel title="库存健康" description="可售天数只用于识别库存结构，不直接等于补货指令。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(inventory?.risk_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('inventory', datasetId)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看库存明细 →</p></Link>)}</div></Panel>
+            <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('customers', datasetId, scopeDimension, scopeValue)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>
+            <Panel title="库存健康" description="可售天数只用于识别库存结构，不直接等于补货指令。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(inventory?.risk_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('inventory', datasetId, scopeDimension === 'item' || scopeDimension === 'category' ? scopeDimension : undefined, scopeValue)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看库存明细 →</p></Link>)}</div></Panel>
           </div>
-          <Panel title="渠道与活动贡献" description="这里是合成会话归因，不代表广告平台真实归因。点击渠道名称可查看该渠道的商品和购买表现。"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">订单转化率</th><th className="px-3 py-3">净销售额</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).slice(0, 6).map((row, index) => <tr key={`${String(row.channel_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>{text(row.channel_name)}</Link></td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td></tr>)}</tbody></DataTable></Panel>
-          <div className="grid gap-5 lg:grid-cols-2"><Panel title="商品阶段" description="根据窗口内购买活跃度推断，不等于真实上架/下架生命周期。"><div className="grid grid-cols-2 gap-2">{Object.entries(asRecord(lifecycle?.stage_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('lifecycle', datasetId)} className="flex items-center justify-between rounded-lg bg-muted/35 px-3 py-2 text-sm hover:bg-muted"><span>{label}</span><strong>{displayNumber(value)}</strong></Link>)}</div></Panel><Panel title="价格与成交关系" description="只有同一商品出现多个成交价格时，才提供价格弹性参考。"><Link href={hrefFor('elasticity', datasetId)} className="block rounded-xl border border-border/60 bg-muted/20 p-4 text-sm hover:border-primary/50"><span>{elasticity?.status === 'estimated' ? `平均价格弹性 ${text(elasticity?.elasticity_estimate)}` : '当前数据还不能估算价格弹性'}</span><span className="mt-2 block text-xs font-semibold">查看价格带与商品观察 →</span></Link></Panel></div>
+          <Panel title={scopeDimension === 'item' || scopeDimension === 'category' ? '筛选范围的渠道销售' : '渠道与活动贡献'} description={scopeDimension === 'item' || scopeDimension === 'category' ? '这里只按当前商品或类目关联的订单汇总渠道销售；数据没有商品级渠道曝光映射，因此不显示会话转化率。' : '这里是合成会话归因，不代表广告平台真实归因。点击渠道名称可查看该渠道的商品和购买表现。'}><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">{scopeDimension === 'item' || scopeDimension === 'category' ? '统计说明' : '订单转化率'}</th><th className="px-3 py-3">净销售额</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).slice(0, 6).map((row, index) => <tr key={`${String(row.channel_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>{text(row.channel_name)}</Link></td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '不提供' : displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '按订单关联渠道统计' : displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td></tr>)}</tbody></DataTable></Panel>
+          <div className="grid gap-5 lg:grid-cols-2"><Panel title="商品阶段" description="根据窗口内购买活跃度推断，不等于真实上架/下架生命周期。"><div className="grid grid-cols-2 gap-2">{Object.entries(asRecord(lifecycle?.stage_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('lifecycle', datasetId, scopeDimension === 'item' || scopeDimension === 'category' ? scopeDimension : undefined, scopeValue)} className="flex items-center justify-between rounded-lg bg-muted/35 px-3 py-2 text-sm hover:bg-muted"><span>{label}</span><strong>{displayNumber(value)}</strong></Link>)}</div></Panel><Panel title="价格与成交关系" description="只有同一商品出现多个成交价格时，才提供价格弹性参考。"><Link href={hrefFor('elasticity', datasetId, scopeDimension === 'item' || scopeDimension === 'category' ? scopeDimension : undefined, scopeValue)} className="block rounded-xl border border-border/60 bg-muted/20 p-4 text-sm hover:border-primary/50"><span>{elasticity?.status === 'estimated' ? `平均价格弹性 ${text(elasticity?.elasticity_estimate)}` : '当前数据还不能估算价格弹性'}</span><span className="mt-2 block text-xs font-semibold">查看价格带与商品观察 →</span></Link></Panel></div>
           <Limitations payload={overview} />
         </div>
       ) : null}
 
       {view === 'customers' ? <Panel title="用户分群（RFM）" description="这里展示数据集中的全部有订单用户，每页 20 个；页面用“最近购买、购买次数、订单金额”解释用户分群。"><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页；全部用户 {displayNumber(customerTotal)} 个</span><span className="text-xs text-muted-foreground">按订单净金额从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">用户</th><th className="px-3 py-3">分群</th><th className="px-3 py-3">最近购买距今天数</th><th className="px-3 py-3">订单数</th><th className="px-3 py-3">订单净金额</th><th className="px-3 py-3">用户属性</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(rfm?.customers).map((row) => <tr key={String(row.user_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">用户 {text(row.user_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.segment)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.recency_days)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.frequency)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.monetary)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.age_band)} · {text(row.city_tier)} · {text(row.member_level)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'user', row.user_id)}>查看用户明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={customerCurrentPage > 1 ? customerHref(datasetId, customerCurrentPage - 1) : customerHref(datasetId, customerCurrentPage)} aria-disabled={customerCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(customerCurrentPage)} 页，共 {displayNumber(customerPageCount)} 页</div><Link scroll={false} href={customerCurrentPage < customerPageCount ? customerHref(datasetId, customerCurrentPage + 1) : customerHref(datasetId, customerCurrentPage)} aria-disabled={customerCurrentPage >= customerPageCount} className={`rounded-lg border px-3 py-2 text-sm ${customerCurrentPage >= customerPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={rfm} /></div></Panel> : null}
 
-      {view === 'channels' ? <Panel title="渠道与活动归因" description="订单转化率 = 订单数 ÷ 会话数；这是演示会话归因，不是平台广告归因。"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">渠道类型</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">独立用户</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">订单转化率</th><th className="px-3 py-3">净销售额</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).map((row, index) => <tr key={`${String(row.channel_id)}-${String(row.campaign_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">{text(row.channel_name)}</td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.channel_type)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.users)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>查看渠道明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={channels} /></div></Panel> : null}
+      {view === 'channels' ? <Panel title={scopeDimension === 'item' || scopeDimension === 'category' ? '筛选范围的渠道销售' : '渠道与活动归因'} description={scopeDimension === 'item' || scopeDimension === 'category' ? '这里只按当前商品或类目关联的订单汇总渠道销售；数据没有商品级渠道曝光映射，因此不显示会话转化率。' : '订单转化率 = 订单数 ÷ 会话数；这是演示会话归因，不是平台广告归因。'}><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">渠道类型</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">独立用户</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">{scopeDimension === 'item' || scopeDimension === 'category' ? '统计说明' : '订单转化率'}</th><th className="px-3 py-3">净销售额</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).map((row, index) => <tr key={`${String(row.channel_id)}-${String(row.campaign_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">{text(row.channel_name)}</td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm text-muted-foreground">{text(row.channel_type)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '不提供' : displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.users)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '按订单关联渠道统计' : displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>查看渠道明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={channels} /></div></Panel> : null}
 
       {view === 'profit' ? <Panel title="毛利分析" description="毛利 = 销售额 - 成本；这里是演示数据估算，不是财务结算报表。"><div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5"><Metric label="销售额" value={displayMoney(asRecord(profit?.total)?.gross_sales)} hint="订单价格合计" /><Metric label="退款" value={displayMoney(asRecord(profit?.total)?.refunds)} hint="演示退款金额" /><Metric label="成本" value={displayMoney(asRecord(profit?.total)?.cost)} hint="演示商品成本" /><Metric label="毛利" value={displayMoney(asRecord(profit?.total)?.gross_profit)} hint="销售额减退款和成本" /><Metric label="毛利率" value={displayPercent(asRecord(profit?.total)?.gross_margin)} hint="毛利 ÷ 销售额" /></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售额</th><th className="px-3 py-3">退款</th><th className="px-3 py-3">成本</th><th className="px-3 py-3">毛利</th><th className="px-3 py-3">毛利率</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(profit?.by_channel).map((row) => <tr key={String(row.channel_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">{text(row.channel_name)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.gross_sales)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.refunds)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.cost)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.gross_profit)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.gross_margin)}</td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={profit} /></div></Panel> : null}
 

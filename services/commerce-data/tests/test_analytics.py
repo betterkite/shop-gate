@@ -8,6 +8,7 @@ import pytest
 from shopgate_commerce_data.analytics import (
     analytics_dataset_meta,
     analytics_drilldown,
+    analytics_overview,
     analytics_trend,
     classify_lifecycle_stage,
     classify_rfm,
@@ -16,6 +17,63 @@ from shopgate_commerce_data.analytics import (
     price_band_comparison,
     rfm_segments,
 )
+
+
+def test_analytics_overview_applies_entity_scope_to_order_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+    params_seen: list[tuple[object, ...]] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        params_seen.append(params)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-overview",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "overview_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 3),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": [],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return [{
+                "orders": 2,
+                "buyers": 2,
+                "sold_items": 1,
+                "units": 3,
+                "gross_sales": 300,
+                "refunds": 0,
+                "net_sales": 300,
+            }]
+        return [{"severity": "ok", "issue_count": 0, "checked_rows": 2}]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_overview("retail-overview", "category", "10"))
+
+    assert calls == 3
+    assert result["scope"] == {"dimension": "category", "value": "10", "applied": True}
+    assert "i.category_id = %s" in queries[1]
+    assert params_seen[1] == ("retail-overview", 10)
+
+
+def test_analytics_overview_rejects_non_numeric_item_scope() -> None:
+    with pytest.raises(ValueError, match="必须是数字"):
+        asyncio.run(analytics_overview("retail-overview", "item", "not-an-item"))
 
 
 def test_analytics_trend_returns_padded_daily_rows_for_item_scope(

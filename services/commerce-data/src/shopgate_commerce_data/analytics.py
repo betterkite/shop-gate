@@ -19,6 +19,9 @@ ANALYTICS_LIMITATIONS = [
     "库存可售天数是演示计算，不能单独替代真实补货决策",
 ]
 
+ANALYTICS_SCOPE_DIMENSIONS = {"item", "category", "channel", "campaign"}
+ITEM_SCOPE_DIMENSIONS = {"item", "category"}
+
 
 def _number(value: Any) -> float:
     return float(value or 0)
@@ -28,6 +31,63 @@ def _iso(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
     return value
+
+
+def _normalize_scope(
+    dimension: str | None,
+    value: str | None,
+    *,
+    supported: set[str] = ANALYTICS_SCOPE_DIMENSIONS,
+) -> tuple[str | None, str | None, int | str | None]:
+    """Validate a workbench filter before interpolating its trusted column name."""
+
+    if (dimension is None) != (value is None):
+        raise ValueError("筛选必须同时提供 dimension 和 value")
+    if dimension is None or value is None:
+        return None, None, None
+    if dimension not in supported:
+        labels = {"item": "商品", "category": "类目", "channel": "渠道", "campaign": "活动"}
+        raise ValueError(
+            f"当前分析不支持按{labels.get(dimension, dimension)}筛选"
+        )
+    if not value.strip():
+        raise ValueError("筛选值不能为空")
+    if dimension in ITEM_SCOPE_DIMENSIONS:
+        try:
+            normalized_value: int | str = int(value)
+        except ValueError as error:
+            raise ValueError("商品或类目筛选值必须是数字") from error
+    else:
+        normalized_value = value
+    return dimension, value, normalized_value
+
+
+def _order_scope(
+    dimension: str | None,
+    value: str | None,
+    *,
+    order_alias: str = "o",
+    item_alias: str = "i",
+    supported: set[str] = ANALYTICS_SCOPE_DIMENSIONS,
+) -> tuple[str, tuple[int | str, ...], dict[str, Any]]:
+    normalized_dimension, original_value, normalized_value = _normalize_scope(
+        dimension, value, supported=supported
+    )
+    if normalized_dimension is None or normalized_value is None:
+        return "", (), {"dimension": None, "value": None, "applied": True}
+    column_alias = item_alias if normalized_dimension in ITEM_SCOPE_DIMENSIONS else order_alias
+    column = "item_id" if normalized_dimension == "item" else (
+        "category_id" if normalized_dimension == "category" else f"{normalized_dimension}_id"
+    )
+    return (
+        f" AND {column_alias}.{column} = %s",
+        (normalized_value,),
+        {
+            "dimension": normalized_dimension,
+            "value": original_value,
+            "applied": True,
+        },
+    )
 
 
 async def _contract(dataset_id: str) -> dict[str, Any]:
@@ -139,21 +199,31 @@ def classify_lifecycle_stage(
     return "成长期", active_days, days_since_last
 
 
-async def analytics_overview(dataset_id: str) -> dict[str, Any]:
+async def analytics_overview(
+    dataset_id: str,
+    dimension: str | None = None,
+    value: str | None = None,
+) -> dict[str, Any]:
+    scope_clause, scope_params, scope = _order_scope(dimension, value)
     contract = await _contract(dataset_id)
     rows = await fetch_all(
         """
-        SELECT COUNT(DISTINCT order_id) AS orders,
-               COUNT(DISTINCT user_id) AS buyers,
-               COUNT(DISTINCT item_id) AS sold_items,
-               COALESCE(SUM(quantity), 0) AS units,
-               COALESCE(SUM(quantity * selling_price), 0) AS gross_sales,
-               COALESCE(SUM(refund_amount), 0) AS refunds,
-               COALESCE(SUM(quantity * selling_price - refund_amount), 0) AS net_sales
-        FROM commerce.dataset_orders
-        WHERE dataset_id = %s
+        SELECT COUNT(DISTINCT o.order_id) AS orders,
+               COUNT(DISTINCT o.user_id) AS buyers,
+               COUNT(DISTINCT o.item_id) AS sold_items,
+               COALESCE(SUM(o.quantity), 0) AS units,
+               COALESCE(SUM(o.quantity * o.selling_price), 0) AS gross_sales,
+               COALESCE(SUM(o.refund_amount), 0) AS refunds,
+               COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales
+        FROM commerce.dataset_orders o
+        JOIN commerce.dataset_item_economics i
+          ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
+        WHERE o.dataset_id = %s
+        """
+        + scope_clause
+        + """
         """,
-        (dataset_id,),
+        (dataset_id, *scope_params),
     )
 
     quality = await fetch_all(
@@ -175,6 +245,7 @@ async def analytics_overview(dataset_id: str) -> dict[str, Any]:
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         metrics=metrics,
         quality=quality[0] if quality else {"severity": "unknown", "issue_count": None},
     )
@@ -332,9 +403,12 @@ async def rfm_segments(
     dataset_id: str,
     limit: int = 20,
     page: int = 1,
+    dimension: str | None = None,
+    value: str | None = None,
 ) -> dict[str, Any]:
     contract = await _contract(dataset_id)
     window_end = date.fromisoformat(str(contract["window_end"]))
+    scope_clause, scope_params, scope = _order_scope(dimension, value)
     rows = await fetch_all(
         """
         SELECT o.user_id,
@@ -344,13 +418,18 @@ async def rfm_segments(
                SUM(o.quantity * o.selling_price - o.refund_amount) AS monetary,
                p.age_band, p.city_tier, p.member_level
         FROM commerce.dataset_orders o
+        JOIN commerce.dataset_item_economics i
+          ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
         LEFT JOIN commerce.dataset_user_profiles p
           ON p.dataset_id = o.dataset_id AND p.user_id = o.user_id
         WHERE o.dataset_id = %s
+        """
+        + scope_clause
+        + """
         GROUP BY o.user_id, p.age_band, p.city_tier, p.member_level
         ORDER BY monetary DESC, frequency DESC, o.user_id
         """,
-        (dataset_id,),
+        (dataset_id, *scope_params),
     )
     monetary_values = sorted(_number(row["monetary"]) for row in rows)
     p75 = monetary_values[int((len(monetary_values) - 1) * 0.75)] if monetary_values else 0
@@ -382,6 +461,7 @@ async def rfm_segments(
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         metric_definition={
             "recency_days": "距最近一次购买的天数",
             "frequency": "窗口内订单数",
@@ -397,13 +477,26 @@ async def rfm_segments(
     )
 
 
-async def channel_campaign_metrics(dataset_id: str) -> dict[str, Any]:
+async def channel_campaign_metrics(
+    dataset_id: str,
+    dimension: str | None = None,
+    value: str | None = None,
+) -> dict[str, Any]:
     contract = await _contract(dataset_id)
+    scope_clause, scope_params, scope = _order_scope(dimension, value)
+    item_scoped = dimension in ITEM_SCOPE_DIMENSIONS
+    session_select = (
+        "NULL::bigint AS sessions,"
+        if item_scoped
+        else "COUNT(DISTINCT s.session_id) AS sessions,"
+    )
     rows = await fetch_all(
         """
         SELECT s.channel_id, ch.name AS channel_name, ch.channel_type,
                s.campaign_id, ca.name AS campaign_name, ca.campaign_type,
-               COUNT(DISTINCT s.session_id) AS sessions,
+               """
+        + session_select
+        + """
                COUNT(DISTINCT s.user_id) AS users,
                COUNT(DISTINCT o.order_id) AS orders,
                COALESCE(SUM(o.quantity * o.selling_price - o.refund_amount), 0) AS net_sales
@@ -414,16 +507,21 @@ async def channel_campaign_metrics(dataset_id: str) -> dict[str, Any]:
           ON ca.dataset_id = s.dataset_id AND ca.campaign_id = s.campaign_id
         LEFT JOIN commerce.dataset_orders o
           ON o.dataset_id = s.dataset_id AND o.session_id = s.session_id
+        LEFT JOIN commerce.dataset_item_economics i
+          ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
         WHERE s.dataset_id = %s
+        """
+        + scope_clause
+        + """
         GROUP BY s.channel_id, ch.name, ch.channel_type, s.campaign_id,
                  ca.name, ca.campaign_type
         ORDER BY net_sales DESC, sessions DESC
         """,
-        (dataset_id,),
+        (dataset_id, *scope_params),
     )
     metrics = []
     for row in rows:
-        sessions = int(row["sessions"] or 0)
+        sessions = int(row["sessions"]) if row["sessions"] is not None else None
         orders = int(row["orders"] or 0)
         metrics.append(
             {
@@ -432,22 +530,37 @@ async def channel_campaign_metrics(dataset_id: str) -> dict[str, Any]:
                 "users": int(row["users"] or 0),
                 "orders": orders,
                 "net_sales": round(_number(row["net_sales"]), 2),
-                "order_conversion": round(orders / sessions, 6) if sessions else 0.0,
+                "order_conversion": round(orders / sessions, 6) if sessions else None,
             }
         )
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         metric_definition={
-            "order_conversion": "订单数 ÷ 会话数，不是广告平台归因转化率",
+            "order_conversion": (
+                "商品或类目筛选时无商品级渠道曝光映射，不提供会话转化率"
+                if item_scoped
+                else "订单数 ÷ 会话数，不是广告平台归因转化率"
+            ),
             "net_sales": "合成成交价减合成退款",
+            "scoped_sessions": (
+                "商品或类目筛选时不提供会话数；当前仅按筛选范围内的订单关联渠道汇总"
+                if item_scoped
+                else "按当前筛选范围统计会话"
+            ),
         },
         metrics=metrics,
     )
 
 
-async def profit_metrics(dataset_id: str) -> dict[str, Any]:
+async def profit_metrics(
+    dataset_id: str,
+    dimension: str | None = None,
+    value: str | None = None,
+) -> dict[str, Any]:
     contract = await _contract(dataset_id)
+    scope_clause, scope_params, scope = _order_scope(dimension, value)
     rows = await fetch_all(
         """
         SELECT o.channel_id, ch.name AS channel_name,
@@ -463,10 +576,13 @@ async def profit_metrics(dataset_id: str) -> dict[str, Any]:
         LEFT JOIN commerce.dataset_channels ch
           ON ch.dataset_id = o.dataset_id AND ch.channel_id = o.channel_id
         WHERE o.dataset_id = %s
+        """
+        + scope_clause
+        + """
         GROUP BY o.channel_id, ch.name
         ORDER BY gross_profit DESC
         """,
-        (dataset_id,),
+        (dataset_id, *scope_params),
     )
     metrics = []
     total = {"orders": 0, "gross_sales": 0.0, "refunds": 0.0, "cost": 0.0, "gross_profit": 0.0}
@@ -497,6 +613,7 @@ async def profit_metrics(dataset_id: str) -> dict[str, Any]:
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         metric_definition={
             "gross_profit": "净销售额 - 合成商品成本",
             "gross_margin": "毛利 ÷ 毛销售额",
@@ -513,21 +630,40 @@ async def inventory_analytics(
     dataset_id: str,
     limit: int = 20,
     page: int = 1,
+    dimension: str | None = None,
+    value: str | None = None,
 ) -> dict[str, Any]:
     contract = await _contract(dataset_id)
+    scope_clause, scope_params, scope = _order_scope(
+        dimension,
+        value,
+        supported=ITEM_SCOPE_DIMENSIONS,
+        item_alias="i",
+    )
     rows = await fetch_all(
         """
         WITH latest AS (
-          SELECT DISTINCT ON (item_id) item_id, snapshot_date, closing_stock, reserved_qty
-          FROM commerce.dataset_inventory_snapshots
-          WHERE dataset_id = %s
-          ORDER BY item_id, snapshot_date DESC
+          SELECT DISTINCT ON (s.item_id) s.item_id, i.category_id, s.snapshot_date,
+                 s.closing_stock, s.reserved_qty
+          FROM commerce.dataset_inventory_snapshots s
+          JOIN commerce.dataset_item_economics i
+            ON i.dataset_id = s.dataset_id AND i.item_id = s.item_id
+          WHERE s.dataset_id = %s
+          """
+        + scope_clause
+        + """
+          ORDER BY s.item_id, s.snapshot_date DESC
         ), velocity AS (
-          SELECT item_id, AVG(sold_qty) AS average_daily_sold,
-                 SUM(sold_qty) AS sold_units
-          FROM commerce.dataset_inventory_snapshots
-          WHERE dataset_id = %s
-          GROUP BY item_id
+          SELECT s.item_id, AVG(s.sold_qty) AS average_daily_sold,
+                 SUM(s.sold_qty) AS sold_units
+          FROM commerce.dataset_inventory_snapshots s
+          JOIN commerce.dataset_item_economics i
+            ON i.dataset_id = s.dataset_id AND i.item_id = s.item_id
+          WHERE s.dataset_id = %s
+          """
+        + scope_clause
+        + """
+          GROUP BY s.item_id
         )
         SELECT l.item_id, l.snapshot_date, l.closing_stock, l.reserved_qty,
                v.average_daily_sold, v.sold_units
@@ -535,7 +671,7 @@ async def inventory_analytics(
         JOIN velocity v ON v.item_id = l.item_id
         ORDER BY l.closing_stock DESC, l.item_id
         """,
-        (dataset_id, dataset_id),
+        (dataset_id, *scope_params, dataset_id, *scope_params),
     )
     all_items: list[dict[str, Any]] = []
     risk_counts: dict[str, int] = {}
@@ -564,6 +700,7 @@ async def inventory_analytics(
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         metric_definition={
             "days_cover": "结存库存 ÷ 平均日销量；无销量商品用 0.01 防止除零",
             "health_label": "库存正常、库存积压、缺货风险或有库存但无销量",
@@ -582,12 +719,20 @@ async def lifecycle_metrics(
     limit: int = 20,
     page: int = 1,
     stage: str | None = None,
+    dimension: str | None = None,
+    value: str | None = None,
 ) -> dict[str, Any]:
     """按订单首次/最近活跃时间给出商品经营阶段，不冒充真实上下架生命周期。"""
 
     contract = await _contract(dataset_id)
     window_start = date.fromisoformat(str(contract["window_start"]))
     window_end = date.fromisoformat(str(contract["window_end"]))
+    scope_clause, scope_params, scope = _order_scope(
+        dimension,
+        value,
+        supported=ITEM_SCOPE_DIMENSIONS,
+        item_alias="i",
+    )
     if stage is not None and stage not in LIFECYCLE_STAGES:
         raise ValueError(f"商品阶段必须是：{'、'.join(LIFECYCLE_STAGES)}")
     rows = await fetch_all(
@@ -602,10 +747,13 @@ async def lifecycle_metrics(
         LEFT JOIN commerce.dataset_orders o
           ON o.dataset_id = i.dataset_id AND o.item_id = i.item_id
         WHERE i.dataset_id = %s
+        """
+        + scope_clause
+        + """
         GROUP BY i.item_id, i.category_id
         ORDER BY net_sales DESC NULLS LAST, i.item_id
         """,
-        (dataset_id,),
+        (dataset_id, *scope_params),
     )
     stage_counts: dict[str, int] = {label: 0 for label in LIFECYCLE_STAGES}
     classified_items: list[dict[str, Any]] = []
@@ -641,6 +789,7 @@ async def lifecycle_metrics(
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         metric_definition={
             "stage": "根据窗口内首次购买、最近购买和活跃天数推断的经营阶段",
             "boundary": "没有真实上架、下架和生命周期事件，因此不是商品真实生命周期",
@@ -660,10 +809,18 @@ async def price_band_comparison(
     dataset_id: str,
     limit: int = 20,
     page: int = 1,
+    dimension: str | None = None,
+    value: str | None = None,
 ) -> dict[str, Any]:
     """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
 
     contract = await _contract(dataset_id)
+    scope_clause, scope_params, scope = _order_scope(
+        dimension,
+        value,
+        supported=ITEM_SCOPE_DIMENSIONS,
+        item_alias="i",
+    )
     rows = await fetch_all(
         """
         WITH item_sales AS (
@@ -675,6 +832,9 @@ async def price_band_comparison(
           LEFT JOIN commerce.dataset_orders o
             ON o.dataset_id = i.dataset_id AND o.item_id = i.item_id
           WHERE i.dataset_id = %s
+          """
+        + scope_clause
+        + """
           GROUP BY i.item_id, i.list_price, i.discount_rate
         )
         SELECT CASE
@@ -693,7 +853,7 @@ async def price_band_comparison(
         GROUP BY 1
         ORDER BY MIN(list_price)
         """,
-        (dataset_id,),
+        (dataset_id, *scope_params),
     )
     bands = [
         {
@@ -709,15 +869,20 @@ async def price_band_comparison(
     elasticity_rows = await fetch_all(
         """
         WITH price_points AS (
-          SELECT item_id, selling_price,
+          SELECT o.item_id, o.selling_price,
                  SUM(quantity)::double precision AS units,
                  COUNT(DISTINCT order_id) AS orders
-          FROM commerce.dataset_orders
-          WHERE dataset_id = %s
-            AND selling_price > 0
-            AND quantity > 0
-            AND payment_status = 'paid'
-          GROUP BY item_id, selling_price
+          FROM commerce.dataset_orders o
+          JOIN commerce.dataset_item_economics i
+            ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id
+          WHERE o.dataset_id = %s
+            AND o.selling_price > 0
+            AND o.quantity > 0
+            AND o.payment_status = 'paid'
+          """
+        + scope_clause
+        + """
+          GROUP BY o.item_id, o.selling_price
         ), eligible AS (
           SELECT item_id,
                  COUNT(*) AS price_points,
@@ -741,7 +906,7 @@ async def price_band_comparison(
         WHERE e.elasticity IS NOT NULL
         ORDER BY e.elasticity ASC, e.item_id
         """,
-        (dataset_id, dataset_id),
+        (dataset_id, *scope_params, dataset_id),
     )
     all_item_elasticities = [
         {
@@ -785,6 +950,7 @@ async def price_band_comparison(
     return _response(
         dataset_id,
         contract,
+        scope=scope,
         status=status,
         elasticity_estimate=(
             round(average_elasticity, 4) if average_elasticity is not None else None

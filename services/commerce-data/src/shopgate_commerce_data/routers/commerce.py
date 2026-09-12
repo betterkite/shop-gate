@@ -297,9 +297,11 @@ def create_commerce_router() -> APIRouter:
     @router.get("/analytics/overview")
     async def analytics_overview(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.analytics_overview(dataset_id)
+            return await analytics.analytics_overview(dataset_id, dimension, value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -333,27 +335,33 @@ def create_commerce_router() -> APIRouter:
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         page: Annotated[int, Query(ge=1, le=500)] = 1,
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.rfm_segments(dataset_id, limit, page)
+            return await analytics.rfm_segments(dataset_id, limit, page, dimension, value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
     @router.get("/analytics/channel-campaign")
     async def analytics_channel_campaign(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.channel_campaign_metrics(dataset_id)
+            return await analytics.channel_campaign_metrics(dataset_id, dimension, value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
     @router.get("/analytics/profit")
     async def analytics_profit(
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.profit_metrics(dataset_id)
+            return await analytics.profit_metrics(dataset_id, dimension, value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -362,9 +370,11 @@ def create_commerce_router() -> APIRouter:
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         page: Annotated[int, Query(ge=1, le=500)] = 1,
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.inventory_analytics(dataset_id, limit, page)
+            return await analytics.inventory_analytics(dataset_id, limit, page, dimension, value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -374,9 +384,13 @@ def create_commerce_router() -> APIRouter:
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         page: Annotated[int, Query(ge=1, le=500)] = 1,
         stage: Annotated[str | None, Query(max_length=20)] = None,
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.lifecycle_metrics(dataset_id, limit, page, stage)
+            return await analytics.lifecycle_metrics(
+                dataset_id, limit, page, stage, dimension, value
+            )
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -385,9 +399,11 @@ def create_commerce_router() -> APIRouter:
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         page: Annotated[int, Query(ge=1, le=500)] = 1,
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.price_band_comparison(dataset_id, limit, page)
+            return await analytics.price_band_comparison(dataset_id, limit, page, dimension, value)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 

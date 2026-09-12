@@ -396,6 +396,7 @@ def test_price_band_comparison_paginates_item_observations(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = 0
+    queries: list[str] = []
 
     async def fake_fetch_all(
         query: str,
@@ -403,6 +404,7 @@ def test_price_band_comparison_paginates_item_observations(
     ) -> list[dict[str, object]]:
         nonlocal calls
         calls += 1
+        queries.append(query)
         if calls == 1:
             return [{
                 "dataset_id": "retail-p28-elasticity",
@@ -451,6 +453,7 @@ def test_price_band_comparison_paginates_item_observations(
     assert result["page_size"] == 20
     assert result["page_count"] == 3
     assert [item["item_id"] for item in result["item_elasticities"]] == list(range(3020, 3040))
+    assert "LIMIT 100" not in queries[2]
 
 
 def test_item_drilldown_includes_behavior_funnel_evidence(

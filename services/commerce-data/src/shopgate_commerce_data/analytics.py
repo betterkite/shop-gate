@@ -740,7 +740,6 @@ async def price_band_comparison(
           ON i.dataset_id = %s AND i.item_id = e.item_id
         WHERE e.elasticity IS NOT NULL
         ORDER BY e.elasticity ASC, e.item_id
-        LIMIT 100
         """,
         (dataset_id, dataset_id),
     )

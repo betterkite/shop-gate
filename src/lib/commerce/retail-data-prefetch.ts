@@ -232,15 +232,122 @@ function isoDay(value: string): string {
   return value.slice(0, 10);
 }
 
+function numberValue(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : Number(value) || 0;
+}
+
+function buildFunnelStages(counts: Record<string, number>): JsonRecord[] {
+  const stages: JsonRecord[] = [];
+  let previous = 0;
+  for (const [order, stage] of ['pv', 'fav', 'cart', 'buy'].entries()) {
+    const events = Math.max(0, Math.round(numberValue(counts[stage])));
+    stages.push({
+      stage,
+      order,
+      events,
+      unique_users: null,
+      conversion_from_previous: previous > 0 ? Number((events / previous).toFixed(6)) : null,
+    });
+    previous = events;
+  }
+  return stages;
+}
+
+function sumFunnelCounts(rows: JsonRecord[]): Record<string, number> {
+  return rows.reduce<Record<string, number>>((totals, row) => {
+    for (const stage of ['pv', 'fav', 'cart', 'buy']) {
+      totals[stage] = (totals[stage] ?? 0) + numberValue(row[stage]);
+    }
+    return totals;
+  }, {});
+}
+
 async function fetchFunnelDatasets(params: {
+  datasetId?: string;
   start: string;
   end: string;
   categoryIds: number[];
+  itemIds: number[];
   rawDir: string;
   rawFiles: string[];
   warnings: string[];
   sources: JsonRecord[];
 }): Promise<{ funnel: JsonRecord | null; funnelDaily: JsonRecord | null }> {
+  if (params.datasetId) {
+    try {
+      const scope = params.itemIds.length === 1
+        ? { dimension: 'item', value: String(params.itemIds[0]) }
+        : params.categoryIds.length === 1
+          ? { dimension: 'category', value: String(params.categoryIds[0]) }
+          : null;
+      const trend = await fetchCommerceJson('/api/v1/commerce/analytics/trend', {
+        dataset_id: params.datasetId,
+        ...(scope ?? {}),
+      });
+      const trendRows = Array.isArray(trend.rows) ? trend.rows : [];
+      let counts = sumFunnelCounts(trendRows);
+      let detail: JsonRecord | null = null;
+      if (scope) {
+        detail = await fetchCommerceJson('/api/v1/commerce/analytics/drilldown', {
+          dataset_id: params.datasetId,
+          dimension: scope.dimension,
+          value: scope.value,
+          limit: '1',
+        });
+        const result = Array.isArray(detail.results) ? asRecord(detail.results[0]) : null;
+        if (result) {
+          counts = {
+            pv: numberValue(result.pv),
+            fav: numberValue(result.fav),
+            cart: numberValue(result.cart),
+            buy: numberValue(result.buy),
+          };
+        }
+      }
+      const funnel = {
+        dataset_id: params.datasetId,
+        start: params.start,
+        end: params.end,
+        filter: scope,
+        stages: buildFunnelStages(counts),
+        unique_users: {},
+        source: 'analytics dataset API',
+      };
+      const funnelDaily = {
+        dataset_id: params.datasetId,
+        window: { start: params.start, end: params.end },
+        rows: trendRows,
+      };
+      for (const [key, payload, endpoint] of [
+        ['funnel', funnel, '/api/v1/commerce/analytics/trend'],
+        ['funnelDaily', funnelDaily, '/api/v1/commerce/analytics/trend'],
+      ] as const) {
+        const filePath = path.join(params.rawDir, `${key}.json`);
+        await writeJson(filePath, payload);
+        params.rawFiles.push(path.relative(params.rawDir, filePath).replaceAll(path.sep, '/'));
+        params.sources.push({
+          dataset: key,
+          source: endpoint,
+          endpoint: `${endpoint}?dataset_id=${params.datasetId}`,
+          artifact_path: `data_file/raw/${key}.json`,
+          status: 'success',
+          fetched_at: new Date().toISOString(),
+        });
+      }
+      return { funnel, funnelDaily };
+    } catch (error) {
+      params.warnings.push(`数据集漏斗预取失败：${error instanceof Error ? error.message : String(error)}`);
+      params.sources.push({
+        source: '/api/v1/commerce/analytics/trend',
+        dataset: 'funnel',
+        endpoint: `/api/v1/commerce/analytics/trend?dataset_id=${params.datasetId}`,
+        status: 'failed',
+        fetched_at: new Date().toISOString(),
+      });
+      return { funnel: null, funnelDaily: null };
+    }
+  }
+
   const query: Record<string, string> = { start: params.start, end: params.end };
   if (params.categoryIds.length === 1) {
     query.category_id = String(params.categoryIds[0]);
@@ -507,9 +614,11 @@ export async function prefetchRetailDataForRunPlan(params: {
 
   if (datasetKeys.has('funnel')) {
     const { funnel, funnelDaily } = await fetchFunnelDatasets({
+      datasetId: params.plan.datasetId,
       start: window.start,
       end: window.end,
       categoryIds,
+      itemIds,
       rawDir,
       rawFiles,
       warnings,
@@ -634,6 +743,7 @@ export async function prefetchRetailDataForRunPlan(params: {
     schemaVersion: 1,
     runId,
     generatedAt: new Date().toISOString(),
+    ...(params.plan.datasetId ? { datasetId: params.plan.datasetId } : {}),
     window,
     plannedEntities: { categoryIds, itemIds },
     // 身份评估要求最终数据携带计划的模板声明（visualization_template_missing）。

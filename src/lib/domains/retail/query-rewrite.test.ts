@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   normalizeRetailQuery,
+  normalizeRetailEntityTarget,
   rankRetailEntityCandidates,
   rewriteRetailQuery,
   stripConversationalEntityReferenceSuffix,
@@ -188,6 +189,53 @@ describe('retail entity candidate ranking', () => {
     });
     expect(ranked.selected).toBeNull();
     expect(ranked.ambiguous).toHaveLength(2);
+  });
+});
+
+describe('retail entity target normalization', () => {
+  it('normalizes typed Chinese item numbers without guessing bare numbers', () => {
+    expect(normalizeRetailEntityTarget('商品 1000009')).toBe('item:1000009');
+    expect(normalizeRetailEntityTarget('商品编号：1000009')).toBe('item:1000009');
+    expect(normalizeRetailEntityTarget('类目 #10051')).toBe('cat:10051');
+    expect(normalizeRetailEntityTarget('1000009')).toBe('1000009');
+  });
+
+  it('resolves a typed Chinese item number through the entity resolver', async () => {
+    const resolverQueries: string[] = [];
+    const result = await rewriteRetailQuery('分析商品 1000329 最近 3 天的销量', {
+      semanticRewriter: async () => ({
+        ok: true as const,
+        data: {
+          outputIntent: 'dashboard' as const,
+          answerOnlyEvidence: null,
+          broadUniverse: false,
+          broadUniverseEvidence: null,
+          targetCandidates: ['商品 1000329'],
+          timeRange: {
+            label: '最近 3 天',
+            value: 3,
+            unit: 'day' as const,
+            evidence: '最近 3 天',
+          },
+          analysisFocusId: 'funnel' as const,
+          confidence: 0.95,
+        },
+        provider: 'test',
+        model: 'test-model',
+      }),
+      resolver: async (query) => {
+        resolverQueries.push(query);
+        return {
+          matches: [
+            { kind: 'item', id: 1000329, name: '品牌148 百货定制款', confidence: 1.0 },
+          ],
+        };
+      },
+    });
+
+    expect(resolverQueries).toEqual(['item:1000329']);
+    expect(result.status).toBe('ready');
+    expect(result.resolvedEntities[0]).toMatchObject({ kind: 'item', id: 1000329 });
   });
 });
 

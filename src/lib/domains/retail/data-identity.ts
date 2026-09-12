@@ -5,6 +5,7 @@ type JsonRecord = Record<string, unknown>;
  *
  * finalData = {
  *   runId, generatedAt,
+ *   datasetId?,
  *   window: { start, end },
  *   plannedEntities: { categoryIds: number[], itemIds: number[] },  // 空数组 = 全库口径
  *   datasets: { meta?, funnel?, funnelDaily?, categories?, itemDaily?,
@@ -116,6 +117,8 @@ export function assessRetailDatasetIdentity(
   const reasons: string[] = [];
   const runId = string(runPlan?.runId);
   const finalRunId = string(finalData?.runId ?? finalData?.run_id);
+  const planDatasetId = string(runPlan?.datasetId);
+  const finalDatasetId = string(finalData?.datasetId);
   const planWindow = windowOf(runPlan?.window);
   const finalWindow = windowOf(finalData?.window);
   const plannedCategories = nonNegativeIdArray(
@@ -130,6 +133,8 @@ export function assessRetailDatasetIdentity(
   if (!runId) reasons.push('run_id_missing');
   if (!finalRunId) reasons.push('final_run_id_missing');
   else if (runId && finalRunId !== runId) reasons.push('final_run_id_mismatch');
+  if (planDatasetId && !finalDatasetId) reasons.push('final_dataset_id_missing');
+  else if (planDatasetId && finalDatasetId !== planDatasetId) reasons.push('final_dataset_id_mismatch');
   if (!planWindow) reasons.push('plan_window_missing');
   if (!finalWindow) reasons.push('final_window_missing');
   else if (planWindow && !sameWindow(finalWindow, planWindow)) {

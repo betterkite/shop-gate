@@ -244,6 +244,27 @@ function normalizeEntityText(value: string): string {
     .toLocaleLowerCase();
 }
 
+/**
+ * 将用户可理解的“商品/类目 + 编号”转换为实体服务支持的显式引用。
+ *
+ * 只规范化带有明确业务类型的编号，不把裸数字猜成商品，避免把类目 ID
+ * 错当成商品 ID；名称和已显式写出的 item:/cat: 引用保持原样。
+ */
+export function normalizeRetailEntityTarget(value: string): string {
+  const normalized = value.normalize('NFKC').trim();
+  const itemMatch = normalized.match(
+    /^(?:商品|单品|SKU|sku|item)\s*(?:(?:编号|ID|id)\s*)?[:：#]?\s*(\d+)$/u,
+  );
+  if (itemMatch) return `item:${itemMatch[1]}`;
+
+  const categoryMatch = normalized.match(
+    /^(?:类目|品类|category|cat)\s*(?:(?:编号|ID|id)\s*)?[:：#]?\s*(\d+)$/u,
+  );
+  if (categoryMatch) return `cat:${categoryMatch[1]}`;
+
+  return value;
+}
+
 export function normalizeRetailQuery(query: string): string {
   return query
     .normalize('NFKC')
@@ -422,8 +443,9 @@ async function resolveTargetSet(params: {
 
   await Promise.all(params.targetCandidates.map(async (target) => {
     try {
-      const payload = await params.resolver(target, 5);
-      const ranked = rankRetailEntityCandidates(target, payload);
+      const resolverTarget = normalizeRetailEntityTarget(target);
+      const payload = await params.resolver(resolverTarget, 5);
+      const ranked = rankRetailEntityCandidates(resolverTarget, payload);
       if (ranked.selected) {
         resolvedEntities.push(ranked.selected);
       } else if (ranked.ambiguous.length > 0) {

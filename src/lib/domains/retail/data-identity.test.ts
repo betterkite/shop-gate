@@ -4,12 +4,14 @@ import { assessRetailDatasetIdentity } from './data-identity';
 
 const PLAN = {
   runId: 'run-1',
+  datasetId: 'retail-test',
   window: { start: '2017-11-25', end: '2017-12-03' },
   plannedEntities: { categoryIds: [10051], itemIds: [] },
 };
 
 const BASE_FINAL = {
   runId: 'run-1',
+  datasetId: 'retail-test',
   generatedAt: '2025-09-06T12:00:00Z',
   window: { start: '2017-11-25', end: '2017-12-03' },
   plannedEntities: { categoryIds: [10051], itemIds: [] },
@@ -37,6 +39,15 @@ describe('retail dataset identity', () => {
     });
     expect(assessment.ready).toBe(false);
     expect(assessment.reasons).toContain('final_run_id_mismatch');
+  });
+
+  it('rejects final data from a different dataset', () => {
+    const assessment = assessRetailDatasetIdentity(PLAN, {
+      ...BASE_FINAL,
+      datasetId: 'retail-other',
+    });
+    expect(assessment.ready).toBe(false);
+    expect(assessment.reasons).toContain('final_dataset_id_mismatch');
   });
 
   it('rejects window mismatch inside datasets', () => {

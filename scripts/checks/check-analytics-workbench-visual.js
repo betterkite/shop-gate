@@ -119,6 +119,7 @@ async function inspectProfile(browser, storageState, profile) {
         const ordersValue = ordersIndex >= 0 ? lines[ordersIndex + 1] : '';
         const scopedCustomerLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         const lifecycleStageLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=lifecycle') && link.getAttribute('href')?.includes('stage=') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
+        const channelsFullLink = [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看全部渠道和活动') && link.getAttribute('href')?.includes('view=channels') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         return {
           scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
           scopedOrders: Number.isFinite(expected?.orders) && Number(ordersValue.replaceAll(',', '')) === expected.orders,
@@ -126,6 +127,7 @@ async function inspectProfile(browser, storageState, profile) {
             scopedCustomerLink,
           segmentLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('segment=')),
           lifecycleStageLink,
+          channelsFullLink,
           channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
           channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
           inventoryPanel: text.includes('库存健康'),
@@ -138,6 +140,7 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.scopedCustomerLink) problems.push(`${profile.id}: 筛选总览未保留用户分群范围链接`);
       if (!scopedOverview.segmentLink) problems.push(`${profile.id}: 总览用户分群卡片未保留具体分群链接`);
       if (!scopedOverview.lifecycleStageLink) problems.push(`${profile.id}: 筛选总览商品阶段卡片未保留阶段筛选链接`);
+      if (!scopedOverview.channelsFullLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的全部渠道入口`);
       if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
       const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });

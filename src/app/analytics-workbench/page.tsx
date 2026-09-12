@@ -199,6 +199,27 @@ function TrendChart({ payload, title, description }: { payload: JsonRecord | nul
   </Panel>;
 }
 
+function TrendScopeSummary({ payload, dimension, value }: { payload: JsonRecord | null; dimension: string; value: string }) {
+  const rows = asArray(payload?.rows);
+  const totals = rows.reduce<{ pv: number; buy: number; orders: number; netSales: number }>((result, row) => ({
+    pv: result.pv + number(row.pv),
+    buy: result.buy + number(row.buy),
+    orders: result.orders + number(row.orders),
+    netSales: result.netSales + number(row.net_sales),
+  }), { pv: 0, buy: 0, orders: 0, netSales: 0 });
+  const label = DIMENSION_LABELS[dimension] || dimension;
+  const conversion = totals.pv > 0 ? displayPercent(totals.buy / totals.pv) : '暂无行为数据';
+  return <Panel title={`当前筛选摘要：${label} ${value}`} description="下面数字只统计当前筛选范围；顶部总览 KPI 仍按整个数据集统计。渠道或活动尚未采集行为归因时，PV 和购买转化率会显示为暂无行为数据。">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Metric label="页面浏览量（PV）" value={totals.pv > 0 ? `${displayNumber(totals.pv)} 次` : '暂无行为数据'} hint="当前筛选范围的页面浏览事件" />
+      <Metric label="购买次数（Buy）" value={totals.buy > 0 ? `${displayNumber(totals.buy)} 次` : '暂无行为数据'} hint="当前筛选范围的购买事件" />
+      <Metric label="订单数" value={`${displayNumber(totals.orders)} 笔`} hint="当前筛选范围的订单记录" />
+      <Metric label="购买转化率（PV→Buy）" value={conversion} hint="购买事件 ÷ 页面浏览事件" />
+    </div>
+    <p className="mt-3 text-xs text-muted-foreground">当前范围订单净额：{displayMoney(totals.netSales)}。金额为演示订单价格口径，仅用于当前数据集分析。</p>
+  </Panel>;
+}
+
 function ElasticitySummary({ payload }: { payload: JsonRecord | null }) {
   const estimated = payload?.status === 'estimated';
   const rows = asArray(payload?.item_elasticities);
@@ -305,8 +326,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'overview' ? (
         <div className="space-y-5">
-          {trendDimension && trendValue ? <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">当前筛选只作用于日趋势图：上方 KPI 和其他模块仍按整个数据集统计，避免把局部趋势误认为全店经营总数。</div> : null}
+          {trendDimension && trendValue ? <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">当前筛选会刷新下方趋势图和筛选摘要；上方总览 KPI 及其他模块仍按整个数据集统计，避免把局部数据误认为全店经营总数。</div> : null}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5"><Metric label="订单数" value={displayNumber(metrics?.orders)} hint="扩展数据集订单记录" /><Metric label="有订单用户" value={displayNumber(metrics?.buyers)} hint="去重用户数" /><Metric label="销售件数" value={displayNumber(metrics?.units)} hint="订单商品数量" /><Metric label="估算销售额" value={displayMoney(metrics?.net_sales)} hint="演示数据的订单价格合计" /><Metric label="估算毛利" value={displayMoney(asRecord(profit?.total)?.gross_profit)} hint="估算销售额减演示成本" /></div>
+          {trendDimension && trendValue ? <TrendScopeSummary payload={trend} dimension={trendDimension} value={trendValue} /> : null}
           <TrendChart payload={trend} title={trendDimension && trendValue ? `筛选范围趋势：${DIMENSION_LABELS[trendDimension] || trendDimension} ${trendValue}` : '全店日趋势'} description={trendDimension && trendValue ? '当前图表已跟随下钻条件刷新；右侧数字是真实数量，颜色只用于看变化方向。' : '按天查看页面浏览、购买行为和订单变化，先看整体走势，再进入渠道、类目或商品下钻。'} />
           <div className="grid gap-5 lg:grid-cols-2">
             <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('customers', datasetId)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>

@@ -14,6 +14,7 @@ const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
 const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const inventoryHealthUrl = `${inventoryUrl}&health=${encodeURIComponent('缺货风险')}`;
 const scopedInventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const replenishmentUrl = baseUrl + '/analytics-workbench?view=replenishment&dataset_id=' + encodeURIComponent(datasetId) + '&page=1';
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
@@ -119,6 +120,7 @@ async function inspectProfile(browser, storageState, profile) {
         const ordersValue = ordersIndex >= 0 ? lines[ordersIndex + 1] : '';
         const scopedCustomerLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         const lifecycleStageLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=lifecycle') && link.getAttribute('href')?.includes('stage=') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
+        const inventoryHealthLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=inventory') && link.getAttribute('href')?.includes('health=') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         const channelsFullLink = [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看全部渠道和活动') && link.getAttribute('href')?.includes('view=channels') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         return {
           scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
@@ -127,6 +129,7 @@ async function inspectProfile(browser, storageState, profile) {
             scopedCustomerLink,
           segmentLink: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=customers') && link.getAttribute('href')?.includes('segment=')),
           lifecycleStageLink,
+          inventoryHealthLink,
           channelsFullLink,
           channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
           channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
@@ -140,6 +143,7 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.scopedCustomerLink) problems.push(`${profile.id}: 筛选总览未保留用户分群范围链接`);
       if (!scopedOverview.segmentLink) problems.push(`${profile.id}: 总览用户分群卡片未保留具体分群链接`);
       if (!scopedOverview.lifecycleStageLink) problems.push(`${profile.id}: 筛选总览商品阶段卡片未保留阶段筛选链接`);
+      if (!scopedOverview.inventoryHealthLink) problems.push(`${profile.id}: 筛选总览库存判断卡片未保留库存判断链接`);
       if (!scopedOverview.channelsFullLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的全部渠道入口`);
       if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
       const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
@@ -154,7 +158,7 @@ async function inspectProfile(browser, storageState, profile) {
       const firstPage = await page.evaluate(() => {
         const text = document.body.innerText;
         return {
-          allCount: /全部商品\s+[\d,]+\s+个/.test(text),
+          allCount: text.includes('全部商品') && /共\s+[\d,]+\s+个商品/.test(text),
           pageSize: text.includes('每页 20 个'),
           nextPage: text.includes('下一页'),
           rowCount: document.querySelectorAll('table tbody tr').length,
@@ -162,7 +166,7 @@ async function inspectProfile(browser, storageState, profile) {
           detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看商品明细')),
         };
       });
-      const inventoryPage2Response = await page.goto(inventoryUrl.replace('page=1', 'page=2'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const inventoryPage2Response = await page.goto(inventoryUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
       if (!inventoryPage2Response?.ok()) problems.push(`${profile.id}: 库存第 2 页请求失败`);
       await page.locator('main').getByRole('heading', { name: '库存健康', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
       const secondPageFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
@@ -178,6 +182,20 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedInventoryResponse?.ok()) problems.push(`${profile.id}: 商品筛选库存页请求失败`);
       const scopedInventoryNextHref = await page.locator('a').filter({ hasText: '下一页' }).getAttribute('href').catch(() => null);
       if (!scopedInventoryNextHref?.includes('filter_dimension=item') || !scopedInventoryNextHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选库存翻页未保留筛选范围`);
+
+      const inventoryHealthResponse = await page.goto(inventoryHealthUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!inventoryHealthResponse?.ok()) problems.push(`${profile.id}: 库存判断筛选页请求失败`);
+      await page.locator('main').getByRole('heading', { name: '库存健康', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      const inventoryHealthState = await page.evaluate(() => {
+        const text = document.body.innerText;
+        const rows = [...document.querySelectorAll('table tbody tr')];
+        return {
+          selected: text.includes('当前查看：缺货风险'),
+          allRowsMatch: rows.length === 0 || rows.every((row) => row.textContent?.includes('缺货风险')),
+          linksKeepHealth: [...document.querySelectorAll('a')].filter((link) => link.textContent?.includes('下一页')).every((link) => link.getAttribute('href')?.includes('health=')),
+        };
+      });
+      if (!inventoryHealthState.selected || !inventoryHealthState.allRowsMatch || !inventoryHealthState.linksKeepHealth) problems.push(`${profile.id}: 库存判断筛选未生效或翻页未保留判断条件`);
 
       const replenishmentResponse = await page.goto(replenishmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!replenishmentResponse?.ok()) {
@@ -195,7 +213,7 @@ async function inspectProfile(browser, storageState, profile) {
             nextPage: text.includes('下一页'),
           };
         });
-        const replenishmentPage2Response = await page.goto(replenishmentUrl.replace('page=1', 'page=2'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        const replenishmentPage2Response = await page.goto(replenishmentUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
         if (!replenishmentPage2Response?.ok()) problems.push(profile.id + ': 补货参考第 2 页请求失败');
         await page.locator('main').getByRole('heading', { name: '补货参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondReplenishmentFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
@@ -221,7 +239,7 @@ async function inspectProfile(browser, storageState, profile) {
             detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看用户明细')),
           };
         });
-        const customerPage2Response = await page.goto(customerUrl.replace('page=1', 'page=2'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        const customerPage2Response = await page.goto(customerUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
         if (!customerPage2Response?.ok()) problems.push(`${profile.id}: 用户分群第 2 页请求失败`);
         await page.locator('main').getByRole('heading', { name: '用户分群（RFM）', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondCustomerFirstRow = await page.locator('table tbody tr').first().textContent().catch(() => '');
@@ -291,7 +309,7 @@ async function inspectProfile(browser, storageState, profile) {
             nextPage: text.includes('下一页'),
           };
         });
-        const elasticityPage2Response = await page.goto(elasticityUrl.replace('page=1', 'page=2'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        const elasticityPage2Response = await page.goto(elasticityUrl.replace('page=1', 'page=2'), { waitUntil: 'commit', timeout: 30_000 });
         if (!elasticityPage2Response?.ok()) problems.push(`${profile.id}: 价格弹性第 2 页请求失败`);
         await page.locator('main').getByRole('heading', { name: '价格带对比与价格弹性参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
         const secondElasticityFirstRow = await page.locator('table').first().locator('tbody tr').first().textContent().catch(() => '');

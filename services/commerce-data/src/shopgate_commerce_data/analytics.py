@@ -179,6 +179,9 @@ def inventory_health_label(closing_stock: int, average_daily_sold: float, days_c
     return "库存正常"
 
 
+INVENTORY_HEALTH_LABELS = ("库存正常", "库存积压", "缺货风险", "有库存但无销量")
+
+
 LIFECYCLE_STAGES = ("未启动", "成长期", "稳定期", "衰退风险")
 
 
@@ -746,7 +749,10 @@ async def inventory_analytics(
     page: int = 1,
     dimension: str | None = None,
     value: str | None = None,
+    health: str | None = None,
 ) -> dict[str, Any]:
+    if health is not None and health not in INVENTORY_HEALTH_LABELS:
+        raise ValueError(f"库存判断必须是：{'、'.join(INVENTORY_HEALTH_LABELS)}")
     contract = await _contract(dataset_id)
     scope_clause, scope_params, scope = _order_scope(
         dimension,
@@ -788,7 +794,7 @@ async def inventory_analytics(
         (dataset_id, *scope_params, dataset_id, *scope_params),
     )
     all_items: list[dict[str, Any]] = []
-    risk_counts: dict[str, int] = {}
+    risk_counts: dict[str, int] = {label: 0 for label in INVENTORY_HEALTH_LABELS}
     for row in rows:
         closing_stock = int(row["closing_stock"] or 0)
         average_daily_sold = _number(row["average_daily_sold"])
@@ -807,10 +813,13 @@ async def inventory_analytics(
                 "health_label": label,
             }
         )
-    page_count = max((len(all_items) + limit - 1) // limit, 1)
+    filtered_items = [
+        item for item in all_items if health is None or item["health_label"] == health
+    ]
+    page_count = max((len(filtered_items) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
-    items = all_items[start : start + limit]
+    items = filtered_items[start : start + limit]
     return _response(
         dataset_id,
         contract,
@@ -820,6 +829,8 @@ async def inventory_analytics(
             "health_label": "库存正常、库存积压、缺货风险或有库存但无销量",
         },
         item_count=len(rows),
+        filtered_item_count=len(filtered_items),
+        selected_health=health,
         page=page,
         page_size=limit,
         page_count=page_count,

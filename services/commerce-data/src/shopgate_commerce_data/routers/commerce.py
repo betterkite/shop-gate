@@ -384,9 +384,12 @@ def create_commerce_router() -> APIRouter:
         page: Annotated[int, Query(ge=1, le=500)] = 1,
         dimension: Annotated[str | None, Query(max_length=20)] = None,
         value: Annotated[str | None, Query(max_length=120)] = None,
+        health: Annotated[str | None, Query(max_length=30)] = None,
     ) -> dict[str, Any]:
         try:
-            return await analytics.inventory_analytics(dataset_id, limit, page, dimension, value)
+            return await analytics.inventory_analytics(
+                dataset_id, limit, page, dimension, value, health
+            )
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
 

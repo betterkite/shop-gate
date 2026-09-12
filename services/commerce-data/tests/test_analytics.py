@@ -336,6 +336,21 @@ def test_inventory_analytics_paginates_all_items_without_losing_counts(
     assert [item["item_id"] for item in result["items"]] == list(range(1020, 1040))
     assert sum(result["risk_counts"].values()) == 45
 
+    filtered = asyncio.run(
+        inventory_analytics("retail-inventory", limit=20, page=1, health="库存积压")
+    )
+
+    assert calls == 4
+    assert filtered["item_count"] == 45
+    assert filtered["filtered_item_count"] == 45
+    assert filtered["selected_health"] == "库存积压"
+    assert all(item["health_label"] == "库存积压" for item in filtered["items"])
+
+
+def test_inventory_analytics_rejects_unknown_health_filter() -> None:
+    with pytest.raises(ValueError, match="库存判断必须是"):
+        asyncio.run(inventory_analytics("retail-inventory", health="未知判断"))
+
 
 def test_replenishment_forecast_uses_explicit_coverage_assumptions(
     monkeypatch: pytest.MonkeyPatch,

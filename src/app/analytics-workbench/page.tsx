@@ -33,6 +33,7 @@ type Props = {
     page?: string;
     stage?: string;
     segment?: string;
+    health?: string;
   }>;
 };
 
@@ -87,6 +88,7 @@ const LIFECYCLE_STAGE_OPTIONS = [
 ] as const;
 
 const RFM_SEGMENT_OPTIONS = ['流失风险', '高价值', '新近购买', '稳定复购'] as const;
+const INVENTORY_HEALTH_OPTIONS = ['库存正常', '库存积压', '缺货风险', '有库存但无销量'] as const;
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as JsonRecord : null;
@@ -154,13 +156,20 @@ function lifecycleHref(datasetId: string, page: number, stage = '', dimension?: 
   return `/analytics-workbench?${query.toString()}`;
 }
 
-function inventoryHref(datasetId: string, page: number, dimension?: string, value?: string): string {
+function inventoryHref(
+  datasetId: string,
+  page: number,
+  dimension?: string,
+  value?: string,
+  health?: string,
+): string {
   const query = new URLSearchParams({
     view: 'inventory',
     dataset_id: datasetId,
     page: String(page),
   });
   addFilterQuery(query, dimension, value);
+  if (health) query.set('health', health);
   return `/analytics-workbench?${query.toString()}`;
 }
 
@@ -378,7 +387,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       view: params?.view || 'overview',
       dataset_id: text(datasetContracts[0].dataset_id),
     });
-    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage'] as const) {
+    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health'] as const) {
       if (params?.[key]) canonicalQuery.set(key, params[key]);
     }
     redirect(`/analytics-workbench?${canonicalQuery.toString()}`);
@@ -405,6 +414,10 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const customerSegment = RFM_SEGMENT_OPTIONS.includes(requestedCustomerSegment as (typeof RFM_SEGMENT_OPTIONS)[number])
     ? requestedCustomerSegment
     : '';
+  const requestedInventoryHealth = params?.health?.trim() || '';
+  const inventoryHealth = INVENTORY_HEALTH_OPTIONS.includes(requestedInventoryHealth as (typeof INVENTORY_HEALTH_OPTIONS)[number])
+    ? requestedInventoryHealth
+    : '';
   const lifecycleQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -416,6 +429,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     limit: '20',
     page: String(inventoryPage),
   });
+  if (inventoryHealth) inventoryQuery.set('health', inventoryHealth);
   const replenishmentQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -470,7 +484,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const tabs = (Object.entries(VIEW_LABELS) as Array<[Exclude<View, 'drilldown'>, string]>).map(([key, label]) => ({
     href: key === 'customers'
       ? customerHref(datasetId, 1, scopeDimension, scopeValue, customerSegment)
-      : hrefFor(key, datasetId, scopeDimension, scopeValue),
+      : key === 'inventory'
+        ? inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, inventoryHealth)
+        : hrefFor(key, datasetId, scopeDimension, scopeValue),
     label,
     active: view === key,
   }));
@@ -482,7 +498,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const lifecycleTotal = number(lifecycle?.filtered_item_count);
   const lifecyclePageCount = Math.max(number(lifecycle?.page_count), 1);
   const lifecycleCurrentPage = Math.max(number(lifecycle?.page) || 1, 1);
-  const inventoryTotal = number(inventory?.item_count);
+  const inventoryTotal = number(inventoryHealth ? inventory?.filtered_item_count : inventory?.item_count);
   const inventoryPageCount = Math.max(number(inventory?.page_count), 1);
   const inventoryCurrentPage = Math.max(number(inventory?.page) || 1, 1);
   const replenishmentTotal = number(replenishment?.summary && asRecord(replenishment.summary)?.item_count);
@@ -525,7 +541,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
           <TrendChart payload={trend} title={trendDimension && trendValue ? `筛选范围趋势：${DIMENSION_LABELS[trendDimension] || trendDimension} ${trendValue}` : '全店日趋势'} description={trendDimension && trendValue ? '当前图表已跟随筛选条件刷新；右侧数字是真实数量，颜色只用于看变化方向。' : '按天查看页面浏览、购买行为和订单变化，先看整体走势，再进入渠道、类目或商品明细。'} />
           <div className="grid gap-5 lg:grid-cols-2">
             <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={customerHref(datasetId, 1, scopeDimension, scopeValue, label)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>
-            <Panel title="库存健康" description="可售天数只用于识别库存结构，不直接等于补货指令。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(inventory?.risk_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('inventory', datasetId, scopeDimension === 'item' || scopeDimension === 'category' ? scopeDimension : undefined, scopeValue)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看库存明细 →</p></Link>)}</div></Panel>
+            <Panel title="库存健康" description="可售天数只用于识别库存结构，不直接等于补货指令。点击判断标签，可查看对应商品明细。"><div className="grid grid-cols-2 gap-3">{INVENTORY_HEALTH_OPTIONS.map((label) => <Link key={label} href={inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, label)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(asRecord(inventory?.risk_counts)?.[label])}</p><p className="mt-1 text-[11px] text-muted-foreground">查看对应商品 →</p></Link>)}</div></Panel>
           </div>
           <Panel title={scopeDimension === 'item' || scopeDimension === 'category' ? '筛选范围的渠道销售' : '渠道与活动贡献'} description={scopeDimension === 'item' || scopeDimension === 'category' ? '这里只按当前商品或类目关联的订单汇总渠道销售；数据没有商品级渠道曝光映射，因此不显示会话转化率。' : '这里是合成会话归因，不代表广告平台真实归因。点击渠道名称可查看该渠道的商品和购买表现。'}><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">活动</th><th className="px-3 py-3">会话</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">{scopeDimension === 'item' || scopeDimension === 'category' ? '统计说明' : '订单转化率'}</th><th className="px-3 py-3">净销售额</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(channels?.metrics).slice(0, 6).map((row, index) => <tr key={`${String(row.channel_id)}-${index}`} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>{text(row.channel_name)}</Link></td><td className="px-3 py-3 text-sm">{text(row.campaign_name)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '不提供' : displayNumber(row.sessions)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{scopeDimension === 'item' || scopeDimension === 'category' ? '按订单关联渠道统计' : displayPercent(row.order_conversion)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td></tr>)}</tbody></DataTable><div className="mt-3 text-right"><Link className="text-sm font-semibold text-primary hover:underline" href={hrefFor('channels', datasetId, scopeDimension, scopeValue)}>查看全部渠道和活动 →</Link></div></Panel>
           <div className="grid gap-5 lg:grid-cols-2"><Panel title="商品阶段" description="根据窗口内购买活跃度推断，不等于真实上架/下架生命周期。"><div className="grid grid-cols-2 gap-2">{Object.entries(asRecord(lifecycle?.stage_counts) ?? {}).map(([label, value]) => <Link key={label} href={lifecycleHref(datasetId, 1, label, itemScopeDimension, scopeValue)} className="flex items-center justify-between rounded-lg bg-muted/35 px-3 py-2 text-sm hover:bg-muted"><span>{label}</span><strong>{displayNumber(value)}</strong></Link>)}</div></Panel><Panel title="价格与成交关系" description="只有同一商品出现多个成交价格时，才提供价格弹性参考。"><Link href={hrefFor('elasticity', datasetId, scopeDimension === 'item' || scopeDimension === 'category' ? scopeDimension : undefined, scopeValue)} className="block rounded-xl border border-border/60 bg-muted/20 p-4 text-sm hover:border-primary/50"><span>{elasticity?.status === 'estimated' ? `平均价格弹性 ${text(elasticity?.elasticity_estimate)}` : '当前数据还不能估算价格弹性'}</span><span className="mt-2 block text-xs font-semibold">查看价格带与商品观察 →</span></Link></Panel></div>
@@ -541,7 +557,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'profit' ? <Panel title="毛利分析" description="毛利 = 销售额 - 成本；这里是演示数据估算，不是财务结算报表。"><div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5"><Metric label="销售额" value={displayMoney(asRecord(profit?.total)?.gross_sales)} hint="订单价格合计" /><Metric label="退款" value={displayMoney(asRecord(profit?.total)?.refunds)} hint="演示退款金额" /><Metric label="成本" value={displayMoney(asRecord(profit?.total)?.cost)} hint="演示商品成本" /><Metric label="毛利" value={displayMoney(asRecord(profit?.total)?.gross_profit)} hint="销售额减退款和成本" /><Metric label="毛利率" value={displayPercent(asRecord(profit?.total)?.gross_margin)} hint="毛利 ÷ 销售额" /></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">渠道</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售额</th><th className="px-3 py-3">退款</th><th className="px-3 py-3">成本</th><th className="px-3 py-3">毛利</th><th className="px-3 py-3">毛利率</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(profit?.by_channel).map((row) => <tr key={String(row.channel_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">{text(row.channel_name)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.gross_sales)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.refunds)}</td><td className="px-3 py-3 text-sm">{displayMoney(row.cost)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.gross_profit)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.gross_margin)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'channel', row.channel_id)}>查看渠道明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4"><Limitations payload={profit} /></div></Panel> : null}
 
-      {view === 'inventory' ? <Panel title="库存健康" description="这里展示数据集中的全部商品，每页 20 个。可售天数 = 结存库存 ÷ 平均日销量；没有销量的商品会单独标记。"><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前显示第 {displayNumber(inventoryCurrentPage)} 页，共 {displayNumber(inventoryPageCount)} 页；全部商品 {displayNumber(inventoryTotal)} 个</span><span className="text-xs text-muted-foreground">按结存库存从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">库存判断</th><th className="px-3 py-3">结存库存</th><th className="px-3 py-3">平均日销量</th><th className="px-3 py-3">可售天数</th><th className="px-3 py-3">窗口销量</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(inventory?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.health_label)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.closing_stock)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.average_daily_sold, 2)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.days_cover, 1)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.sold_units)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>查看商品明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={inventoryCurrentPage > 1 ? inventoryHref(datasetId, inventoryCurrentPage - 1, itemScopeDimension, scopeValue) : inventoryHref(datasetId, inventoryCurrentPage, itemScopeDimension, scopeValue)} aria-disabled={inventoryCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(inventoryCurrentPage)} 页，共 {displayNumber(inventoryPageCount)} 页</div><Link scroll={false} href={inventoryCurrentPage < inventoryPageCount ? inventoryHref(datasetId, inventoryCurrentPage + 1, itemScopeDimension, scopeValue) : inventoryHref(datasetId, inventoryCurrentPage, itemScopeDimension, scopeValue)} aria-disabled={inventoryCurrentPage >= inventoryPageCount} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage >= inventoryPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={inventory} /></div></Panel> : null}
+      {view === 'inventory' ? <Panel title="库存健康" description="这里展示全部商品，每页 20 个。可售天数 = 结存库存 ÷ 平均日销量；没有销量的商品会单独标记。点击下面的判断标签可以筛选对应商品。"><div className="mb-5 rounded-xl border border-border/60 bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">按库存判断查看</p><span className="text-xs text-muted-foreground">数量是当前范围内的商品数</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><Link scroll={false} href={inventoryHref(datasetId, 1, itemScopeDimension, scopeValue)} className={`rounded-xl border p-3 ${!inventoryHealth ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}><p className="text-sm font-semibold">全部商品</p><p className="mt-1 text-lg font-semibold">{displayNumber(inventory?.item_count)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看完整库存列表</p></Link>{INVENTORY_HEALTH_OPTIONS.map((label) => <Link key={label} scroll={false} href={inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, label)} className={`rounded-xl border p-3 ${inventoryHealth === label ? 'border-primary bg-primary/10' : 'border-border/60 bg-card hover:border-primary/50'}`}><p className="text-sm font-semibold">{label}</p><p className="mt-1 text-lg font-semibold">{displayNumber(asRecord(inventory?.risk_counts)?.[label])}</p><p className="mt-1 text-[11px] text-muted-foreground">查看对应商品明细</p></Link>)}</div></div><div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm"><span>当前查看：{inventoryHealth || '全部商品'}；第 {displayNumber(inventoryCurrentPage)} / {displayNumber(inventoryPageCount)} 页，共 {displayNumber(inventoryTotal)} 个商品</span><span className="text-xs text-muted-foreground">按结存库存从高到低排列，每页 20 个</span></div><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">商品</th><th className="px-3 py-3">库存判断</th><th className="px-3 py-3">结存库存</th><th className="px-3 py-3">平均日销量</th><th className="px-3 py-3">可售天数</th><th className="px-3 py-3">窗口销量</th><th className="px-3 py-3">查看明细</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(inventory?.items).map((row) => <tr key={String(row.item_id)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm">商品 {text(row.item_id)}</td><td className="px-3 py-3 text-sm font-semibold">{text(row.health_label)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.closing_stock)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.average_daily_sold, 2)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.days_cover, 1)} 天</td><td className="px-3 py-3 text-sm">{displayNumber(row.sold_units)}</td><td className="px-3 py-3 text-sm"><Link className="text-primary hover:underline" href={drilldownHref(datasetId, 'item', row.item_id)}>查看商品明细</Link></td></tr>)}</tbody></DataTable><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><Link scroll={false} href={inventoryCurrentPage > 1 ? inventoryHref(datasetId, inventoryCurrentPage - 1, itemScopeDimension, scopeValue, inventoryHealth) : inventoryHref(datasetId, inventoryCurrentPage, itemScopeDimension, scopeValue, inventoryHealth)} aria-disabled={inventoryCurrentPage <= 1} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage <= 1 ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>上一页</Link><div className="text-xs text-muted-foreground">第 {displayNumber(inventoryCurrentPage)} 页，共 {displayNumber(inventoryPageCount)} 页</div><Link scroll={false} href={inventoryCurrentPage < inventoryPageCount ? inventoryHref(datasetId, inventoryCurrentPage + 1, itemScopeDimension, scopeValue, inventoryHealth) : inventoryHref(datasetId, inventoryCurrentPage, itemScopeDimension, scopeValue, inventoryHealth)} aria-disabled={inventoryCurrentPage >= inventoryPageCount} className={`rounded-lg border px-3 py-2 text-sm ${inventoryCurrentPage >= inventoryPageCount ? 'pointer-events-none border-border/40 text-muted-foreground/50' : 'border-border/70 hover:border-primary/50'}`}>下一页</Link></div><div className="mt-4"><Limitations payload={inventory} /></div></Panel> : null}
 
       {view === 'replenishment' ? <Panel title="补货参考" description="按库存、日均销量和可解释的供货假设排序，帮助你先找出需要进一步核实的商品。">
         <ReplenishmentSummary payload={replenishment} />

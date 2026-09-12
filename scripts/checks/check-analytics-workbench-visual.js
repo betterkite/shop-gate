@@ -137,6 +137,8 @@ async function inspectProfile(browser, storageState, profile) {
         const lifecycleStageLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=lifecycle') && link.getAttribute('href')?.includes('stage=') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         const inventoryHealthLink = [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=inventory') && link.getAttribute('href')?.includes('health=') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         const channelsFullLink = [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看全部渠道和活动') && link.getAttribute('href')?.includes('view=channels') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
+        const retentionLink = [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看完整留存分析') && link.getAttribute('href')?.includes('view=retention') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
+        const replenishmentLink = [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看完整补货参考') && link.getAttribute('href')?.includes('view=replenishment') && link.getAttribute('href')?.includes('filter_dimension=item') && link.getAttribute('href')?.includes('filter_value=1000009'));
         return {
           scopeNotice: text.includes('当前筛选：商品 1000009') && text.includes('已按此范围重新计算'),
           scopedOrders: Number.isFinite(expected?.orders) && Number(ordersValue.replaceAll(',', '')) === expected.orders,
@@ -146,10 +148,14 @@ async function inspectProfile(browser, storageState, profile) {
           lifecycleStageLink,
           inventoryHealthLink,
           channelsFullLink,
+          retentionLink,
+          replenishmentLink,
           channelPanel: text.includes('筛选范围的渠道销售') || text.includes('渠道与活动贡献'),
           channelScopeNote: text.includes('不提供') && text.includes('按订单关联渠道统计'),
           inventoryPanel: text.includes('库存健康'),
           lifecyclePanel: text.includes('商品阶段'),
+          retentionPanel: text.includes('用户留存'),
+          replenishmentPanel: text.includes('补货参考'),
         };
       }, scopedExpected);
       if (!scopedOverview.scopeNotice) problems.push(`${profile.id}: 筛选总览缺少当前范围说明`);
@@ -160,7 +166,9 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.lifecycleStageLink) problems.push(`${profile.id}: 筛选总览商品阶段卡片未保留阶段筛选链接`);
       if (!scopedOverview.inventoryHealthLink) problems.push(`${profile.id}: 筛选总览库存判断卡片未保留库存判断链接`);
       if (!scopedOverview.channelsFullLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的全部渠道入口`);
-      if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
+      if (!scopedOverview.retentionLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的用户留存入口`);
+      if (!scopedOverview.replenishmentLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的补货参考入口`);
+      if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel || !scopedOverview.retentionPanel || !scopedOverview.replenishmentPanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
       const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });
     }

@@ -8,11 +8,105 @@ import pytest
 from shopgate_commerce_data.analytics import (
     analytics_dataset_meta,
     analytics_drilldown,
+    analytics_trend,
     classify_lifecycle_stage,
     classify_rfm,
     inventory_health_label,
     price_band_comparison,
 )
+
+
+def test_analytics_trend_returns_padded_daily_rows_for_item_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-trend",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "trend_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 3),
+                "generation_seed": 1,
+                "row_counts": {},
+                "synthetic_fields": [],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return [{
+                "stat_date": date(2025, 1, 1),
+                "pv": 10,
+                "fav": 2,
+                "cart": 3,
+                "buy": 1,
+            }]
+        return [{
+            "stat_date": date(2025, 1, 3),
+            "orders": 1,
+            "net_sales": 99.5,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_trend("retail-trend", "item", "1001"))
+
+    assert calls == 3
+    assert result["filter"] == {"dimension": "item", "value": "1001"}
+    assert [row["stat_date"] for row in result["rows"]] == [
+        "2025-01-01", "2025-01-02", "2025-01-03"
+    ]
+    assert result["rows"][1]["pv"] == 0
+    assert result["rows"][2]["orders"] == 1
+
+
+def test_analytics_trend_rejects_partial_filter() -> None:
+    with pytest.raises(ValueError, match="同时提供"):
+        asyncio.run(analytics_trend("retail-trend", "item", None))
+
+
+def test_analytics_trend_does_not_claim_unattributed_behavior_for_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-trend",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 1),
+            }]
+        return [{"stat_date": date(2025, 1, 1), "orders": 2, "net_sales": 20}]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_trend("retail-trend", "channel", "organic"))
+
+    assert calls == 2
+    assert result["rows"] == [{
+        "stat_date": "2025-01-01",
+        "pv": 0,
+        "fav": 0,
+        "cart": 0,
+        "buy": 0,
+        "orders": 2,
+        "net_sales": 20.0,
+    }]
 
 
 def test_dataset_meta_preserves_isolated_dataset_window(

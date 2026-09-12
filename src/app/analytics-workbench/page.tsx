@@ -28,6 +28,8 @@ type Props = {
     dataset_id?: string;
     dimension?: string;
     value?: string;
+    filter_dimension?: string;
+    filter_value?: string;
     page?: string;
     stage?: string;
   }>;
@@ -136,6 +138,10 @@ function drilldownHref(datasetId: string, dimension: string, value: unknown): st
   return `/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=${encodeURIComponent(dimension)}&value=${encodeURIComponent(String(value))}`;
 }
 
+function filteredOverviewHref(datasetId: string, dimension: string, value: unknown): string {
+  return `/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=${encodeURIComponent(dimension)}&filter_value=${encodeURIComponent(String(value))}`;
+}
+
 async function fetchAnalytics(path: string): Promise<JsonRecord | null> {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, { cache: 'no-store' });
@@ -179,6 +185,20 @@ function Limitations({ payload }: { payload: JsonRecord | null }) {
   return <p className="text-xs leading-5 text-muted-foreground">口径边界：{limitations.map(String).join('；') || '请先读取数据集契约。'}</p>;
 }
 
+function TrendChart({ payload, title, description }: { payload: JsonRecord | null; title: string; description: string }) {
+  const rows = asArray(payload?.rows);
+  const maxPv = Math.max(...rows.map((row) => number(row.pv)), 1);
+  const maxBuy = Math.max(...rows.map((row) => number(row.buy)), 1);
+  const maxOrders = Math.max(...rows.map((row) => number(row.orders)), 1);
+  return <Panel title={title} description={description}>
+    {rows.length === 0 ? <p className="text-sm text-muted-foreground">当前范围没有可展示的日趋势数据。</p> : <>
+      <div className="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-sky-500" />页面浏览量（PV）</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />购买行为</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-violet-500" />订单数</span></div>
+      <div className="grid gap-2">{rows.map((row) => <div key={String(row.stat_date)} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-xs"><span className="text-muted-foreground">{text(row.stat_date)}</span><div className="grid gap-1"><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-sky-500" style={{ width: `${Math.max(number(row.pv) > 0 ? 3 : 0, number(row.pv) / maxPv * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(number(row.buy) > 0 ? 3 : 0, number(row.buy) / maxBuy * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.max(number(row.orders) > 0 ? 3 : 0, number(row.orders) / maxOrders * 100)}%` }} /></div></div><span className="text-right leading-5 text-muted-foreground">{displayNumber(row.pv)} / {displayNumber(row.buy)} / {displayNumber(row.orders)}</span></div>)}</div>
+      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">每行依次显示页面浏览、购买行为、订单数；三种颜色按各自指标的最高日归一化，右侧保留真实数量。</p>
+    </>}
+  </Panel>;
+}
+
 function ElasticitySummary({ payload }: { payload: JsonRecord | null }) {
   const estimated = payload?.status === 'estimated';
   const rows = asArray(payload?.item_elasticities);
@@ -202,13 +222,17 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       view: params?.view || 'overview',
       dataset_id: text(datasetContracts[0].dataset_id),
     });
-    for (const key of ['dimension', 'value', 'page', 'stage'] as const) {
+    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage'] as const) {
       if (params?.[key]) canonicalQuery.set(key, params[key]);
     }
     redirect(`/analytics-workbench?${canonicalQuery.toString()}`);
   }
   const datasetId = requestedDatasetId;
-  const view = Object.keys(VIEW_LABELS).includes(params?.view || '') ? params?.view as Exclude<View, 'drilldown'> : 'overview';
+  const view: View = params?.view === 'drilldown'
+    ? 'drilldown'
+    : Object.keys(VIEW_LABELS).includes(params?.view || '')
+      ? params?.view as Exclude<View, 'drilldown'>
+      : 'overview';
   const requestedLifecyclePage = Number.parseInt(params?.page || '1', 10);
   const lifecyclePage = Number.isFinite(requestedLifecyclePage) && requestedLifecyclePage > 0 ? requestedLifecyclePage : 1;
   const requestedLifecycleStage = params?.stage || '';
@@ -221,6 +245,13 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     page: String(lifecyclePage),
   });
   if (lifecycleStage) lifecycleQuery.set('stage', lifecycleStage);
+  const trendQuery = new URLSearchParams({ dataset_id: datasetId });
+  const trendDimension = params?.view === 'drilldown' ? params?.dimension : params?.filter_dimension;
+  const trendValue = params?.view === 'drilldown' ? params?.value : params?.filter_value;
+  if (trendDimension && trendValue) {
+    trendQuery.set('dimension', trendDimension);
+    trendQuery.set('value', trendValue);
+  }
   const [overview, rfm, channels, profit, inventory, lifecycle, elasticity] = await Promise.all([
     fetchAnalytics(`/api/v1/commerce/analytics/overview?dataset_id=${encodeURIComponent(datasetId)}`),
     fetchAnalytics(`/api/v1/commerce/analytics/rfm?dataset_id=${encodeURIComponent(datasetId)}&limit=20`),
@@ -230,6 +261,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     fetchAnalytics(`/api/v1/commerce/analytics/lifecycle?${lifecycleQuery.toString()}`),
     fetchAnalytics(`/api/v1/commerce/analytics/price-elasticity?dataset_id=${encodeURIComponent(datasetId)}`),
   ]);
+  const trend = await fetchAnalytics(`/api/v1/commerce/analytics/trend?${trendQuery.toString()}`);
   const contract = asRecord(overview?.contract);
   const metrics = asRecord(overview?.metrics);
   const quality = asRecord(overview?.quality);
@@ -273,7 +305,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'overview' ? (
         <div className="space-y-5">
+          {trendDimension && trendValue ? <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-5 text-sky-950">当前筛选只作用于日趋势图：上方 KPI 和其他模块仍按整个数据集统计，避免把局部趋势误认为全店经营总数。</div> : null}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5"><Metric label="订单数" value={displayNumber(metrics?.orders)} hint="扩展数据集订单记录" /><Metric label="有订单用户" value={displayNumber(metrics?.buyers)} hint="去重用户数" /><Metric label="销售件数" value={displayNumber(metrics?.units)} hint="订单商品数量" /><Metric label="估算销售额" value={displayMoney(metrics?.net_sales)} hint="演示数据的订单价格合计" /><Metric label="估算毛利" value={displayMoney(asRecord(profit?.total)?.gross_profit)} hint="估算销售额减演示成本" /></div>
+          <TrendChart payload={trend} title={trendDimension && trendValue ? `筛选范围趋势：${DIMENSION_LABELS[trendDimension] || trendDimension} ${trendValue}` : '全店日趋势'} description={trendDimension && trendValue ? '当前图表已跟随下钻条件刷新；右侧数字是真实数量，颜色只用于看变化方向。' : '按天查看页面浏览、购买行为和订单变化，先看整体走势，再进入渠道、类目或商品下钻。'} />
           <div className="grid gap-5 lg:grid-cols-2">
             <Panel title="用户分群" description="用最近购买、购买次数和订单净金额帮助定位用户经营重点。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(rfm?.segment_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('customers', datasetId)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看用户明细 →</p></Link>)}</div></Panel>
             <Panel title="库存健康" description="可售天数只用于识别库存结构，不直接等于补货指令。"><div className="grid grid-cols-2 gap-3">{Object.entries(asRecord(inventory?.risk_counts) ?? {}).map(([label, value]) => <Link key={label} href={hrefFor('inventory', datasetId)} className="rounded-xl border border-border/60 bg-muted/30 p-3 hover:border-primary/40"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold">{displayNumber(value)}</p><p className="mt-1 text-[11px] text-muted-foreground">查看库存明细 →</p></Link>)}</div></Panel>
@@ -313,7 +347,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
 
       {view === 'elasticity' ? <Panel title="价格带对比与价格弹性参考" description="价格带用于比较商品价格结构；有多个成交价格观察时，额外展示价格与购买量的关系参考。"><ElasticitySummary payload={elasticity} /><div className="mt-5"><DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground"><th className="px-3 py-3">价格带</th><th className="px-3 py-3">商品数</th><th className="px-3 py-3">订单</th><th className="px-3 py-3">销售件数</th><th className="px-3 py-3">估算销售额</th><th className="px-3 py-3">平均折扣</th></tr></thead><tbody className="divide-y divide-border/60">{asArray(elasticity?.price_band_comparison).map((row) => <tr key={String(row.price_band)} className="hover:bg-muted/35"><td className="px-3 py-3 text-sm font-semibold">¥{text(row.price_band)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.item_count)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.orders)}</td><td className="px-3 py-3 text-sm">{displayNumber(row.units)}</td><td className="px-3 py-3 text-sm font-semibold">{displayMoney(row.net_sales)}</td><td className="px-3 py-3 text-sm">{displayPercent(row.average_discount_rate)}</td></tr>)}</tbody></DataTable></div><div className="mt-4"><Limitations payload={elasticity} /></div></Panel> : null}
 
-      {params?.view === 'drilldown' ? <Panel title="继续下钻" description="当前上下文由上一个分析动作带入；下面的提示可以作为下一轮 Agent 问题。"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/35 p-4 text-sm"><span><span className="text-muted-foreground">下钻条件：</span>{text(DIMENSION_LABELS[text(drilldown?.context && asRecord(drilldown.context)?.dimension)] || text(drilldown?.context && asRecord(drilldown.context)?.dimension))} = {text(drilldown?.context && asRecord(drilldown.context)?.value, params.value || '-')}</span>{typeof drilldown?.context_url === 'string' ? <Link href={drilldown.context_url} className="font-semibold text-primary hover:underline">打开当前下钻视图 →</Link> : null}</div>{drilldown ? <DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground">{Object.keys(asArray(drilldown.results)[0] ?? {}).map((key) => <th key={key} className="px-3 py-3">{DRILLDOWN_LABELS[key] || key}</th>)}</tr></thead><tbody className="divide-y divide-border/60">{asArray(drilldown.results).map((row, index) => <tr key={index}>{Object.entries(row).map(([key, value]) => <td key={key} className="px-3 py-3 text-sm">{typeof value === 'number' && /conversion/i.test(key) ? displayPercent(value) : typeof value === 'number' && /sales|amount|profit|cost/i.test(key) ? displayMoney(value) : text(value)}</td>)}</tr>)}</tbody></DataTable> : <p className="mt-4 text-sm text-destructive">没有找到下钻结果。</p>}<div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted-foreground">建议动作</p><div className="grid gap-2 sm:grid-cols-2">{asStringArray(drilldown?.action_suggestions).map((action) => <span key={action} className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">{action}</span>)}</div></div><div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted-foreground">下一步可以继续问</p><div className="flex flex-wrap gap-2">{asStringArray(drilldown?.next_questions).map((question) => <span key={question} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary">{question}</span>)}</div></div><div className="mt-4"><Limitations payload={drilldown} /></div></Panel> : null}
+      {params?.view === 'drilldown' ? <div className="space-y-5"><TrendChart payload={trend} title="当前下钻范围的日趋势" description="点击渠道、类目或商品后，趋势会按当前范围重新计算；渠道/活动暂未采集行为事件归因时，页面浏览量会显示为 0。" /><Panel title="继续下钻" description="当前上下文由上一个分析动作带入；下面的提示可以作为下一轮 Agent 问题。"><div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/35 p-4 text-sm"><span><span className="text-muted-foreground">下钻条件：</span>{text(DIMENSION_LABELS[text(drilldown?.context && asRecord(drilldown.context)?.dimension)] || text(drilldown?.context && asRecord(drilldown.context)?.dimension))} = {text(drilldown?.context && asRecord(drilldown.context)?.value, params.value || '-')}</span><div className="flex flex-wrap gap-3">{params.dimension && params.value ? <Link href={filteredOverviewHref(datasetId, params.dimension, params.value)} className="font-semibold text-primary hover:underline">在总览中保留此筛选 →</Link> : null}{typeof drilldown?.context_url === 'string' ? <Link href={drilldown.context_url} className="font-semibold text-primary hover:underline">打开当前下钻视图 →</Link> : null}</div></div>{drilldown ? <DataTable><thead className="bg-muted/60"><tr className="text-left text-xs font-semibold text-muted-foreground">{Object.keys(asArray(drilldown.results)[0] ?? {}).map((key) => <th key={key} className="px-3 py-3">{DRILLDOWN_LABELS[key] || key}</th>)}</tr></thead><tbody className="divide-y divide-border/60">{asArray(drilldown.results).map((row, index) => <tr key={index}>{Object.entries(row).map(([key, value]) => <td key={key} className="px-3 py-3 text-sm">{typeof value === 'number' && /conversion/i.test(key) ? displayPercent(value) : typeof value === 'number' && /sales|amount|profit|cost/i.test(key) ? displayMoney(value) : text(value)}</td>)}</tr>)}</tbody></DataTable> : <p className="mt-4 text-sm text-destructive">没有找到下钻结果。</p>}<div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted-foreground">建议动作</p><div className="grid gap-2 sm:grid-cols-2">{asStringArray(drilldown?.action_suggestions).map((action) => <span key={action} className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-900">{action}</span>)}</div></div><div className="mt-4"><p className="mb-2 text-xs font-semibold text-muted-foreground">下一步可以继续问</p><div className="flex flex-wrap gap-2">{asStringArray(drilldown?.next_questions).map((question) => <span key={question} className="rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary">{question}</span>)}</div></div><div className="mt-4"><Limitations payload={drilldown} /></div></Panel></div> : null}
     </RetailPageShell>
   );
 }

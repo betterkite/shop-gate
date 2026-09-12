@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
@@ -177,6 +177,103 @@ async def analytics_overview(dataset_id: str) -> dict[str, Any]:
         contract,
         metrics=metrics,
         quality=quality[0] if quality else {"severity": "unknown", "issue_count": None},
+    )
+
+
+async def analytics_trend(
+    dataset_id: str,
+    dimension: str | None = None,
+    value: str | None = None,
+) -> dict[str, Any]:
+    """Return a daily trend that follows the optional workbench drilldown scope."""
+
+    allowed_dimensions = {"item", "category", "channel", "campaign"}
+    if (dimension is None) != (value is None):
+        raise ValueError("趋势筛选必须同时提供 dimension 和 value")
+    if dimension is not None and dimension not in allowed_dimensions:
+        raise ValueError("趋势筛选只支持商品、类目、渠道或活动")
+    contract = await _contract(dataset_id)
+
+    behavior_clause = ""
+    behavior_params: list[Any] = [dataset_id]
+    order_clause = ""
+    order_params: list[Any] = [dataset_id]
+    if dimension in {"item", "category"} and value is not None:
+        try:
+            numeric_value = int(value)
+        except ValueError as error:
+            raise ValueError("商品或类目趋势筛选值必须是数字") from error
+        behavior_column = "item_id" if dimension == "item" else "category_id"
+        behavior_clause = f" AND {behavior_column} = %s"
+        behavior_params.append(numeric_value)
+        order_clause = f" AND {behavior_column} = %s"
+        order_params.append(numeric_value)
+    elif dimension in {"channel", "campaign"} and value is not None:
+        order_column = "channel_id" if dimension == "channel" else "campaign_id"
+        order_clause = f" AND {order_column} = %s"
+        order_params.append(value)
+
+    behavior_rows: list[dict[str, Any]] = []
+    if dimension not in {"channel", "campaign"}:
+        behavior_rows = await fetch_all(
+            f"""
+            SELECT event_ts::date AS stat_date,
+                   COUNT(*) FILTER (WHERE behavior_type = 'pv') AS pv,
+                   COUNT(*) FILTER (WHERE behavior_type = 'fav') AS fav,
+                   COUNT(*) FILTER (WHERE behavior_type = 'cart') AS cart,
+                   COUNT(*) FILTER (WHERE behavior_type = 'buy') AS buy
+            FROM commerce.dataset_behavior_events
+            WHERE dataset_id = %s{behavior_clause}
+            GROUP BY event_ts::date
+            ORDER BY stat_date
+            """,
+            tuple(behavior_params),
+        )
+    order_rows = await fetch_all(
+        f"""
+        SELECT ordered_at::date AS stat_date,
+               COUNT(DISTINCT order_id) AS orders,
+               COALESCE(SUM(quantity * selling_price - refund_amount), 0) AS net_sales
+        FROM commerce.dataset_orders
+        WHERE dataset_id = %s{order_clause}
+        GROUP BY ordered_at::date
+        ORDER BY stat_date
+        """,
+        tuple(order_params),
+    )
+
+    behavior_by_date = {str(row["stat_date"]): row for row in behavior_rows}
+    orders_by_date = {str(row["stat_date"]): row for row in order_rows}
+    window_start = date.fromisoformat(str(contract["window_start"]))
+    window_end = date.fromisoformat(str(contract["window_end"]))
+    rows: list[dict[str, Any]] = []
+    cursor = window_start
+    while cursor <= window_end:
+        date_key = cursor.isoformat()
+        behavior = behavior_by_date.get(date_key, {})
+        orders = orders_by_date.get(date_key, {})
+        rows.append({
+            "stat_date": date_key,
+            "pv": int(behavior.get("pv") or 0),
+            "fav": int(behavior.get("fav") or 0),
+            "cart": int(behavior.get("cart") or 0),
+            "buy": int(behavior.get("buy") or 0),
+            "orders": int(orders.get("orders") or 0),
+            "net_sales": round(_number(orders.get("net_sales")), 2),
+        })
+        cursor += timedelta(days=1)
+
+    return _response(
+        dataset_id,
+        contract,
+        filter={"dimension": dimension, "value": value},
+        metric_definition={
+            "pv": "页面浏览事件数；渠道/活动筛选未采集行为事件归因时为 0",
+            "buy": "购买行为事件数",
+            "orders": "订单数",
+            "net_sales": "合成成交价减合成退款",
+        },
+        rows=rows,
     )
 
 

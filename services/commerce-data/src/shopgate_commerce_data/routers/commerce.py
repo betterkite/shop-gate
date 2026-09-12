@@ -148,6 +148,7 @@ def create_commerce_router() -> APIRouter:
                     "name": "用户、渠道、利润与库存分析",
                     "endpoints": [
                         "/api/v1/commerce/analytics/overview",
+                        "/api/v1/commerce/analytics/trend",
                         "/api/v1/commerce/analytics/item-behavior",
                         "/api/v1/commerce/analytics/rfm",
                         "/api/v1/commerce/analytics/channel-campaign",
@@ -301,6 +302,19 @@ def create_commerce_router() -> APIRouter:
             return await analytics.analytics_overview(dataset_id)
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error
+
+    @router.get("/analytics/trend")
+    async def analytics_trend(
+        dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        dimension: Annotated[str | None, Query(max_length=20)] = None,
+        value: Annotated[str | None, Query(max_length=120)] = None,
+    ) -> dict[str, Any]:
+        """返回可按下钻范围刷新的日趋势。"""
+
+        try:
+            return await analytics.analytics_trend(dataset_id, dimension, value)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
 
     @router.get("/analytics/item-behavior")
     async def analytics_item_behavior(

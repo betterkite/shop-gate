@@ -271,6 +271,8 @@ async def analytics_trend(
     value: str | None = None,
     filter_dimension: str | None = None,
     filter_value: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
 ) -> dict[str, Any]:
     """Return a daily trend that follows the optional workbench drilldown scope."""
 
@@ -285,11 +287,29 @@ async def analytics_trend(
         supported=ITEM_SCOPE_DIMENSIONS,
     )
     contract = await _contract(dataset_id)
+    contract_start = date.fromisoformat(str(contract["window_start"]))
+    contract_end = date.fromisoformat(str(contract["window_end"]))
+    if (start is None) != (end is None):
+        raise ValueError("趋势日期范围必须同时提供 start 和 end")
+    try:
+        selected_start = contract_start if start is None else date.fromisoformat(start)
+        selected_end = contract_end if end is None else date.fromisoformat(end)
+    except ValueError as error:
+        raise ValueError("趋势日期范围必须使用 YYYY-MM-DD 格式") from error
+    if selected_start > selected_end:
+        raise ValueError("趋势日期范围的开始日期不能晚于结束日期")
+    if selected_start < contract_start or selected_end > contract_end:
+        raise ValueError(
+            f"趋势日期必须在数据集窗口 {contract_start.isoformat()} 至 {contract_end.isoformat()} 内"
+        )
+    requested_window = start is not None and end is not None
 
     behavior_clause = ""
-    behavior_params: list[Any] = [dataset_id]
+    behavior_date_clause = " AND event_ts::date >= %s AND event_ts::date <= %s"
+    behavior_params: list[Any] = [dataset_id, selected_start, selected_end]
     order_clause = ""
-    order_params: list[Any] = [dataset_id]
+    order_date_clause = " AND o.ordered_at::date >= %s AND o.ordered_at::date <= %s"
+    order_params: list[Any] = [dataset_id, selected_start, selected_end]
     order_join = ""
     if dimension in {"item", "category"} and value is not None:
         try:
@@ -333,7 +353,7 @@ async def analytics_trend(
                    COUNT(*) FILTER (WHERE behavior_type = 'cart') AS cart,
                    COUNT(*) FILTER (WHERE behavior_type = 'buy') AS buy
             FROM commerce.dataset_behavior_events
-            WHERE dataset_id = %s{behavior_clause}
+            WHERE dataset_id = %s{behavior_date_clause}{behavior_clause}
             GROUP BY event_ts::date
             ORDER BY stat_date
             """,
@@ -348,7 +368,7 @@ async def analytics_trend(
         """
         + order_join
         + f"""
-        WHERE o.dataset_id = %s{order_clause}
+        WHERE o.dataset_id = %s{order_date_clause}{order_clause}
         GROUP BY o.ordered_at::date
         ORDER BY stat_date
         """,
@@ -357,11 +377,9 @@ async def analytics_trend(
 
     behavior_by_date = {str(row["stat_date"]): row for row in behavior_rows}
     orders_by_date = {str(row["stat_date"]): row for row in order_rows}
-    window_start = date.fromisoformat(str(contract["window_start"]))
-    window_end = date.fromisoformat(str(contract["window_end"]))
     rows: list[dict[str, Any]] = []
-    cursor = window_start
-    while cursor <= window_end:
+    cursor = selected_start
+    while cursor <= selected_end:
         date_key = cursor.isoformat()
         behavior = behavior_by_date.get(date_key, {})
         orders = orders_by_date.get(date_key, {})
@@ -392,18 +410,32 @@ async def analytics_trend(
             "orders": "订单数",
             "net_sales": "合成成交价减合成退款",
         },
+        "window": {
+            "start": selected_start.isoformat(),
+            "end": selected_end.isoformat(),
+        },
         "rows": rows,
     }
-    if dimension is not None and value is not None:
-        payload["context_url"] = (
-            "/analytics-workbench?view=drilldown&dataset_id="
-            f"{quote(dataset_id)}&dimension={quote(dimension)}&value={quote(value)}"
-            + (
-                f"&filter_dimension={quote(filter_dimension)}&filter_value={quote(filter_value)}"
-                if filter_dimension and filter_value
-                else ""
-            )
+    context_view = "drilldown" if dimension is not None and value is not None else "trend"
+    context_url = (
+        f"/analytics-workbench?view={context_view}&dataset_id={quote(dataset_id)}"
+        + (
+            f"&dimension={quote(dimension)}&value={quote(value)}"
+            if dimension is not None and value is not None
+            else ""
         )
+        + (
+            f"&filter_dimension={quote(filter_dimension)}&filter_value={quote(filter_value)}"
+            if filter_dimension and filter_value
+            else ""
+        )
+        + (
+            f"&start={quote(selected_start.isoformat())}&end={quote(selected_end.isoformat())}"
+            if requested_window
+            else ""
+        )
+    )
+    payload["context_url"] = context_url
     return _response(dataset_id, contract, **payload)
 
 

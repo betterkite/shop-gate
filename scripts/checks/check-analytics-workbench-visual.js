@@ -12,6 +12,7 @@ const baseUrl = (process.env.ANALYTICS_WORKBENCH_URL || 'http://localhost:3000')
 const commerceApiBase = (process.env.SHOPGATE_MARKET_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28-elasticity-v1';
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
+const trendUrl = `${baseUrl}/analytics-workbench?view=trend&dataset_id=${encodeURIComponent(datasetId)}&start=2025-11-04&end=2025-11-04`;
 const scopedOverviewUrl = `${baseUrl}/analytics-workbench?view=overview&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const scopedChannelDrilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=channel&value=organic&filter_dimension=category&filter_value=10009`;
 const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
@@ -109,6 +110,10 @@ async function inspectProfile(browser, storageState, profile) {
         table: document.querySelectorAll('table').length > 0,
         keepFilterLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('回到总览（保留当前筛选）')),
         contextLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('打开这份明细结果')),
+        trendDateLink: [...document.querySelectorAll('a')].some((link) => {
+          const href = link.getAttribute('href') || '';
+          return href.includes('view=trend') && href.includes('start=') && href.includes('end=');
+        }),
       };
     });
     fs.mkdirSync(outputDir, { recursive: true });
@@ -120,6 +125,7 @@ async function inspectProfile(browser, storageState, profile) {
     if (!state.metrics) problems.push(`${profile.id}: 缺少中文指标标签`);
     if (!state.table) problems.push(`${profile.id}: 缺少下钻结果表`);
     if (!state.keepFilterLink || !state.contextLink) problems.push(`${profile.id}: 缺少筛选保留或上下文链接`);
+    if (!state.trendDateLink) problems.push(`${profile.id}: 趋势日期没有进入日趋势明细的链接`);
     problems.push(...failedResources.map((item) => `${profile.id}: 资源失败 ${item}`));
     problems.push(...pageErrors.map((item) => `${profile.id}: 页面错误 ${item}`));
 
@@ -169,8 +175,24 @@ async function inspectProfile(browser, storageState, profile) {
       if (!scopedOverview.retentionLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的用户留存入口`);
       if (!scopedOverview.replenishmentLink) problems.push(`${profile.id}: 筛选总览缺少保留范围的补货参考入口`);
       if (!scopedOverview.channelPanel || !scopedOverview.channelScopeNote || !scopedOverview.inventoryPanel || !scopedOverview.lifecyclePanel || !scopedOverview.retentionPanel || !scopedOverview.replenishmentPanel) problems.push(`${profile.id}: 筛选总览缺少关联分析模块或口径说明`);
-      const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
+    const scopedOverviewScreenshotPath = path.join(outputDir, `scoped-overview-${profile.id}-${timestamp}.png`);
       await page.screenshot({ path: scopedOverviewScreenshotPath, fullPage: true });
+    }
+
+    const trendResponse = await gotoWithRetry(page, trendUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    if (!trendResponse?.ok() || new URL(page.url()).pathname === '/login') {
+      problems.push(`${profile.id}: 日趋势明细页请求或登录失败`);
+    } else {
+      await page.locator('main').getByRole('heading', { name: '日趋势明细', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      const trendState = await page.evaluate(() => {
+        const text = document.body.innerText;
+        return {
+          selectedWindow: text.includes('当前只查看 2025-11-04 至 2025-11-04'),
+          oneDay: [...document.querySelectorAll('a')].filter((link) => link.getAttribute('href')?.includes('view=trend') && link.getAttribute('href')?.includes('start=2025-11-04') && link.getAttribute('href')?.includes('end=2025-11-04')).length === 1,
+          backLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('返回上一级')),
+        };
+      });
+      if (!trendState.selectedWindow || !trendState.oneDay || !trendState.backLink) problems.push(`${profile.id}: 日趋势明细未按选择日期展示或缺少返回入口`);
     }
 
     const scopedChannelResponse = await gotoWithRetry(page, scopedChannelDrilldownUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });

@@ -140,6 +140,56 @@ def test_analytics_trend_rejects_partial_filter() -> None:
         asyncio.run(analytics_trend("retail-trend", "item", None))
 
 
+def test_analytics_trend_applies_selected_date_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+    params_seen: list[tuple[object, ...]] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        params_seen.append(params)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-trend-window",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 3),
+            }]
+        if calls == 2:
+            return [{"stat_date": date(2025, 1, 1), "pv": 99, "buy": 9}]
+        return [{"stat_date": date(2025, 1, 3), "orders": 8, "net_sales": 80}]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(analytics_trend(
+        "retail-trend-window",
+        start="2025-01-02",
+        end="2025-01-02",
+    ))
+
+    assert "event_ts::date >= %s" in queries[1]
+    assert "o.ordered_at::date >= %s" in queries[2]
+    assert params_seen[1] == ("retail-trend-window", date(2025, 1, 2), date(2025, 1, 2))
+    assert params_seen[2] == ("retail-trend-window", date(2025, 1, 2), date(2025, 1, 2))
+    assert result["window"] == {"start": "2025-01-02", "end": "2025-01-02"}
+    assert result["context_url"].endswith("&start=2025-01-02&end=2025-01-02")
+    assert result["rows"] == [{
+        "stat_date": "2025-01-02",
+        "pv": 0,
+        "fav": 0,
+        "cart": 0,
+        "buy": 0,
+        "orders": 0,
+        "net_sales": 0.0,
+    }]
+
+
 def test_analytics_trend_does_not_claim_unattributed_behavior_for_channel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -207,7 +257,7 @@ def test_analytics_trend_keeps_parent_category_for_channel_scope(
     assert calls == 2
     assert "JOIN commerce.dataset_item_economics i" in queries[1]
     assert "i.category_id = %s" in queries[1]
-    assert params_seen[1] == ("retail-trend", "organic", 10)
+    assert params_seen[1] == ("retail-trend", date(2025, 1, 1), date(2025, 1, 1), "organic", 10)
     assert result["filter"] == {
         "dimension": "channel",
         "value": "organic",

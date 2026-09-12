@@ -21,7 +21,7 @@ const API_BASE_URL = (
 const DEFAULT_DATASET_ID = process.env.SHOPGATE_RETAIL_ANALYTICS_DATASET_ID || 'retail-demo-expanded-v1';
 
 type JsonRecord = Record<string, unknown>;
-type View = 'overview' | 'customers' | 'retention' | 'channels' | 'profit' | 'inventory' | 'replenishment' | 'lifecycle' | 'elasticity' | 'drilldown';
+type View = 'overview' | 'customers' | 'retention' | 'channels' | 'profit' | 'inventory' | 'replenishment' | 'lifecycle' | 'elasticity' | 'trend' | 'drilldown';
 type Props = {
   searchParams?: Promise<{
     view?: string;
@@ -36,6 +36,8 @@ type Props = {
     health?: string;
     priority?: string;
     price_band?: string;
+    start?: string;
+    end?: string;
   }>;
 };
 
@@ -49,6 +51,7 @@ const VIEW_LABELS: Record<Exclude<View, 'drilldown'>, string> = {
   replenishment: '补货参考',
   lifecycle: '商品阶段',
   elasticity: '价格带',
+  trend: '日趋势',
 };
 
 const DRILLDOWN_LABELS: Record<string, string> = {
@@ -310,6 +313,17 @@ function Limitations({ payload }: { payload: JsonRecord | null }) {
   return <p className="text-xs leading-5 text-muted-foreground">口径边界：{limitations.map(String).join('；') || '请先读取数据集契约。'}</p>;
 }
 
+function trendDateHref(payload: JsonRecord | null, dateValue: string): string | null {
+  const contextUrl = typeof payload?.context_url === 'string' ? payload.context_url : '';
+  if (!contextUrl) return null;
+  const [pathname, queryString = ''] = contextUrl.split('?');
+  const query = new URLSearchParams(queryString);
+  query.set('view', 'trend');
+  query.set('start', dateValue);
+  query.set('end', dateValue);
+  return `${pathname}?${query.toString()}`;
+}
+
 function TrendChart({ payload, title, description }: { payload: JsonRecord | null; title: string; description: string }) {
   const rows = asArray(payload?.rows);
   const maxPv = Math.max(...rows.map((row) => number(row.pv)), 1);
@@ -318,8 +332,12 @@ function TrendChart({ payload, title, description }: { payload: JsonRecord | nul
   return <Panel title={title} description={description}>
     {rows.length === 0 ? <p className="text-sm text-muted-foreground">当前范围没有可展示的日趋势数据。</p> : <>
       <div className="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-sky-500" />页面浏览量（PV）</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />购买行为</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-violet-500" />订单数</span></div>
-      <div className="grid gap-2">{rows.map((row) => <div key={String(row.stat_date)} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-xs"><span className="text-muted-foreground">{text(row.stat_date)}</span><div className="grid gap-1"><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-sky-500" style={{ width: `${Math.max(number(row.pv) > 0 ? 3 : 0, number(row.pv) / maxPv * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(number(row.buy) > 0 ? 3 : 0, number(row.buy) / maxBuy * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.max(number(row.orders) > 0 ? 3 : 0, number(row.orders) / maxOrders * 100)}%` }} /></div></div><span className="text-right leading-5 text-muted-foreground">{displayNumber(row.pv)} / {displayNumber(row.buy)} / {displayNumber(row.orders)}</span></div>)}</div>
-      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">每行依次显示页面浏览、购买行为、订单数；三种颜色按各自指标的最高日归一化，右侧保留真实数量。</p>
+      <div className="grid gap-2">{rows.map((row) => {
+        const dateValue = text(row.stat_date);
+        const dateHref = trendDateHref(payload, dateValue);
+        return <div key={String(row.stat_date)} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-xs"><span className="text-muted-foreground">{dateHref ? <Link scroll={false} href={dateHref} className="font-medium text-primary hover:underline" aria-label={`查看 ${dateValue} 的趋势`}>{dateValue}</Link> : dateValue}</span><div className="grid gap-1"><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-sky-500" style={{ width: `${Math.max(number(row.pv) > 0 ? 3 : 0, number(row.pv) / maxPv * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(number(row.buy) > 0 ? 3 : 0, number(row.buy) / maxBuy * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.max(number(row.orders) > 0 ? 3 : 0, number(row.orders) / maxOrders * 100)}%` }} /></div></div><span className="text-right leading-5 text-muted-foreground">{displayNumber(row.pv)} / {displayNumber(row.buy)} / {displayNumber(row.orders)}</span></div>;
+      })}</div>
+      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">每行依次显示页面浏览、购买行为、订单数；三种颜色按各自指标的最高日归一化，右侧保留真实数量。点击日期可查看当天明细。</p>
     </>}
   </Panel>;
 }
@@ -431,7 +449,7 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       view: params?.view || 'overview',
       dataset_id: text(datasetContracts[0].dataset_id),
     });
-    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health', 'priority', 'price_band'] as const) {
+    for (const key of ['dimension', 'value', 'filter_dimension', 'filter_value', 'page', 'stage', 'segment', 'health', 'priority', 'price_band', 'start', 'end'] as const) {
       if (params?.[key]) canonicalQuery.set(key, params[key]);
     }
     redirect(`/analytics-workbench?${canonicalQuery.toString()}`);
@@ -470,6 +488,8 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const priceBand = PRICE_BAND_OPTIONS.includes(requestedPriceBand as (typeof PRICE_BAND_OPTIONS)[number])
     ? requestedPriceBand
     : '';
+  const trendStart = params?.start?.trim() || undefined;
+  const trendEnd = params?.end?.trim() || undefined;
   const lifecycleQuery = new URLSearchParams({
     dataset_id: datasetId,
     limit: '20',
@@ -513,14 +533,22 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   addScope(lifecycleQuery, scopeDimension, scopeValue, ['item', 'category']);
   addScope(elasticityQuery, scopeDimension, scopeValue, ['item', 'category']);
   const trendQuery = new URLSearchParams({ dataset_id: datasetId });
-  const trendDimension = params?.view === 'drilldown' ? params?.dimension : scopeDimension;
-  const trendValue = params?.view === 'drilldown' ? params?.value : scopeValue;
+  const trendDimension = params?.view === 'drilldown' || params?.view === 'trend'
+    ? params?.dimension || scopeDimension
+    : scopeDimension;
+  const trendValue = params?.view === 'drilldown' || params?.view === 'trend'
+    ? params?.value || scopeValue
+    : scopeValue;
   if (trendDimension && trendValue) {
     trendQuery.set('dimension', trendDimension);
     trendQuery.set('value', trendValue);
-    if (params?.view === 'drilldown') {
+    if (params?.view === 'drilldown' || params?.view === 'trend') {
       addScope(trendQuery, itemScopeDimension, scopeValue, ['item', 'category']);
     }
+  }
+  if (view === 'trend' && trendStart && trendEnd) {
+    trendQuery.set('start', trendStart);
+    trendQuery.set('end', trendEnd);
   }
   const [overview, rfm, retention, channels, profit, inventory, replenishment, lifecycle, elasticity] = await Promise.all([
     fetchAnalytics(`/api/v1/commerce/analytics/overview?${scopeQuery.toString()}`),
@@ -589,6 +617,9 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
     : params?.dimension && params?.value
       ? filteredOverviewHref(datasetId, params.dimension, params.value)
       : hrefFor('overview', datasetId);
+  const trendBackHref = params?.dimension && params?.value
+    ? drilldownHref(datasetId, params.dimension, params.value, itemScopeDimension, scopeValue)
+    : hrefFor('overview', datasetId, scopeDimension, scopeValue);
 
   return (
     <RetailPageShell
@@ -614,6 +645,18 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       />
 
       {!overview ? <Panel title="暂时无法读取经营分析数据"><p className="text-sm text-destructive">commerce-data 未返回扩展数据集，请确认服务已启动且 dataset_id 有效。</p></Panel> : null}
+
+      {view === 'trend' ? (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+            <div><h2 className="font-semibold">日趋势明细</h2><p className="mt-1 text-xs leading-5 text-sky-900/80">当前只查看 {trendStart || text(contract?.window_start)} 至 {trendEnd || text(contract?.window_end)}；页面浏览量、购买行为和订单数均按这个日期范围重新统计。</p></div>
+            <Link href={trendBackHref} className="shrink-0 font-semibold text-primary hover:underline">返回上一级</Link>
+          </div>
+          {trendDimension && trendValue ? <TrendScopeSummary payload={trend} dimension={trendDimension} value={trendValue} /> : null}
+          <TrendChart payload={trend} title={trendDimension && trendValue ? `筛选范围趋势：${DIMENSION_LABELS[trendDimension] || trendDimension} ${trendValue}` : '全店日趋势'} description="点击总览或明细趋势中的日期，可进入当天的趋势明细；右侧数字是真实数量。" />
+          <Limitations payload={trend} />
+        </div>
+      ) : null}
 
       {view === 'overview' ? (
         <div className="space-y-5">

@@ -312,12 +312,14 @@ def create_commerce_router() -> APIRouter:
         value: Annotated[str | None, Query(max_length=120)] = None,
         filter_dimension: Annotated[str | None, Query(max_length=20)] = None,
         filter_value: Annotated[str | None, Query(max_length=120)] = None,
+        start: Annotated[str | None, Query(max_length=10)] = None,
+        end: Annotated[str | None, Query(max_length=10)] = None,
     ) -> dict[str, Any]:
         """返回可按下钻范围刷新的日趋势。"""
 
         try:
             return await analytics.analytics_trend(
-                dataset_id, dimension, value, filter_dimension, filter_value
+                dataset_id, dimension, value, filter_dimension, filter_value, start, end
             )
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error

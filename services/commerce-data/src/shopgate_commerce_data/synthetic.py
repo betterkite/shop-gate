@@ -391,7 +391,9 @@ def synthetic_analytics_dataset(
         item = economics_by_item[event["item_id"]]
         rng = _rng(seed, dataset_id, "order", order_index)
         quantity = 1 if rng.random() < 0.9 else 2
-        selling_price = round(item["list_price"] * (1 - item["discount_rate"]), 2)
+        promotion_delta = rng.choice((-0.05, 0.0, 0.0, 0.05))
+        effective_discount = min(max(item["discount_rate"] + promotion_delta, 0.0), 0.35)
+        selling_price = round(item["list_price"] * (1 - effective_discount), 2)
         gross = round(selling_price * quantity, 2)
         refund = gross if rng.random() < 0.04 else 0.0
         orders.append(
@@ -481,13 +483,13 @@ def synthetic_analytics_dataset(
         ],
         "limitations": [
             "仅用于演示数据分析，不代表真实用户、订单、库存或财务事实",
-            "订单由合成行为 buy 事件派生，不能用于真实收入确认或财务结算",
+            "订单由合成行为 buy 事件派生，不能用于真实收入确认或财务结算；价格弹性仅用于演示",
             "渠道和活动归因是确定性模拟，不是广告平台回传或实验结果",
             "库存快照没有真实仓库流水，不能单独作为补货结论",
         ],
         "generation_rule": (
             "以显式 seed、dataset_id 和实体 ID 独立播种；行为按周内需求和头腰尾商品分布生成，"
-            "订单从 buy 事件派生，成本/折扣/库存按实体与日期确定性生成。"
+            "订单从 buy 事件派生，成本/折扣/促销价格/库存按实体与日期确定性生成。"
         ),
     }
     return {
@@ -657,7 +659,9 @@ def analytics_dataset_from_behavior_events(
         item = economics_by_item[int(event["item_id"])]
         rng = _rng(seed, dataset_id, "order", order_index)
         quantity = 1 if rng.random() < 0.9 else 2
-        selling_price = round(item["list_price"] * (1 - item["discount_rate"]), 2)
+        promotion_delta = rng.choice((-0.05, 0.0, 0.0, 0.05))
+        effective_discount = min(max(item["discount_rate"] + promotion_delta, 0.0), 0.35)
+        selling_price = round(item["list_price"] * (1 - effective_discount), 2)
         gross = round(selling_price * quantity, 2)
         refund = gross if rng.random() < 0.04 else 0.0
         orders.append(
@@ -747,13 +751,13 @@ def analytics_dataset_from_behavior_events(
         ],
         "limitations": [
             "行为事件来自上传 CSV，其余扩展字段为合成补齐",
-            "合成价格、成本和订单扩展不能用于真实收入确认或财务结算",
+            "合成价格、成本和订单扩展不能用于真实收入确认或财务结算；价格弹性仅用于演示",
             "渠道和活动归因是确定性模拟，不是广告平台回传或实验结果",
             "库存快照没有真实仓库流水，不能单独作为补货结论",
         ],
         "generation_rule": (
             "保留 CSV 行为事件；以显式 seed、dataset_id、实体 ID 和日期确定性补齐画像、"
-            "会话归因、价格、成本、订单扩展和库存快照。"
+            "会话归因、带促销波动的价格、成本、订单扩展和库存快照。"
         ),
     }
     return {

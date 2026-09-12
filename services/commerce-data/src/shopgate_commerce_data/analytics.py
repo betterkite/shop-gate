@@ -535,7 +535,7 @@ async def lifecycle_metrics(
 
 
 async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
-    """提供价格带对比；没有同商品多价格样本时不返回伪造的弹性系数。"""
+    """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
 
     contract = await _contract(dataset_id)
     rows = await fetch_all(
@@ -580,17 +580,91 @@ async def price_band_comparison(dataset_id: str) -> dict[str, Any]:
         }
         for row in rows
     ]
-    return _response(
-        dataset_id,
-        contract,
-        status="insufficient_data_for_elasticity",
-        elasticity_estimate=None,
-        explanation="当前每个商品只有一个合成价格观察值，缺少同商品多价格时点或实验对照，无法计算价格弹性。",
-        required_for_estimation=[
+    elasticity_rows = await fetch_all(
+        """
+        WITH price_points AS (
+          SELECT item_id, selling_price,
+                 SUM(quantity)::double precision AS units,
+                 COUNT(DISTINCT order_id) AS orders
+          FROM commerce.dataset_orders
+          WHERE dataset_id = %s
+            AND selling_price > 0
+            AND quantity > 0
+            AND payment_status = 'paid'
+          GROUP BY item_id, selling_price
+        ), eligible AS (
+          SELECT item_id,
+                 COUNT(*) AS price_points,
+                 MIN(selling_price) AS min_price,
+                 MAX(selling_price) AS max_price,
+                 SUM(units) AS units,
+                 SUM(orders) AS orders,
+                 REGR_SLOPE(
+                   LN(NULLIF(units, 0)),
+                   LN(NULLIF(selling_price, 0))
+                 ) AS elasticity
+          FROM price_points
+          GROUP BY item_id
+          HAVING COUNT(*) >= 2
+        )
+        SELECT e.item_id, i.category_id, e.price_points, e.min_price,
+               e.max_price, e.units, e.orders, e.elasticity
+        FROM eligible e
+        JOIN commerce.dataset_item_economics i
+          ON i.dataset_id = %s AND i.item_id = e.item_id
+        WHERE e.elasticity IS NOT NULL
+        ORDER BY e.elasticity ASC, e.item_id
+        LIMIT 100
+        """,
+        (dataset_id, dataset_id),
+    )
+    item_elasticities = [
+        {
+            "item_id": row["item_id"],
+            "category_id": row["category_id"],
+            "price_points": int(row["price_points"] or 0),
+            "min_price": round(_number(row["min_price"]), 2),
+            "max_price": round(_number(row["max_price"]), 2),
+            "units": int(row["units"] or 0),
+            "orders": int(row["orders"] or 0),
+            "elasticity": round(_number(row["elasticity"]), 4),
+        }
+        for row in elasticity_rows
+    ]
+    average_elasticity = (
+        sum(row["elasticity"] for row in item_elasticities) / len(item_elasticities)
+        if item_elasticities else None
+    )
+    if item_elasticities:
+        status = "estimated"
+        explanation = (
+            "基于同一商品至少两个实际成交价格点与对应购买量，用对数回归估算需求弹性；"
+            "这是演示数据分析，不是因果实验结论。"
+        )
+        required_for_estimation: list[str] = []
+    else:
+        status = "insufficient_data_for_elasticity"
+        explanation = (
+            "当前数据缺少同一商品至少两个有效成交价格点，无法计算价格弹性；"
+            "仅展示价格带对比。"
+        )
+        required_for_estimation = [
             "同一商品多个价格时点",
             "对应销量或转化变化",
             "活动/流量等干扰因素",
-        ],
+        ]
+    return _response(
+        dataset_id,
+        contract,
+        status=status,
+        elasticity_estimate=(
+            round(average_elasticity, 4) if average_elasticity is not None else None
+        ),
+        estimation_method="log_demand_on_log_price" if item_elasticities else None,
+        item_elasticities=item_elasticities,
+        eligible_item_count=len(item_elasticities),
+        explanation=explanation,
+        required_for_estimation=required_for_estimation,
         price_band_comparison=bands,
     )
 

@@ -541,6 +541,7 @@ export function retailAnalyticsBiPageTemplate(): string {
   const profit = asRecord(datasets.analyticsProfit);
   const inventory = asRecord(datasets.analyticsInventory);
   const channels = asRecord(datasets.analyticsChannels);
+  const elasticity = asRecord(datasets.analyticsElasticity);
   const kpis = asArray(bi?.kpis).map(asRecord).filter((record): record is JsonRecord => record !== null);
   const daily = asArray(bi?.daily).map(asRecord).filter((record): record is JsonRecord => record !== null);
   const stageCounts = asRecord(lifecycle?.stage_counts) ?? {};
@@ -549,6 +550,8 @@ export function retailAnalyticsBiPageTemplate(): string {
   const inventoryRows = asArray(inventory?.items).map(asRecord).filter((record): record is JsonRecord => record !== null).slice(0, 10);
   const overviewMetrics = asRecord(overview?.metrics);
   const totalProfit = asRecord(profit?.total);
+  const elasticityRows = asArray(elasticity?.item_elasticities).map(asRecord).filter((record): record is JsonRecord => record !== null).slice(0, 8);
+  const elasticityEstimated = elasticity?.status === 'estimated';
   return (
     <main className="dashboard-shell" data-visual-language="retail-workbench">
       <section className="hero-panel">
@@ -562,7 +565,8 @@ export function retailAnalyticsBiPageTemplate(): string {
       <section className="chart-zone"><h2>经营趋势：流量、转化与成交</h2>{daily.length > 0 ? <div dangerouslySetInnerHTML={{ __html: svgDailyLines(daily as Array<{ stat_date: string } & Record<string, number>>) }} /> : <p>趋势数据缺失。</p>}<p className="footnote">行为数据按窗口统计；成交金额、成本和毛利为演示或估算口径。</p></section>
       <section className="chart-zone bi-two-column"><div><h2>商品经营阶段</h2><table className="dense-table"><thead><tr><th>阶段</th><th>商品数</th></tr></thead><tbody>{Object.entries(stageCounts).map(([label, value]) => <tr key={label}><td>{label}</td><td>{displayNumber(value, 0)}</td></tr>)}</tbody></table><p className="footnote">阶段根据窗口内首次购买、最近购买和活跃天数推断，不等于真实上下架生命周期。</p></div><div><h2>渠道与订单转化</h2><table className="dense-table"><thead><tr><th>渠道</th><th>会话</th><th>订单</th><th>订单转化率</th></tr></thead><tbody>{channelRows.map((row, index) => <tr key={'channel-' + index}><td>{text(row.channel_name)}</td><td>{displayNumber(row.sessions, 0)}</td><td>{displayNumber(row.orders, 0)}</td><td>{displayPercent(row.order_conversion)}</td></tr>)}</tbody></table></div></section>
       <section className="chart-zone bi-two-column"><div><h2>渠道毛利拆解</h2><table className="dense-table"><thead><tr><th>渠道</th><th>销售额</th><th>毛利</th><th>毛利率</th></tr></thead><tbody>{profitRows.map((row, index) => <tr key={'profit-' + index}><td>{text(row.channel_name)}</td><td>{displayMoney(row.gross_sales)}</td><td>{displayMoney(row.gross_profit)}</td><td>{displayPercent(row.gross_margin)}</td></tr>)}</tbody></table></div><div><h2>库存健康样本</h2><table className="dense-table"><thead><tr><th>商品</th><th>库存</th><th>窗口销量</th><th>可售天数</th><th>判断</th></tr></thead><tbody>{inventoryRows.map((row, index) => <tr key={'inventory-' + index}><td>{text(row.item_id)}</td><td>{displayNumber(row.closing_stock, 0)}</td><td>{displayNumber(row.sold_units, 0)}</td><td>{displayNumber(row.days_cover, 1)} 天</td><td>{text(row.health_label)}</td></tr>)}</tbody></table></div></section>
-      <section className="action-strip bi-action-strip"><article><span>经营建议</span><strong>优先查看衰退风险和有库存但无销量的商品。</strong></article><article><span>数据边界</span><strong>用户、渠道、成本、退款和库存快照为合成数据。</strong></article><article><span>价格弹性</span><strong>当前缺少同商品多价格观察，不输出弹性系数。</strong></article></section>
+      <section className="chart-zone"><h2>价格与成交关系参考</h2>{elasticityEstimated && elasticityRows.length > 0 ? <table className="dense-table"><thead><tr><th>商品</th><th>价格观察次数</th><th>最低成交价</th><th>最高成交价</th><th>购买件数</th><th>价格弹性参考</th></tr></thead><tbody>{elasticityRows.map((row, index) => <tr key={'elasticity-' + index}><td>{text(row.item_id)}</td><td>{displayNumber(row.price_points, 0)}</td><td>{displayMoney(row.min_price)}</td><td>{displayMoney(row.max_price)}</td><td>{displayNumber(row.units, 0)}</td><td>{text(row.elasticity)}</td></tr>)}</tbody></table> : <p className="empty-state">{text(elasticity?.explanation, '当前数据没有足够的多价格成交观察，暂不计算价格弹性。')}</p>}<p className="footnote">价格弹性参考基于同一商品的成交价格和购买件数，仅用于演示分析；它不是价格实验结论，调价前还要结合活动、流量和利润判断。</p></section>
+      <section className="action-strip bi-action-strip"><article><span>经营建议</span><strong>优先查看衰退风险和有库存但无销量的商品。</strong></article><article><span>数据边界</span><strong>用户、渠道、成本、退款和库存快照为合成数据。</strong></article><article><span>价格弹性</span><strong>{elasticityEstimated ? '已提供多价格成交关系参考。' : '缺少同商品多价格成交观察，暂不计算。'}</strong></article></section>
       <footer className="data-quality-footer"><span>数据更新时间：{windowLabel(data.window)}。</span><span>行为数据：{String(meta?.behavior_source ?? '') === 'synthetic' ? '演示行为数据' : '真实用户行为数据'}</span><span>扩展分析数据集：{text(overview?.dataset_id, '未声明')}</span>{syntheticBadge()}</footer>
     </main>
   );`,

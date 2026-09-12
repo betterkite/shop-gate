@@ -10,6 +10,7 @@ from shopgate_commerce_data.analytics import (
     classify_lifecycle_stage,
     classify_rfm,
     inventory_health_label,
+    price_band_comparison,
 )
 
 
@@ -87,3 +88,100 @@ def test_lifecycle_stage_rules_are_user_facing_and_stable() -> None:
     assert classify_lifecycle_stage(
         window_start, window_end, date(2025, 11, 4), date(2025, 11, 10)
     )[0] == "衰退风险"
+
+
+def test_price_band_comparison_reports_estimated_elasticity_for_multiple_prices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p28",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "p28_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 28,
+                "row_counts": {},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return [{
+                "price_band": "50-200",
+                "item_count": 1,
+                "orders": 8,
+                "units": 8,
+                "net_sales": 800,
+                "average_discount_rate": 0.1,
+            }]
+        return [{
+            "item_id": 1001,
+            "category_id": 10,
+            "price_points": 2,
+            "min_price": 90,
+            "max_price": 110,
+            "units": 8,
+            "orders": 8,
+            "elasticity": -1.25,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(price_band_comparison("retail-p28"))
+
+    assert result["status"] == "estimated"
+    assert result["estimation_method"] == "log_demand_on_log_price"
+    assert result["elasticity_estimate"] == -1.25
+    assert result["eligible_item_count"] == 1
+    assert result["item_elasticities"][0]["price_points"] == 2
+
+
+def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_prices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p28",
+                "version": 1,
+                "source_kind": "synthetic",
+                "source_name": "p28_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": 28,
+                "row_counts": {},
+                "synthetic_fields": ["price"],
+                "limitations": [],
+                "generation_rule": "test",
+            }]
+        if calls == 2:
+            return []
+        return []
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(price_band_comparison("retail-p28"))
+
+    assert result["status"] == "insufficient_data_for_elasticity"
+    assert result["elasticity_estimate"] is None
+    assert result["eligible_item_count"] == 0
+    assert result["required_for_estimation"]

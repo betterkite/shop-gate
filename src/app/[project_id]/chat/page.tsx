@@ -9,7 +9,8 @@ import { SiTypescript, SiGo, SiRuby, SiSvelte, SiJson, SiYaml, SiCplusplus } fro
 import { VscJson } from 'react-icons/vsc';
 import { ExternalLink, Files, MessageSquareText, MonitorPlay } from 'lucide-react';
 import ChatLog from '@/components/chat/ChatLog';
-import { ProjectSettings } from '@/components/settings/ProjectSettings';
+import { ChatProjectSettings } from './ChatProjectSettings';
+import { ChatAvailabilityState } from './ChatAvailabilityState';
 import ChatInput, { type UploadedImage } from '@/components/chat/ChatInput';
 import { DashboardGenerationWaiting } from '@/components/chat/DashboardGenerationWaiting';
 import { ChatErrorBoundary } from '@/components/ErrorBoundary';
@@ -41,8 +42,6 @@ import {
 } from './pane-layout';
 import { planPreviewReconciliation } from './preview-reconciliation';
 import { buildQuestionInstruction } from '@/components/chat/question-composer';
-
-// No longer loading ProjectSettings (managed by global settings on main page)
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
 const ACTIVE_RETAIL_DATASET_STORAGE_KEY = 'shopgate.active-retail-dataset-id';
@@ -2894,35 +2893,13 @@ const persistProjectPreferences = useCallback(
   // Show loading UI if project is initializing
 
   if (currentProjectAvailability !== 'available') {
-    const statusMessage = currentProjectAvailability === 'missing'
-      ? '项目不存在，正在返回首页…'
-      : currentProjectAvailability === 'error'
-        ? '项目暂时无法加载，请返回首页后重试。'
-        : '正在载入项目…';
-    return (
-      <main className="flex min-h-dvh items-center justify-center bg-background px-6 text-center">
-        <div>
-          {currentProjectAvailability === 'error' ? (
-            <button
-              type="button"
-              onClick={() => router.replace('/')}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              返回首页
-            </button>
-          ) : (
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" aria-hidden="true" />
-          )}
-          <p className="mt-4 text-sm font-medium text-foreground">{statusMessage}</p>
-        </div>
-      </main>
-    );
+    return <ChatAvailabilityState status={currentProjectAvailability} onBack={() => router.replace('/')} />;
   }
 
   return (
     <>
       <style jsx global>{`
-        .qp-code-preview {
+        .sg-code-preview {
           color: #374151;
         }
       `}</style>
@@ -2943,7 +2920,7 @@ const persistProjectPreferences = useCallback(
               <FaArrowLeft size={13} />
             </button>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ee6b4d] to-[#d84d35] text-sm font-bold text-white shadow-[0_8px_20px_-10px_rgba(224,83,57,0.8)]">
-              Q
+              SG
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -3078,7 +3055,7 @@ const persistProjectPreferences = useCallback(
                     <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">Q</div>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-[10px] font-bold text-primary-foreground shadow-sm">SG</div>
                 <div className="min-w-0">
                   <h1 className="truncate text-sm font-bold text-foreground">{projectName || '正在载入项目...'}</h1>
                   {projectDescription && (
@@ -3093,7 +3070,7 @@ const persistProjectPreferences = useCallback(
                   <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="text-xs font-bold text-foreground">研究对话</p>
+                  <p className="text-xs font-bold text-foreground">经营对话</p>
                   <p className="text-[10px] text-muted-foreground">需求、过程与证据</p>
                 </div>
               </div>
@@ -3921,7 +3898,7 @@ const persistProjectPreferences = useCallback(
                               className="absolute inset-0 m-0 p-4 overflow-hidden text-[13px] leading-[19px] font-mono text-slate-800 whitespace-pre pointer-events-none"
                               style={{ fontFamily: "'Fira Code', 'Consolas', 'Monaco', monospace" }}
                             >
-                              <code className="qp-code-preview language-plaintext">{highlightedCode}</code>
+              <code className="sg-code-preview language-plaintext">{highlightedCode}</code>
                               <span className="block h-full min-h-[1px]" />
                             </pre>
                             <textarea
@@ -4104,13 +4081,12 @@ const persistProjectPreferences = useCallback(
       )}
 
       {/* Project Settings Modal */}
-      <ProjectSettings
+      <ChatProjectSettings
         isOpen={showGlobalSettings}
         onClose={() => setShowGlobalSettings(false)}
         projectId={projectId}
         projectName={projectName}
         projectDescription={projectDescription}
-        initialTab="services"
         onProjectUpdated={({ name, description }) => {
           setProjectName(name);
           setProjectDescription(description ?? '');

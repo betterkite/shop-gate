@@ -18,6 +18,7 @@
 - 新增日趋势接口并接入工作台：总览展示全店趋势；下钻页按当前商品、类目、渠道或活动刷新趋势；商品/类目保留 PV、购买行为、订单三组真实数量。渠道/活动没有行为事件归因时不再错误复用全店 PV，而是明确显示为 0。
 - 浏览器验收确认商品 `item:1000009` 下钻页显示 30 天趋势、PV 合计 `376`、购买 `19`、订单 `19`；“在总览中保留此筛选”可打开 `filter_dimension=item&filter_value=1000009`，页面明确提示其他 KPI 仍为全数据集口径。
 - Agent 任务提示已要求：下钻结果含 `context_url` 时向用户提供当前视图链接并说明数据集、维度和值；`action_suggestions` 只能作为分析参考，不得描述为已执行动作。
+- 聊天页面抽离项目设置弹窗和项目加载状态组件，页面从 4,121 行降至 4,097 行；`check:module-boundaries` 已通过。同步清理聊天页旧 `Q`、`qp-code-preview` 和“研究对话”命名，改为 Shop Gate 的 `SG`、`sg-code-preview` 和“经营对话”。
 
 ## 当前边界与下一步
 
@@ -28,4 +29,4 @@
 3. 将已支持的实体/数据集/时间范围继承继续扩展为可复用的多轮上下文，补齐维度和值、图表筛选条件及 Agent 回答中的上下文传递；
 4. 补充真实 DeepSeek 多轮 E2E 与桌面/移动视觉验收。
 
-`check:module-boundaries` 仍有继承的 `src/app/[project_id]/chat/page.tsx` 行数预算问题（4,122 行，超出 4,100 行上限），P30 后续会在拆分聊天页面时一并处理。
+`check:module-boundaries` 当前通过；聊天页面仍高于结构化目标 1,800 行，因此后续仍应继续拆分 generation controller、preview reconciliation、message transport 和页面布局，但不再阻塞当前门禁。

@@ -648,6 +648,8 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         apiBaseUrl={API_BASE_URL}
       />
 
+      {scopeDimension && scopeValue && view !== 'overview' && view !== 'drilldown' ? <div className="mb-5"><ScopeNotice dimension={scopeDimension} value={scopeValue} datasetId={datasetId} /></div> : null}
+
       {!overview ? <Panel title="暂时无法读取经营分析数据"><p className="text-sm text-destructive">commerce-data 未返回扩展数据集，请确认服务已启动且 dataset_id 有效。</p></Panel> : null}
 
       {view === 'trend' ? (

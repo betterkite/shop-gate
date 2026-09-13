@@ -211,7 +211,7 @@ describe('PreviewManager start concurrency', () => {
         /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/p\.sock$/,
       );
       expect(previewEnv.SHOPGATE_SANDBOX_COMMERCE_SOCKET).toMatch(
-        /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/m\.sock$/,
+        /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/c\.sock$/,
       );
     } else {
       expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toBeUndefined();

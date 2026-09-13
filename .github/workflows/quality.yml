@@ -272,6 +272,7 @@ jobs:
 
       - name: Run deterministic contract suite
         run: |
+          mkdir -p tmp
           set -o pipefail
           npm run benchmark:commerce:contract 2>&1 | tee tmp/contract-benchmark.log
 

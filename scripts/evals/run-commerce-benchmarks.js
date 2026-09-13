@@ -16,4 +16,4 @@ const retailCheck = path.join(
 );
 const result = spawnSync(process.execPath, [retailCheck], { stdio: 'inherit' });
 if (result.status !== 0) process.exit(result.status || 1);
-console.log('[eval-benchmarks] 金融基准运行器已随金融域移除；真实校验由零售 task-E2E 基准承担。');
+console.log('[eval-benchmarks] 合同基准统一委托零售 task-E2E 基准。');

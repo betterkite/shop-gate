@@ -80,7 +80,7 @@ export function baseDashboardWorkbenchCss(): string {
 
 .dashboard-shell[data-visual-language="retail-workbench"] .trend-chart,
 .dashboard-shell[data-visual-language="retail-workbench"] .volume-chart,
-.dashboard-shell[data-visual-language="retail-workbench"] .financial-chart,
+.dashboard-shell[data-visual-language="retail-workbench"] .profit-chart,
 .dashboard-shell[data-visual-language="retail-workbench"] .chart-empty-state,
 .dashboard-shell[data-visual-language="retail-workbench"] .correlation-row,
 .dashboard-shell[data-visual-language="retail-workbench"] .compact-row {

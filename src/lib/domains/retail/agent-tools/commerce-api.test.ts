@@ -72,7 +72,7 @@ describe('commerce_api_get allowlist', () => {
     const fetchImpl = vi.fn();
     const tool = createCommerceApiGetTool({ fetchImpl });
     for (const path of [
-      '/api/v1/quotes/history/600519',
+      '/api/v1/admin/secret',
       '/api/v1/commerce/../admin',
       '/api/v1/commerce/meta?x=1',
       '/api/v2/commerce/meta',

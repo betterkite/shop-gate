@@ -68,9 +68,9 @@ describe('PI Agent durable event projector', () => {
   });
 
   it('provides exact UTF-8 byte and SHA-256 audit helpers', () => {
-    expect(auditUtf8('量化 A')).toEqual({
+    expect(auditUtf8('电商 A')).toEqual({
       utf8Bytes: 8,
-      sha256: sha256('量化 A'),
+      sha256: sha256('电商 A'),
     });
     expect(sha256('abc')).toBe(
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'

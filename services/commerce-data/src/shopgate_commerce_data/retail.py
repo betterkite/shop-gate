@@ -89,7 +89,7 @@ async def fetch_all(sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, An
 async def resolve_entities(term: str, limit: int = 10) -> dict[str, Any]:
     """实体解析（PRD §7）：前缀显式形式 + 类目名/商品标题模糊匹配。
 
-    零售实体 ID 是任意大整数，不能像股票代码那样用位形正则识别；
+    零售实体 ID 是任意大整数，不能用固定长度规则识别；
     显式形式固定为 ``item:<id>`` / ``cat:<id>``，其余走名称匹配。
     """
 

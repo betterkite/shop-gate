@@ -108,9 +108,9 @@ describe('validation repair ownership', () => {
     expect(instruction).not.toContain('data_file/final/**');
     expect(instruction).not.toContain('evidence/**');
     expect(instruction).not.toContain('npm run build');
-    expect(instruction).not.toContain('app/api/market/[...path]/route.ts');
+    expect(instruction).not.toContain('app/api/commerce/[...path]/route.ts');
     expect(instruction).not.toContain('必须先读取');
-    expect(actions).not.toContain('market/[...path]');
+    expect(actions).not.toContain('legacy-data/[...path]');
     expect(writableGlobs).toEqual(['app/page.tsx', 'app/globals.css']);
   });
 

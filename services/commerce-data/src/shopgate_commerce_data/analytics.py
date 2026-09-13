@@ -155,7 +155,7 @@ def _response(dataset_id: str, contract: dict[str, Any], **payload: Any) -> dict
 
 
 def classify_rfm(recency_days: int, frequency: int, monetary: float, monetary_p75: float) -> str:
-    """用用户能理解的标签解释 RFM，而不是暴露金融术语。"""
+    """用用户能理解的标签解释 RFM，而不是暴露分析术语。"""
 
     if recency_days > 21:
         return "流失风险"

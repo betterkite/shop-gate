@@ -59,7 +59,7 @@ export function buildEvalTraceDiagnostics(
     ? eventAudit.stages.map(String)
     : [];
 
-  const intentFailure = failures.some((failure) => /澄清|意图|symbol|标的/u.test(failure));
+  const intentFailure = failures.some((failure) => /澄清|意图|entity|商品|类目/u.test(failure));
   const intentChecks = stageFromChecks(checks, ['intent_clarification', 'clarification_continuation']);
   const intentStatus = intentFailure ? 'failed' : intentChecks.status === 'unknown' ? 'passed' : intentChecks.status;
   const planningSignals = [
@@ -70,7 +70,7 @@ export function buildEvalTraceDiagnostics(
     : planningSignals.length > 0 || result.prefetch != null
       ? 'passed'
       : 'unknown';
-  const dataChecks = stageFromChecks(checks, ['final_data_file', 'evidence_files', 'market_proxy']);
+  const dataChecks = stageFromChecks(checks, ['final_data_file', 'evidence_files', 'commerce_proxy']);
   const dataStatus: EvalTraceStageStatus = oracle.passed === false
     ? 'failed'
     : oracle.warning === true
@@ -99,7 +99,7 @@ export function buildEvalTraceDiagnostics(
       : 'failed';
 
   const stages: EvalTraceStage[] = [
-    { id: 'intent', label: '意图与标的', status: intentStatus, signals: [...intentChecks.signals, ...failures.filter((item) => /澄清|意图|symbol|标的/u.test(item)).slice(0, 5)] },
+    { id: 'intent', label: '意图与分析对象', status: intentStatus, signals: [...intentChecks.signals, ...failures.filter((item) => /澄清|意图|entity|商品|类目/u.test(item)).slice(0, 5)] },
     { id: 'planning', label: '规划', status: planningStatus, signals: planningSignals },
     { id: 'data', label: '数据与事实', status: dataStatus, signals: [...dataChecks.signals, ...(oracle.passed === false ? ['oracle:failed'] : [])] },
     { id: 'artifact', label: '产物与构建', status: artifactStage.status, signals: artifactStage.signals },

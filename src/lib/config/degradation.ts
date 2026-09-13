@@ -10,7 +10,7 @@ export interface RuntimeDegradationConfig {
   components: {
     database: ComponentDegradationConfig;
     knowledge: ComponentDegradationConfig;
-    marketApi: ComponentDegradationConfig;
+    commerceApi: ComponentDegradationConfig;
     memory: ComponentDegradationConfig;
     modelPort: ComponentDegradationConfig;
     observability: ComponentDegradationConfig;
@@ -54,9 +54,9 @@ export function getRuntimeDegradationConfig(): RuntimeDegradationConfig {
         ),
         required: !offline && envFlag('SHOPGATE_KNOWLEDGE_REQUIRED', false),
       },
-      marketApi: {
-        enabled: offline ? false : envFlag('SHOPGATE_MARKET_API_ENABLED', true),
-        required: !offline && envFlag('SHOPGATE_MARKET_API_REQUIRED', strict),
+      commerceApi: {
+        enabled: offline ? false : envFlag('SHOPGATE_COMMERCE_API_ENABLED', true),
+        required: !offline && envFlag('SHOPGATE_COMMERCE_API_REQUIRED', strict),
       },
       memory: {
         enabled: offline ? false : envFlag('SHOPGATE_MEMORY_ENABLED', process.env.NODE_ENV !== 'test'),

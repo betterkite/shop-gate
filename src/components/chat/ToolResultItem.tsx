@@ -65,7 +65,7 @@ const normalizeToolName = (toolName: string | undefined, action: ToolAction) => 
   const lower = raw.toLowerCase();
 
   if (typedToolDisplayNames[lower]) return typedToolDisplayNames[lower];
-  if (/^quant-[a-z0-9-]+$/i.test(raw) || /^data-[a-z0-9-]+$/i.test(raw)) return raw;
+  if (/^(?:commerce|data)-[a-z0-9-]+$/i.test(raw)) return raw;
   if (lower === 'skill' || lower === 'tool' || lower === 'tool_use') return 'Skill';
   if (lower.includes('glob')) return 'Glob';
   if (lower.includes('grep')) return 'Grep';
@@ -90,7 +90,7 @@ const getToolIcon = (toolName: string, action: ToolAction, success?: boolean) =>
   if (['数据查询', '源码定位', '看板结构'].includes(toolName)) return <BookOpen className={className} />;
   if (['执行计划', '提交结果'].includes(toolName)) return <CheckSquare className={className} />;
   if (['看板编译', '语义编辑'].includes(toolName)) return <Code2 className={className} />;
-  if (lower.includes('skill') || /^quant-[a-z0-9-]+$/i.test(toolName)) return <Wrench className={className} />;
+  if (lower.includes('skill') || /^commerce-[a-z0-9-]+$/i.test(toolName)) return <Wrench className={className} />;
   if (lower.includes('glob') || lower.includes('grep') || action === 'Searched') return <Search className={className} />;
   if (lower.includes('bash') || action === 'Executed') return <Terminal className={className} />;
   if (lower.includes('read') || action === 'Read') return <BookOpen className={className} />;
@@ -140,15 +140,8 @@ const extractSkillNameFromJson = (value: unknown): string => {
 const describeCurlCommand = (command: string) => {
   const lower = command.toLowerCase();
   if (!lower.includes('curl')) return '';
-  if (lower.includes('/api/v1/symbols/resolve')) return '解析商品名称或代码，确认后续取数标的。';
-  if (lower.includes('/api/v1/quotes/realtime')) return '获取实时销售数据数据，确认最新价、涨跌幅和成交信息。';
-  if (lower.includes('/api/v1/quotes/history')) return '获取历史 趋势和成交量数据，用于趋势、均线和量价分析。';
-  if (lower.includes('/api/v1/indicators')) return '计算技术指标，补充均线、收益、回撤、波动率等分析字段。';
-  if (lower.includes('/api/v1/fundamentals/financials')) return '获取财务报表数据，补充营收、利润、现金流和成长性。';
-  if (lower.includes('/api/v1/fundamentals/indicators')) return '获取基本面指标，补充 ROE、毛利率、净利率和估值质量。';
-  if (lower.includes('/api/v1/announcements')) return '获取公告和事件数据，补充销售数据变化的事件背景。';
-  if (lower.includes('/api/market')) return '检查生成页面的同源销售数据代理是否可用。';
-  return '调用本地销售数据后端获取真实数据。';
+  if (lower.includes('/api/v1/commerce')) return '调用电商数据后端，获取商品、流量、购买和库存数据。';
+  return '调用本地电商数据后端获取真实数据。';
 };
 
 const describeFileTarget = (target: string, action: ToolAction) => {
@@ -164,7 +157,7 @@ const describeFileTarget = (target: string, action: ToolAction) => {
   if (normalized.endsWith('app/globals.css')) return action === 'Read' ? '读取页面样式，确认图表和布局基础。' : '更新看板样式，保证布局、图表和响应式体验。';
   if (normalized.endsWith('next.config.js')) return '检查 Next.js 配置，确保预览和构建链路可用。';
   if (normalized.endsWith('package.json')) return '检查项目依赖和脚本，确保 build/dev 可执行。';
-  if (normalized.includes('/api/market')) return '检查生成项目的销售数据代理接口。';
+  if (normalized.includes('/api/commerce')) return '检查生成项目的销售数据代理接口。';
   return '';
 };
 
@@ -200,7 +193,7 @@ const countArrayValue = (value: unknown): number => {
   if (Array.isArray(value)) return value.length;
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
-    const keys = ['items', 'data', 'rows', 'klines', 'history', 'reports', 'points', 'announcements'];
+    const keys = ['items', 'data', 'rows', 'trend', 'daily', 'history', 'orders', 'briefs', 'points'];
     for (const key of keys) {
       if (Array.isArray(record[key])) return record[key].length;
     }
@@ -211,34 +204,29 @@ const countArrayValue = (value: unknown): number => {
 const summarizeJsonOutput = (value: unknown): string => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
   const record = value as Record<string, unknown>;
-  const name = pickRecordString(record, ['name', 'symbol_name']);
-  const symbol = pickRecordString(record, ['symbol', 'code', 'secid']);
-  const label = [name, symbol].filter(Boolean).join(' ');
+  const name = pickRecordString(record, ['item_name', 'category_name', 'channel_name', 'name']);
+  const entity = pickRecordString(record, ['item_id', 'category_id', 'channel', 'code']);
+  const label = [name, entity].filter(Boolean).join(' ');
 
   if ('price' in record || 'last_price' in record) {
     const price = pickRecordString(record, ['price', 'last_price', 'latest_price']);
     const change = pickRecordString(record, ['pct_chg', 'change_pct', 'change_percent', 'percent']);
-    return `销售数据接口返回${label ? ` ${label}` : ''} 数据${price ? `，最新价 ${price}` : ''}${change ? `，涨跌幅 ${change}` : ''}。`;
+    return `电商数据接口返回${label ? ` ${label}` : ''} 数据${price ? `，价格 ${price}` : ''}${change ? `，变化 ${change}` : ''}。`;
   }
 
-  const historyCount = countArrayValue(record.history ?? record.klines ?? record.items ?? record.data);
-  if (historyCount > 0 && ('period' in record || 'adjustment' in record || 'klines' in record || 'history' in record)) {
-    return `历史销售数据接口返回${label ? ` ${label}` : ''} ${historyCount} 条 趋势/成交量记录。`;
+  const historyCount = countArrayValue(record.trend ?? record.daily ?? record.history ?? record.items ?? record.data);
+  if (historyCount > 0 && ('trend' in record || 'daily' in record || 'history' in record)) {
+    return `电商数据接口返回${label ? ` ${label}` : ''} ${historyCount} 条日趋势记录。`;
   }
 
-  const reportCount = countArrayValue(record.reports);
+  const reportCount = countArrayValue(record.briefs ?? record.orders);
   if (reportCount > 0) {
-    return `财务接口返回${label ? ` ${label}` : ''} ${reportCount} 期报表数据。`;
+    return `经营接口返回${label ? ` ${label}` : ''} ${reportCount} 条经营记录。`;
   }
 
   const indicatorCount = countArrayValue(record.points);
   if (indicatorCount > 0) {
     return `指标接口返回${label ? ` ${label}` : ''} ${indicatorCount} 条指标数据。`;
-  }
-
-  const announcementCount = countArrayValue(record.announcements);
-  if (announcementCount > 0) {
-    return `公告接口返回${label ? ` ${label}` : ''} ${announcementCount} 条公告事件。`;
   }
 
   const status = pickRecordString(record, ['status']);
@@ -292,18 +280,16 @@ const buildToolSummary = ({
   const effectiveToolName = /^skill$/i.test(displayToolName) && skillName ? skillName : displayToolName;
   const lowerTool = effectiveToolName.toLowerCase();
 
-  if (/^quant-[a-z0-9-]+$/i.test(effectiveToolName)) {
-    if (lowerTool.includes('run-planner')) return '建立分析计划，明确标的、数据需求、看板模块和验证规则。';
-    if (lowerTool.includes('symbol-resolver')) return '解析商品名称或代码，确保后续接口使用正确标的。';
-    if (lowerTool.includes('commerce-data')) return '获取实时销售数据，补充最新价、涨跌幅、成交额和销售数据时间。';
-    if (lowerTool.includes('a-share-history')) return '获取历史 趋势和成交量数据，为趋势与均线分析做准备。';
-    if (lowerTool.includes('technical-indicators')) return '计算技术指标，形成均线、回撤、波动率和量价信号。';
-    if (lowerTool.includes('fundamental')) return '获取财务和基本面数据，补充经营质量分析。';
-    if (lowerTool.includes('announcement')) return '获取公告和事件信息，补充销售数据背景。';
+  if (/^commerce-[a-z0-9-]+$/i.test(effectiveToolName)) {
+    if (lowerTool.includes('run-planner')) return '建立分析计划，明确商品或类目、数据需求、看板模块和验证规则。';
+    if (lowerTool.includes('entity-resolver')) return '解析商品或类目名称，确保后续接口使用正确的分析对象。';
+    if (lowerTool.includes('data')) return '获取商品、流量、购买和库存数据，补充分析所需字段。';
+    if (lowerTool.includes('metrics')) return '计算浏览、加购、购买、转化和库存等经营指标。';
+    if (lowerTool.includes('master')) return '获取商品、类目、品牌和店铺主数据。';
     if (lowerTool.includes('data-quality')) return '检查数据覆盖率、缺失字段、来源和可用性。';
-    if (lowerTool.includes('visualization')) return '基于最终数据生成可视化看板页面。';
-    if (lowerTool.includes('comparison')) return '组织多标的对比数据，生成横向研究视角。';
-    return '执行经营分析 skill，推进当前阶段。';
+    if (lowerTool.includes('visualization')) return '基于最终数据生成电商经营可视化看板页面。';
+    if (lowerTool.includes('comparison')) return '组织多个商品或类目的对比数据，生成横向经营视角。';
+    return '执行电商经营分析 skill，推进当前阶段。';
   }
 
   const curlSummary = describeCurlCommand(target);

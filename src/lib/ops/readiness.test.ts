@@ -32,7 +32,7 @@ describe('runReadinessProbes', () => {
     const disabledProbe = vi.fn();
     const result = await runReadinessProbes([
       {
-        name: 'marketApi',
+        name: 'commerceApi',
         enabled: false,
         required: false,
         run: disabledProbe,

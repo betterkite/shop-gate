@@ -2,8 +2,8 @@ import { getRuntimeDegradationConfig } from '@/lib/config/degradation';
 import { getLatestRetailDailyBrief } from './retail-daily-report';
 
 const BASE_URL =
-  process.env.SHOPGATE_MARKET_API_URL ||
-  process.env.SHOPGATE_MARKET_API_BASE_URL ||
+  process.env.SHOPGATE_COMMERCE_API_URL ||
+  process.env.SHOPGATE_COMMERCE_API_BASE_URL ||
   'http://127.0.0.1:8000';
 
 export type OperationsBriefingView = 'daily' | 'categories' | 'watch';
@@ -21,7 +21,7 @@ export interface OperationsBriefingData {
 }
 
 async function fetchJson<T>(path: string): Promise<T | null> {
-  const degradation = getRuntimeDegradationConfig().components.marketApi;
+  const degradation = getRuntimeDegradationConfig().components.commerceApi;
   if (!degradation.enabled) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4_000);
@@ -87,7 +87,7 @@ export async function getOperationsBriefingData(params: {
     categories,
     watch,
     latestReport,
-    apiEnabled: getRuntimeDegradationConfig().components.marketApi.enabled,
+    apiEnabled: getRuntimeDegradationConfig().components.commerceApi.enabled,
     updatedAt: new Date().toISOString(),
   };
 }

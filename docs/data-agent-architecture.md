@@ -18,7 +18,7 @@ Data Agent 产品
 
 | 层 | 负责什么 | 不负责什么 | 当前入口 |
 | --- | --- | --- | --- |
-| PI Agent Runtime + Shop Gate Governance | PI 完整 Agent loop；Shop Gate Provider 适配、上下文预算、类型化工具、Skill 编译、durable runtime、Mission 执行与证据验证机制 | 证券、K 线、财报等业务概念 | `src/lib/agent/pi/**`、`src/lib/agent/**` |
+| PI Agent Runtime + Shop Gate Governance | PI 完整 Agent loop；Shop Gate Provider 适配、上下文预算、类型化工具、Skill 编译、durable runtime、Mission 执行与证据验证机制 | 具体零售业务规则和数据口径 | `src/lib/agent/pi/**`、`src/lib/agent/**` |
 | Data Agent Core | 通用任务、实体、指标、维度、数据集、Connector、Domain Pack、Agent Profile、组合锁、应用 Catalog 和执行计划合同 | 某个行业的解析规则和接口地址 | `src/lib/data-agent/**` |
 | Retail Domain Pack | 商品/类目实体、commerce 数据连接器、经营能力、零售 Skills、工具、Mission、验证和可视化配置 | 通用 Agent loop 和跨行业任务模型 | `src/lib/domains/retail/**` |
 | Shop Gate Application | 项目、聊天、预取、工作空间交付和零售产品页面 | 定义新的通用 Agent 机制或领域合同 | `src/lib/commerce/**`、`src/lib/services/**`、`src/app/**` |
@@ -44,7 +44,7 @@ flowchart LR
 
 `DataAgentTask` 是 LLM-first Query Rewrite 的通用输出。它表达目标、实体提及、已核验实体、指标、维度、筛选、时间范围、输出类型和需要澄清的问题。
 
-语义理解必须来自项目选中的大模型。Resolver 只在模型改写后核验实体身份，例如把“大位科技”确认成标准证券代码；不能用关键词、正则或路由表替代语义理解。模型不可用或合同不合格时应失败关闭，不把启发式结果伪装成成功。
+语义理解必须来自项目选中的大模型。Resolver 只在模型改写后核验实体身份，例如把“轻薄羽绒服”确认成商品或类目实体；不能用关键词、正则或路由表替代语义理解。模型不可用或合同不合格时应失败关闭，不把启发式结果伪装成成功。
 
 ### Domain Pack
 
@@ -125,7 +125,7 @@ Agent 工具不能修改这个控制目录；它只能由平台编排器写入�
 一次零售经营任务目前按下面顺序运行：
 
 1. 产品层根据项目选择加载 Agent Profile。
-2. 选中的 LLM 生成金融 Query Rewrite，Resolver 独立核验证券实体。
+2. 选中的 LLM 生成零售 Query Rewrite，Resolver 独立核验商品、类目、渠道或活动实体。
 3. Retail Domain Pack 投影出 `DataAgentTask`，并形成零售 run plan 与通用 execution plan。
 4. Retail Domain Pack 提供 capability 到 Skill descriptor 的投影。
 5. Retail 工具工厂组合通用文件工具、commerce 数据工具、看板编译器和检查器。
@@ -134,7 +134,7 @@ Agent 工具不能修改这个控制目录；它只能由平台编排器写入�
 8. 通用运行时注册表把任务分派给 Retail handler，PI Agent 只消费 Shop Gate 适配后的 Skills、Tools 与 Mission，不认识任何具体行业类型。
 9. Delivery 验证通过且证据 receipt 被接受后，任务才进入 completed。
 
-Shop Gate Skills 编译器只支持通用的 `activatedSkillIds` 与 `excludedSkillIds`。例如“有附件时启用图片提取”“证券已经解析后排除 symbol resolver”均由金融调用方决定，Agent 治理层不硬编码这些 ID。`query_json` 的 artifact handles、alias、identity 校验、对象字段优先级和领域提示仍由兼容类型 `PiAgentJsonArtifactConfiguration` 注入；Finance 配置位于 `src/lib/domains/finance/agent-tools/structured-read.ts`。
+Shop Gate Skills 编译器只支持通用的 `activatedSkillIds` 与 `excludedSkillIds`。例如“有附件时启用图片提取”“商品已经解析后排除 entity resolver”均由零售调用方决定，Agent 治理层不硬编码这些 ID。`query_json` 的 artifact handles、alias、identity 校验、对象字段优先级和领域提示仍由兼容类型 `PiAgentJsonArtifactConfiguration` 注入；零售配置位于 `src/lib/domains/retail/agent-tools/structured-read.ts`。
 
 ## 项目空间创建与删除
 
@@ -176,7 +176,7 @@ Capability 描述用户目标，不应等同于某个 API。它将多个 Connect
 
 使用 `createPiAgentTools` 组装通用工具，再通过 Domain Pack 注入领域工具、prepared compiler、inspector 和 receipt projector。工具名必须唯一；修改型工具必须加入 Profile 的允许列表。
 
-金融示例见 `src/lib/domains/finance/agent-tools/factory.ts`。
+零售示例见 `src/lib/domains/retail/agent-tools/factory.ts`。
 
 ### 5. 提供 Mission Definition
 
@@ -188,7 +188,7 @@ Mission Definition 必须声明：
 - acceptance predicates；
 - 领域实体引用类型。
 
-Shop Gate Mission 编译器只验证这份定义，不内置金融节点或文件名；相关 `PiAgent*` 符号是规范治理 API。金融示例见 `src/lib/domains/finance/mission-definition.ts`。
+Shop Gate Mission 编译器只验证这份定义，不内置行业节点或文件名；相关 `PiAgent*` 符号是规范治理 API。零售示例见 `src/lib/domains/retail/mission-definition.ts`。
 
 ### 6. 注册 Delivery Pack、Profile 并做隔离测试
 
@@ -203,10 +203,10 @@ Shop Gate Mission 编译器只验证这份定义，不内置金融节点或文�
 已经完成：
 
 - 通用 contracts 与 registry；
-- 金融 Query Rewrite、Planner、capability、数据身份、可视化、工具和 Mission 定义均位于 Finance Domain Pack；
-- Shop Gate Skills、Tools、Mission 治理组件不导入量化模块，核心 structured reader 不保存金融 artifact/path/alias；相关 `PiAgent*` 名称是当前规范符号；
+- 零售 Query Rewrite、Planner、capability、数据身份、可视化、工具和 Mission 定义均位于 Retail Domain Pack；
+- Shop Gate Skills、Tools、Mission 治理组件不导入其他行业模块，核心 structured reader 不保存行业 artifact/path/alias；相关 `PiAgent*` 名称是当前规范符号；
 - 工作空间只写入 `.data-agent`，并冻结 workspace/profile/task/plan 四份核心合同；
-- 图片接入已拆为 Data Agent 通用资产层和 Finance Domain Adapter，Act API 不再接收 base64 或绝对路径；
+- 图片接入已拆为 Data Agent 通用资产层和 Retail Domain Adapter，Act API 不再接收 base64 或绝对路径；
 - schema v3 generation envelope、Profile handler 注册表和独立 Worker 已形成真实运行时分派边界；Finance 不再硬编码在 Worker 主循环；
 - PostgreSQL job/outbox、attempt、lease、heartbeat 和 fencing 为权威状态；Worker 崩溃后在预算内指数退避并从持久化合同重新规划；
 - 模块边界加入反向依赖、未声明 `dependsOn` 和依赖环门禁。

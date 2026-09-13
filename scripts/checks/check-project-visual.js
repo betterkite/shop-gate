@@ -124,17 +124,14 @@ async function main() {
     if (!frameInfo) {
       problems.push('未能读取预览 iframe 内容');
     } else {
-      if (!/最新价|实时|价格|price/i.test(frameInfo.text)) {
-        problems.push('预览页面缺少价格或行情信息');
-      }
-      if (!/K\s*线|蜡烛|开盘|最高|最低|收盘|成交量/i.test(frameInfo.text)) {
-        problems.push('预览页面缺少 K 线或成交量结构');
+      if (!/商品|类目|浏览|购买|库存|经营|转化|数据集/i.test(frameInfo.text)) {
+        problems.push('预览页面缺少商品经营分析内容');
       }
       if (frameInfo.svgCount + frameInfo.canvasCount === 0 && frameInfo.rectCount < 20) {
         problems.push('预览页面缺少可识别图表元素');
       }
-      if (!/更新时间|更新：|数据截至|行情时间|报告期|样本/i.test(frameInfo.text)) {
-        problems.push('预览页面缺少数据更新时间、报告期或样本口径说明');
+      if (!/更新时间|更新：|数据截至|数据窗口|样本|数据集/i.test(frameInfo.text)) {
+        problems.push('预览页面缺少数据更新时间、数据窗口或样本口径说明');
       }
     }
     problems.push(...failedResources.map((item) => `静态资源失败：${item}`));

@@ -50,7 +50,7 @@ export function resolveDashboardGenerationWaitingStage(
     /(?:启动|确认|准备|恢复).*预览|预览(?:服务|已就绪|启动|准备|确认)/u.test(normalized)
   ) {
     index = 4;
-  } else if (/准备数据|获取数据|取数|预取|行情数据|信源数据/u.test(normalized)) {
+  } else if (/准备数据|获取数据|取数|预取|经营数据|信源数据/u.test(normalized)) {
     index = 1;
   } else if (/正在生成|生成看板|构建看板|编排图表|生成页面/u.test(normalized)) {
     index = 2;

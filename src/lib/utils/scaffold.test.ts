@@ -71,7 +71,7 @@ describe('restoreRetailDashboardTemplate', () => {
       for (const signal of template.required) {
         expect(template.page, `${template.name}: ${signal}`).toContain(signal);
       }
-      for (const hiddenEvidenceDetail of ['数据信源渠道', '技术证据', '行情源：', 'evidence/sources.json', '场景模板', '必备组件']) {
+      for (const hiddenEvidenceDetail of ['数据信源渠道', '技术证据', '商品数据源：', 'evidence/sources.json', '场景模板', '必备组件']) {
         expect(template.page, `${template.name}: ${hiddenEvidenceDetail}`).not.toContain(hiddenEvidenceDetail);
       }
     }
@@ -86,16 +86,17 @@ describe('restoreRetailDashboardTemplate', () => {
     expect(css).not.toContain('width: 100vw');
   });
 
-  it('replaces an invalid Agent page with the platform technical dashboard', async () => {
+  it('replaces an invalid Agent page with the platform retail dashboard', async () => {
     const projectPath = await createProject();
     await Promise.all([
       fs.writeFile(
         path.join(projectPath, '.data-agent', 'retail-run-plan.json'),
         JSON.stringify({
           status: 'planned',
-          capabilityId: 'technical_analysis',
-          symbols: ['600519'],
-          visualization: { templateId: 'technical-timing' },
+          capabilityId: 'price_inventory',
+          entities: ['item-1001'],
+          plannedEntities: { categoryIds: [], itemIds: ['item-1001'] },
+          visualization: { templateId: 'retail-price-inventory' },
         })
       ),
       fs.writeFile(

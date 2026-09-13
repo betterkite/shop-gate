@@ -23,9 +23,9 @@ const MAX_QUERY_TEXT_ANCHORS = 12;
 const FILE_CANDIDATES = {
   page: ["app/page.tsx", "src/app/page.tsx"],
   styles: ["app/globals.css", "src/app/globals.css", "styles/globals.css"],
-  marketProxy: [
-    "app/api/market/[...path]/route.ts",
-    "src/app/api/market/[...path]/route.ts",
+  commerceProxy: [
+    "app/api/commerce/[...path]/route.ts",
+    "src/app/api/commerce/[...path]/route.ts",
   ],
   runPlan: [".data-agent/retail-run-plan.json"],
   finalData: ["data_file/final/dashboard-data.json"],
@@ -492,9 +492,9 @@ function buildPageSignals(page: InspectedFile): JsonRecord {
     lines,
     /data_file\/final\/dashboard-data\.json/,
   );
-  const sameOriginMarketLines = matchingLines(
+  const sameOriginCommerceLines = matchingLines(
     lines,
-    /["'`]\/api\/market(?:\/|["'`])/,
+    /["'`]\/api\/commerce(?:\/|["'`])/,
   );
   const chartMarkupLines = matchingLines(
     lines,
@@ -519,8 +519,8 @@ function buildPageSignals(page: InspectedFile): JsonRecord {
         lines,
         /fs\.readFile|readDashboardData/,
       ),
-      sameOriginMarketApi: sameOriginMarketLines.length > 0,
-      sameOriginMarketApiLines: sameOriginMarketLines,
+      sameOriginCommerceApi: sameOriginCommerceLines.length > 0,
+      sameOriginCommerceApiLines: sameOriginCommerceLines,
     },
     chart: {
       hasChartSignal: chartMarkupLines.length > 0 && chartDataLines.length > 0,
@@ -538,7 +538,7 @@ function buildProxySignals(proxy: InspectedFile): JsonRecord {
     path: proxy.path,
     localBackendTargetLines: matchingLines(
       lines,
-      /127\.0\.0\.1:8000|localhost:8000|MARKET_API_BASE|SHOPGATE.*API.*BASE|COMMERCE.*API.*BASE/i,
+      /127\.0\.0\.1:8000|localhost:8000|COMMERCE_API_BASE|SHOPGATE.*API.*BASE|COMMERCE.*API.*BASE/i,
     ),
     forwardingFetchLines: matchingLines(lines, /\bfetch\s*\(/),
     exportedMethodLines: matchingLines(
@@ -754,7 +754,7 @@ function buildVisualSourceMap(
       range: rootComponent ? [rootComponent.line, rootComponent.endLine] : null,
       mainLine: rootMainLine,
       classNames: rootMainClasses,
-      financialWorkbenchMarkerLine: markerLine,
+      legacyWorkbenchMarkerLine: markerLine,
     },
     regions: layoutRegions,
     components: outline.entries
@@ -846,8 +846,8 @@ function compactPageContract(value: unknown): JsonRecord | null {
           standardFinalDataPath: dataBinding.standardFinalDataPath === true,
           standardFinalDataPathLines: boundedNumbers(dataBinding.standardFinalDataPathLines, 3),
           serverFileReadLines: boundedNumbers(dataBinding.serverFileReadLines, 4),
-          sameOriginMarketApi: dataBinding.sameOriginMarketApi === true,
-          sameOriginMarketApiLines: boundedNumbers(dataBinding.sameOriginMarketApiLines, 4),
+          sameOriginCommerceApi: dataBinding.sameOriginCommerceApi === true,
+          sameOriginCommerceApiLines: boundedNumbers(dataBinding.sameOriginCommerceApiLines, 4),
         }
       : null,
     chart: chart
@@ -877,7 +877,7 @@ function compactReport(report: JsonRecord): JsonRecord {
     files: {
       page: files?.page,
       styles: files?.styles,
-      marketProxy: files?.marketProxy,
+      commerceProxy: files?.commerceProxy,
     },
     requiredArtifacts: {
       runPlan: isRecord(files?.runPlan) ? files.runPlan.exists : false,
@@ -926,7 +926,7 @@ function compactReport(report: JsonRecord): JsonRecord {
       ]),
     },
     pageContract: compactPageContract(report.pageContract),
-    marketProxy: report.marketProxy,
+    commerceProxy: report.commerceProxy,
     responsive: report.responsive,
     uiInspection: compactUiInspection(report.uiInspection),
     nextActions: report.nextActions,
@@ -1102,7 +1102,7 @@ export function createInspectDashboardContractTool(
             dataQuality: summarizeDataQuality(files.dataQuality),
           },
           pageContract: buildPageSignals(files.page),
-          marketProxy: buildProxySignals(files.marketProxy),
+          commerceProxy: buildProxySignals(files.commerceProxy),
           responsive: buildResponsiveSignals(files.styles),
           outline,
           uiInspection: buildVisualSourceMap(files.page, files.styles, outline),

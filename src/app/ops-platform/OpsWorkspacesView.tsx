@@ -238,7 +238,7 @@ export function OpsWorkspacesView({
       if (segmentFilter === "active" && project.deliverySegment.id === "archive_candidate") return false;
       if (segmentFilter !== "all" && segmentFilter !== "active" && project.deliverySegment.id !== segmentFilter) return false;
       if (!lower) return true;
-      return [project.id, project.name, project.description, project.repoPath, project.capabilityId, ...project.runPlan.symbols]
+      return [project.id, project.name, project.description, project.repoPath, project.capabilityId, ...project.runPlan.entities]
         .filter(Boolean).join(" ").toLowerCase().includes(lower);
     });
   }, [data.projects, healthFilter, keyword, segmentFilter]);
@@ -274,7 +274,7 @@ export function OpsWorkspacesView({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={keyword} onChange={(event) => { setKeyword(event.target.value); setPage(1); }} placeholder="搜索项目、能力、标的或工作空间路径" className="h-10 bg-card pl-9" aria-label="搜索工作空间" />
+            <Input value={keyword} onChange={(event) => { setKeyword(event.target.value); setPage(1); }} placeholder="搜索项目、能力、商品/类目或工作空间路径" className="h-10 bg-card pl-9" aria-label="搜索工作空间" />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {(["all", "failed", "warning", "unknown", "healthy"] as HealthFilter[]).map((status) => (

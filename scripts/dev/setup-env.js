@@ -278,11 +278,11 @@ async function ensureEnvironment(options = {}) {
   if (!hasEnvKey(envContents, 'SHOPGATE_DATABASE_REQUIRED')) {
     envDefaults.SHOPGATE_DATABASE_REQUIRED = '1';
   }
-  if (!hasEnvKey(envContents, 'SHOPGATE_MARKET_API_ENABLED')) {
-    envDefaults.SHOPGATE_MARKET_API_ENABLED = '1';
+  if (!hasEnvKey(envContents, 'SHOPGATE_COMMERCE_API_ENABLED')) {
+    envDefaults.SHOPGATE_COMMERCE_API_ENABLED = '1';
   }
-  if (!hasEnvKey(envContents, 'SHOPGATE_MARKET_API_REQUIRED')) {
-    envDefaults.SHOPGATE_MARKET_API_REQUIRED = '0';
+  if (!hasEnvKey(envContents, 'SHOPGATE_COMMERCE_API_REQUIRED')) {
+    envDefaults.SHOPGATE_COMMERCE_API_REQUIRED = '0';
   }
   if (!hasEnvKey(envContents, 'SHOPGATE_OBSERVABILITY_ENABLED')) {
     envDefaults.SHOPGATE_OBSERVABILITY_ENABLED = '1';

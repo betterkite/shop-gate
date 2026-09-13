@@ -199,7 +199,7 @@ Workspace 的可见回答由平台确定性投影为五个阶段：理解问题�
 
 PI Agent 本身没有 Shell 工具，但生成项目仍需要由平台执行 build 和 preview。Linux 上，这些命令默认进入 user、mount、network 和 PID namespace：只读挂载当前生成工作空间、共享 `node_modules` 和 Node runtime，仅开放工作空间 `.next` 写入；宿主项目其余目录、用户主目录和平台密钥不会挂载，进程环境也会按白名单重建。执行前的 artifact policy 会先拒绝子进程、动态执行、任意网络客户端、宿主绝对路径等高风险代码，策略不通过时不会启动 build 或 preview。
 
-network namespace 内只启用 loopback，不存在宿主或外网路由。preview 由平台在宿主 `127.0.0.1` 监听受控端口，再经 `/tmp/qp-preview/<runtime-id>/p.sock` 转发到隔离网络中的 Next.js；固定的同目录 `m.sock` 只向沙箱提供配置的无凭据 commerce-data host/port，以支持标准 `/api/market/**` 只读路由，目标不能由生成代码选择。短运行时目录规避 Linux Unix Socket 路径长度上限，只绑定当前预览的两个 socket，不暴露宿主 `/tmp`，并随预览生命周期清理。build 不创建任何桥接，preview 也不能访问 ModelPort、数据库、Memory、AKEP 或通用外网。生产环境仍应保留容器/主机防火墙作为纵深防御。非 Linux 平台默认拒绝执行生成代码；只有已经处于外部隔离环境的本地开发机，才可显式设置 `SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE=1` 作为不安全覆盖，生产环境不得开启。
+network namespace 内只启用 loopback，不存在宿主或外网路由。preview 由平台在宿主 `127.0.0.1` 监听受控端口，再经 `/tmp/qp-preview/<runtime-id>/p.sock` 转发到隔离网络中的 Next.js；固定的同目录 `m.sock` 只向沙箱提供配置的无凭据 commerce-data host/port，以支持标准 `/api/commerce/**` 只读路由，目标不能由生成代码选择。短运行时目录规避 Linux Unix Socket 路径长度上限，只绑定当前预览的两个 socket，不暴露宿主 `/tmp`，并随预览生命周期清理。build 不创建任何桥接，preview 也不能访问 ModelPort、数据库、Memory、AKEP 或通用外网。生产环境仍应保留容器/主机防火墙作为纵深防御。非 Linux 平台默认拒绝执行生成代码；只有已经处于外部隔离环境的本地开发机，才可显式设置 `SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE=1` 作为不安全覆盖，生产环境不得开启。
 
 生成工作区的依赖安装固定使用 `--ignore-scripts`，宿主侧不执行 `preinstall/install/postinstall/predev` 等项目代码；项目自身 `predev` 只会由沙箱内的标准 `npm run dev` 生命周期执行。需要原生构建脚本的依赖必须先进入平台审核过的共享依赖或专用构建镜像，不能通过放宽生成工作区权限临时解决。
 

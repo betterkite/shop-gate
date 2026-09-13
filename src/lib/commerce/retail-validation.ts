@@ -168,7 +168,7 @@ const VALIDATION_STALE_ARTIFACT_PATHS = [
   'app/page.tsx',
   'app/globals.css',
   'app/layout.tsx',
-  'app/api/market/[...path]/route.ts',
+  'app/api/commerce/[...path]/route.ts',
   'data_file/final/dashboard-data.json',
   'evidence/sources.json',
   'evidence/data_quality.json',
@@ -889,14 +889,14 @@ async function checkFinalDataFile(
     try {
       const parsed = JSON.parse(raw) as unknown;
       const runPlan = await readRunPlan(projectPath);
-      const plannedSymbols = extractPlannedSymbols(runPlan);
+      const plannedEntities = extractPlannedEntities(runPlan);
       const fetchedEntities = extractFetchedEntities(parsed);
-      const comparisonSymbols = extractComparisonSymbols(parsed);
-      const missingSymbols = plannedSymbols.filter((symbol) => !fetchedEntities.includes(symbol));
+      const comparisonEntities = extractComparisonEntities(parsed);
+      const missingEntities = plannedEntities.filter((entity) => !fetchedEntities.includes(entity));
       const serialized = JSON.stringify(parsed);
       const hasDataShape =
-        /quote|quotes|price|symbol|symbols|assets|comparison|secid|history|kline|financial|reports|announcement|source|fetched_at|quote_time|close|open|volume|amount|backtest|equity_curve|trades|strategy|drawdown|win_rate|营收|净利润|毛利率|roe|回测|净值|回撤|胜率|window|datasets|funnel|categories|itemDaily|inventoryRisk|summary|stat_date|stages|conversion|gmv|客单价|转化|加购|收藏|曝光|购买|类目|商品|库销比|动销/i.test(
-          serialized
+        /dataset_id|datasets|window|source|fetched_at|categories|funnel|itemDaily|inventoryRisk|summary|analyticsOverview|analyticsLifecycle|analyticsProfit|analyticsInventory|analyticsChannels|analyticsElasticity|gmv|客单价|转化|加购|收藏|曝光|购买|类目|商品|库存|毛利|生命周期|价格带/i.test(
+          serialized,
         );
       const hasPlaceholderSmell = hasRetailPlaceholderSmell(parsed, serialized);
 
@@ -906,7 +906,7 @@ async function checkFinalDataFile(
       }
 
       if (!hasDataShape) {
-        errors.push(`${normalizeRelativePath(projectPath, filePath)} 未检测到行情、K 线、财务或来源字段。`);
+        errors.push(`${normalizeRelativePath(projectPath, filePath)} 未检测到可用的零售经营数据或来源字段。`);
         continue;
       }
 
@@ -916,24 +916,23 @@ async function checkFinalDataFile(
       }
 
       const payloadInspection = inspectDashboardDataPayload(parsed);
-      const isEmptyScreenerResult = isStructuredEmptyScreenerResult(parsed);
-      if (!payloadInspection.hasUsableMarketData && !isEmptyScreenerResult) {
-        errors.push(`${normalizeRelativePath(projectPath, filePath)} 未提取到可用实时行情或 K 线样本。`);
+      if (!payloadInspection.hasUsableRetailData) {
+        errors.push(`${normalizeRelativePath(projectPath, filePath)} 未提取到可用的商品、行为、订单或库存样本。`);
         continue;
       }
 
-      if (missingSymbols.length > 0) {
+      if (missingEntities.length > 0) {
         errors.push(
-          `${normalizeRelativePath(projectPath, filePath)} 未覆盖 run_plan 中的全部标的，缺少：${missingSymbols.join('、')}。`
+          `${normalizeRelativePath(projectPath, filePath)} 未覆盖 run_plan 中的全部商品或类目，缺少：${missingEntities.join('、')}。`
         );
         continue;
       }
 
-      if (plannedSymbols.length > 1) {
-        const comparisonMissingSymbols = plannedSymbols.filter((symbol) => !comparisonSymbols.includes(symbol));
-        if (comparisonMissingSymbols.length > 0) {
+      if (plannedEntities.length > 1) {
+        const comparisonMissingEntities = plannedEntities.filter((entity) => !comparisonEntities.includes(entity));
+        if (comparisonMissingEntities.length > 0) {
           errors.push(
-            `${normalizeRelativePath(projectPath, filePath)} 的 comparison.rows 未覆盖全部对比标的，缺少：${comparisonMissingSymbols.join('、')}。`
+            `${normalizeRelativePath(projectPath, filePath)} 的 comparison.rows 未覆盖全部对比商品或类目，缺少：${comparisonMissingEntities.join('、')}。`
           );
           continue;
         }
@@ -942,12 +941,6 @@ async function checkFinalDataFile(
       const runPlanVisualization = asRecord(runPlan?.visualization);
       const plannedTemplateId = pickString(runPlanVisualization?.templateId);
       const expectedTemplateId = inferExpectedTemplateFromTask(runPlan);
-      const taskText = normalizeTextForIntent([
-        runPlan?.question,
-        runPlan?.task,
-        runPlan?.instruction,
-        runPlan?.clarification,
-      ]);
       const visualization = asRecord(asRecord(parsed)?.visualization);
       const finalTemplateId = pickString(visualization?.template_id ?? visualization?.templateId);
       const requiredComponents = Array.isArray(visualization?.required_components)
@@ -992,17 +985,17 @@ async function checkFinalDataFile(
       }
 
       const record = asRecord(parsed);
-      const tradingPlanRows = Array.isArray(asRecord(record?.tradingPlan)?.rows)
+      const legacyExecutionRows = Array.isArray(asRecord(record?.tradingPlan)?.rows)
         ? asRecord(record?.tradingPlan)?.rows as unknown[]
         : [];
-      if (!hasExplicitTradingPlanIntent(taskText) && tradingPlanRows.length > 0) {
+      if (legacyExecutionRows.length > 0) {
         errors.push(
-          `${normalizeRelativePath(projectPath, filePath)} 包含 tradingPlan.rows，但原始需求没有明确要求交易计划、买入区间、止损或目标价。`
+          `${normalizeRelativePath(projectPath, filePath)} 包含旧版执行计划字段，但原始需求没有明确要求经营动作建议。`
         );
         continue;
       }
 
-      if (plannedTemplateId === 'catalog-structure' && !isEmptyScreenerResult) {
+      if (plannedTemplateId === 'catalog-structure') {
         const categories = asRecord(asRecord(record)?.datasets)?.categories;
         const categoryRows = Array.isArray(asRecord(categories)?.rows)
           ? asRecord(categories)?.rows as unknown[]
@@ -1053,11 +1046,11 @@ async function checkFinalDataFile(
         metadata: {
           file: normalizeRelativePath(projectPath, filePath),
           bytes: Buffer.byteLength(raw),
-          plannedSymbols,
+          plannedEntities,
           fetchedEntities,
-          comparisonSymbols,
-          barCount: payloadInspection.barCount,
-          hasQuote: payloadInspection.hasQuote,
+          comparisonEntities,
+          datasetCount: payloadInspection.datasetCount,
+          entityCount: payloadInspection.fetchedEntities.length,
           visualizationTemplateId: finalTemplateId,
         },
       };
@@ -1160,9 +1153,9 @@ async function collectArtifactPolicyFiles(projectPath: string): Promise<string[]
 
 function findRemotePolicyViolations(projectPath: string, filePath: string, content: string): string[] {
   const relativePath = normalizeRelativePath(projectPath, filePath);
-  const isMarketProxyRoute =
-    relativePath === 'app/api/market/route.ts' ||
-    /^app\/api\/market\/.*\/route\.ts$/.test(relativePath);
+  const isCommerceProxyRoute =
+    relativePath === 'app/api/commerce/route.ts' ||
+    /^app\/api\/commerce\/.*\/route\.ts$/.test(relativePath);
   const violations: string[] = [];
 
   for (const usage of REMOTE_USAGE_PATTERNS) {
@@ -1171,7 +1164,7 @@ function findRemotePolicyViolations(projectPath: string, filePath: string, conte
     for (const match of matches) {
       const snippet = match[0] ?? '';
       const urls = Array.from(snippet.matchAll(REMOTE_URL_PATTERN)).map((urlMatch) => urlMatch[0]);
-      const disallowedUrls = urls.filter((url) => !(isMarketProxyRoute && isAllowedBackendProxyUrl(url)));
+      const disallowedUrls = urls.filter((url) => !(isCommerceProxyRoute && isAllowedBackendProxyUrl(url)));
       if (disallowedUrls.length > 0) {
         violations.push(`${relativePath} 存在${usage.label}：${truncatePolicySnippet(snippet)}`);
       }
@@ -1181,7 +1174,7 @@ function findRemotePolicyViolations(projectPath: string, filePath: string, conte
   REMOTE_URL_PATTERN.lastIndex = 0;
   const remoteUrls = Array.from(content.matchAll(REMOTE_URL_PATTERN)).map((match) => match[0]);
   for (const remoteUrl of remoteUrls.slice(0, 8)) {
-    if (isMarketProxyRoute && isAllowedBackendProxyUrl(remoteUrl)) {
+    if (isCommerceProxyRoute && isAllowedBackendProxyUrl(remoteUrl)) {
       continue;
     }
 
@@ -1284,10 +1277,10 @@ async function checkArtifactPolicy(
     if (/^(?:app|components|hooks|lib|src)\//.test(relativePath)) {
       violations.push(...findPatternPolicyViolations(projectPath, filePath, content, EXECUTION_ESCAPE_PATTERNS));
       if (
-        relativePath !== 'app/api/market/[...path]/route.ts' &&
+        relativePath !== 'app/api/commerce/[...path]/route.ts' &&
         /\b(?:globalThis\s*\.\s*)?fetch\s*\(/i.test(content)
       ) {
-        violations.push(`${relativePath} 存在非平台 market proxy 的网络请求 API。`);
+        violations.push(`${relativePath} 存在非平台 commerce proxy 的网络请求 API。`);
       }
       violations.push(...findPatternPolicyViolations(projectPath, filePath, content, MOCK_ARTIFACT_PATTERNS));
     }
@@ -1295,8 +1288,8 @@ async function checkArtifactPolicy(
 
   const pagePath = path.join(projectPath, 'app', 'page.tsx');
   const page = await readTextFile(pagePath);
-  if (page && !/data_file\/final\/dashboard-data\.json|data_file\\final\\dashboard-data\.json|\/api\/market/.test(page)) {
-    violations.push('app/page.tsx 没有使用标准 final 数据文件或 /api/market 同源接口。');
+  if (page && !/data_file\/final\/dashboard-data\.json|data_file\\final\\dashboard-data\.json|\/api\/commerce/.test(page)) {
+    violations.push('app/page.tsx 没有使用标准 final 数据文件或 /api/commerce 同源接口。');
   }
 
   const packageRaw = await readTextFile(path.join(projectPath, 'package.json'));
@@ -1342,26 +1335,6 @@ export async function checkRetailArtifactPolicy(projectPath: string): Promise<Re
   );
 }
 
-function normalizeTextForIntent(value: unknown): string {
-  if (typeof value === 'string') {
-    return value.replace(/\s+/g, '');
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeTextForIntent(item)).join('');
-  }
-  const record = asRecord(value);
-  if (record) {
-    return Object.values(record).map((item) => normalizeTextForIntent(item)).join('');
-  }
-  return '';
-}
-
-function hasExplicitTradingPlanIntent(taskText: string): boolean {
-  return /交易计划|买入区间|买点|卖点|入场|出场|止损|止盈|目标价|仓位|建仓|加仓|减仓|卖出|买入|(?:要|想|准备)买|推荐.*(?:买|交易)|怎么操作|如何操作|操作建议|短线.*(?:买|卖|交易|计划)|(?:1|3|5|一|三|五)个交易日.*(?:计划|操作)|持仓.*(?:调仓|减仓|加仓)/.test(
-    taskText
-  );
-}
-
 export function inferExpectedTemplateFromTask(runPlan: Record<string, unknown> | null): string | null {
   if (!runPlan) {
     return null;
@@ -1389,32 +1362,26 @@ export function inferExpectedTemplateFromTask(runPlan: Record<string, unknown> |
   return null;
 }
 
-function pickSymbolCode(value: unknown): string | null {
-  if (typeof value === 'string' && /^(?:6|0|3|5)\d{5}$/.test(value.trim())) {
-    return value.trim();
-  }
+function pickEntityId(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return String(value);
 
   const record = asRecord(value);
-  if (!record) {
-    return null;
+  if (!record) return null;
+  for (const candidate of [
+    record.entity_id,
+    record.entityId,
+    record.item_id,
+    record.itemId,
+    record.category_id,
+    record.categoryId,
+    record.item_code,
+    record.sku,
+    record.id,
+  ]) {
+    const entity = pickEntityId(candidate);
+    if (entity) return entity;
   }
-
-  const candidates = [
-    record.symbol,
-    record.code,
-    record.security_code,
-    record.securityCode,
-    record.ticker,
-    typeof record.secid === 'string' ? record.secid.split('.').at(-1) : null,
-  ];
-
-  for (const candidate of candidates) {
-    const symbol = pickString(candidate);
-    if (symbol && /^(?:6|0|3|5)\d{5}$/.test(symbol)) {
-      return symbol;
-    }
-  }
-
   return null;
 }
 
@@ -1450,15 +1417,22 @@ async function readCurrentRetailRunId(projectPath: string): Promise<string | nul
   return pickString(runPlan?.runId);
 }
 
-function extractPlannedSymbols(runPlan: Record<string, unknown> | null): string[] {
-  const symbols = Array.isArray(runPlan?.symbols) ? runPlan.symbols : [];
-  return Array.from(
-    new Set(
-      symbols
-        .map((symbol) => pickSymbolCode(symbol))
-        .filter((symbol): symbol is string => Boolean(symbol && /^(?:6|0|3|5)\d{5}$/.test(symbol)))
-    )
-  );
+function extractPlannedEntities(runPlan: Record<string, unknown> | null): string[] {
+  const entities = new Set<string>();
+  const planned = asRecord(runPlan?.plannedEntities);
+  for (const [prefix, key] of [['cat', 'categoryIds'], ['item', 'itemIds']] as const) {
+    const values = Array.isArray(planned?.[key]) ? planned[key] : [];
+    for (const value of values) {
+      const entity = pickEntityId(value);
+      if (entity) entities.add(`${prefix}:${entity}`);
+    }
+  }
+  const requested = Array.isArray(runPlan?.entities) ? runPlan.entities : [];
+  for (const value of requested) {
+    const entity = pickString(value);
+    if (entity) entities.add(entity);
+  }
+  return [...entities];
 }
 
 function extractFetchedEntities(data: unknown): string[] {
@@ -1467,23 +1441,34 @@ function extractFetchedEntities(data: unknown): string[] {
     return [];
   }
 
-  const assets = Array.isArray(record.assets)
-    ? record.assets.map(asRecord).filter((asset): asset is Record<string, unknown> => Boolean(asset))
-    : [];
-  const candidates = assets.length > 0
-    ? assets.map((asset) => pickSymbolCode(asset) ?? pickSymbolCode(asRecord(asset.quote)?.symbol))
-    : [
-        pickSymbolCode(record),
-        pickSymbolCode(asRecord(record.quote)),
-        ...(Array.isArray(record.symbols) ? record.symbols.map((symbol) => pickSymbolCode(symbol)) : []),
-      ];
-
-  return Array.from(
-    new Set(candidates.filter((symbol): symbol is string => Boolean(symbol && /^(?:6|0|3|5)\d{5}$/.test(symbol))))
-  );
+  const entities = new Set<string>();
+  const planned = asRecord(record.plannedEntities);
+  for (const [prefix, key] of [['cat', 'categoryIds'], ['item', 'itemIds']] as const) {
+    const values = Array.isArray(planned?.[key]) ? planned[key] : [];
+    for (const value of values) {
+      const entity = pickEntityId(value);
+      if (entity) entities.add(`${prefix}:${entity}`);
+    }
+  }
+  for (const key of ['categories', 'itemDaily', 'inventoryRisk', 'analyticsLifecycle']) {
+    const dataset = asRecord(asRecord(record.datasets)?.[key]);
+    const rows = Array.isArray(dataset?.rows)
+      ? dataset.rows
+      : Array.isArray(dataset?.items)
+        ? dataset.items
+        : [];
+    for (const row of rows) {
+      const rowRecord = asRecord(row);
+      const category = pickEntityId(rowRecord?.category_id ?? rowRecord?.categoryId);
+      const item = pickEntityId(rowRecord?.item_id ?? rowRecord?.itemId);
+      if (category) entities.add(`cat:${category}`);
+      if (item) entities.add(`item:${item}`);
+    }
+  }
+  return [...entities];
 }
 
-function extractComparisonSymbols(data: unknown): string[] {
+function extractComparisonEntities(data: unknown): string[] {
   const record = asRecord(data);
   if (!record) {
     return [];
@@ -1496,144 +1481,36 @@ function extractComparisonSymbols(data: unknown): string[] {
       ? record.comparison
       : [];
 
-  return Array.from(
-    new Set(
-      rows
-        .map((row) => pickSymbolCode(row))
-        .filter((symbol): symbol is string => Boolean(symbol && /^(?:6|0|3|5)\d{5}$/.test(symbol)))
-    )
-  );
-}
-
-function numeric(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
+  const entities = new Set<string>();
+  for (const row of rows) {
+    const record = asRecord(row);
+    const category = pickEntityId(record?.category_id ?? record?.categoryId);
+    const item = pickEntityId(record?.item_id ?? record?.itemId);
+    const entity = pickString(record?.entity_id ?? record?.entityId);
+    if (category) entities.add(`cat:${category}`);
+    if (item) entities.add(`item:${item}`);
+    if (entity) entities.add(entity);
   }
-
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
-}
-
-function arrayOfRecords(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value)
-    ? value.map(asRecord).filter((item): item is Record<string, unknown> => Boolean(item))
-    : [];
-}
-
-function extractBarsFromDashboardData(data: unknown): Record<string, unknown>[] {
-  const record = asRecord(data);
-  if (!record) {
-    return [];
-  }
-
-  const assets = arrayOfRecords(record.assets);
-  if (assets.length > 0) {
-    return assets.flatMap((asset) => extractBarsFromDashboardData(asset));
-  }
-
-  const kline = asRecord(record.kline) ?? asRecord(record.history) ?? asRecord(record.ohlc);
-  const candidates = [
-    kline?.bars,
-    kline?.data,
-    kline?.items,
-    record.bars,
-    record.klines,
-    record.candles,
-    record.history,
-  ];
-
-  for (const candidate of candidates) {
-    const bars = arrayOfRecords(candidate);
-    if (bars.length > 0) {
-      return bars;
-    }
-  }
-
-  return [];
-}
-
-function hasUsableQuote(data: unknown): boolean {
-  const record = asRecord(data);
-  if (!record) {
-    return false;
-  }
-
-  const assets = arrayOfRecords(record.assets);
-  if (assets.length > 0) {
-    return assets.some(hasUsableQuote);
-  }
-
-  const quote = asRecord(record.quote);
-  return [
-    quote?.price,
-    quote?.latest,
-    quote?.latest_price,
-    quote?.close,
-    record.price,
-    record.latest,
-    record.latest_price,
-  ].some((value) => numeric(value) !== null);
+  return [...entities];
 }
 
 function inspectDashboardDataPayload(data: unknown) {
-  const bars = extractBarsFromDashboardData(data);
-  const hasQuote = hasUsableQuote(data);
   const fetchedEntities = extractFetchedEntities(data);
 
   const datasets = asRecord(asRecord(data)?.datasets);
-  const funnelDataset = datasets ? asRecord(datasets.funnel) : null;
-  const categoriesDataset = datasets ? asRecord(datasets.categories) : null;
-  const inventoryDataset = datasets ? asRecord(datasets.inventoryRisk) : null;
-  const summaryDataset = datasets ? asRecord(datasets.summary) : null;
-  const funnelStages = Array.isArray(funnelDataset?.stages) ? funnelDataset.stages.length : 0;
-  const categoryRows = Array.isArray(categoriesDataset?.rows) ? categoriesDataset.rows.length : 0;
-  const inventoryItems = Array.isArray(inventoryDataset?.items) ? inventoryDataset.items.length : 0;
-  const summaryTotals = summaryDataset ? asRecord(summaryDataset.totals) : null;
-  const hasRetailDatasets = funnelStages > 0 || categoryRows > 0 || inventoryItems > 0 ||
-    (summaryTotals !== null && 'gmv' in summaryTotals);
+  const datasetCount = datasets ? Object.keys(datasets).length : 0;
+  const hasUsableRetailData = Boolean(
+    datasets && Object.values(datasets).some((value) => {
+      const record = asRecord(value);
+      return Boolean(record && Object.keys(record).length > 0);
+    }),
+  );
 
   return {
-    hasQuote,
-    barCount: bars.length,
     fetchedEntities,
-    funnelStages,
-    categoryRows,
-    inventoryItems,
-    hasUsableMarketData: hasQuote || bars.length > 0 || hasRetailDatasets,
+    datasetCount,
+    hasUsableRetailData,
   };
-}
-
-function isStructuredEmptyScreenerResult(data: unknown): boolean {
-  const record = asRecord(data);
-  const screener = asRecord(record?.screener);
-  const comparison = asRecord(record?.comparison);
-  const ranking = asRecord(record?.selectionRanking);
-  const financialQuality = asRecord(record?.financialQuality);
-  const tradingPlan = asRecord(record?.tradingPlan);
-  const assets = Array.isArray(record?.assets) ? record.assets : null;
-  const candidates = Array.isArray(screener?.candidates) ? screener.candidates : null;
-  const totalCandidates = numeric(screener?.total_candidates);
-
-  return Boolean(
-    record?.status === 'no_candidates' &&
-      assets &&
-      assets.length === 0 &&
-      candidates &&
-      candidates.length === 0 &&
-      totalCandidates === 0 &&
-      pickString(screener?.source) &&
-      pickString(screener?.fetched_at ?? screener?.as_of ?? screener?.trade_date) &&
-      Array.isArray(comparison?.rows) &&
-      Array.isArray(ranking?.rows) &&
-      Array.isArray(financialQuality?.rows) &&
-      Array.isArray(tradingPlan?.rows) &&
-      Array.isArray(record.warnings) &&
-      record.warnings.length > 0
-  );
 }
 
 async function ensurePrefetchedFinalData(projectPath: string) {
@@ -1651,9 +1528,9 @@ async function ensurePrefetchedFinalData(projectPath: string) {
   }
 
   const inspection = inspectDashboardDataPayload(parsed);
-  const plannedSymbols = extractPlannedSymbols(runPlan);
-  const missingSymbols = plannedSymbols.filter((symbol) => !inspection.fetchedEntities.includes(symbol));
-  if (raw && (inspection.hasUsableMarketData || isStructuredEmptyScreenerResult(parsed)) && missingSymbols.length === 0) {
+  const plannedEntities = extractPlannedEntities(runPlan);
+  const missingEntities = plannedEntities.filter((entity) => !inspection.fetchedEntities.includes(entity));
+  if (raw && inspection.hasUsableRetailData && missingEntities.length === 0) {
     return;
   }
 
@@ -1731,8 +1608,8 @@ async function checkEvidenceFiles(
   }
 
   const serializedSources = JSON.stringify(sources.parsed);
-  if (!/source|eastmoney|tencent|endpoint|fetched_at|as_of|quote_time|artifact_path/i.test(serializedSources)) {
-    errors.push('evidence/sources.json 未检测到 source、endpoint、fetched_at/as_of 或 artifact_path 等来源字段。');
+  if (!/source|endpoint|fetched_at|as_of|artifact_path|dataset/i.test(serializedSources)) {
+    errors.push('evidence/sources.json 未检测到 source、endpoint、fetched_at/as_of、dataset 或 artifact_path 等来源字段。');
   }
 
   const qualityRecord = asRecord(quality.parsed);
@@ -1799,7 +1676,7 @@ async function checkDashboardBinding(
   }
 
   const bindingSignals = [
-    '/api/market',
+    '/api/commerce',
     'dashboard-data.json',
     'data_file/final',
     'data_file\\final',
@@ -1808,14 +1685,14 @@ async function checkDashboardBinding(
   const hasBindingSignal = bindingSignals.some((signal) => page.includes(signal));
   const hardcodedDataSignals = [
     /const\s+DASHBOARD_DATA\s*[:=]\s*\{/,
-    /const\s+(?:STATIC_|MOCK_|SAMPLE_)?(?:QUOTE|QUOTES|HISTORY|KLINE|KLINES|FINANCIALS|REPORTS|ANNOUNCEMENTS|DASHBOARD_DATA|DATASETS|FUNNEL|CATEGORIES)\s*[:=]\s*(?:\[|\{)/,
-    /(?:bars|reports|announcements)\s*:\s*\[\s*\{[\s\S]{0,80}(?:open|close|report_date|notice_date|title)\s*:/,
+    /const\s+(?:STATIC_|MOCK_|SAMPLE_)?(?:DASHBOARD_DATA|DATASETS|FUNNEL|CATEGORIES|INVENTORY|ANALYTICS|SUMMARY)\s*[:=]\s*(?:\[|\{)/,
+    /(?:rows|items|metrics|stages)\s*:\s*\[\s*\{[\s\S]{0,80}(?:item_id|category_id|gmv|views|buys|stock)\s*:/,
   ];
   const hasStaticSmell =
     hardcodedDataSignals.some((signal) => signal.test(page)) ||
-    (page.match(/(?:trade_date|report_date|notice_date|change_percent)\s*:/g)?.length ?? 0) > 30;
+    (page.match(/(?:stat_date|start|end|updated_at)\s*:/g)?.length ?? 0) > 30;
   const runPlan = await readRunPlan(projectPath);
-  const plannedSymbols = extractPlannedSymbols(runPlan);
+  const plannedEntities = extractPlannedEntities(runPlan);
   const finalDataRaw = await readTextFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'));
   let finalData: unknown = null;
   try {
@@ -1826,16 +1703,10 @@ async function checkDashboardBinding(
   const finalDataRecord = asRecord(finalData);
   const fetchedEntities = extractFetchedEntities(finalData);
   const payloadInspection = inspectDashboardDataPayload(finalData);
-  const isMultiSymbolTask = plannedSymbols.length > 1;
+  const isMultiEntityTask = plannedEntities.length > 1;
   const runPlanVisualization = asRecord(runPlan?.visualization);
   const plannedTemplateId = pickString(runPlanVisualization?.templateId);
   const expectedTemplateId = inferExpectedTemplateFromTask(runPlan);
-  const taskText = normalizeTextForIntent([
-    runPlan?.question,
-    runPlan?.task,
-    runPlan?.instruction,
-    runPlan?.clarification,
-  ]);
   const requiredPanels = Array.isArray(runPlanVisualization?.panels)
     ? runPlanVisualization.panels.map((panel) => pickString(panel)).filter((panel): panel is string => Boolean(panel))
     : [];
@@ -1843,20 +1714,20 @@ async function checkDashboardBinding(
   if (!hasBindingSignal) {
     return {
       status: 'failed',
-      summary: '页面未检测到数据文件或同源行情 API 绑定。',
-      details: 'app/page.tsx 应读取 data_file/final/dashboard-data.json，或通过 /api/market/** 获取真实数据。',
+      summary: '页面未检测到数据文件或同源经营数据 API 绑定。',
+      details: 'app/page.tsx 应读取 data_file/final/dashboard-data.json，或通过同源经营数据代理获取数据。',
     };
   }
 
   if (hasStaticSmell) {
     return {
       status: 'failed',
-      summary: '页面疑似直接硬编码大段行情/财务数据，未形成可复用的数据绑定。',
-      details: '请让 app/page.tsx 读取 data_file/final/dashboard-data.json，或通过 /api/market/** 获取数据；不要把完整数据对象内联到页面代码。',
+      summary: '页面疑似直接硬编码大段经营数据，未形成可复用的数据绑定。',
+      details: '请让 app/page.tsx 读取 data_file/final/dashboard-data.json，或通过同源经营数据代理获取数据；不要把完整数据对象内联到页面代码。',
     };
   }
 
-  if (!payloadInspection.hasUsableMarketData) {
+  if (!payloadInspection.hasUsableRetailData) {
     return {
       status: 'failed',
       summary: '页面数据入口存在，但最终数据无法映射出可用的零售数据集。',
@@ -1866,12 +1737,12 @@ async function checkDashboardBinding(
   }
 
   const hasStandardBinding =
-    /function\s+getBars\(|extractBarsFromDashboardData|data-source-file=\{DATA_FILE\}|data_file\/final\/dashboard-data\.json/.test(page);
+    /function\s+readDashboardData\(|data-source-file=\{DATA_FILE\}|data_file\/final\/dashboard-data\.json/.test(page);
   if (!hasStandardBinding) {
     return {
       status: 'failed',
       summary: '页面未使用 Shop Gate 标准看板数据绑定结构。',
-      details: '请使用平台标准模板读取 dashboard-data.json，并通过统一解析层渲染最新价、K 线样本、指标、财务和公告。',
+    details: '请使用平台标准模板读取 dashboard-data.json，并通过统一解析层渲染经营指标、行为趋势、商品/类目和库存数据。',
     };
   }
 
@@ -1898,9 +1769,6 @@ async function checkDashboardBinding(
       'price-inventory': '价格库存或滞销类任务必须走价库模板。',
       'analytics-bi': '经营分析、商品阶段、毛利或价格弹性任务必须走经营分析 BI 模板。',
       'catalog-structure': '类目结构或对比类任务必须走类目结构模板。',
-      'strategy-research': '策略假设与筛选研究必须走策略研究模板。',
-      'daily-brief': '技术分析任务必须走技术择时模板。',
-      'fundamental-research': '基本面分析任务必须走基本面研究模板。',
     };
     return {
       status: 'failed',
@@ -1926,29 +1794,29 @@ async function checkDashboardBinding(
     };
   }
 
-  const tradingPlanRows = Array.isArray(asRecord(finalDataRecord?.tradingPlan)?.rows)
+  const legacyExecutionRows = Array.isArray(asRecord(finalDataRecord?.tradingPlan)?.rows)
     ? asRecord(finalDataRecord?.tradingPlan)?.rows as unknown[]
     : [];
-  const hasPageTradingPlan = /短线交易计划|交易计划|买入区间|买点|卖点|止损|止盈|目标价|仓位上限|入场|出场/.test(page);
-  if (!hasExplicitTradingPlanIntent(taskText) && (tradingPlanRows.length > 0 || hasPageTradingPlan)) {
+  const hasPageExecutionPlan = /交易计划|买入区间|买点|卖点|止损|止盈|目标价|仓位上限|入场|出场/.test(page);
+  if (legacyExecutionRows.length > 0 || hasPageExecutionPlan) {
     return {
       status: 'failed',
-      summary: '页面包含未被用户明确要求的交易执行计划。',
-      details: '原始需求没有要求买入区间、止损、目标价、仓位或操作建议。请移除 tradingPlan 和页面中的短线交易计划，只保留事实对比、研究结论、风险提示和数据限制。',
+      summary: '页面包含未被用户明确要求的执行计划。',
+      details: '零售经营分析应先展示事实、风险和数据限制；只有用户明确要求时才展示经营动作建议。请移除旧版执行计划字段和交易术语。',
       metadata: {
-        hasTradingPlanData: tradingPlanRows.length > 0,
-        hasPageTradingPlan,
+        hasLegacyExecutionData: legacyExecutionRows.length > 0,
+        hasPageExecutionPlan,
       },
     };
   }
 
-  if (isMultiSymbolTask) {
+  if (isMultiEntityTask) {
     const dataDrivenCoverage =
       /plannedEntities|datasets|categories|comparison/.test(page) &&
-      plannedSymbols.every((entity) => page.includes(entity));
+      plannedEntities.every((entity) => page.includes(entity.replace(/^(?:item|cat):/, '')));
     const missingPageEntities = dataDrivenCoverage
       ? []
-      : plannedSymbols.filter((entity) => !page.includes(entity));
+      : plannedEntities.filter((entity) => !page.includes(entity.replace(/^(?:item|cat):/, '')));
     const hasComparisonBinding = /categories|comparison|plannedEntities|集中度|对比|转化率|客单价/.test(page);
     if (missingPageEntities.length > 0 || !hasComparisonBinding) {
       return {
@@ -1959,7 +1827,7 @@ async function checkDashboardBinding(
           !hasComparisonBinding ? '页面未检测到 categories、comparison 或对比展示逻辑。' : null,
         ].filter(Boolean).join('\n'),
         metadata: {
-          plannedSymbols,
+          plannedEntities,
           fetchedEntities,
         },
       };
@@ -2011,39 +1879,7 @@ async function checkDashboardBinding(
 	      };
 	    }
 
-	    if (plannedTemplateId === 'price-inventory') {
-	      const oversizedHeroSignals = [
-	        /hero-band/,
-	        /risk-card/,
-	        /portfolio[_-]?risk/i,
-	        /holding-analysis/i,
-	      ];
-	      if (oversizedHeroSignals.some((signal) => signal.test(page))) {
-	        return {
-	          status: 'failed',
-	          summary: '持仓分析页面仍使用过重的顶部 hero 结构。',
-          details: '价格库存看板应直接从价格带、库存健康度和商品风险指标开始，不要用无关的大型顶部区域占据首屏。',
-	        };
-	      }
-	    }
-
-	    if (plannedTemplateId === 'catalog-structure') {
-	      const holdingOnlySignals = [
-	        /持仓矩阵/,
-	        /仓位与集中度/,
-	        /调仓优先级/,
-	        /portfolio[_-]?risk/i,
-	        /holding-analysis/i,
-	      ];
-	      if (holdingOnlySignals.some((signal) => signal.test(page))) {
-	        return {
-	          status: 'failed',
-          summary: '页面仍残留组合分析模板，不符合类目/商品结构任务。',
-          details: '类目结构页面应展示类目覆盖、成交总额、转化率、客单价和集中度；数据口径和更新时间由后台文件验收。',
-	        };
-	      }
-	    }
-	  }
+  }
 
   return {
     status: 'passed',
@@ -2072,20 +1908,20 @@ async function checkChartPresence(
     readTextFile(path.join(projectPath, 'src', 'app', 'globals.css')),
   ]);
   const visualSource = [page, ...styleFiles.filter(Boolean)].join('\n');
-  const hasGraphicElement = /<svg|<canvas|<polyline|<rect|<path|Chart|chart|candlestick|ohlc|K线|K 线|折线|柱状|趋势图/i.test(page);
-  const hasRetailOrMarketLanguage = /漏斗|转化率|加购|收藏|购买|GMV|客单价|类目|商品|库销比|动销|曝光|环比|异动|日报|funnel|categories|inventory|summary/i.test(page);
-  const hasSemanticColoring = /red|green|up|down|gain|loss|risk-(?:high|mid|low)|dot\s+(?:red|green|amber)|candle-up|candle-down|volume-up|volume-down|bar-up|bar-down|quality-(?:ok|warning|error)|signal-(?:up|down)|#d9363e|#15945b|#dc2626|#16a34a/i.test(visualSource);
+  const hasGraphicElement = /<svg|<canvas|<polyline|<rect|<path|Chart|chart|折线|柱状|趋势图|面积图|散点/i.test(page);
+  const hasRetailLanguage = /漏斗|转化率|加购|收藏|购买|GMV|客单价|类目|商品|库销比|动销|曝光|环比|异动|日报|funnel|categories|inventory|summary|利润|生命周期|价格弹性/i.test(page);
+  const hasSemanticColoring = /red|green|up|down|risk-(?:high|mid|low)|dot\s+(?:red|green|amber)|bar-up|bar-down|quality-(?:ok|warning|error)|#d9363e|#15945b|#dc2626|#16a34a/i.test(visualSource);
   const hasChartReadingAid = /<title>|<desc>|aria-label|chart-label|axis|grid|legend|tooltip|刻度|图例|坐标|日期/i.test(page);
   const hasMiniOnlySmell = /className="(?:sparkline|mini-kline)"|className='(?:sparkline|mini-kline)'|sparkline-empty|MiniKlineChart/i.test(page) &&
     !/chart-label|chart-price|chart-date|volume-chart|KLinePanel|MainKline|主图|成交量副图/i.test(page);
   const runPlan = await readRunPlan(projectPath);
-  const plannedSymbols = extractPlannedSymbols(runPlan);
+  const plannedEntities = extractPlannedEntities(runPlan);
   const finalDataRaw = await readTextFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'));
-  const hasMultiFinalData = Boolean(finalDataRaw && /"assets"\s*:|"comparison"\s*:/.test(finalDataRaw));
-  const isMultiSymbolTask = plannedSymbols.length > 1 || hasMultiFinalData;
+  const hasMultiFinalData = Boolean(finalDataRaw && /"comparison"\s*:|"categories"\s*:/.test(finalDataRaw));
+  const isMultiEntityTask = plannedEntities.length > 1 || hasMultiFinalData;
   const plannedTemplateId = pickString(asRecord(runPlan?.visualization)?.templateId);
 
-  if (!hasGraphicElement || !hasRetailOrMarketLanguage) {
+  if (!hasGraphicElement || !hasRetailLanguage) {
     return {
       status: 'failed',
       summary: '未检测到有效图表实现。',
@@ -2096,8 +1932,8 @@ async function checkChartPresence(
   if (!hasSemanticColoring || !hasChartReadingAid) {
     return {
       status: 'failed',
-      summary: '金融图表缺少语义染色或读图辅助。',
-      details: '页面需要为涨跌、风险、质量状态提供明确颜色，并给 SVG/canvas 图表提供坐标/图例/tooltip/title 等读图辅助。',
+      summary: '经营图表缺少语义颜色或读图辅助。',
+      details: '页面需要为风险、质量状态和指标变化提供明确颜色，并给 SVG/canvas 图表提供坐标、图例、提示或标题等读图辅助。',
       metadata: {
         hasSemanticColoring,
         hasChartReadingAid,
@@ -2108,22 +1944,22 @@ async function checkChartPresence(
   if (hasMiniOnlySmell) {
     return {
       status: 'failed',
-      summary: '金融图表只有迷你趋势图，缺少可读主图。',
-      details: '多标的页面可以保留 sparkline，但必须额外提供带坐标/日期/图例/成交量或对比尺度的主图、矩阵或表格。',
+      summary: '经营图表只有迷你趋势图，缺少可读主图。',
+      details: '多商品或多类目页面可以保留迷你趋势图，但必须额外提供带坐标、日期、图例或对比尺度的主图、矩阵或表格。',
       metadata: {
-        plannedSymbols,
+        plannedEntities,
         plannedTemplateId,
       },
     };
   }
 
-  if (isMultiSymbolTask && !/对比|相对强弱|多标的|矩阵|收益|波动|回撤|comparison|assets/i.test(page)) {
+  if (isMultiEntityTask && !/对比|多商品|多类目|矩阵|GMV|转化|库存|comparison|categories|items/i.test(page)) {
     return {
       status: 'failed',
-      summary: '多标的任务未检测到对比图表或对比指标展示。',
-      details: '页面需要展示多标的指标矩阵、收益对比、波动/回撤对比或相对强弱摘要。',
+      summary: '多商品或多类目任务未检测到对比图表或对比指标展示。',
+      details: '页面需要展示商品/类目指标矩阵、GMV、转化、库存或利润对比摘要。',
       metadata: {
-        plannedSymbols,
+        plannedEntities,
       },
     };
   }
@@ -2159,7 +1995,7 @@ async function checkChartPresence(
       summary: `${retailChartRequirement.label}未检测到。`,
       details: `页面需要展示${retailChartRequirement.label}。`,
       metadata: {
-        plannedSymbols,
+        plannedEntities,
         plannedTemplateId,
       },
     };
@@ -2186,21 +2022,21 @@ async function checkEntityScope(
   projectPath: string,
   previewUrl: string | null
 ): Promise<Omit<RetailValidationCheck, 'id' | 'name' | 'durationMs'>> {
-  const marketDir = path.join(projectPath, 'app', 'api', 'market');
-  const marketEntries = await fs.readdir(marketDir).catch(() => []);
-  const escapedRouteEntry = marketEntries.find((entry) => entry.includes('\\[') || entry.includes('\\]'));
+  const commerceDir = path.join(projectPath, 'app', 'api', 'commerce');
+  const commerceEntries = await fs.readdir(commerceDir).catch(() => []);
+  const escapedRouteEntry = commerceEntries.find((entry) => entry.includes('\\[') || entry.includes('\\]'));
   if (escapedRouteEntry) {
     return {
       status: 'failed',
-      summary: '/api/market 动态路由目录名称不正确。',
-      details: `检测到目录 ${path.posix.join('app/api/market', escapedRouteEntry)}。请使用 app/api/market/[...path]/route.ts，不要在目录名中写入反斜杠。`,
+      summary: '/api/commerce 动态路由目录名称不正确。',
+      details: `检测到目录 ${path.posix.join('app/api/commerce', escapedRouteEntry)}。请使用 app/api/commerce/[...path]/route.ts，不要在目录名中写入反斜杠。`,
     };
   }
 
   const routeCandidates = [
-    path.join(projectPath, 'app', 'api', 'market', '[...path]', 'route.ts'),
-    path.join(projectPath, 'app', 'api', 'market', '[[...path]]', 'route.ts'),
-    path.join(projectPath, 'app', 'api', 'market', 'route.ts'),
+    path.join(projectPath, 'app', 'api', 'commerce', '[...path]', 'route.ts'),
+    path.join(projectPath, 'app', 'api', 'commerce', '[[...path]]', 'route.ts'),
+    path.join(projectPath, 'app', 'api', 'commerce', 'route.ts'),
   ];
   const routePath = await routeCandidates.reduce<Promise<string | null>>(async (previous, candidate) => {
     const found = await previous;
@@ -2211,26 +2047,26 @@ async function checkEntityScope(
   if (!routePath) {
     return {
       status: 'failed',
-      summary: '未找到 /api/market 同源代理 route。',
-      details: '请在生成项目中创建 app/api/market/[...path]/route.ts，并转发到 http://127.0.0.1:8000/api/v1/**。',
+      summary: '未找到 /api/commerce 同源代理 route。',
+      details: '请在生成项目中创建 app/api/commerce/[...path]/route.ts，并转发到 http://127.0.0.1:8000/api/v1/**。',
     };
   }
 
   if (!previewUrl) {
     return {
       status: 'failed',
-      summary: '无法检查 /api/market 代理，因为预览 URL 不存在。',
+      summary: '无法检查 /api/commerce 代理，因为预览 URL 不存在。',
       metadata: { route: normalizeRelativePath(projectPath, routePath) },
     };
   }
 
-  const probeUrl = new URL('/api/market/commerce/meta', previewUrl).toString();
+  const probeUrl = new URL('/api/commerce/commerce/meta', previewUrl).toString();
   const response = await fetchWithTimeout(probeUrl, { method: 'GET' }, 8_000);
   const responseText = await response.text().catch(() => '');
   if (!response.ok) {
     return {
       status: 'failed',
-      summary: `/api/market 代理未返回 2xx，状态码：${response.status}。`,
+      summary: `/api/commerce 代理未返回 2xx，状态码：${response.status}。`,
       details: responseText.slice(0, 1_000),
       metadata: {
         route: normalizeRelativePath(projectPath, routePath),
@@ -2250,7 +2086,7 @@ async function checkEntityScope(
   if (!/event_count|user_count|item_count|category_count|first_event_ts|window/i.test(serialized)) {
     return {
       status: 'failed',
-      summary: '/api/market 代理返回了 2xx，但响应不像零售数据窗口口径。',
+      summary: '/api/commerce 代理返回了 2xx，但响应不像零售数据窗口口径。',
       details: responseText.slice(0, 1_000),
       metadata: {
         route: normalizeRelativePath(projectPath, routePath),
@@ -2261,7 +2097,7 @@ async function checkEntityScope(
 
   return {
     status: 'passed',
-    summary: '/api/market 同源代理可用，零售数据窗口探测通过。',
+    summary: '/api/commerce 同源代理可用，零售数据窗口探测通过。',
     metadata: {
       route: normalizeRelativePath(projectPath, routePath),
       probeUrl,
@@ -2331,8 +2167,8 @@ function actionsForFailedCheck(check: RetailValidationCheck): string[] {
       return [
         '生成或修复 data_file/final/dashboard-data.json。',
         '读取 .data-agent/retail-run-plan.json 和现有 raw/final/evidence 数据，按真实数据重组 final 文件，不要只创建空 JSON。',
-        '确保 final 数据包含 symbol/name/source/as_of、quote.price/change_percent/quote_time，以及 kline.bars[] 或 history.bars[]；每根 K 线至少包含 date/open/high/low/close/volume 或 amount。',
-        '多标的任务必须覆盖 run_plan.symbols 中的全部代码，并写入 requestedSymbols、assets[] 与 comparison.rows[]；comparison.rows[] 必须包含 symbol/name、价格或收益、回撤/波动/成交额等可排序字段。',
+        '确保 final 数据包含 dataset_id、window、plannedEntities、datasets 和 visualization；经营数据集至少覆盖任务需要的行为、商品/类目、订单、利润或库存字段。',
+        '多商品/多类目任务必须覆盖 run_plan.plannedEntities 中的全部商品或类目，并写入对应 rows/items；comparison.rows[] 应包含可解释的 GMV、转化、利润或库存字段。',
         'final 数据必须包含 visualization.template_id、variant_id、required_components 和 rendered_components，并与 run_plan.visualization.templateId 对齐。',
       ];
     case 'evidence_files':
@@ -2349,8 +2185,8 @@ function actionsForFailedCheck(check: RetailValidationCheck): string[] {
     case 'artifact_policy':
       return [
         '移除外部 CDN、远程脚本、远程样式、远程字体、远程媒体和浏览器直连外部 API。',
-        '页面资源必须本地化；浏览器取数只能读取 data_file/final/dashboard-data.json 或同源 /api/market/**。',
-        '移除 MOCK_DATA、SAMPLE_DATA、STATIC_QUOTES、示例数据、模拟数据、占位数据和明文密钥。',
+        '页面资源必须本地化；浏览器取数只能读取 data_file/final/dashboard-data.json 或同源经营数据代理。',
+        '移除 MOCK_DATA、SAMPLE_DATA、STATIC_DATA、示例数据、模拟数据、占位数据和明文密钥。',
       ];
     case 'dashboard_data_binding':
       {
@@ -2359,7 +2195,7 @@ function actionsForFailedCheck(check: RetailValidationCheck): string[] {
         );
         return [
         '让 app/page.tsx 使用 Shop Gate 标准数据绑定结构读取 data_file/final/dashboard-data.json。',
-        '保留 DATA_FILE、readDashboardData()、getBars() 或 data-source-file={DATA_FILE} 等标准入口。',
+        '保留 DATA_FILE、readDashboardData() 或 data-source-file={DATA_FILE} 等标准入口。',
         ...(tradingPlanFailure
           ? [
               '必须实际编辑 app/page.tsx：删除 getTradingPlanRows、priceRange、TradingPlanPanel、tradingRows 变量和 <TradingPlanPanel ... /> 调用。',
@@ -2367,21 +2203,21 @@ function actionsForFailedCheck(check: RetailValidationCheck): string[] {
               '除“不是买卖建议/不构成交易指令”这类免责声明外，页面不得残留短线交易计划、买入区间、止损、目标价或仓位上限。',
             ]
           : []),
-        '不要把完整行情、K 线、财务或公告对象内联到页面代码。',
+        '不要把完整商品、行为、订单或库存对象内联到页面代码。',
         ];
       }
     case 'chart_presence':
       return [
-        '补齐真实金融图表：K 线/OHLC、成交量、均线、财务趋势、收益/回撤/波动或风险指标。',
+        '补齐与任务匹配的零售图表：行为转化趋势、类目对比、利润拆解、库存风险、商品阶段或价格观察。',
         '图表必须有语义染色、坐标/图例/tooltip/title 等读图辅助。',
-        '用户明确要求“累计收益曲线/收益曲线/净值曲线/折线图”时必须绘制带日期轴、统一尺度和图例的折线图，不能用柱状图、指标卡或 sparkline 替代。',
-        '用户明确要求“相关性矩阵/热力图/分散风险图谱”时必须绘制真实矩阵或热力图，并展示标的标签、数值和颜色刻度。',
+        '用户明确要求趋势、对比或排名时，必须使用带日期轴、统一尺度、图例或排序的可读图表，不能用指标卡或迷你图替代。',
+        '用户明确要求矩阵/热力图时，必须展示商品或类目标签、数值和颜色刻度。',
       ];
     case 'entity_scope':
       return [
-        '创建 app/api/market/[...path]/route.ts。',
-        '将 /api/market/** 转发到 http://127.0.0.1:8000/api/v1/** 并保留 query 参数。',
-        '前端刷新行情时调用 /api/market/**，不要从浏览器直连 8000 或外部接口。',
+        '创建 app/api/commerce/[...path]/route.ts。',
+        '将 /api/commerce/** 转发到 http://127.0.0.1:8000/api/v1/** 并保留 query 参数。',
+        '前端刷新经营数据时调用 /api/commerce/**，不要从浏览器直连 8000 或外部接口。',
       ];
     default:
       return [
@@ -2400,7 +2236,7 @@ const REPAIR_SCOPE_BY_CHECK_ID: Record<string, readonly string[]> = {
   artifact_policy: ['app/page.tsx', 'app/globals.css'],
   dashboard_data_binding: ['app/page.tsx', 'app/globals.css', 'data_file/final/**'],
   chart_presence: ['app/page.tsx', 'app/globals.css'],
-  entity_scope: ['app/api/market/[...path]/route.ts'],
+  entity_scope: ['app/api/commerce/[...path]/route.ts'],
 };
 
 function repairWritablePaths(failedChecks: RetailValidationCheck[]): string[] {
@@ -2413,7 +2249,7 @@ function repairWritablePaths(failedChecks: RetailValidationCheck[]): string[] {
   const preferredOrder = [
     'app/page.tsx',
     'app/globals.css',
-    'app/api/market/[...path]/route.ts',
+    'app/api/commerce/[...path]/route.ts',
     'data_file/final/**',
     'evidence/**',
   ];
@@ -2462,7 +2298,7 @@ function targetedReadsForFailedChecks(failedChecks: RetailValidationCheck[]): st
         paths.add('失败详情点名的 app/** 文件与相关导入');
         break;
       case 'final_data_file':
-        paths.add('.data-agent/retail-run-plan.json（只读 symbols/visualization）');
+        paths.add('.data-agent/retail-run-plan.json（只读 entities/plannedEntities/visualization）');
         paths.add('data_file/final/dashboard-data.json');
         break;
       case 'evidence_files':
@@ -2497,7 +2333,7 @@ function completionConditionForFailedCheck(check: RetailValidationCheck): string
     case 'visual_presentation':
       return '失败 viewport 的首屏主体可见，且无空白、横向溢出或文本遮挡。';
     case 'final_data_file':
-      return 'dashboard-data.json 覆盖计划标的、真实数据字段和 visualization 契约。';
+      return 'dashboard-data.json 覆盖计划商品/类目、经营数据字段和 visualization 契约。';
     case 'evidence_files':
       return 'sources 与 data_quality evidence 完整记录来源、时效、质量和限制。';
     case 'artifact_contracts':
@@ -2505,11 +2341,11 @@ function completionConditionForFailedCheck(check: RetailValidationCheck): string
     case 'artifact_policy':
       return '报告点名的远程资源、浏览器外连、mock 或敏感字面量已移除。';
     case 'dashboard_data_binding':
-      return '页面通过标准入口读取 final 数据，且未内联完整行情对象。';
+      return '页面通过标准入口读取 final 数据，且未内联完整商品数据对象。';
     case 'chart_presence':
-      return '用户任务要求的核心金融图表及读图辅助已实际渲染。';
+      return '用户任务要求的核心经营图表及读图辅助已实际渲染。';
     case 'entity_scope':
-      return '同源 /api/market/** 路由按报告要求存在并保留查询参数。';
+      return '同源 /api/commerce/** 路由按报告要求存在并保留查询参数。';
     default:
       return `${check.name} 的失败摘要已被对应文件修改直接解决。`;
   }
@@ -2923,7 +2759,7 @@ async function validateRetailProjectUnlocked(params: ValidateRetailProjectParams
     stage: 'validation',
     status: 'pending',
     run_id: params.requestId ?? undefined,
-    summary: '开始自动验证：build、HTTP 200、最终数据文件、evidence、产物策略、图表和 /api/market 代理。',
+    summary: '开始自动验证：build、HTTP 200、最终数据文件、evidence、产物策略、图表和 /api/commerce 代理。',
     created_at: now,
   });
 
@@ -2931,7 +2767,7 @@ async function validateRetailProjectUnlocked(params: ValidateRetailProjectParams
     type: 'status',
     data: {
       status: 'validation_running',
-      message: '正在执行自动验证：build、HTTP 200、数据文件、evidence、产物策略、图表和 /api/market 代理。',
+      message: '正在执行自动验证：build、HTTP 200、数据文件、evidence、产物策略、图表和 /api/commerce 代理。',
       requestId: params.requestId ?? undefined,
     },
   });
@@ -2976,7 +2812,7 @@ async function validateRetailProjectUnlocked(params: ValidateRetailProjectParams
     checks.push(await safeRunCheck('evidence_files', '数据证据文件', () => checkEvidenceFiles(projectPath)));
     checks.push(await safeRunCheck('artifact_contracts', '产物 Schema 契约', () => checkArtifactContracts(projectPath, params.projectId, params.requestId)));
     checks.push(await safeRunCheck('dashboard_data_binding', '页面数据绑定', () => checkDashboardBinding(projectPath)));
-    checks.push(await safeRunCheck('chart_presence', '金融图表存在性', () => checkChartPresence(projectPath)));
+    checks.push(await safeRunCheck('chart_presence', '经营图表存在性', () => checkChartPresence(projectPath)));
     checks.push(await safeRunCheck('entity_scope', '实体范围与数据桥', () => checkEntityScope(projectPath, validationPreviewUrl)));
   } finally {
     await stopPreviewForValidation(params.projectId).catch((error) => {

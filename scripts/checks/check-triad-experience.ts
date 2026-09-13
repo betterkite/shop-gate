@@ -142,7 +142,7 @@ function variantQuestion(question: string, variant: number): string {
   const wrappers = [
     (value: string) => `请直接处理以下请求：${value}`,
     (value: string) => `这是独立验收样本，请保持原意处理：${value}`,
-    (value: string) => `${value} 请严格保留原文中的标的、时间范围和输出要求。`,
+    (value: string) => `${value} 请严格保留原文中的商品/类目、时间范围和输出要求。`,
     (value: string) => `请在不改变业务语义的前提下处理：${value}`,
     (value: string) => `${value} 本题要求可追溯、不可跨项目引用上下文。`,
     (value: string) => `作为正式回归用例，请完成：${value}`,
@@ -284,9 +284,9 @@ async function runQueryRewriteCase(item: ExperienceCase): Promise<CaseResult> {
   const expectedTargets = strings(expected.targets);
   const forbiddenTargets = strings(expected.forbiddenTargets);
   if (expectedTargets.every((target) => data.targetCandidates.includes(target))) checks.push('targets');
-  else failures.push(`标的提取不符合预期：${data.targetCandidates.join('、') || '无'}`);
+  else failures.push(`商品/类目提取不符合预期：${data.targetCandidates.join('、') || '无'}`);
   if (forbiddenTargets.every((target) => !data.targetCandidates.includes(target))) checks.push('target_integrity');
-  else failures.push(`模型改写出了禁止标的：${data.targetCandidates.join('、')}`);
+  else failures.push(`模型改写出了禁止的商品/类目：${data.targetCandidates.join('、')}`);
   if (typeof expected.focus !== 'string' || data.analysisFocusId === expected.focus) checks.push('focus');
   else failures.push(`分析重点为 ${data.analysisFocusId}，预期 ${String(expected.focus)}。`);
   if (typeof expected.outputIntent !== 'string' || data.outputIntent === expected.outputIntent) checks.push('output_intent');
@@ -331,7 +331,7 @@ async function runMemoryCases(
     },
     {
       eventId: `triad-v1-evidence-${projectSuffix}-${subjectSuffix}`,
-      key: 'research.evidence_style',
+      key: 'analysis.evidence_style',
       value: '保留引用 ID 和可验证证据，不展示内部凭据或原始上下文',
       evidenceText: '三方联合体验集显式确认的证据呈现偏好',
     },

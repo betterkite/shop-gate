@@ -1,8 +1,8 @@
 /**
  * 零售数据预取（PRD §3/§5/§7，retail runtime 领域层）。
  *
- * 与金融版的差异：金融按"标的 × 多端点 × 补数矩阵"编排（2,000+ 行），
- * 零售是 8 个只读 commerce 端点的窗口/实体编排。产出的 finalData 契合
+ * 零售预取按"数据集 × 多端点 × 商品/类目范围"编排，覆盖 8 个只读 commerce
+ * 端点的窗口/实体组合。产出的 finalData 契合
  * `assessRetailDatasetIdentity` 与 apply_dashboard_spec 的前置条件。
  *
  * 窗口精化：planning 阶段的 plan.window 可为 null，这里用 /meta 的真实
@@ -24,7 +24,7 @@ import { writeWorkspaceJsonAtomic } from '@/lib/data-agent';
 type JsonRecord = Record<string, unknown>;
 
 const COMMERCE_API_BASE = (
-  process.env.SHOPGATE_MARKET_API_URL ?? 'http://127.0.0.1:8000'
+  process.env.SHOPGATE_COMMERCE_API_URL ?? 'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
 const DEFAULT_ANALYTICS_DATASET_ID = process.env.SHOPGATE_RETAIL_ANALYTICS_DATASET_ID || 'retail-demo-expanded-v1';
 const FETCH_TIMEOUT_MS = 10_000;

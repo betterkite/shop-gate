@@ -20,13 +20,13 @@ async function createProject(): Promise<string> {
   return projectPath;
 }
 
-async function technicalRewrite(instruction: string) {
-  const timeRange = instruction.includes('最近120个交易日')
+async function funnelRewrite(instruction: string) {
+  const timeRange = instruction.includes('最近120天')
     ? {
-        label: '最近120个交易日',
+        label: '最近120天',
         value: 120,
         unit: 'day' as const,
-        evidence: '最近120个交易日',
+        evidence: '最近120天',
       }
     : null;
   return rewriteRetailQuery(instruction, {
@@ -40,7 +40,7 @@ async function technicalRewrite(instruction: string) {
       provider: 'openai',
       model: 'local_qwen:qwen3.5-9b-q5km',
       data: {
-        targetCandidates: ['贵州茅台'],
+        targetCandidates: ['轻薄羽绒服'],
         timeRange,
         analysisFocusId: 'funnel',
         outputIntent: 'dashboard',
@@ -65,14 +65,14 @@ afterEach(async () => {
 describe('PI Agent Shop Gate prompts', () => {
   it('locks platform-prefetched artifacts and names only native PI Agent tools', async () => {
     const projectPath = await createProject();
-    const instruction = '生成贵州茅台最近120个交易日的技术分析看板。';
+    const instruction = '生成轻薄羽绒服最近120天的流量转化看板。';
     await writeInitialRunPlan({
       projectPath,
       requestId: 'platform-prefetched-dashboard',
-      capabilityId: 'technical_analysis',
+      capabilityId: 'traffic_funnel',
       capabilitySource: 'auto',
       instruction,
-      queryRewrite: await technicalRewrite(instruction),
+      queryRewrite: await funnelRewrite(instruction),
     });
     await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
     await fs.mkdir(path.join(projectPath, 'evidence'), { recursive: true });
@@ -107,7 +107,7 @@ describe('PI Agent Shop Gate prompts', () => {
       })),
     ]);
 
-    const prompt = await buildShopGateTaskPrompt('增强技术分析看板', projectPath);
+    const prompt = await buildShopGateTaskPrompt('增强流量转化看板', projectPath);
 
     expect(prompt).toContain('数据阶段：platform-prepared');
     expect(prompt).toContain('initial dashboard contract');
@@ -119,9 +119,9 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(prompt).toContain('绝不推断 public/data/*.json');
     expect(prompt).toContain('当前分析上下文：数据集 未固定');
     expect(prompt).toContain('实体 cat:10051');
-    expect(prompt).toContain('时间范围 最近120个交易日');
+    expect(prompt).toContain('时间范围 最近120天');
     expect(prompt).toContain('筛选范围 未固定');
-    expect(prompt).toContain('不增加买入区间、止损、目标价、仓位');
+    expect(prompt).toContain('不增加采购、调价或确定性经营承诺');
     expect(prompt).not.toContain('commerce_api_get');
     expect(prompt).not.toContain('commerce_extract_uploaded_image');
     expect(prompt).not.toContain('mcp__');
@@ -133,14 +133,14 @@ describe('PI Agent Shop Gate prompts', () => {
 
   it('does not enter the prepared phase for empty or stale marker files', async () => {
     const projectPath = await createProject();
-    const instruction = '生成贵州茅台最近120个交易日的技术分析看板';
+    const instruction = '生成轻薄羽绒服最近120天的流量转化看板';
     await writeInitialRunPlan({
       projectPath,
       requestId: 'semantic-readiness',
-      capabilityId: 'technical_analysis',
+      capabilityId: 'traffic_funnel',
       capabilitySource: 'auto',
       instruction,
-      queryRewrite: await technicalRewrite(instruction),
+      queryRewrite: await funnelRewrite(instruction),
     });
     await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
     await fs.mkdir(path.join(projectPath, 'evidence'), { recursive: true });
@@ -169,7 +169,7 @@ describe('PI Agent Shop Gate prompts', () => {
       capabilitySource: 'manual',
       instruction,
       queryRewrite: {
-        ...(await technicalRewrite(instruction)),
+        ...(await funnelRewrite(instruction)),
         analysisFocus: { id: 'price_inventory', label: '价格与库存' },
         capabilityHint: 'traffic_funnel',
         outputIntent: 'answer',
@@ -199,7 +199,7 @@ describe('PI Agent Shop Gate prompts', () => {
       capabilitySource: 'manual',
       instruction,
       queryRewrite: {
-        ...(await technicalRewrite(instruction)),
+        ...(await funnelRewrite(instruction)),
         outputIntent: 'answer',
         broadUniverse: false,
       },
@@ -214,7 +214,7 @@ describe('PI Agent Shop Gate prompts', () => {
 
   it('inherits the previous entity and dataset for a contextual drilldown question', async () => {
     const projectPath = await createProject();
-    const firstInstruction = '生成贵州茅台最近120个交易日的技术分析看板。';
+    const firstInstruction = '生成轻薄羽绒服最近120天的流量转化看板。';
     const previousPlan = await writeInitialRunPlan({
       projectPath,
       projectId: 'contextual-drilldown-project',
@@ -223,7 +223,7 @@ describe('PI Agent Shop Gate prompts', () => {
       capabilitySource: 'auto',
       instruction: firstInstruction,
       datasetId: 'retail-demo-p28-elasticity-v1',
-      queryRewrite: await technicalRewrite(firstInstruction),
+      queryRewrite: await funnelRewrite(firstInstruction),
     });
     await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
     await fs.writeFile(path.join(projectPath, 'data_file', 'final', 'dashboard-data.json'), JSON.stringify({
@@ -282,11 +282,11 @@ describe('PI Agent Shop Gate prompts', () => {
     expect(runPlan.status).toBe('planned');
     expect(runPlan.entities).toEqual(['cat:10051']);
     expect(runPlan.datasetId).toBe('retail-demo-p28-elasticity-v1');
-    expect(runPlan.timeRange).toBe('最近120个交易日');
+    expect(runPlan.timeRange).toBe('最近120天');
     expect(runPlan.context).toEqual({
       datasetId: 'retail-demo-p28-elasticity-v1',
       entities: ['cat:10051'],
-      timeRange: '最近120个交易日',
+      timeRange: '最近120天',
       inherited: true,
       sourceRunId: 'contextual-drilldown-first',
       scope: { dimension: 'item', value: '1000009', source: 'previous-final-data' },
@@ -298,7 +298,7 @@ describe('PI Agent Shop Gate prompts', () => {
   it('carries the previous ranked item set into a plural follow-up', async () => {
     const projectPath = await createProject();
     const firstInstruction = '按全库口径找出库销比最差的 10 个商品。';
-    const firstRewrite = await technicalRewrite(firstInstruction);
+    const firstRewrite = await funnelRewrite(firstInstruction);
     const previousPlan = await writeInitialRunPlan({
       projectPath,
       requestId: 'ranked-items-first',
@@ -361,7 +361,7 @@ describe('PI Agent Shop Gate prompts', () => {
 
   it('does not inherit the previous entity when a follow-up names a new entity', async () => {
     const projectPath = await createProject();
-    const firstInstruction = '生成贵州茅台最近120个交易日的技术分析看板。';
+    const firstInstruction = '生成轻薄羽绒服最近120天的流量转化看板。';
     const previousPlan = await writeInitialRunPlan({
       projectPath,
       requestId: 'contextual-drilldown-explicit-first',
@@ -369,7 +369,7 @@ describe('PI Agent Shop Gate prompts', () => {
       capabilitySource: 'auto',
       instruction: firstInstruction,
       datasetId: 'retail-demo-p28-elasticity-v1',
-      queryRewrite: await technicalRewrite(firstInstruction),
+      queryRewrite: await funnelRewrite(firstInstruction),
     });
 
     const followUpInstruction = '分析家居类目里的商品购买转化率。';
@@ -422,7 +422,7 @@ describe('PI Agent Shop Gate prompts', () => {
       capabilitySource: 'auto',
       instruction,
       queryRewrite: {
-        ...(await technicalRewrite(instruction)),
+        ...(await funnelRewrite(instruction)),
         analysisFocus: { id: 'price_inventory', label: '价格与库存' },
         outputIntent: 'answer',
         broadUniverse: true,
@@ -461,14 +461,14 @@ describe('PI Agent Shop Gate prompts', () => {
 
   it('rejects hollow evidence arrays even when marker keys and run ids exist', async () => {
     const projectPath = await createProject();
-    const instruction = '生成贵州茅台技术分析看板';
+    const instruction = '生成轻薄羽绒服流量转化看板';
     await writeInitialRunPlan({
       projectPath,
       requestId: 'hollow-evidence',
-      capabilityId: 'technical_analysis',
+      capabilityId: 'traffic_funnel',
       capabilitySource: 'auto',
       instruction,
-      queryRewrite: await technicalRewrite(instruction),
+      queryRewrite: await funnelRewrite(instruction),
     });
     await fs.mkdir(path.join(projectPath, 'data_file', 'final'), { recursive: true });
     await fs.mkdir(path.join(projectPath, 'evidence'), { recursive: true });
@@ -507,14 +507,14 @@ describe('PI Agent Shop Gate prompts', () => {
 
   it('keeps a validation repair task packet failure-scoped and compact', async () => {
     const projectPath = await createProject();
-    const instruction = '生成贵州茅台技术分析看板';
+    const instruction = '生成轻薄羽绒服流量转化看板';
     await writeInitialRunPlan({
       projectPath,
       requestId: 'repair-packet',
-      capabilityId: 'technical_analysis',
+      capabilityId: 'traffic_funnel',
       capabilitySource: 'auto',
       instruction,
-      queryRewrite: await technicalRewrite(instruction),
+      queryRewrite: await funnelRewrite(instruction),
     });
 
     const prompt = await buildShopGateTaskPrompt(

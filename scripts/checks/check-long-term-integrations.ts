@@ -247,8 +247,8 @@ async function checkQwen() {
   let queryRewrite;
   try {
     queryRewrite = await rewriteRetailQuerySemanticsWithConfiguredProvider({
-      originalQuery: '分析大位科技最近一个季度的财务与估值，并生成看板',
-      normalizedQuery: '分析大位科技最近一个季度的财务与估值，并生成看板',
+      originalQuery: '分析轻薄羽绒服最近30天的浏览、加购和购买转化，并生成看板',
+      normalizedQuery: '分析轻薄羽绒服最近30天的浏览、加购和购买转化，并生成看板',
       trigger: 'primary',
       requestedModel: llm.model,
       signal: queryController.signal,
@@ -257,8 +257,8 @@ async function checkQwen() {
     clearTimeout(queryTimeout);
   }
   assert(queryRewrite.ok, `Qwen Query Rewrite failed: ${queryRewrite.ok ? '' : queryRewrite.code}`);
-  assert(queryRewrite.data.targetCandidates.includes('大位科技'), 'Qwen Query Rewrite missed 大位科技.');
-  assert(!queryRewrite.data.targetCandidates.includes('大为科技'), 'Qwen Query Rewrite changed 大位科技 to 大为科技.');
+  assert(queryRewrite.data.targetCandidates.includes('轻薄羽绒服'), 'Qwen Query Rewrite missed 轻薄羽绒服.');
+  assert(!queryRewrite.data.targetCandidates.includes('轻薄羽绒'), 'Qwen Query Rewrite changed 轻薄羽绒服 to 轻薄羽绒.');
 
   return {
     llm,
@@ -277,7 +277,7 @@ async function checkQwen() {
       },
       queryRewrite: {
         status: 'llm-applied',
-        target: '大位科技',
+        target: '轻薄羽绒服',
         analysisFocusId: queryRewrite.data.analysisFocusId,
         outputIntent: queryRewrite.data.outputIntent,
       },

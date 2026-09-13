@@ -17,7 +17,7 @@ import {
 export const RETAIL_DOMAIN_PACK_ID = 'retail.core';
 
 /**
- * 零售默认 Profile。通用平台只依赖 Profile 合同，不内置金融领域实现。
+ * 零售默认 Profile。通用平台只依赖 Profile 合同，不内置具体行业实现。
  */
 export const RETAIL_AGENT_PROFILE_ID = 'shopgate.retail-ops';
 

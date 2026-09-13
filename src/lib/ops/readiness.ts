@@ -23,7 +23,7 @@ export interface ReadinessComponent {
   name:
     | 'database'
     | 'knowledge'
-    | 'marketApi'
+    | 'commerceApi'
     | 'memory'
     | 'modelPort'
     | 'redis'
@@ -162,7 +162,7 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
         /* turbopackIgnore: true */ process.cwd(),
         /* turbopackIgnore: true */ process.env.PROJECTS_DIR || './data/projects',
       );
-  const marketBaseUrl = (process.env.SHOPGATE_MARKET_API_URL || 'http://127.0.0.1:8000')
+  const commerceBaseUrl = (process.env.SHOPGATE_COMMERCE_API_URL || 'http://127.0.0.1:8000')
     .replace(/\/$/, '');
   const modelPortBaseUrl = (process.env.SHOPGATE_MODELPORT_URL || 'http://127.0.0.1:38082')
     .replace(/\/$/, '');
@@ -206,9 +206,9 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
       },
     },
     {
-      name: 'marketApi',
-      ...degradation.components.marketApi,
-      run: () => probeHttp(`${marketBaseUrl}/ready`),
+      name: 'commerceApi',
+      ...degradation.components.commerceApi,
+      run: () => probeHttp(`${commerceBaseUrl}/ready`),
     },
     {
       name: 'memory',

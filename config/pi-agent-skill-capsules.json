@@ -194,7 +194,7 @@
       "objective": "把权威 run plan、final 数据和 evidence 转成可验证的 Next.js 零售经营看板。",
       "invariants": [
         "严格保持 template、variant、实体集合和真实数据绑定。",
-        "可信编译器直接读取冻结的 final_dashboard（data_file/final/dashboard-data.json）；语义编辑路径只通过 query_json 的 final_dashboard artifact 读取数据，绝不推断 public/data 路径或按证券代码拼接 JSON 文件名。",
+        "可信编译器直接读取冻结的 final_dashboard（data_file/final/dashboard-data.json）；语义编辑路径只通过 query_json 的 final_dashboard artifact 读取数据，绝不推断 public/data 路径或按商品编号拼接 JSON 文件名。",
         "apply_dashboard_spec 可用时，标准场景必须优先由可信编译器生成页面与样式；templateId 和 variantId 只能作为权威合同断言，不能覆盖 run plan。",
         "首屏展示核心经营指标、商品/类目明细或日趋势，不生成卡片宫格或营销 hero。",
         "动态 JSON 每层使用 JsonRecord、asRecord、asArray 和 numeric 等守卫。",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 零售 task-E2E 基准校验（P9 替代已删除的金融 benchmarks/shopgate 数据体系）。
+ * 零售 task-E2E 基准校验。
  *
  * 校验对象（真实存在的零售基准）：
  *  1. config/evals/task-e2e-retail-v1.json —— 30 条零售 case，能力 ∈ 零售 4 能力，id 唯一；

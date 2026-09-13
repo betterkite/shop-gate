@@ -40,7 +40,7 @@ const api = requireFile('services/commerce-data/src/shopgate_commerce_data/api.p
   'Shop Gate Commerce Data API',
 ]);
 requireFile('services/commerce-data/src/shopgate_commerce_data/cli.py', [
-  'MARKET_ENVIRONMENT_KEYS',
+  'COMMERCE_ENVIRONMENT_KEYS',
   'shopgate_commerce_data.api:app',
 ]);
 requireFile('services/commerce-data/src/shopgate_commerce_data/import_cli.py', [
@@ -102,9 +102,6 @@ for (const term of ['clickhouse', 'akshare', 'baostock', 'tushare']) {
 const packageJson = JSON.parse(requireFile('package.json'));
 if (!packageJson.scripts?.['check:backend-architecture']) {
   fail('package.json should expose check:backend-architecture');
-}
-if (packageJson.scripts?.['market:maintain'] || packageJson.scripts?.['check:market-freshness']) {
-  fail('package.json must not expose removed financial market maintenance commands');
 }
 
 const trackedFiles = [];

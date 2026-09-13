@@ -1048,7 +1048,7 @@ export function createQueryTextFileTool(
           minItems: 1,
           maxItems: MAX_TEXT_ANCHORS,
           items: { type: 'string' },
-          description: 'All short literal anchors for this file in one array, for example ["function TrendChart", "function FinancialPanel", "export default async function Home"].',
+          description: 'All short literal anchors for this file in one array, for example ["function TrendChart", "function ProfitPanel", "export default async function Home"].',
         },
       },
       required: ['path', 'anchors'],

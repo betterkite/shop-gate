@@ -81,7 +81,6 @@ const optionalTimeRange = z.union([
   z.string(),
   z.object({
     period: z.string().optional(),
-    klinePeriod: z.string().optional(),
     lookbackDays: z.number().int().positive().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
@@ -185,7 +184,6 @@ const runPlanSchema = z.object({
   capabilityId: nonEmptyString,
   composition: compositionLockSchema,
   question: nonEmptyString,
-  symbols: z.array(z.string()).optional(),
   entities: z.array(z.string()).optional(),
   plannedEntities: z.object({
     categoryIds: z.array(z.number()),
@@ -336,31 +334,6 @@ function hasArrayValue(record: JsonRecord | null, keys: string[]) {
   return Boolean(record && keys.some((key) => Array.isArray(record[key]) && (record[key] as unknown[]).length > 0));
 }
 
-function isStructuredEmptyScreenerResult(record: JsonRecord): boolean {
-  const screener = asRecord(record.screener);
-  const comparison = asRecord(record.comparison);
-  const ranking = asRecord(record.selectionRanking);
-  const financialQuality = asRecord(record.financialQuality);
-  const totalCandidates = Number(screener?.total_candidates);
-
-  return (
-    record.status === 'no_candidates' &&
-    Array.isArray(record.assets) &&
-    record.assets.length === 0 &&
-    Array.isArray(screener?.candidates) &&
-    screener.candidates.length === 0 &&
-    Number.isFinite(totalCandidates) &&
-    totalCandidates === 0 &&
-    hasPresentValue(screener, ['source']) &&
-    hasPresentValue(screener, ['fetched_at', 'as_of', 'trade_date']) &&
-    Array.isArray(comparison?.rows) &&
-    Array.isArray(ranking?.rows) &&
-    Array.isArray(financialQuality?.rows) &&
-    Array.isArray(record.warnings) &&
-    record.warnings.length > 0
-  );
-}
-
 function inspectDashboardData(value: unknown): string[] {
   const record = asRecord(value);
   const errors: string[] = [];
@@ -368,38 +341,21 @@ function inspectDashboardData(value: unknown): string[] {
     return ['dashboard-data.json 必须是非空对象。'];
   }
 
-  const assets = Array.isArray(record.assets)
-    ? record.assets.map(asRecord).filter((asset): asset is JsonRecord => Boolean(asset))
-    : [];
-  const targetRecords = assets.length ? assets : [record];
-  const hasMarketPayload = targetRecords.some((item) => {
-    const quote = asRecord(item.quote);
-    const kline = asRecord(item.kline) ?? asRecord(item.history);
-    return (
-      hasPresentValue(item, ['symbol', 'name']) &&
-      (hasPresentValue(quote, ['price', 'latest', 'latest_price', 'close']) ||
-        hasArrayValue(kline, ['bars', 'data', 'items']) ||
-        hasArrayValue(item, ['bars', 'history', 'klines', 'candles']))
-    );
-  });
-
-  // 零售契约：datasets（meta/funnel/categories/inventoryRisk/summary）+
+  // 零售契约：datasets（meta/funnel/categories/inventoryRisk/summary 等）+
   // window + plannedEntities 视为有效业务载荷（PRD §5.4）。
   const datasets = asRecord(record.datasets);
-  const retailDatasetKeys = ['meta', 'funnel', 'funnelDaily', 'categories', 'itemDaily', 'inventoryRisk', 'summary'];
-  const hasRetailPayload = Boolean(
-    datasets && retailDatasetKeys.some((key) => {
-      const dataset = asRecord(datasets[key]);
-      if (!dataset) return false;
-      return hasArrayValue(dataset, ['rows', 'stages']) ||
-        hasPresentValue(dataset, ['window', 'event_count', 'totals', 'items']);
-    })
-  );
+  const hasRetailPayload = Boolean(datasets && Object.values(datasets).some((dataset) => {
+    const candidate = asRecord(dataset);
+    return Boolean(candidate && (
+      hasArrayValue(candidate, ['rows', 'stages', 'items', 'groups', 'points']) ||
+      hasPresentValue(candidate, ['window', 'event_count', 'user_count', 'totals', 'status', 'limitations'])
+    ));
+  }));
   const hasWindow = asRecord(record.window) !== null;
   const hasPlannedEntities = asRecord(record.plannedEntities) !== null;
 
-  if (!hasMarketPayload && !hasRetailPayload && !isStructuredEmptyScreenerResult(record)) {
-    errors.push('dashboard-data.json 至少需要包含可用行情样本，或包含可追溯的 no_candidates 空筛选结果。');
+  if (!hasRetailPayload) {
+    errors.push('dashboard-data.json 至少需要包含一个可用的零售数据集（商品、行为、订单、库存或经营汇总）。');
   }
   if (datasets && !hasWindow) {
     errors.push('datasets 存在时必须声明 window（start/end）。');
@@ -461,7 +417,7 @@ function inspectSources(value: unknown) {
     if (!hasPresentValue(record, ['source'])) errors.push(`sources[${index}].source 缺失。`);
     if (!hasPresentValue(record, ['endpoint'])) errors.push(`sources[${index}].endpoint 缺失。`);
     if (!hasPresentValue(record, ['artifact_path', 'dataset'])) errors.push(`sources[${index}].artifact_path 缺失。`);
-    if (!hasPresentValue(record, ['fetched_at', 'as_of', 'quote_time'])) errors.push(`sources[${index}] 缺少 fetched_at/as_of/quote_time。`);
+    if (!hasPresentValue(record, ['fetched_at', 'as_of', 'window'])) errors.push(`sources[${index}] 缺少 fetched_at/as_of/window。`);
     return errors;
   });
 }

@@ -2,7 +2,7 @@
   "name": "shopgate",
   "version": "2.0.0",
   "description": "Retail commerce AI workspace powered by PI Agent and configurable model providers",
-  "private": true,
+  "private": false,
   "main": "index.js",
   "scripts": {
     "dev": "node scripts/dev/run-full.js",

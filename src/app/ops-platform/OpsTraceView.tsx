@@ -176,7 +176,7 @@ export function OpsTraceView({ data }: { data: GenerationObservabilityDashboard 
     return data.projects.filter((project) => {
       if (filter !== "all" && project.trace.status !== filter) return false;
       if (!lower) return true;
-      return [project.id, project.name, project.description, project.selectedModel, project.preferredCli, project.latestRequest?.instruction, ...project.runPlan.symbols].filter(Boolean).join(" ").toLowerCase().includes(lower);
+      return [project.id, project.name, project.description, project.selectedModel, project.preferredCli, project.latestRequest?.instruction, ...project.runPlan.entities].filter(Boolean).join(" ").toLowerCase().includes(lower);
     });
   }, [data.projects, filter, keyword]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -194,7 +194,7 @@ export function OpsTraceView({ data }: { data: GenerationObservabilityDashboard 
       </section>
       <section className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={keyword} onChange={(event) => { setKeyword(event.target.value); setPage(1); }} placeholder="搜索项目、标的、模型或请求内容" className="h-10 bg-card pl-9" aria-label="搜索生成链路" /></div>
+          <div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={keyword} onChange={(event) => { setKeyword(event.target.value); setPage(1); }} placeholder="搜索项目、商品/类目、模型或请求内容" className="h-10 bg-card pl-9" aria-label="搜索生成链路" /></div>
           <div className="flex flex-wrap gap-1.5">{filters.map((item) => <button key={item.id} type="button" onClick={() => { setFilter(item.id); setPage(1); }} className={cn("rounded-lg border px-3 py-2 text-xs font-semibold", filter === item.id ? "border-primary/30 bg-primary/10 text-primary" : "border-border/60 bg-card text-muted-foreground")}>{item.label}</button>)}</div>
         </div>
         <p className="text-right text-xs text-muted-foreground">显示 {filtered.length}/{data.projects.length} 个项目</p>

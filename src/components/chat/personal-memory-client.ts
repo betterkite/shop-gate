@@ -8,9 +8,8 @@ export const PERSONAL_MEMORY_PREFERENCE_OPTIONS = [
   { key: 'output.detail_level', label: '回答详略' },
   { key: 'output.visual_style', label: '图表与呈现' },
   { key: 'analysis.risk_style', label: '风险表达' },
-  { key: 'analysis.default_market', label: '默认市场' },
-  { key: 'research.default_horizon', label: '研究周期' },
-  { key: 'research.evidence_style', label: '证据偏好' },
+  { key: 'analysis.default_period', label: '分析周期' },
+  { key: 'analysis.evidence_style', label: '证据偏好' },
 ] as const;
 
 export type { PersonalMemoryPreferenceKey, PersonalMemoryScope };

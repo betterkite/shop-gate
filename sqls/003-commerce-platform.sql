@@ -1,6 +1,6 @@
 -- Shop Gate 平台级基础组件 bootstrap SQL。
--- 自上游 quant.* 平台表迁移而来：表结构保持，移除指向金融主数据的 FK，
--- 金融味默认值改为中性（provider=userbehavior_csv / adjustment=none）。
+-- 平台数据导入与同步表：保留稳定的基础结构和兼容字段，
+-- 默认值采用零售数据口径（provider=userbehavior_csv / adjustment=none）。
 -- 可重复执行。
 
 CREATE TABLE IF NOT EXISTS commerce.market_data_ingestion_jobs (
@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS market_data_ingestion_jobs_created_idx
   ON commerce.market_data_ingestion_jobs (created_at DESC);
 
 COMMENT ON TABLE commerce.market_data_ingestion_jobs IS
-  '数据导入任务表（原 quant.* 平台表）。universe_id 保留为通用外置 ID，不再外键到金融股票池。';
+  '数据导入任务表。universe_id 保留为通用外置 ID，不绑定具体行业主数据。';
 
 CREATE TABLE IF NOT EXISTS commerce.market_data_sync_state (
   symbol TEXT NOT NULL,
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS market_data_sync_state_last_ts_idx
   ON commerce.market_data_sync_state (last_ts DESC);
 
 COMMENT ON TABLE commerce.market_data_sync_state IS
-  '数据源同步水位表（原 quant.* 平台表）。symbol 为数据源通用键（如数据集分片），无金融外键。';
+  '数据源同步水位表。symbol 为数据源通用键（如数据集分片），无行业外键。';
 
 CREATE TABLE IF NOT EXISTS commerce.data_quality_scans (
   id TEXT PRIMARY KEY,
@@ -83,7 +83,7 @@ CREATE INDEX IF NOT EXISTS data_quality_scans_scope_idx
   ON commerce.data_quality_scans (universe_id, symbol, created_at DESC);
 
 COMMENT ON TABLE commerce.data_quality_scans IS
-  '数据质量扫描结果（原 quant.* 平台表）。记录导入覆盖率、缺失、重复等检查摘要。';
+  '数据质量扫描结果。记录导入覆盖率、缺失、重复等检查摘要。';
 
 CREATE TABLE IF NOT EXISTS commerce.platform_jobs (
   id TEXT PRIMARY KEY,
@@ -112,4 +112,4 @@ CREATE INDEX IF NOT EXISTS platform_jobs_type_created_idx
   ON commerce.platform_jobs (job_type, created_at DESC);
 
 COMMENT ON TABLE commerce.platform_jobs IS
-  '通用平台任务表（原 quant.* 平台表，结构保持）。后续 Worker 可基于此承载导入、聚合和质量扫描任务。';
+  '通用平台任务表。Worker 可基于此承载导入、聚合和质量扫描任务。';

@@ -148,7 +148,7 @@ export async function prepareRetailActGeneration(
       let queryRewriteToolCallId: string | undefined;
       let runPlannerToolCallId: string | undefined;
       let dataRegistryToolCallId: string | undefined;
-      let marketDataToolCallId: string | undefined;
+      let commerceDataToolCallId: string | undefined;
       let dashboardVisualizationToolCallId: string | undefined;
       let queryRewriteQuotaReservationId: string | null = null;
       try {
@@ -492,7 +492,7 @@ export async function prepareRetailActGeneration(
           requestId,
           objective:
             runPlan.queryRewrite?.rewrittenQuery ?? planningInstruction,
-          runPlan: { ...runPlan, symbols: runPlan.entities },
+          runPlan,
           maxRepairAttempts: generationState.maxRepairAttempts,
         });
 
@@ -541,13 +541,13 @@ export async function prepareRetailActGeneration(
           cliSource: cliPreference,
           toolName: "commerce-data-registry",
           target: "本地数据窗口与实体解析",
-          summary: "正在核验本地数据覆盖、标的解析和可用信源。",
+          summary: "正在核验本地数据覆盖、商品/类目解析和可用信源。",
           input: {
             question: runPlan.question,
             templateId: runPlan.visualization?.templateId,
           },
         });
-        marketDataToolCallId = await publishRetailPipelineToolStart({
+        commerceDataToolCallId = await publishRetailPipelineToolStart({
           projectId: project_id,
           requestId,
           conversationId,
@@ -677,7 +677,7 @@ export async function prepareRetailActGeneration(
             conversationId,
             cliSource: cliPreference,
             toolName: "commerce-market-data",
-            toolCallId: marketDataToolCallId,
+            toolCallId: commerceDataToolCallId,
             target: "data_file/final/dashboard-data.json",
             summary: `本阶段未重复取数：${prefetch.summary}`,
             resultStatus: "skipped",
@@ -686,7 +686,7 @@ export async function prepareRetailActGeneration(
               reason: prefetch.summary,
             },
           });
-          marketDataToolCallId = undefined;
+          commerceDataToolCallId = undefined;
           await publishWorkspaceProgress({
             stage: 3,
             runPlan,
@@ -723,7 +723,7 @@ export async function prepareRetailActGeneration(
             conversationId,
             cliSource: cliPreference,
             toolName: "commerce-market-data",
-            toolCallId: marketDataToolCallId,
+            toolCallId: commerceDataToolCallId,
             target: "data_file/final/dashboard-data.json",
             summary: prefetch.summary ?? '',
             input: {
@@ -740,7 +740,7 @@ export async function prepareRetailActGeneration(
               rawFiles: prefetch.rawFiles,
             },
           });
-          marketDataToolCallId = undefined;
+          commerceDataToolCallId = undefined;
           await publishWorkspaceProgress({
             stage: 3,
             runPlan,
@@ -847,10 +847,10 @@ export async function prepareRetailActGeneration(
                 target: "本地数据窗口与实体解析",
               }
             : null,
-          marketDataToolCallId
+          commerceDataToolCallId
             ? {
                 toolName: "commerce-market-data",
-                toolCallId: marketDataToolCallId,
+                toolCallId: commerceDataToolCallId,
                 target: "data_file/final/dashboard-data.json",
               }
             : null,

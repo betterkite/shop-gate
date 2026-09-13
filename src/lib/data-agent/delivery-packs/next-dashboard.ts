@@ -4,7 +4,7 @@ export const NEXT_DASHBOARD_DELIVERY_PACK: DataAgentDeliveryPackDescriptor = {
   id: 'workspace.next-dashboard',
   version: '1.0.0',
   name: 'Next.js Data Workspace',
-  description: '可验证、可预览的 Next.js 数据应用交付包，不包含任何金融业务语义。',
+  description: '可验证、可预览的 Next.js 电商数据应用交付包。',
   supportedOutputs: ['answer', 'table', 'chart', 'dashboard', 'report', 'dataset'],
   workspaceDirectories: [
     '.data-agent',

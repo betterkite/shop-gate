@@ -91,7 +91,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 - 选择 `deepseek:deepseek-v4-flash` 时，Shop Gate 仍使用同一个 ModelPort OpenAI-compatible adapter；上游协议转换、密钥、健康状态和本地用量由 ModelPort 管理。
 - OpenAI Chat Completions 无法无损回传 Anthropic `thinking` block。ModelPort 因此只在“OpenAI 入口 → DeepSeek Anthropic 上游”的转换链关闭 thinking，保证强制工具调用和多轮 tool result 续写；原生 `/v1/messages` 不受该兼容规则影响。
 - 选择 `deepseek-v4-flash` 时才启用 Shop Gate 的官方直连 adapter，并按 DeepSeek OpenAI 格式处理 thinking/reasoning 回放。
-- Query Rewrite 总是调用当前项目 profile 做大模型语义解析，不使用关键词规则代替；未显式选择时使用 Qwen，并保留“大位科技”等原文实体。
+- Query Rewrite 总是调用当前项目 profile 做大模型语义解析，不使用关键词规则代替；未显式选择时使用 Qwen，并保留“轻薄羽绒服”等原文商品实体。
 - 三个 profile 共享同一套受控工具、执行预算、durable ledger、取消和最终看板验证，不因切换 provider 放宽 workspace 权限。
 
 ## DeepSeek 线上余额
@@ -119,7 +119,7 @@ npm run check:integrations
 - Qwen 与 ModelPort DeepSeek 的限定模型 ID 均可发现；
 - 错误凭据被拒绝；
 - 两个模型的流式 function tool call、usage、finish reason 和 tool result 续写完整；
-- Qwen Query Rewrite 确实调用大模型，并保持“大位科技”和 dashboard 输出意图；
+- Qwen Query Rewrite 确实调用大模型，并保持“轻薄羽绒服”和 dashboard 输出意图；
 - Evolvable User Memory 的版本化契约和 readiness 可用。
 
 命令会产生真实模型 Token，但不写 Memory；只输出模型 ID、状态和 Token 计数，不输出 API Key、原始记忆正文或模型完整回复。Qwen-only、官方 direct-only 或 Memory-disabled 环境缺少未启用组件是预期结果，应分别检查实际启用的端点，不把 `check:integrations` 当作这些精简拓扑的统一健康门。

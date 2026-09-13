@@ -39,7 +39,7 @@ const FALLBACK_CORE_SKILLS: CommerceCoreSkill[] = [
     version: '0.1.0',
     status: 'stable',
     scope: 'workflow',
-    boundary: '把自然语言问题规范化为标的、周期、分析重点和澄清状态。',
+    boundary: '把自然语言问题规范化为商品/类目、周期、分析重点和澄清状态。',
   },
   {
     id: 'run-planner',

@@ -210,12 +210,12 @@ describe('PreviewManager start concurrency', () => {
       expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toMatch(
         /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/p\.sock$/,
       );
-      expect(previewEnv.SHOPGATE_SANDBOX_MARKET_SOCKET).toMatch(
+      expect(previewEnv.SHOPGATE_SANDBOX_COMMERCE_SOCKET).toMatch(
         /^\/tmp\/shopgate-preview\/[a-f0-9]{20}\/m\.sock$/,
       );
     } else {
       expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toBeUndefined();
-      expect(previewEnv.SHOPGATE_SANDBOX_MARKET_SOCKET).toBeUndefined();
+      expect(previewEnv.SHOPGATE_SANDBOX_COMMERCE_SOCKET).toBeUndefined();
     }
     expect(mocks.getProjectById).toHaveBeenCalledTimes(1);
     expect(mocks.spawn).toHaveBeenCalledTimes(1);
@@ -240,7 +240,7 @@ describe('PreviewManager start concurrency', () => {
 
     const previewEnv = mocks.spawn.mock.calls[0]?.[2]?.env as NodeJS.ProcessEnv;
     expect(previewEnv.SHOPGATE_SANDBOX_PREVIEW_SOCKET).toBeUndefined();
-    expect(previewEnv.SHOPGATE_SANDBOX_MARKET_SOCKET).toBeUndefined();
+    expect(previewEnv.SHOPGATE_SANDBOX_COMMERCE_SOCKET).toBeUndefined();
 
     const directListener = createServer();
     await new Promise<void>((resolve, reject) => {

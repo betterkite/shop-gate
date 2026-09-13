@@ -44,7 +44,7 @@ function readRecord(value: unknown): Record<string, unknown> | null {
  * 零售标准生成路径：按 run plan 的可视化 templateId（或 capabilityId）把页面写成
  * 对应能力看板模板，而不是落下仅含"数据集覆盖"的 base 骨架。
  *
- * 调用方负责先 scaffoldBasicNextApp。旧金融模板入口已移除。
+ * 调用方负责先 scaffoldBasicNextApp。历史业务模板入口已移除。
  * 识别不到零售 templateId 便提前 return，只保留 base 页；此函数让标准看板直接产出
  * 对应能力的柱状图/趋势图/指标矩阵。
  */

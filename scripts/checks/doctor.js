@@ -91,9 +91,9 @@ function degradationConfig() {
       enabled: envFlag('SHOPGATE_DATABASE_ENABLED', true),
       required: offline ? false : envFlag('SHOPGATE_DATABASE_REQUIRED', true),
     },
-    marketApi: {
-      enabled: offline ? false : envFlag('SHOPGATE_MARKET_API_ENABLED', true),
-      required: !offline && envFlag('SHOPGATE_MARKET_API_REQUIRED', strict),
+    commerceApi: {
+      enabled: offline ? false : envFlag('SHOPGATE_COMMERCE_API_ENABLED', true),
+      required: !offline && envFlag('SHOPGATE_COMMERCE_API_REQUIRED', strict),
     },
     memory: {
       enabled: offline ? false : envFlag('SHOPGATE_MEMORY_ENABLED', true),
@@ -129,7 +129,7 @@ function hasPiAgentRuntime() {
 async function checkDatabase() {
   const degradation = degradationConfig();
   if (!degradation.database.enabled) {
-    addCheck('数据库', 'warn', '已按降级配置停用。', ['数据库关闭时，依赖历史行情和项目索引的页面会展示有限兜底数据。']);
+    addCheck('数据库', 'warn', '已按降级配置停用。', ['数据库关闭时，依赖历史经营数据和项目索引的页面会展示有限兜底数据。']);
     return;
   }
 
@@ -279,7 +279,7 @@ async function main() {
   addCheck(
     '降级配置',
     'ok',
-    `${degradation.mode} · DB ${componentMode(degradation.database)} · Market API ${componentMode(degradation.marketApi)} · Memory ${componentMode(degradation.memory)} · Observability ${componentMode(degradation.observability)}`,
+    `${degradation.mode} · DB ${componentMode(degradation.database)} · Commerce API ${componentMode(degradation.commerceApi)} · Memory ${componentMode(degradation.memory)} · Observability ${componentMode(degradation.observability)}`,
     ['auto 适合本地开发；strict 适合 CI/生产；offline 会跳过可选外部组件。']
   );
 
@@ -339,11 +339,11 @@ async function main() {
     frontend.ok ? [] : ['运行 npm run dev 可启动主前端。']
   );
 
-  if (degradation.marketApi.enabled) {
+  if (degradation.commerceApi.enabled) {
     const backend = await requestJson('http://127.0.0.1:8000/health');
     addCheck(
-      '量化数据后端 :8000',
-      backend.ok ? 'ok' : unavailableStatus(degradation.marketApi),
+      '零售数据后端 :8000',
+      backend.ok ? 'ok' : unavailableStatus(degradation.commerceApi),
       backend.ok ? `HTTP ${backend.statusCode}` : '未连接，已使用数据源注册表/本地数据兜底。',
       backend.ok ? [] : ['进入 services/commerce-data 后运行 uv run shopgate-commerce-api。']
     );
@@ -398,16 +398,6 @@ async function main() {
     : 0;
   addCheck('工作空间目录', fs.existsSync(projectRoot) ? 'ok' : 'warn', `${path.relative(ROOT, projectRoot)} (${projectCount} 个项目)`);
   await checkDatabase();
-  if (degradation.database.enabled) {
-    checkCommand('行情新鲜度', 'node', ['scripts/checks/check-commerce-data-freshness.js'], {
-      successSummary: '交易日历与本地 daily/qfq 日线已跟进最近完成交易日。',
-      failureSummary: '本地行情数据已过期。',
-      warnOnly: true,
-    });
-  } else {
-    addCheck('行情新鲜度', 'warn', '数据库已停用，跳过本地行情新鲜度检查。');
-  }
-
   checkCommand('Skills 注册表', 'node', ['scripts/checks/check-skills-registry.js', '--check-lock'], {
     successSummary: 'registry / changelog / lock / package 一致。',
   });

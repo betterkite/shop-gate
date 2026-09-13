@@ -37,11 +37,11 @@
       "lifecycle": "core",
       "enabledByDefault": true,
       "requiredByDefault": false,
-      "enabledEnv": "SHOPGATE_MARKET_API_ENABLED",
-      "requiredEnv": "SHOPGATE_MARKET_API_REQUIRED",
+      "enabledEnv": "SHOPGATE_COMMERCE_API_ENABLED",
+      "requiredEnv": "SHOPGATE_COMMERCE_API_REQUIRED",
       "endpoint": {
         "protocol": "http",
-        "env": ["SHOPGATE_MARKET_API_URL", "SHOPGATE_MARKET_API_BASE_URL"],
+        "env": ["SHOPGATE_COMMERCE_API_URL", "SHOPGATE_COMMERCE_API_BASE_URL"],
         "default": "http://127.0.0.1:8000",
         "healthPath": "/ready",
         "healthMethod": "GET"

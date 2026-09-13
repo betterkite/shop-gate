@@ -177,7 +177,7 @@ function statusEvents() {
 describe('PI Agent terminal ownership', () => {
   it('does not mistake a company name for a visual movement instruction', () => {
     expect(classifyPiAgentPreparedIntent(
-      '分析中国移动最近四个报告期的营收、利润、现金流、股息与估值，生成基本面看板。',
+      '分析羽绒服最近四周的浏览、购买、库存与利润，生成经营看板。',
     )).toBe('standard');
     expect(classifyPiAgentPreparedIntent(
       '将风险图表移动到首屏，并折叠内部数据源渠道。',
@@ -272,7 +272,7 @@ describe('PI Agent terminal ownership', () => {
     await executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-success',
     );
@@ -336,7 +336,7 @@ describe('PI Agent terminal ownership', () => {
     await executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-tool-lifecycle',
     );
@@ -397,7 +397,7 @@ describe('PI Agent terminal ownership', () => {
     await executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-progress-stalled',
     );
@@ -420,7 +420,7 @@ describe('PI Agent terminal ownership', () => {
     await expect(executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-failed',
     )).rejects.toThrow('provider exploded');
@@ -479,7 +479,7 @@ describe('PI Agent terminal ownership', () => {
     await expect(executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-cancelled',
     )).rejects.toThrow('用户暂停了当前任务');
@@ -622,7 +622,7 @@ describe('PI Agent terminal ownership', () => {
     mocks.getRecentMessages.mockResolvedValue([
       {
         role: 'user',
-        content: '请分析大位科技并生成诊断看板',
+        content: '请分析羽绒服并生成诊断看板',
         requestId: 'request-parent',
         cliSource: 'pi',
         metadataJson: null,
@@ -657,7 +657,7 @@ describe('PI Agent terminal ownership', () => {
 
     const runInput = mocks.run.mock.calls[0]?.[0] as { messages: Array<{ role: string; content: string }> };
     expect(runInput.messages.filter((message) => message.role !== 'system')).toEqual([
-      { role: 'user', content: '请分析大位科技并生成诊断看板' },
+      { role: 'user', content: '请分析羽绒服并生成诊断看板' },
       {
         role: 'user',
         content: [
@@ -676,7 +676,7 @@ describe('PI Agent terminal ownership', () => {
     await executePiAgent(
       'project-test',
       workspace,
-      '生成多标的对比',
+      '生成多商品对比',
       'deepseek-v4-flash',
       'request-capability-skills',
     );
@@ -700,7 +700,7 @@ describe('PI Agent terminal ownership', () => {
     await executePiAgent(
       'project-test',
       workspace,
-      '生成默认个股诊断',
+      '生成默认商品经营诊断',
       'deepseek-v4-flash',
       'request-default-skills',
     );
@@ -908,19 +908,19 @@ describe('PI Agent terminal ownership', () => {
     });
     mocks.supportsCompiler.mockReturnValue(false);
     mocks.readRunPlan.mockResolvedValue({
-      runId: 'plan-fundamental',
+      runId: 'plan-price-inventory',
       status: 'planned',
-      requestedCapabilityId: 'fundamental_analysis',
+      requestedCapabilityId: 'price_inventory',
       visualization: {
-        templateId: 'fundamental-research',
-        variantId: 'fundamental-quality-scorecard',
+        templateId: 'price-inventory',
+        variantId: 'price-inventory-overview',
       },
     });
 
     await executePiAgent(
       'project-test',
       workspace,
-      '生成贵州茅台基本面看板',
+      '生成轻薄羽绒服价格库存看板',
       'deepseek-v4-flash',
       'request-prepared-unsupported-renderer',
     );
@@ -952,7 +952,7 @@ describe('PI Agent terminal ownership', () => {
     await executePiAgent(
       'project-test',
       workspace,
-      '基于平台计划生成个股诊断',
+      '基于平台计划生成商品经营诊断',
       'deepseek-v4-flash',
       'request-semantically-unprepared',
     );
@@ -1104,7 +1104,7 @@ describe('PI Agent terminal ownership', () => {
     await expect(executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-not-runnable',
     )).rejects.toThrow('已不处于可运行状态');
@@ -1122,7 +1122,7 @@ describe('PI Agent terminal ownership', () => {
     await expect(executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-raced-cancel',
     )).rejects.toThrow('用户暂停了当前任务');
@@ -1169,7 +1169,7 @@ describe('PI Agent terminal ownership', () => {
     await expect(executePiAgent(
       'project-test',
       workspace,
-      '生成量化看板',
+      '生成电商经营看板',
       'deepseek-v4-flash',
       'request-setup-timeout',
     )).rejects.toThrow('PI Agent 执行超时');

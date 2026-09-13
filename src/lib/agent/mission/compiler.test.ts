@@ -23,8 +23,8 @@ function compile(overrides: CompileOverrides = {}) {
   return compilePiAgentMissionSpec({
     projectId: 'project-mission',
     requestId: 'request-mission',
-    objective: '生成可验证的量化看板',
-    capabilityId: 'technical_analysis',
+    objective: '生成可验证的电商经营看板',
+    capabilityId: 'traffic_funnel',
     runPlanId: 'request-mission',
     composition: {
       profileId: 'test.data-agent',

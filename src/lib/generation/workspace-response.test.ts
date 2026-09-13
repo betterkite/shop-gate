@@ -106,9 +106,9 @@ describe('workspace response protocol', () => {
         entities: [],
         clarification: {
           required: true,
-          reason: '存在多个同优先级标的',
+          reason: '存在多个同优先级商品或类目',
           missing: ['target'],
-          questions: ['请确认具体标的。'],
+          questions: ['请确认具体商品或类目。'],
           confidence: 0.4,
         },
       }),

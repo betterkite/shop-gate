@@ -805,8 +805,8 @@ export default function HomePage() {
                 <div className="text-center">
                   <h1 className="text-[1.9rem] font-bold tracking-[-0.045em] sm:text-[2.45rem]">今天想分析什么经营问题？</h1>
                   <p className="mx-auto mt-1.5 max-w-2xl text-xs leading-5 text-muted-foreground sm:text-sm">
-                    <span className="sm:hidden">说清标的、时间和目标。</span>
-                    <span className="hidden sm:inline">描述标的、时间范围和希望得到的结论，系统会自动补全取数、证据与验证步骤。</span>
+                    <span className="sm:hidden">说清商品/类目、时间和目标。</span>
+                    <span className="hidden sm:inline">描述商品/类目、时间范围和希望得到的结论，系统会自动补全取数、证据与验证步骤。</span>
                   </p>
                   <Link
                     href="/skills"

@@ -316,7 +316,7 @@ def synthetic_analytics_dataset(
         raise ValueError("users、items、days 必须为正数")
     last_day = end_day or datetime(2025, 12, 3, tzinfo=UTC)
     first_day = last_day - timedelta(days=days - 1)
-    source = "synthetic_market_scenario_v1"
+    source = "synthetic_retail_scenario_v1"
     channels = [
         {"channel_id": "organic", "name": "自然搜索", "channel_type": "自然流量"},
         {"channel_id": "paid-search", "name": "搜索投放", "channel_type": "付费投放"},

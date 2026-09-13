@@ -415,18 +415,19 @@ export default function EvalRunDetailClient({ run }: Props) {
                   )}
 
                   <div className="grid gap-3 md:grid-cols-4">
-                    <Metric label="标的" value={result.symbols.length ? result.symbols.join(', ') : '-'} />
+                    <Metric label="分析对象" value={result.entities.length ? result.entities.join(', ') : '-'} />
                     <Metric label="模板" value={result.artifacts.templateId ?? '-'} />
                     <Metric label="原始文件" value={result.artifacts.rawFileCount} />
                     <Metric label="质量状态" value={result.artifacts.qualityStatus ?? '-'} />
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-3">
-                    <Metric label="K 线行数" value={result.artifacts.klineRows} />
-                    <Metric label="财报行数" value={result.artifacts.reportRows} />
-                    <Metric label="公告行数" value={result.artifacts.announcementRows} />
-                    <Metric label="交易行数" value={result.artifacts.tradeRows} />
-                    <Metric label="持仓数量" value={result.artifacts.holdingCount} />
+                    <Metric label="趋势数据行数" value={result.artifacts.trendRows} />
+                    <Metric label="利润数据行数" value={result.artifacts.profitRows} />
+                    <Metric label="经营摘要行数" value={result.artifacts.briefRows} />
+                    <Metric label="订单数据行数" value={result.artifacts.orderRows} />
+                    <Metric label="商品数量" value={result.artifacts.itemCount} />
+                    <Metric label="库存商品数" value={result.artifacts.inventoryItemCount} />
                     <Metric label="对比行数" value={result.artifacts.comparisonRows} />
                   </div>
 

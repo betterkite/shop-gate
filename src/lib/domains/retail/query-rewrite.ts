@@ -380,7 +380,7 @@ export function rankRetailEntityCandidates(
 }
 
 async function defaultEntityResolver(query: string, count: number): Promise<unknown> {
-  const baseUrl = (process.env.SHOPGATE_MARKET_API_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
+  const baseUrl = (process.env.SHOPGATE_COMMERCE_API_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
   const url = new URL('/api/v1/commerce/resolve', baseUrl);
   url.searchParams.set('term', query);
   url.searchParams.set('limit', String(count));

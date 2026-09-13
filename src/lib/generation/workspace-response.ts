@@ -52,7 +52,7 @@ function markdownCell(value: string): string {
 }
 
 function hasExplicitTime(question: string): boolean {
-  return /(?:20\d{2}[-/.年]|(?:最近|近|过去)\s*(?:\d+|一|两|三|半)\s*(?:个)?(?:交易日|日|天|周|月|年|季度|报告期)|今日|今天|昨日|本周|本月|本季|今年|\d+\s*(?:个)?(?:交易日|日|天|周|月|年|季度|报告期)|截至)/i.test(question);
+  return /(?:20\d{2}[-/.年]|(?:最近|近|过去)\s*(?:\d+|一|两|三|半)\s*(?:日|天|周|月|季度|年)|今日|今天|昨日|本周|本月|本季|今年|\d+\s*(?:日|天|周|月|季度|年)|截至)/i.test(question);
 }
 
 function inferGranularity(runPlan: RetailRunPlan, capabilityId: string): string {
@@ -105,11 +105,11 @@ function recognitionTable(runPlan: RetailRunPlan): string {
 }
 
 function stageTwoMessage(runPlan: RetailRunPlan | null | undefined, skillIds: string[]): string {
-  const symbols = runPlan?.entities.length ? runPlan.entities.join('、') : '任务对象';
+  const entities = runPlan?.entities.length ? runPlan.entities.join('、') : '任务对象';
   const timeRange = runPlan?.timeRange ?? '任务要求的时间范围';
   const skills = listSummary(skillIds, '按任务合同选择', 6);
   return [
-    `正在按 ${boundedText(symbols, 80)}、${boundedText(timeRange, 80)} 核验本地数据覆盖、真实信源和字段完整性。`,
+    `正在按 ${boundedText(entities, 80)}、${boundedText(timeRange, 80)} 核验本地数据覆盖、真实信源和字段完整性。`,
     '',
     `当前 Skills：${skills}。`,
   ].join('\n');

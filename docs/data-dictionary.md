@@ -222,7 +222,7 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 
 导入通过 `shopgate-commerce-import` CLI 驱动（`import-userbehavior`、`generate-synthetic-behavior`、`generate-synthetic-master`、`aggregate-daily`，见 [commerce-data 数据接入](commerce-data-ingestion.md)），provider 书签写入 `market_data_ingestion_jobs` / `market_data_sync_state`。任务失败或停止不删除已入库事实数据。
 
-原金融域的回测表（`backtest_runs`/`backtest_orders`）已随金融域删除；零售域的"规则验证"由生成管线内的自动验证承接（build/HTTP 200/数据文件/evidence/产物契约/图表/entity-scope/视觉），结果写入生成工作空间的 `.data-agent/validation.json`，不设独立回测表。
+当前零售域不设独立的回测表；“规则验证”由生成管线内的自动验证承接（build/HTTP 200/数据文件/evidence/产物契约/图表/entity-scope/视觉），结果写入生成工作空间的 `.data-agent/validation.json`。
 
 ## 基础组件表
 
@@ -235,7 +235,7 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 
 | 指标 | 口径 | 主要来源 | 说明 |
 | --- | --- | --- | --- |
-| `pv`/`fav`/`cart`/`buy` | 四类行为事件计数 | `user_behavior_events`、`daily_*_metrics` | 零售"行情"的基础 |
+| `pv`/`fav`/`cart`/`buy` | 四类行为事件计数 | `user_behavior_events`、`daily_*_metrics` | 零售行为分析的基础 |
 | `gmv` | `buy` 事件数 × 合成价格 | `daily_item_metrics.gmv`、`daily_category_metrics.gmv` | 金额必须带"合成口径"标注 |
 | 转化率 | `buy / pv` | `/api/v1/commerce/summary` | 示例：2017-12-03 为 2.21% |
 | 客单价 | `gmv / buy`（件单价） | `daily_category_metrics`、`/summary` | 示例：¥488.61（2017-12-03） |

@@ -169,7 +169,7 @@ describe('POST /api/commerce/query/rewrite', () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ results: [] })));
 
     const response = await POST(request({
-      query: '分析大位科技最近20个交易日',
+      query: '分析轻薄羽绒服最近20天的购买转化',
       purpose: 'preview',
       model: 'local_qwen:qwen3.5-9b-q5km',
     }));
@@ -185,7 +185,7 @@ describe('POST /api/commerce/query/rewrite', () => {
       action: 'commerce.query.rewrite.llm',
     });
     expect(mocks.rewriteRetailQuery).toHaveBeenCalledWith(
-      '分析大位科技最近20个交易日',
+      '分析轻薄羽绒服最近20天的购买转化',
       expect.objectContaining({
         requestedModel: 'local_qwen:qwen3.5-9b-q5km',
       }),

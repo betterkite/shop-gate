@@ -96,7 +96,7 @@ export function createWorkspaceProgressPublisher(params: {
         data: serializeMessage(message, { requestId: params.requestId }),
       });
     } catch (error) {
-      // Progress narration must never change the financial task's durable
+            // Progress narration must never change the retail task's durable
       // outcome. A later lifecycle/status event remains authoritative.
       console.error(
         `[WorkspaceProgress] Failed to publish stage ${options.stage}:`,

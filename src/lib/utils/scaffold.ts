@@ -16,7 +16,7 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
     const hasDataBinding =
       existing.includes('dashboard-data.json') ||
       existing.includes('data_file/final') ||
-      existing.includes('/api/market/');
+      existing.includes('/api/commerce/');
     const hasStandardDataDashboard =
       existing.includes('data-source-file={DATA_FILE}') &&
       existing.includes('function getBars(') &&
@@ -55,10 +55,10 @@ function shouldRefreshScaffoldFile(filePath: string, existing: string): boolean 
     return trimmed.length === 0;
   }
 
-  if (normalizedPath.endsWith('/app/api/market/[...path]/route.ts')) {
+  if (normalizedPath.endsWith('/app/api/commerce/[...path]/route.ts')) {
     const targetsDataBackend =
       existing.includes('127.0.0.1:8000/api/v1') ||
-      existing.includes('SHOPGATE_MARKET_API') ||
+      existing.includes('SHOPGATE_COMMERCE_API') ||
       existing.includes('/api/v1/');
 
     return !targetsDataBackend && trimmed.length < 1_200;
@@ -488,7 +488,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   );
 
   await writeFileIfMissing(
-    path.join(projectPath, 'app/api/market/[...path]/route.ts'),
+    path.join(projectPath, 'app/api/commerce/[...path]/route.ts'),
     `import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(

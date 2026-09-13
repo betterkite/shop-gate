@@ -6,7 +6,7 @@ describe('evaluation trace diagnostics', () => {
   it('attributes an oracle failure to the data stage', () => {
     const diagnostic = buildEvalTraceDiagnostics({
       passed: false,
-      failures: ['oracle:symbol 标的不匹配'],
+      failures: ['oracle:entity 分析对象不匹配'],
       validation: { checks: [{ id: 'final_data_file', status: 'passed' }] },
       artifacts: { oracle: { passed: false } },
       eventAudit: { errorCount: 0, warningCount: 0, stages: ['planning'] },

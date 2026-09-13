@@ -18,11 +18,11 @@ const TEST_JSON_ARTIFACTS = {
   },
   resolveAlias(requestedPath: string) {
     const normalized = requestedPath.replace(/^\/+/u, '');
-    const symbol = normalized.match(/^public\/data\/(\d{6})\.json$/u)?.[1];
-    return /^(?:public\/data\/(?:dashboard|\d{6})|data\/dashboard)\.json$/u.test(normalized)
+    const item_id = normalized.match(/^public\/catalog\/(item-[0-9]+)\.json$/u)?.[1];
+    return /^(?:public\/catalog\/(?:dashboard|item-[0-9]+)|data\/catalog)\.json$/u.test(normalized)
       ? {
           artifactId: 'final_dashboard',
-          ...(symbol ? { requestedIdentity: symbol } : {}),
+          ...(item_id ? { requestedIdentity: item_id } : {}),
         }
       : null;
   },
@@ -31,12 +31,12 @@ const TEST_JSON_ARTIFACTS = {
       ? root as Record<string, unknown>
       : {};
     const values = [
-      record.symbol,
-      record.quote && typeof record.quote === 'object'
-        ? (record.quote as Record<string, unknown>).symbol
+      record.item_id,
+      record.product && typeof record.product === 'object'
+        ? (record.product as Record<string, unknown>).item_id
         : null,
     ].flatMap((value) => {
-      const match = String(value ?? '').match(/\d{6}/u);
+      const match = String(value ?? '').match(/item-[0-9]+/u);
       return match ? [match[0]] : [];
     });
     const availableIdentities = [...new Set(values)];
@@ -81,9 +81,9 @@ describe('PI Agent structured read tools', () => {
 
   it('queries business values with JSON Pointers and bounds large arrays as early plus recent samples', async () => {
     const dashboard = {
-      quote: { symbol: '600589.SH', price: 12.34, change_percent: 2.1 },
-      kline: {
-        bars: Array.from({ length: 240 }, (_, index) => ({
+      product: { item_id: 'item-1001.SH', price: 12.34, change_percent: 2.1 },
+      trend: {
+        dailyRows: Array.from({ length: 240 }, (_, index) => ({
           sequence: index,
           date: `2026-01-${String((index % 28) + 1).padStart(2, '0')}`,
           open: 10 + index / 100,
@@ -102,7 +102,7 @@ describe('PI Agent structured read tools', () => {
       maxOutputChars: 4_000,
     }), {
       path: 'data_file/final/dashboard-data.json',
-      pointers: ['/quote', '/kline/bars', '/evidence/warnings', '/not-found'],
+      pointers: ['/product', '/trend/dailyRows', '/evidence/warnings', '/not-found'],
       maxArrayItems: 12,
     });
 
@@ -122,21 +122,21 @@ describe('PI Agent structured read tools', () => {
       selection: 'head_and_recent_tail',
       omissionCount: expect.any(Number),
     });
-    const quote = report.queries.find((query: { pointer: string }) => query.pointer === '/quote');
-    const bars = report.queries.find((query: { pointer: string }) => query.pointer === '/kline/bars');
+    const product = report.queries.find((query: { pointer: string }) => query.pointer === '/product');
+    const dailyRows = report.queries.find((query: { pointer: string }) => query.pointer === '/trend/dailyRows');
     const missing = report.queries.find((query: { pointer: string }) => query.pointer === '/not-found');
-    expect(quote.value).toEqual(dashboard.quote);
-    expect(bars).toMatchObject({ found: true, valueType: 'array', originalSize: 240 });
-    expect(bars.value.length).toBeLessThan(240);
-    expect(bars.value[0].sequence).toBe(0);
-    expect(bars.value.at(-1).sequence).toBe(239);
+    expect(product.value).toEqual(dashboard.product);
+    expect(dailyRows).toMatchObject({ found: true, valueType: 'array', originalSize: 240 });
+    expect(dailyRows.value.length).toBeLessThan(240);
+    expect(dailyRows.value[0].sequence).toBe(0);
+    expect(dailyRows.value.at(-1).sequence).toBe(239);
     expect(missing).toEqual({ pointer: '/not-found', found: false, valueType: null });
   });
 
   it('resolves authoritative artifact handles and safely corrects recognized dashboard aliases', async () => {
     const dashboard = {
-      symbol: '600589',
-      quote: { symbol: '600589.SH', price: 12.34 },
+      item_id: 'item-1001',
+      product: { item_id: 'item-1001.SH', price: 12.34 },
     };
     await fs.writeFile(
       path.join(workspace, 'data_file', 'final', 'dashboard-data.json'),
@@ -150,7 +150,7 @@ describe('PI Agent structured read tools', () => {
 
     const artifactResult = await invoke(tool, {
       artifact: 'final_dashboard',
-      pointers: ['/quote'],
+      pointers: ['/product'],
     });
     expect(artifactResult).toMatchObject({
       ok: true,
@@ -164,8 +164,8 @@ describe('PI Agent structured read tools', () => {
       },
     });
 
-    for (const alias of ['/public/data/dashboard.json', '/public/data/600589.json']) {
-      const corrected = await invoke(tool, { path: alias, pointers: ['/quote'] });
+    for (const alias of ['/public/catalog/dashboard.json', '/public/catalog/item-1001.json']) {
+      const corrected = await invoke(tool, { path: alias, pointers: ['/product'] });
       expect(corrected).toMatchObject({
         ok: true,
         data: {
@@ -185,18 +185,18 @@ describe('PI Agent structured read tools', () => {
     }
   });
 
-  it('rejects symbol aliases that do not match the authoritative final artifact', async () => {
+  it('rejects item_id aliases that do not match the authoritative final artifact', async () => {
     await fs.writeFile(
       path.join(workspace, 'data_file', 'final', 'dashboard-data.json'),
-      JSON.stringify({ symbol: '600589', quote: { symbol: '600589.SH' } }),
+      JSON.stringify({ item_id: 'item-1001', product: { item_id: 'item-1001.SH' } }),
       'utf8',
     );
     const result = await invoke(createQueryJsonTool({
       workspaceRoot: workspace,
       jsonArtifacts: TEST_JSON_ARTIFACTS,
     }), {
-      path: '/public/data/000001.json',
-      pointers: ['/quote'],
+      path: '/public/catalog/item-9999.json',
+      pointers: ['/product'],
     });
 
     expect(result).toMatchObject({
@@ -204,8 +204,8 @@ describe('PI Agent structured read tools', () => {
       error: {
         code: 'ARTIFACT_IDENTITY_MISMATCH',
         details: {
-          requestedIdentity: '000001',
-          availableIdentities: ['600589'],
+          requestedIdentity: 'item-9999',
+          availableIdentities: ['item-1001'],
         },
       },
     });
@@ -214,14 +214,14 @@ describe('PI Agent structured read tools', () => {
   it('returns authoritative JSON candidates for an unknown missing path', async () => {
     await fs.writeFile(
       path.join(workspace, 'data_file', 'final', 'dashboard-data.json'),
-      JSON.stringify({ symbol: '600589' }),
+      JSON.stringify({ item_id: 'item-1001' }),
       'utf8',
     );
     const result = await invoke(createQueryJsonTool({
       workspaceRoot: workspace,
       jsonArtifacts: TEST_JSON_ARTIFACTS,
     }), {
-      path: 'public/data/not-real.json',
+      path: 'public/catalog/not-real.json',
       pointers: [''],
     });
 
@@ -230,7 +230,7 @@ describe('PI Agent structured read tools', () => {
       error: {
         code: 'PATH_NOT_FOUND',
         details: {
-          requestedPath: 'public/data/not-real.json',
+          requestedPath: 'public/catalog/not-real.json',
           suggestions: ['data_file/final/dashboard-data.json'],
         },
       },
@@ -274,16 +274,16 @@ describe('PI Agent structured read tools', () => {
 
   it('keeps values for a dashboard-wide pointer batch within one bounded result', async () => {
     const dashboard = {
-      quote: {
-        symbol: '600589.SH', name: '大位科技', source: 'eastmoney', price: 12.34,
+      product: {
+        item_id: 'item-1001.SH', name: '轻薄羽绒服', source: 'demo-commerce', price: 12.34,
         open: 12, high: 12.5, low: 11.8, change_percent: 2.1, fetched_at: '2026-07-15',
       },
-      kline: { bars: Array.from({ length: 240 }, (_, index) => ({ date: index, close: index })) },
-      technicalIndicators: { summary: { symbol: '600589.SH', latest_close: 12.34, trend_state: 'up' } },
-      financials: { reports: Array.from({ length: 20 }, (_, index) => ({ report_date: index, revenue: index })) },
-      announcements: { announcements: Array.from({ length: 20 }, (_, index) => ({ date: index, title: `event-${index}` })) },
+      trend: { dailyRows: Array.from({ length: 240 }, (_, index) => ({ date: index, close: index })) },
+      metrics: { summary: { item_id: 'item-1001.SH', latest_close: 12.34, trend_state: 'up' } },
+      profit: { reports: Array.from({ length: 20 }, (_, index) => ({ report_date: index, revenue: index })) },
+      briefs: { briefs: Array.from({ length: 20 }, (_, index) => ({ date: index, title: `event-${index}` })) },
       computedMetrics: { periodReturn: 0.2, return20d: 0.1, maxDrawdown: -0.08, volatility20d: 0.3 },
-      liquidity: { method: 'daily', rows: Array.from({ length: 20 }, (_, index) => ({ date: index })) },
+      inventory: { method: 'daily', rows: Array.from({ length: 20 }, (_, index) => ({ date: index })) },
       visualization: { summary: 'terminal', rows: Array.from({ length: 20 }, (_, index) => ({ id: index })) },
       conclusion: { summary: '中性偏多', risk_disclaimer: '仅供研究' },
     };
@@ -293,8 +293,8 @@ describe('PI Agent structured read tools', () => {
       'utf8',
     );
     const pointers = [
-      '/quote', '/kline/bars', '/technicalIndicators/summary', '/financials/reports',
-      '/announcements/announcements', '/computedMetrics', '/liquidity', '/visualization',
+      '/product', '/trend/dailyRows', '/metrics/summary', '/profit/reports',
+      '/briefs/briefs', '/computedMetrics', '/inventory', '/visualization',
       '/conclusion',
     ];
     const result = await invoke(createQueryJsonTool({
@@ -311,8 +311,8 @@ describe('PI Agent structured read tools', () => {
     const report = JSON.parse(result.content);
     expect(report.queries).toHaveLength(pointers.length);
     expect(report.queries.every((query: Record<string, unknown>) => Object.hasOwn(query, 'value'))).toBe(true);
-    const quote = report.queries.find((query: { pointer: string }) => query.pointer === '/quote');
-    expect(quote.value).toMatchObject({ symbol: '600589.SH', price: 12.34, change_percent: 2.1 });
+    const product = report.queries.find((query: { pointer: string }) => query.pointer === '/product');
+    expect(product.value).toMatchObject({ item_id: 'item-1001.SH', price: 12.34, change_percent: 2.1 });
   });
 
   it('compresses a broad batch before falling back to metadata-only results', async () => {
@@ -488,10 +488,10 @@ describe('PI Agent structured read tools', () => {
 
   it('routes generation final/evidence and any large valid JSON away from raw readers', async () => {
     const finalPath = path.join(workspace, 'data_file', 'final', 'dashboard-data.json');
-    await fs.writeFile(finalPath, '{"quote":{"price":12.34}}\n', 'utf8');
+    await fs.writeFile(finalPath, '{"product":{"price":12.34}}\n', 'utf8');
     await fs.writeFile(
       path.join(workspace, 'evidence', 'sources.json'),
-      '{"sources":[{"dataset":"quote"}]}\n',
+      '{"sources":[{"dataset":"product"}]}\n',
       'utf8',
     );
     await fs.writeFile(

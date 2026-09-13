@@ -94,7 +94,7 @@ export interface WorkspaceHealthItem {
   runPlan: {
     status: string | null;
     capabilityId: string | null;
-    symbols: string[];
+    entities: string[];
     updatedAt: string | null;
   };
   generationQueue: {
@@ -378,7 +378,7 @@ function buildNextActions(params: {
 }) {
   const actions: string[] = [];
   if (params.lifecycle.status === 'awaiting_input') {
-    return ['补充当前任务缺失的标的、范围或时间信息，再继续生成。'];
+    return ['补充当前任务缺失的商品/类目、范围或时间信息，再继续生成。'];
   }
   if (params.lifecycle.status === 'queued') {
     return ['任务已进入生成队列，等待前序任务完成。'];
@@ -659,7 +659,7 @@ async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> 
     runPlan: {
       status: runPlan?.status ?? null,
       capabilityId: runPlan?.capabilityId ?? null,
-      symbols: runPlan?.entities ?? [],
+      entities: runPlan?.entities ?? [],
       updatedAt: runPlan?.updatedAt ?? null,
     },
     generationQueue: queueSummary,

@@ -431,7 +431,7 @@ export function TraceDetailSheet({
           <DetailRow label="状态" value={project.runPlan.status ?? '-'} />
           <DetailRow label="请求能力" value={project.runPlan.requestedCapabilityId ?? '-'} />
           <DetailRow label="执行能力" value={project.runPlan.executionCapabilityId ?? '-'} />
-          <DetailRow label="标的" value={project.runPlan.symbols.length ? project.runPlan.symbols.join('、') : '-'} />
+          <DetailRow label="分析对象" value={project.runPlan.entities.length ? project.runPlan.entities.join('、') : '-'} />
           <DetailRow label="更新时间" value={formatDate(project.runPlan.updatedAt)} />
         </div>
         <div className="rounded-md border border-slate-200 bg-white p-4">

@@ -11,7 +11,7 @@ function project(preferredCli: string): ProjectEntity {
     status: 'idle',
     preferredCli,
     selectedModel: 'local_qwen:qwen3.5-9b-q5km',
-    agentProfileId: 'shopgate.finance-research',
+    agentProfileId: 'shopgate.retail-operations',
     agentProfileVersion: '1.0.0',
     dataAgentCompositionSha256: `sha256:${'a'.repeat(64)}`,
     createdAt: now,

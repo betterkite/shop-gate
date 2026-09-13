@@ -120,7 +120,7 @@ uv run shopgate-commerce-api
 如果只是浏览平台页面而不需要真实数据，可临时关闭数据后端探测：
 
 ```bash
-SHOPGATE_MARKET_API_ENABLED=0 npm run doctor
+SHOPGATE_COMMERCE_API_ENABLED=0 npm run doctor
 ```
 
 ## Loki / Grafana 不可用

@@ -131,7 +131,7 @@ const DASHBOARD_REPAIR_CHECK_IDS = new Set([
   'artifact_policy',
   'dashboard_data_binding',
   'chart_presence',
-  'market_proxy',
+  'commerce_proxy',
 ]);
 
 export type PiAgentPreparedIntent = 'standard' | 'custom';
@@ -287,7 +287,7 @@ function toolStartSummary(name: string, target?: string): string {
   if (name === 'semantic_edit') return `正在对 ${target || '目标源码'} 执行版本化语义编辑。`;
   if (name === 'commerce_api_get') return `正在从 ${target || '经营数据接口'} 获取真实数据。`;
   if (name === 'commerce_extract_uploaded_image' || name === 'extract_image_evidence') {
-    return '正在提取图片中的可验证金融字段。';
+    return '正在提取图片中的可验证商品、价格和库存字段。';
   }
   if (name === 'submit_result') return '正在提交本次候选产物，后续由平台独立验证。';
   if (name === 'write_file' || name === 'edit_file') return `正在更新 ${target || '目标文件'}。`;
@@ -1576,7 +1576,7 @@ export async function initializeNextJsProject(
   const instruction = `Enhance the existing, platform-scaffolded Next.js 16 application for this requirement:
 ${initialPrompt}
 
-Keep the App Router, TypeScript, package setup, local CSS, market proxy, platform-prefetched run plan, final data, evidence, and dashboard data binding. Do not recreate the project or reset package.json. At 390x844 the first viewport must show the instrument, price, at least two real metrics, and the main visualization body. At 1440x900 keep the primary visualization above the fold. Shop Gate will run build, preview, and validation after submit_result.`;
+Keep the App Router, TypeScript, package setup, local CSS, commerce proxy, platform-prefetched run plan, final data, evidence, and dashboard data binding. Do not recreate the project or reset package.json. At 390x844 the first viewport must show the selected product or category, price or inventory context, at least two real metrics, and the main visualization body. At 1440x900 keep the primary visualization above the fold. Shop Gate will run build, preview, and validation after submit_result.`;
   return executePiAgent(
     projectId,
     projectPath,

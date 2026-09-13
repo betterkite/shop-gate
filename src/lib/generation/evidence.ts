@@ -73,19 +73,6 @@ function isPresent(value: unknown): boolean {
   return typeof value !== 'string' || value.trim().length > 0;
 }
 
-function firstArray(...values: unknown[]): unknown[] {
-  for (const value of values) {
-    if (Array.isArray(value)) {
-      return value;
-    }
-  }
-  return [];
-}
-
-function hasAnyPresentKey(record: JsonRecord | null, keys: string[]): boolean {
-  return Boolean(record && keys.some((key) => isPresent(record[key])));
-}
-
 function buildFetchEvidence(record: JsonRecord | null): DatasetEvidence['fetch'] | undefined {
   const fetchRecord = asRecord(record?.fetch);
   if (!fetchRecord) {
@@ -132,7 +119,11 @@ function buildDataset(params: {
   warnings?: string[];
 }): DatasetEvidence {
   const fetchedAt = pickString(params.record?.fetched_at, params.generatedAt);
-  const asOf = pickString(params.record?.quote_time, params.record?.as_of, fetchedAt);
+  const asOf = pickString(
+    params.record?.as_of,
+    asRecord(params.record?.window)?.end,
+    fetchedAt,
+  );
   const warnings = [...(params.warnings ?? [])];
 
   if (params.rowCount <= 0) {
@@ -178,326 +169,89 @@ function isUsableQualityEvidence(value: JsonRecord | null): value is JsonRecord 
   return /datasets|checks|missing_fields|warnings|limitations|row_count|fetched_at/i.test(JSON.stringify(value));
 }
 
+const RETAIL_DATASET_LABELS: Record<string, string> = {
+  meta: '数据集概况',
+  funnel: '行为转化汇总',
+  funnelDaily: '行为转化日趋势',
+  categories: '类目经营汇总',
+  inventoryRisk: '库存风险明细',
+  channels: '渠道经营汇总',
+  itemPool: '商品明细池',
+  biOverview: '经营分析总览',
+  analyticsOverview: '经营分析指标',
+  analyticsLifecycle: '商品经营阶段',
+  analyticsProfit: '利润分析',
+  analyticsInventory: '库存分析',
+  analyticsChannels: '渠道分析',
+  analyticsElasticity: '价格观察',
+  summary: '经营日报摘要',
+};
+
+function datasetRowCount(record: JsonRecord | null): number {
+  if (!record) return 0;
+  for (const key of ['rows', 'items', 'metrics', 'daily', 'stages', 'categories', 'channels', 'price_bands']) {
+    const value = record[key];
+    if (Array.isArray(value)) return value.length;
+  }
+  return Object.keys(record).length > 0 ? 1 : 0;
+}
+
+function datasetEndpoint(id: string): string {
+  return `GET /api/v1/commerce/analytics/${id}`;
+}
+
+function criticalRetailDatasets(runPlan: JsonRecord | null): Set<string> {
+  const capabilityId = pickString(runPlan?.capabilityId, runPlan?.requestedCapabilityId);
+  const templateId = pickString(asRecord(runPlan?.visualization)?.templateId);
+  if (templateId === 'analytics-bi' || capabilityId === 'analytics_bi') {
+    return new Set(['analyticsOverview']);
+  }
+  if (templateId === 'funnel-analysis' || capabilityId === 'traffic_funnel') {
+    return new Set(['funnel']);
+  }
+  if (templateId === 'price-inventory' || capabilityId === 'price_inventory') {
+    return new Set(['inventoryRisk']);
+  }
+  if (templateId === 'catalog-structure' || capabilityId === 'catalog_structure') {
+    return new Set(['categories']);
+  }
+  if (templateId === 'daily-brief' || capabilityId === 'daily_brief') {
+    return new Set(['summary']);
+  }
+  return new Set(['meta']);
+}
+
 function buildDatasets(data: JsonRecord, runPlan: JsonRecord | null): DatasetEvidence[] {
-  const assets = Array.isArray(data.assets)
-    ? data.assets.map(asRecord).filter((asset): asset is JsonRecord => Boolean(asset))
-    : [];
-  if (assets.length > 1) {
-    return assets.flatMap((asset) => {
-      const symbol = pickString(asset.symbol, asRecord(asset.quote)?.symbol, 'UNKNOWN') ?? 'UNKNOWN';
-      const name = pickString(asset.name, asRecord(asset.quote)?.name, symbol) ?? symbol;
-      return buildDatasets(asset, runPlan).map((dataset) => ({
-        ...dataset,
-        id: `${symbol}_${dataset.id}`,
-        name: `${name} ${dataset.name}`,
-        endpoint: dataset.endpoint.replace('/UNKNOWN', `/${symbol}`),
-      }));
-    });
-  }
-
-  const screener = asRecord(data.screener);
-  if (assets.length === 0 && screener && Array.isArray(screener.candidates)) {
-    const quality = asRecord(screener.data_quality);
-    const qualityWarnings = Array.isArray(quality?.warnings)
-      ? quality.warnings.filter((warning): warning is string => typeof warning === 'string')
-      : [];
-    const missingFields = Array.isArray(quality?.missing_fields)
-      ? quality.missing_fields.filter((field): field is string => typeof field === 'string')
-      : [];
-    const fetchedAt = pickString(screener.fetched_at, data.generatedAt, data.generated_at);
-    const tradeDate = pickString(screener.trade_date, screener.as_of, fetchedAt);
-    const mode = pickString(screener.mode, 'short_term') ?? 'short_term';
-
-    return [
-      buildDataset({
-        id: 'a_share_screener',
-        name: 'A 股候选筛选',
-        record: {
-          ...screener,
-          fetched_at: fetchedAt,
-          as_of: tradeDate,
-        },
-        rowCount: screener.candidates.length,
-        source: pickString(screener.source, data.source, 'shopgate-commerce-api') ?? 'shopgate-commerce-api',
-        endpoint: `GET /api/v1/research/screeners/a-share/short-term-candidates?mode=${mode}`,
-        critical: false,
-        generatedAt: fetchedAt,
-        missingFields,
-        warnings: qualityWarnings,
-      }),
-    ];
-  }
+  const sourceDatasets = asRecord(data.datasets);
+  if (!sourceDatasets) return [];
 
   const generatedAt = pickString(data.generatedAt, data.generated_at, data.fetched_at);
-  const symbol = pickString(data.symbol, asRecord(data.quote)?.symbol, 'UNKNOWN') ?? 'UNKNOWN';
-  const rootSource = pickString(data.source, asRecord(data.quote)?.source, 'unknown') ?? 'unknown';
-  const assetType = pickString(data.asset_type, asRecord(data.quote)?.asset_type, 'stock') ?? 'stock';
-  const capabilityId = pickString(runPlan?.capabilityId);
-  const critical = new Set<string>(['quote']);
+  const rootSource = pickString(data.source, 'shopgate-commerce-data') ?? 'shopgate-commerce-data';
+  const critical = criticalRetailDatasets(runPlan);
 
-  if (capabilityId === 'technical_analysis') {
-    critical.add('kline');
-  } else if (capabilityId === 'fundamental_analysis') {
-    critical.add('financials');
-  } else if (capabilityId === 'backtest_review') {
-    critical.add('kline');
-    critical.add('backtest');
-  } else if (capabilityId === 'portfolio_risk') {
-    critical.add('kline');
-  } else if (assetType === 'stock') {
-    critical.add('kline');
-    critical.add('financials');
-  } else {
-    critical.add('kline');
-  }
+  return Object.entries(sourceDatasets).map(([id, value]) => {
+    const record = asRecord(value);
+    const rowCount = datasetRowCount(record);
+    const missingFields = missingRequiredGroups(record, [
+      { label: 'window', keys: ['window', 'start', 'end'] },
+    ]);
+    const warnings = Array.isArray(record?.limitations)
+      ? record.limitations.filter((item): item is string => typeof item === 'string')
+      : [];
 
-  const quote = asRecord(data.quote);
-  const kline = asRecord(data.kline) ?? asRecord(data.history);
-  const financials = asRecord(data.financials) ?? asRecord(data.fundamentals);
-  const fundamentalIndicators = asRecord(data.fundamentalIndicators);
-  const announcements = asRecord(data.announcements) ?? asRecord(data.events);
-  const technicalIndicators = asRecord(data.technicalIndicators) ?? asRecord(data.indicators);
-  const backtest = asRecord(data.backtest);
-  const bars = firstArray(kline?.bars, kline?.data, data.bars, data.history);
-  const technicalSummary = asRecord(technicalIndicators?.summary);
-  const indicatorPoints = firstArray(technicalIndicators?.points, technicalIndicators?.data);
-  const equityCurve = firstArray(backtest?.equity_curve, backtest?.equityCurve);
-  const trades = firstArray(backtest?.trades);
-  const reports = firstArray(financials?.reports, financials?.data, data.reports);
-  const fundamentalPoints = firstArray(fundamentalIndicators?.points, fundamentalIndicators?.data);
-  const announcementRows = firstArray(announcements?.announcements, announcements?.data, data.announcements);
-  const technicalRowCount = indicatorPoints.length > 0 ? indicatorPoints.length : technicalSummary ? 1 : 0;
-  const financialSummary = asRecord(financials?.summary);
-  const hasComputedFundamentalSummary = hasAnyPresentKey(financialSummary, [
-    'latest_net_margin',
-    'avg_roe',
-    'avg_gross_margin',
-    'avg_net_margin',
-    'latest_weighted_roe',
-    'latest_gross_margin',
-  ]);
-
-  const firstBar = asRecord(bars[0]);
-  const period = pickString(kline?.period, 'daily') ?? 'daily';
-  const adjustment = pickString(kline?.adjustment, 'qfq') ?? 'qfq';
-  const runPlanRequirements = Array.isArray(runPlan?.dataRequirements)
-    ? runPlan.dataRequirements.map((requirement) => String(requirement))
-    : [];
-  const isStockAsset = assetType === 'stock';
-  const requiresKline =
-    bars.length > 0 ||
-    runPlanRequirements.some((requirement) => requirement.includes('/quotes/history/')) ||
-    capabilityId === 'technical_analysis' ||
-    capabilityId === 'stock_diagnosis';
-  const requiresTechnicalIndicators =
-    Boolean(technicalIndicators) ||
-    runPlanRequirements.some((requirement) => requirement.includes('/indicators/technical/'));
-  const requiresBacktest =
-    Boolean(backtest) ||
-    runPlanRequirements.some((requirement) => requirement.includes('/backtests/ma-crossover/')) ||
-    capabilityId === 'backtest_review';
-  const requiresFundamentalIndicators =
-    isStockAsset &&
-    (Boolean(fundamentalIndicators) ||
-      runPlanRequirements.some((requirement) => requirement.includes('/indicators/fundamental/')));
-
-  const datasets: DatasetEvidence[] = [
-    buildDataset({
-      id: 'quote',
-      name: '实时行情',
-      record: quote,
-      rowCount: quote ? 1 : 0,
-      source: pickString(quote?.source, rootSource) ?? rootSource,
-      endpoint: `GET /api/v1/quotes/realtime/${symbol}`,
-      critical: critical.has('quote'),
+    return buildDataset({
+      id,
+      name: RETAIL_DATASET_LABELS[id] ?? id,
+      record,
+      rowCount,
+      source: pickString(record?.source, rootSource) ?? rootSource,
+      endpoint: datasetEndpoint(id),
+      critical: critical.has(id),
       generatedAt,
-      missingFields: missingRequiredGroups(quote, [
-        { label: 'symbol', keys: ['symbol', 'code'] },
-        { label: 'price', keys: ['price', 'latest', 'close'] },
-        { label: 'quote_time/fetched_at', keys: ['quote_time', 'fetched_at', 'as_of'] },
-        { label: 'source', keys: ['source'] },
-      ]),
-    }),
-    buildDataset({
-      id: 'financials',
-      name: '财务摘要',
-      record: financials,
-      rowCount: reports.length,
-      source: pickString(financials?.source, rootSource) ?? rootSource,
-      endpoint: `GET /api/v1/fundamentals/financials/${symbol}`,
-      critical: critical.has('financials'),
-      generatedAt,
-      missingFields: [
-        ...(isStockAsset
-          ? missingRequiredGroups(financials, [{ label: 'fetched_at', keys: ['fetched_at', 'as_of'] }])
-          : []),
-        ...(isStockAsset
-          ? missingRequiredGroups(asRecord(reports[0]), [
-              { label: 'report_date/period', keys: ['report_date', 'period', 'date'] },
-            ])
-          : []),
-      ],
-    }),
-    buildDataset({
-      id: 'announcements',
-      name: '公告事件',
-      record: announcements,
-      rowCount: announcementRows.length,
-      source: pickString(announcements?.source, rootSource) ?? rootSource,
-      endpoint: `GET /api/v1/events/announcements/${symbol}`,
-      critical: false,
-      generatedAt,
-      missingFields: [
-        ...(isStockAsset
-          ? missingRequiredGroups(announcements, [{ label: 'fetched_at', keys: ['fetched_at', 'as_of'] }])
-          : []),
-        ...(isStockAsset
-          ? missingRequiredGroups(asRecord(announcementRows[0]), [{ label: 'title', keys: ['title', 'notice_title'] }])
-          : []),
-      ],
-    }),
-  ];
-
-  if (requiresKline) {
-    datasets.splice(
-      1,
-      0,
-      buildDataset({
-        id: 'kline',
-        name: '历史 K 线',
-        record: kline,
-        rowCount: bars.length,
-        source: pickString(kline?.source, rootSource) ?? rootSource,
-        endpoint: `GET /api/v1/quotes/history/${symbol}?period=${period}&adjustment=${adjustment}`,
-        critical: critical.has('kline'),
-        generatedAt,
-        missingFields: [
-          ...missingRequiredGroups(kline, [
-            { label: 'fetched_at', keys: ['fetched_at', 'as_of'] },
-            { label: 'period', keys: ['period'] },
-          ]),
-          ...missingRequiredGroups(firstBar, [
-            { label: 'trade_date/date', keys: ['trade_date', 'date'] },
-            { label: 'close', keys: ['close'] },
-          ]),
-        ],
-      })
-    );
-  }
-
-  if (requiresTechnicalIndicators) {
-    datasets.splice(
-      2,
-      0,
-      buildDataset({
-        id: 'technical_indicators',
-        name: '技术指标',
-        record: technicalIndicators,
-        rowCount: technicalRowCount,
-        source: pickString(technicalIndicators?.source, rootSource) ?? rootSource,
-        endpoint: `GET /api/v1/indicators/technical/${symbol}`,
-        critical: critical.has('kline'),
-        generatedAt,
-        missingFields: [
-          ...missingRequiredGroups(technicalIndicators, [{ label: 'fetched_at', keys: ['fetched_at', 'as_of'] }]),
-          ...missingRequiredGroups(asRecord(indicatorPoints.at(-1)) ?? technicalSummary, [
-            { label: 'date', keys: ['date'] },
-            { label: 'ma5/ma20', keys: ['ma5', 'ma20'] },
-          ]),
-        ],
-      })
-    );
-  }
-
-  if (requiresFundamentalIndicators) {
-    const announcementsIndex = datasets.findIndex((dataset) => dataset.id === 'announcements');
-    const hasDirectFundamentalIndicators = Boolean(fundamentalIndicators) || fundamentalPoints.length > 0;
-    const computedFundamentalRecord = hasComputedFundamentalSummary
-      ? {
-          source: `${pickString(financials?.source, rootSource) ?? rootSource} + dashboard-computed`,
-          fetched_at: pickString(financials?.fetched_at, financials?.as_of, generatedAt),
-          as_of: pickString(financials?.as_of, financials?.fetched_at, generatedAt),
-        }
-      : null;
-    datasets.splice(
-      announcementsIndex >= 0 ? announcementsIndex : datasets.length,
-      0,
-      buildDataset({
-        id: 'fundamental_indicators',
-        name: '财务衍生指标',
-        record: hasDirectFundamentalIndicators ? fundamentalIndicators : computedFundamentalRecord,
-        rowCount: hasDirectFundamentalIndicators ? fundamentalPoints.length : hasComputedFundamentalSummary ? 1 : 0,
-        source: hasDirectFundamentalIndicators
-          ? pickString(fundamentalIndicators?.source, rootSource) ?? rootSource
-          : pickString(computedFundamentalRecord?.source, rootSource) ?? rootSource,
-        endpoint: hasDirectFundamentalIndicators
-          ? `GET /api/v1/indicators/fundamental/${symbol}`
-          : `GET /api/v1/fundamentals/financials/${symbol} -> financials.summary`,
-        critical: false,
-        generatedAt,
-        missingFields: hasDirectFundamentalIndicators
-          ? [
-              ...missingRequiredGroups(fundamentalIndicators, [{ label: 'fetched_at', keys: ['fetched_at', 'as_of'] }]),
-              ...missingRequiredGroups(asRecord(fundamentalPoints[0]), [
-                { label: 'report_date', keys: ['report_date'] },
-                { label: 'net_margin/roe', keys: ['net_margin', 'weighted_roe'] },
-              ]),
-            ]
-          : [],
-        warnings: hasDirectFundamentalIndicators
-          ? []
-          : hasComputedFundamentalSummary
-            ? [
-                '独立财务衍生指标接口未返回可用样本；已基于真实财务报表 reports 计算净利率、平均 ROE、平均毛利率和平均净利率。',
-                '衍生指标口径依赖 final 数据中的财报字段，需结合后续正式披露持续更新。',
-              ]
-            : ['未检测到可计算的财务衍生指标；页面需说明该数据缺口。'],
-      })
-    );
-  }
-
-  if (requiresBacktest) {
-    const financialsIndex = datasets.findIndex((dataset) => dataset.id === 'financials');
-    datasets.splice(
-      financialsIndex >= 0 ? financialsIndex : datasets.length,
-      0,
-      buildDataset({
-        id: 'backtest',
-        name: '均线突破回测',
-        record: backtest,
-        rowCount: equityCurve.length,
-        source: pickString(backtest?.source, rootSource) ?? rootSource,
-        endpoint: `GET /api/v1/backtests/ma-crossover/${symbol}`,
-        critical: critical.has('backtest'),
-        generatedAt,
-        missingFields: [
-          ...missingRequiredGroups(backtest, [
-            { label: 'fetched_at', keys: ['fetched_at', 'as_of'] },
-            { label: 'summary', keys: ['summary'] },
-          ]),
-          ...missingRequiredGroups(asRecord(equityCurve.at(-1)), [
-            { label: 'date', keys: ['date'] },
-            { label: 'equity', keys: ['equity'] },
-          ]),
-          ...(trades.length > 0
-            ? []
-            : critical.has('backtest')
-              ? ['trades']
-              : []),
-        ],
-        warnings:
-          trades.length > 0
-            ? []
-            : ['样本区间内未检测到完整交易，需在页面说明策略信号不足。'],
-      })
-    );
-  }
-
-  if (!isStockAsset) {
-    return datasets.filter((dataset) => dataset.id !== 'financials' && dataset.id !== 'announcements');
-  }
-
-  return datasets;
+      missingFields,
+      warnings,
+    });
+  });
 }
 
 function buildStatus(datasets: DatasetEvidence[]): EvidenceStatus {
@@ -538,16 +292,16 @@ export async function ensureBaselineEvidenceFiles(
   const runPlan = await readJsonRecord(path.join(projectPath, '.data-agent', 'retail-run-plan.json'));
   const now = new Date().toISOString();
   const runId = pickString(runPlan?.runId, runPlan?.run_id, finalData.runId, finalData.generatedAt, now) ?? now;
-  const symbol = pickString(finalData.symbol, asRecord(finalData.quote)?.symbol, 'UNKNOWN') ?? 'UNKNOWN';
-  const name = pickString(finalData.name, asRecord(finalData.quote)?.name, symbol) ?? symbol;
+  const datasetId = pickString(finalData.dataset_id, runPlan?.datasetId, '未指定数据集') ?? '未指定数据集';
+  const datasetName = pickString(finalData.dataset_name, '零售经营数据集') ?? '零售经营数据集';
   const datasets = buildDatasets(finalData, runPlan);
   const status = buildStatus(datasets);
   const warnings = datasets.flatMap((dataset) =>
     dataset.warnings.map((warning) => `${dataset.name}：${warning}`)
   );
   const limitations = [
-    '东方财富等公开接口可能存在延迟，实时性以 fetched_at 与 quote_time/as_of 为准。',
-    '本 evidence 为 Shop Gate 平台根据最终数据文件自动生成的基础证据，模型可在后续分析中继续补充更细的数据口径说明。',
+    '商品价格、库存、品牌和店铺等字段如果标记为合成口径，只用于经营分析演示，不代表真实交易事实。',
+    '本 evidence 由 Shop Gate 平台根据当前数据集的最终数据文件自动生成，模型可在后续分析中补充更细的字段口径说明。',
   ];
 
   const sourcesEvidence = {
@@ -555,8 +309,8 @@ export async function ensureBaselineEvidenceFiles(
     runId,
     generated_by: 'shopgate-platform',
     created_at: now,
-    symbol,
-    name,
+    dataset_id: datasetId,
+    dataset_name: datasetName,
     sources: datasets.map((dataset) => ({
       id: dataset.id,
       dataset: dataset.name,
@@ -577,8 +331,8 @@ export async function ensureBaselineEvidenceFiles(
     generated_by: 'shopgate-platform',
     created_at: now,
     status,
-    symbol,
-    name,
+    dataset_id: datasetId,
+    dataset_name: datasetName,
     datasets: datasets.map(({ critical, ...dataset }) => ({
       ...dataset,
       required: critical,

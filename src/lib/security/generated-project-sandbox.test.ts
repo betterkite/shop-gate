@@ -14,8 +14,8 @@ describe('generated project sandbox', () => {
       PORT: '4100',
       SHOPGATE_SANDBOX_PREVIEW_SOCKET: '/tmp/project/.next/preview.sock',
       SHOPGATE_SANDBOX_PREVIEW_PORT: '4100',
-      SHOPGATE_SANDBOX_MARKET_SOCKET: '/tmp/project/.next/market.sock',
-      SHOPGATE_SANDBOX_MARKET_PORT: '8000',
+      SHOPGATE_SANDBOX_COMMERCE_SOCKET: '/tmp/project/.next/commerce.sock',
+      SHOPGATE_SANDBOX_COMMERCE_PORT: '8000',
       DEEPSEEK_API_KEY: 'must-not-leak',
       DATABASE_URL: 'must-not-leak',
     });
@@ -24,8 +24,8 @@ describe('generated project sandbox', () => {
       PORT: '4100',
       SHOPGATE_SANDBOX_PREVIEW_SOCKET: '/tmp/project/.next/preview.sock',
       SHOPGATE_SANDBOX_PREVIEW_PORT: '4100',
-      SHOPGATE_SANDBOX_MARKET_SOCKET: '/tmp/project/.next/market.sock',
-      SHOPGATE_SANDBOX_MARKET_PORT: '8000',
+      SHOPGATE_SANDBOX_COMMERCE_SOCKET: '/tmp/project/.next/commerce.sock',
+      SHOPGATE_SANDBOX_COMMERCE_PORT: '8000',
       NEXT_TELEMETRY_DISABLED: '1',
       SHOPGATE_WORKSPACE_ROOT: '/tmp/project',
     });

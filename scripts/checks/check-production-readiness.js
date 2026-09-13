@@ -146,9 +146,8 @@ requireFlag('SHOPGATE_SECURITY_HSTS');
 requireFlag('SHOPGATE_AUTH_ALLOW_SIGNUP', false);
 requireFlag('SHOPGATE_DATABASE_ENABLED');
 requireFlag('SHOPGATE_DATABASE_REQUIRED');
-requireFlag('SHOPGATE_MARKET_API_ENABLED');
-requireFlag('SHOPGATE_MARKET_API_REQUIRED');
-requireFlag('SHOPGATE_MARKET_MAINTENANCE_ENABLED');
+requireFlag('SHOPGATE_COMMERCE_API_ENABLED');
+requireFlag('SHOPGATE_COMMERCE_API_REQUIRED');
 requireFlag('SHOPGATE_REDIS_CACHE_ENABLED');
 requireFlag('SHOPGATE_REDIS_REQUIRED');
 requireFlag('SHOPGATE_OBSERVABILITY_ENABLED');
@@ -273,13 +272,13 @@ requireValue('REDIS_URL', (configured) => {
     return false;
   }
 }, 'REDIS_URL 必须是有效的 redis:// 或 rediss:// URL。');
-requireValue('SHOPGATE_MARKET_API_URL', (configured) => {
+requireValue('SHOPGATE_COMMERCE_API_URL', (configured) => {
   try {
     return ['http:', 'https:'].includes(new URL(configured).protocol);
   } catch {
     return false;
   }
-}, 'SHOPGATE_MARKET_API_URL 必须是有效的内部 HTTP(S) URL。');
+}, 'SHOPGATE_COMMERCE_API_URL 必须是有效的内部 HTTP(S) URL。');
 requireValue('LOKI_URL', (configured) => {
   try {
     return ['http:', 'https:'].includes(new URL(configured).protocol);
@@ -301,17 +300,6 @@ if (value('SHOPGATE_EVAL_DATASET_VISIBILITY') !== 'hidden') {
   errors.push('SHOPGATE_EVAL_DATASET_VISIBILITY 必须设置为 hidden。');
 }
 secureSecret('SHOPGATE_REPLAY_HASH_KEY', 16);
-
-requireValue(
-  'SHOPGATE_MARKET_MAINTENANCE_UNIVERSE_ID',
-  (configured) => /^[a-z0-9][a-z0-9._-]{1,127}$/i.test(configured),
-  'SHOPGATE_MARKET_MAINTENANCE_UNIVERSE_ID 必须是稳定的股票池 ID。',
-);
-requireValue(
-  'SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS',
-  (configured) => Number.isSafeInteger(Number(configured)) && Number(configured) >= 1,
-  'SHOPGATE_MARKET_FRESHNESS_MIN_SYMBOLS 必须是正整数。',
-);
 
 if (value('SHOPGATE_ENABLE_INTERNAL_TOKEN_API') && flag('SHOPGATE_ENABLE_INTERNAL_TOKEN_API')) {
   secureSecret('SHOPGATE_INTERNAL_API_TOKEN');

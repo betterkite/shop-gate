@@ -334,7 +334,7 @@ function isContextualFollowUpInstruction(instruction: string): boolean {
 }
 
 function hasExplicitVariantReselection(instruction: string): boolean {
-  return /相关性|热力图|分散|流动性|成交额|换手|强弱|累计收益|收益曲线|净值曲线|折线图|排名|排序|候选|选股/.test(
+  return /类目|渠道|商品阶段|生命周期|价格|库存|利润|转化|动销|库销比|成交额|折线图|柱状图|漏斗图|散点图|热力图|排名|排序/.test(
     normalizeForIntent(instruction)
   );
 }
@@ -952,7 +952,7 @@ export async function writeInitialRunPlan(params: {
       ? `问题改写完成，安全策略拒绝执行：${queryRewrite.safety.message}`
       : queryRewrite.status === 'ready'
         ? `已将用户问题改写为结构化查询，并解析 ${queryRewrite.resolvedEntities.length} 个实体。`
-        : `问题改写完成，仍有 ${queryRewrite.unresolvedTargets.length + queryRewrite.ambiguousTargets.length} 个标的需要确认。`,
+        : `问题改写完成，仍有 ${queryRewrite.unresolvedTargets.length + queryRewrite.ambiguousTargets.length} 个商品或类目需要确认。`,
     created_at: now,
   });
 

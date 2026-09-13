@@ -48,7 +48,7 @@ jobs:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
-      SHOPGATE_MARKET_API_URL: http://127.0.0.1:8000
+      SHOPGATE_COMMERCE_API_URL: http://127.0.0.1:8000
       PROJECTS_DIR: ./tmp/e2e-projects
       SHOPGATE_EVAL_MODE: e2e
       SHOPGATE_EVAL_TRIGGER: nightly
@@ -93,14 +93,14 @@ jobs:
           docker compose up -d --wait timescaledb redis
           npm run db:init
           mkdir -p tmp
-          npm run dev:commerce > tmp/eval-market.log 2>&1 &
+          npm run dev:commerce > tmp/eval-commerce.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          tail -100 tmp/eval-market.log
+          tail -100 tmp/eval-commerce.log
           exit 1
 
       - name: Run repair and crash controls
@@ -123,7 +123,7 @@ jobs:
             tmp/shopgate-benchmark-reports/
             tmp/shopgate-benchmark-screenshots/
             tmp/shopgate-eval-mutations/
-            tmp/eval-market.log
+            tmp/eval-commerce.log
 
       - name: Stop infrastructure
         if: always()

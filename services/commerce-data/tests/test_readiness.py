@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from shopgate_commerce_data.readiness import get_market_readiness
+from shopgate_commerce_data.readiness import get_commerce_readiness
 
 
 async def passing_probe() -> None:
@@ -19,7 +19,7 @@ async def false_probe() -> bool:
 
 def test_required_dependency_failure_blocks_readiness_without_leaking_error() -> None:
     result = asyncio.run(
-        get_market_readiness(
+        get_commerce_readiness(
             database_probe=failing_probe,
             redis_probe=passing_probe,  # type: ignore[arg-type]
             environment={
@@ -37,7 +37,7 @@ def test_required_dependency_failure_blocks_readiness_without_leaking_error() ->
 
 def test_optional_failure_and_disabled_component_do_not_block() -> None:
     result = asyncio.run(
-        get_market_readiness(
+        get_commerce_readiness(
             database_probe=passing_probe,
             redis_probe=false_probe,
             environment={
@@ -50,7 +50,7 @@ def test_optional_failure_and_disabled_component_do_not_block() -> None:
     assert result["components"]["redis"]["status"] == "failed"
 
     disabled = asyncio.run(
-        get_market_readiness(
+        get_commerce_readiness(
             database_probe=passing_probe,
             redis_probe=false_probe,
             environment={

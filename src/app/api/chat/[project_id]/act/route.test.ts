@@ -52,7 +52,7 @@ function actRequest(requestId: string): Request {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       requestId,
-      instruction: '生成量化看板',
+      instruction: '生成电商经营看板',
     }),
   });
 }
@@ -88,7 +88,7 @@ describe('act route request project scope', () => {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          instruction: '生成量化看板',
+          instruction: '生成电商经营看板',
           request_id: 'legacy-request-id',
           selected_model: 'local_qwen:qwen3.5-9b-q5km',
         }),

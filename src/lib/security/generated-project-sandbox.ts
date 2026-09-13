@@ -59,8 +59,8 @@ export function buildGeneratedProjectEnv(
     'NEXT_PRIVATE_BUILD_WORKER',
     'SHOPGATE_SANDBOX_PREVIEW_SOCKET',
     'SHOPGATE_SANDBOX_PREVIEW_PORT',
-    'SHOPGATE_SANDBOX_MARKET_SOCKET',
-    'SHOPGATE_SANDBOX_MARKET_PORT',
+    'SHOPGATE_SANDBOX_COMMERCE_SOCKET',
+    'SHOPGATE_SANDBOX_COMMERCE_PORT',
   ] as const) {
     const value = overrides[key];
     if (value) env[key] = value;

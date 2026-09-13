@@ -399,7 +399,7 @@ async function validateViewport(params: {
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         blankLike: bodyText.trim().length < 80 && rects.length < 8,
         hasCommerceLanguage: /商品|类目|库存|购买|浏览|加购|转化|成交总额|GMV|客单价|价格|风险/i.test(bodyText),
-        hasDataFreshnessLanguage: /更新时间|更新：|数据截至|数据时间|行情时间|报告期|样本区间|样本窗口/i.test(bodyText),
+        hasDataFreshnessLanguage: /更新时间|更新：|数据截至|数据时间|采集时间|分析区间|样本区间|样本窗口/i.test(bodyText),
       };
     });
 

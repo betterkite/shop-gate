@@ -42,8 +42,10 @@ async function main() {
     });
     await new Promise((resolve) => setTimeout(resolve, 1100));
     await writeJson(path.join(projectPath, 'data_file/final/dashboard-data.json'), {
-      symbol: '600519',
-      quote: { price: 1660.12, source: 'eastmoney', fetched_at: '2026-05-26T00:00:00.000Z' },
+      dataset_id: 'retail-stale-smoke',
+      window: { start: '2026-05-25', end: '2026-05-26' },
+      plannedEntities: { categoryIds: [], itemIds: [] },
+      datasets: { meta: { event_count: 1 } },
     });
     await writeFile(
       path.join(projectPath, 'app/page.tsx'),

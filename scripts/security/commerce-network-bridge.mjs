@@ -6,7 +6,7 @@ const [socketPath, rawPort] = process.argv.slice(2);
 const listenPort = Number.parseInt(rawPort ?? '', 10);
 
 if (!socketPath || !Number.isSafeInteger(listenPort) || listenPort < 1 || listenPort > 65_535) {
-  console.error('usage: market-network-bridge.mjs <unix-socket> <listen-port>');
+  console.error('usage: commerce-network-bridge.mjs <unix-socket> <listen-port>');
   process.exit(64);
 }
 
@@ -40,7 +40,7 @@ function stop(exitCode = 0) {
 }
 
 server.on('error', (error) => {
-  console.error(`[market-network-bridge] ${error.message}`);
+  console.error(`[commerce-network-bridge] ${error.message}`);
   stop(1);
 });
 server.listen(listenPort, '127.0.0.1');

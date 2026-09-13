@@ -191,7 +191,7 @@ function isDegradedStartupEnv() {
     process.env.SKIP_DB_SYNC === '1' ||
     process.env.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() === 'offline' ||
     !envFlag('SHOPGATE_DATABASE_ENABLED', true) ||
-    !envFlag('SHOPGATE_MARKET_API_ENABLED', true) ||
+    !envFlag('SHOPGATE_COMMERCE_API_ENABLED', true) ||
     !envFlag('SHOPGATE_OBSERVABILITY_ENABLED', true) ||
     !envFlag('SHOPGATE_REDIS_CACHE_ENABLED', true)
   );
@@ -261,12 +261,12 @@ async function restoreRecoveredDegradationComponents() {
     recovered.push('database');
   }
 
-  const marketHealthUrl = process.env.SHOPGATE_MARKET_API_URL
-    ? `${process.env.SHOPGATE_MARKET_API_URL.replace(/\/$/, '')}/health`
+  const commerceHealthUrl = process.env.SHOPGATE_COMMERCE_API_URL
+    ? `${process.env.SHOPGATE_COMMERCE_API_URL.replace(/\/$/, '')}/health`
     : 'http://127.0.0.1:8000/health';
-  if (await probeUrl(marketHealthUrl)) {
-    process.env.SHOPGATE_MARKET_API_ENABLED = '1';
-    recovered.push('market-api');
+  if (await probeUrl(commerceHealthUrl)) {
+    process.env.SHOPGATE_COMMERCE_API_ENABLED = '1';
+    recovered.push('commerce-api');
   }
 
   const lokiReadyUrl = process.env.LOKI_URL

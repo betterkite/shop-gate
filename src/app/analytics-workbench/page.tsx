@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 const API_BASE_URL = (
-  process.env.SHOPGATE_MARKET_API_URL ||
-  process.env.SHOPGATE_MARKET_API_BASE_URL ||
+  process.env.SHOPGATE_COMMERCE_API_URL ||
+  process.env.SHOPGATE_COMMERCE_API_BASE_URL ||
   'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
 const DEFAULT_DATASET_ID = process.env.SHOPGATE_RETAIL_ANALYTICS_DATASET_ID || 'retail-demo-expanded-v1';

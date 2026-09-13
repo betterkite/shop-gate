@@ -38,9 +38,9 @@ def create_app() -> FastAPI:
                 await connection.execute("SELECT 1")
 
         redis_probe = RedisJsonCache().ping
-        from shopgate_commerce_data.readiness import get_market_readiness
+        from shopgate_commerce_data.readiness import get_commerce_readiness
 
-        result = await get_market_readiness(
+        result = await get_commerce_readiness(
             database_probe=database_probe,
             redis_probe=redis_probe,
         )

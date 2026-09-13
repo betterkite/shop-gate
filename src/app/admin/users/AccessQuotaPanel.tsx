@@ -800,7 +800,7 @@ export default function AccessQuotaPanel({
                   <Input
                     id="access-change-reason"
                     maxLength={500}
-                    placeholder="例如：项目组新增策略回测职责（至少 3 个字符）"
+                    placeholder="例如：项目组新增经营分析职责（至少 3 个字符）"
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
                   />

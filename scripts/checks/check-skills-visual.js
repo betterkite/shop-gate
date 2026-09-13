@@ -70,7 +70,7 @@ async function inspectProfile(browser, storageState, profile) {
     const firstSkill = market.locator('button[aria-label^="查看 "]').first();
     await firstSkill.scrollIntoViewIfNeeded();
     await firstSkill.click();
-    const dialog = page.getByRole('dialog', { name: /运行规划|数据注册|标的解析|图片提取|行情数据/ });
+    const dialog = page.getByRole('dialog', { name: /运行规划|数据注册|商品解析|图片提取|经营数据/ });
     await dialog.waitFor({ state: 'visible' });
     await dialog.getByRole('button', { name: '交付信息' }).click();
     await dialog.getByText('源码目录', { exact: true }).waitFor({ state: 'visible' });

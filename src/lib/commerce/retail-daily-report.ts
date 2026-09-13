@@ -3,8 +3,8 @@ import { prisma } from '@/lib/db/client';
 import { getRuntimeDegradationConfig } from '@/lib/config/degradation';
 
 const BASE_URL =
-  process.env.SHOPGATE_MARKET_API_URL ||
-  process.env.SHOPGATE_MARKET_API_BASE_URL ||
+  process.env.SHOPGATE_COMMERCE_API_URL ||
+  process.env.SHOPGATE_COMMERCE_API_BASE_URL ||
   'http://127.0.0.1:8000';
 
 function inputJson(value: unknown): Prisma.InputJsonValue {
@@ -12,7 +12,7 @@ function inputJson(value: unknown): Prisma.InputJsonValue {
 }
 
 async function fetchJson<T>(path: string): Promise<T | null> {
-  const degradation = getRuntimeDegradationConfig().components.marketApi;
+  const degradation = getRuntimeDegradationConfig().components.commerceApi;
   if (!degradation.enabled) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 4_000);
@@ -136,7 +136,7 @@ export async function generateRetailDailyBrief(options: {
         title: `经营日报 ${reportDate}`,
         summary: summaryText,
         reportDate: reportDateObj,
-        marketScope: inputJson({ window, universe: 'retail', behaviorSource }),
+        commerceScope: inputJson({ window, universe: 'retail', behaviorSource }),
         score: 0,
         recommendation: '观察',
         riskLevel: 'low',

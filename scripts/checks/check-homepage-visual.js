@@ -393,7 +393,7 @@ async function inspectSubmissionRecovery(browser, storageState) {
     await page.getByRole('button', { name: /移除图片/ }).click();
     await page.waitForTimeout(250);
 
-    const question = '分析贵州茅台近 60 个交易日的趋势和主要风险';
+    const question = '分析美妆类目近 30 天的浏览、购买和库存健康';
     await textarea.fill(question);
     await page.getByRole('button', { name: '只做问答' }).click();
     await page.waitForTimeout(250);

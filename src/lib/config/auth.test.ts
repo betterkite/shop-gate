@@ -61,7 +61,7 @@ describe('project auth config', () => {
     })).toBeNull();
     expect(getDevelopmentAdminDefaults(config, {
       NODE_ENV: 'development',
-      BETTER_AUTH_URL: 'https://quant.example.com',
+      BETTER_AUTH_URL: 'https://shop-gate.example.com',
     })).toBeNull();
   });
 
@@ -70,12 +70,12 @@ describe('project auth config', () => {
       NODE_ENV: 'production',
       SHOPGATE_AUTH_MODE: 'local',
       SHOPGATE_AUTH_SECRET: 'a'.repeat(32),
-      SHOPGATE_AUTH_TRUSTED_ORIGINS: 'https://quant.example.com,http://127.0.0.1:3000',
+      SHOPGATE_AUTH_TRUSTED_ORIGINS: 'https://shop-gate.example.com,http://127.0.0.1:3000',
     };
     const config = getProjectAuthConfig(environment);
     expect(config).toMatchObject({ mode: 'local', enabled: true, secureCookies: true });
     expect(config.trustedOrigins).toEqual([
-      'https://quant.example.com',
+      'https://shop-gate.example.com',
       'http://127.0.0.1:3000',
     ]);
     expect(getProjectAuthSecret(config, environment)).toBe('a'.repeat(32));

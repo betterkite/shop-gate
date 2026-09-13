@@ -31,7 +31,7 @@ function missionSpec(): PiAgentMissionSpec {
     projectId: 'project-evidence',
     requestId: 'request-evidence',
     objective: '生成通过独立证据验收的看板',
-    capabilityId: 'technical_analysis',
+    capabilityId: 'traffic_funnel',
     runPlanId: 'request-evidence',
     composition: {
       profileId: 'test.data-agent',

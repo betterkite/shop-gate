@@ -304,7 +304,7 @@
         "services/commerce-data/src/shopgate_commerce_data/import_cli.py"
       ],
       "migrationNotes": [
-        "金融行情、provider、回测、ClickHouse 和旧 repository/service 分层已删除；零售查询统一进入 retail.py，连接与共享转换进入 database_core.py。"
+        "旧数据域的 provider、回放、ClickHouse 和 repository/service 分层已删除；零售查询统一进入 retail.py，连接与共享转换进入 database_core.py。"
       ]
     }
   ],
@@ -323,7 +323,7 @@
       {
         "from": "src/components/ui/**",
         "to": "src/lib/commerce/**",
-        "reason": "通用 UI 不能携带量化领域知识。"
+        "reason": "通用 UI 不能携带具体业务领域知识。"
       },
       {
         "from": "src/components/ui/**",
@@ -338,7 +338,7 @@
       {
         "from": "src/lib/agent/**",
         "to": "src/lib/commerce/**",
-        "reason": "PI Agent Framework 不能依赖金融应用核心。"
+        "reason": "PI Agent Framework 不能依赖电商应用核心。"
       },
       {
         "from": "src/lib/agent/**",
@@ -353,7 +353,7 @@
       {
         "from": "src/lib/data-agent/**",
         "to": "src/lib/commerce/**",
-        "reason": "通用 Data Agent 不能依赖金融应用实现。"
+        "reason": "通用 Data Agent 不能依赖电商应用实现。"
       },
       {
         "from": "src/lib/data-agent/**",
@@ -363,7 +363,7 @@
       {
         "from": "src/lib/domains/retail/**",
         "to": "src/lib/commerce/**",
-        "reason": "Finance Domain Pack 不能反向依赖 Shop Gate 产品编排层。"
+        "reason": "Retail Domain Pack 不能反向依赖 Shop Gate 产品编排层。"
       },
       {
         "from": "services/commerce-data/**",
@@ -471,7 +471,7 @@
         "path": "src/lib/commerce/retail-data-prefetch.ts",
         "maxLines": 2040,
         "targetLines": 1200,
-        "nextAction": "将通用数据计划、金融 endpoint adapter、证据落盘和错误归一化拆开。"
+        "nextAction": "将通用数据计划、零售 endpoint adapter、证据落盘和错误归一化拆开。"
       },
       {
         "path": "services/commerce-data/src/shopgate_commerce_data/api.py",

@@ -85,7 +85,7 @@ export interface GenerationTraceProject {
     capabilityId: string | null;
     requestedCapabilityId: string | null;
     executionCapabilityId: string | null;
-    symbols: string[];
+    entities: string[];
     expectedArtifacts: string[];
     updatedAt: string | null;
   };
@@ -310,7 +310,7 @@ function stageFromWorkspaceEvent(event: RetailWorkspaceEvent & JsonRecord): Gene
   if (/queue/.test(raw)) return 'request';
   if (/intent|request|clarification/.test(raw)) return raw.includes('intent') ? 'planning' : 'request';
   if (/plan|planning|run_plan/.test(raw)) return 'planning';
-  if (/data|quality|source|market|symbol|image|evidence/.test(raw)) return 'data';
+  if (/data|quality|source|commerce|entity|image|evidence/.test(raw)) return 'data';
   if (/validation|validate/.test(raw)) return 'validation';
   if (/repair|fix/.test(raw)) return 'repair';
   if (/complete|completed|finish|done/.test(raw)) return 'completion';
@@ -582,7 +582,7 @@ function buildRunPlanEvent(projectId: string, runPlan: Awaited<ReturnType<typeof
         capabilityId: runPlan.capabilityId,
         requestedCapabilityId: runPlan.requestedCapabilityId,
         executionCapabilityId: runPlan.executionCapabilityId,
-        symbols: runPlan.entities,
+        entities: runPlan.entities,
         expectedArtifacts: runPlan.expectedArtifacts,
       },
     },
@@ -1121,7 +1121,7 @@ async function inspectProjectTrace(
       capabilityId: runPlan?.capabilityId ?? null,
       requestedCapabilityId: runPlan?.requestedCapabilityId ?? null,
       executionCapabilityId: runPlan?.executionCapabilityId ?? null,
-      symbols: runPlan?.entities ?? [],
+      entities: runPlan?.entities ?? [],
       expectedArtifacts: runPlan?.expectedArtifacts ?? [],
       updatedAt: runPlan?.updatedAt ?? null,
     },

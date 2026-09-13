@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process');
 const { performance } = require('perf_hooks');
 
 const ROOT = process.cwd();
-const MARKET_DATA_ROOT = path.join(ROOT, 'services', 'commerce-data');
+const COMMERCE_DATA_ROOT = path.join(ROOT, 'services', 'commerce-data');
 const includeSecurity = process.argv.includes('--security');
 const includeRuntime = process.argv.includes('--runtime');
 const includeProduction = process.argv.includes('--production');
@@ -49,8 +49,8 @@ const checks = [
   ['Frontend lint', 'npm', ['run', 'lint'], ROOT],
   ['Frontend unit tests', 'npm', ['run', 'test:unit'], ROOT],
   ['Frontend types', 'npm', ['run', 'type-check'], ROOT],
-  ['Backend lint', 'uv', ['run', 'ruff', 'check', 'src', 'tests'], MARKET_DATA_ROOT],
-  ['Backend tests', 'uv', ['run', 'pytest', '-q'], MARKET_DATA_ROOT],
+  ['Backend lint', 'uv', ['run', 'ruff', 'check', 'src', 'tests'], COMMERCE_DATA_ROOT],
+  ['Backend tests', 'uv', ['run', 'pytest', '-q'], COMMERCE_DATA_ROOT],
   ['Production build', 'npm', ['run', 'build'], ROOT],
 ];
 

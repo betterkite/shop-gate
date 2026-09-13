@@ -228,7 +228,7 @@ export function SkillsVersionManagerDialog({
                       value={releaseChanges}
                       onChange={(event) => onChangesChange(event.target.value)}
                       className="min-h-[110px]"
-                      placeholder={'每行一条，例如：\n增强持仓截图字段提取契约\n补充数据质量校验规则'}
+                      placeholder={'每行一条，例如：\n增强商品库存截图字段提取契约\n补充数据质量校验规则'}
                     />
                   </div>
                 </div>

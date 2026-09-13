@@ -106,7 +106,7 @@ export interface OpsPlatformDashboard {
 }
 
 const ROOT = path.resolve(/*turbopackIgnore: true*/ process.cwd());
-const MARKET_API_BASE_URL = getServiceRawEndpoint('commerce-data') || 'http://127.0.0.1:8000';
+const COMMERCE_API_BASE_URL = getServiceRawEndpoint('commerce-data') || 'http://127.0.0.1:8000';
 const LOKI_BASE_URL = getServiceRawEndpoint('loki') || 'http://127.0.0.1:33100';
 const LOKI_QUERY = (process.env.LOKI_QUERY || '{app="shopgate"}').replace(/\\"/g, '"');
 const GRAFANA_BASE_URL = getServiceRawEndpoint('grafana') || `http://127.0.0.1:${process.env.GRAFANA_PORT || '33012'}`;
@@ -497,7 +497,7 @@ async function collectLogSources(includeEntries: boolean): Promise<OpsLogSource[
   const sources: Array<{ id: string; label: string; filePath: string | null }> = [
     { id: 'next-dev', label: '前端 Next.js dev', filePath: path.join(ROOT, '.next', 'dev', 'logs', 'next-development.log') },
     { id: 'frontend-runtime', label: '前端启动脚本', filePath: path.join(ROOT, 'tmp', 'runtime', 'frontend.log') },
-    { id: 'market-api', label: '经营数据后端', filePath: path.join(ROOT, 'tmp', 'runtime', 'market-api.log') },
+    { id: 'commerce-api', label: '经营数据后端', filePath: path.join(ROOT, 'tmp', 'runtime', 'commerce-api.log') },
     { id: 'eval-queue', label: '评测队列最新运行', filePath: latestEvalLog },
   ];
   const [fileSources, lokiSource] = await Promise.all([
@@ -575,9 +575,9 @@ function buildRuntimeHealthProfile(params: {
     {
       id: 'core-services',
       label: '核心服务',
-      score: scoreGroup(['database', 'docker-timescaledb', 'market-api'], 12, 35),
+      score: scoreGroup(['database', 'docker-timescaledb', 'commerce-api'], 12, 35),
       weight: 40,
-      status: scoreStatus(scoreGroup(['database', 'docker-timescaledb', 'market-api'], 12, 35)),
+      status: scoreStatus(scoreGroup(['database', 'docker-timescaledb', 'commerce-api'], 12, 35)),
       summary: '数据库、TimescaleDB、Docker 和经营数据后端可用性。',
     },
     {
@@ -683,7 +683,7 @@ export async function getOpsPlatformDashboard(params: {
   const serviceCatalog = getResolvedServiceCatalog();
   const serviceCatalogValidation = validateServiceCatalog();
   const serviceDependencyEdges = buildServiceDependencyEdges(serviceCatalog);
-  const marketApi = degradation.components.marketApi;
+  const commerceApi = degradation.components.commerceApi;
   const observability = degradation.components.observability;
   const database = degradation.components.database;
   const [
@@ -692,8 +692,8 @@ export async function getOpsPlatformDashboard(params: {
     workspaceHealth,
     npmVersion,
     agentRuntimeInstalled,
-    marketHealth,
-    marketRegistry,
+    commerceHealth,
+    commerceRegistry,
     agentWorkers,
     logSources,
   ] = await Promise.all([
@@ -702,8 +702,8 @@ export async function getOpsPlatformDashboard(params: {
     params.workspaceHealth ?? getWorkspaceHealthDashboard(),
     commandOutput('npm', ['--version']),
     hasPiAgentRuntime(),
-    marketApi.enabled ? probeUrl(`${MARKET_API_BASE_URL}/health`) : disabledProbe('market API'),
-    marketApi.enabled ? probeUrl(`${MARKET_API_BASE_URL}/api/v1/registry`) : disabledProbe('market API registry'),
+    commerceApi.enabled ? probeUrl(`${COMMERCE_API_BASE_URL}/health`) : disabledProbe('commerce API'),
+    commerceApi.enabled ? probeUrl(`${COMMERCE_API_BASE_URL}/api/v1/registry`) : disabledProbe('commerce API registry'),
     getAgentWorkerRuntimeDashboard(),
     collectLogSources(params.includeLogEntries === true),
   ]);
@@ -716,19 +716,19 @@ export async function getOpsPlatformDashboard(params: {
   const missingRequired = [
     process.env.DATABASE_URL?.trim() ? null : 'DATABASE_URL',
     process.env.MODELPORT_API_KEY?.trim() ? null : 'MODELPORT_API_KEY',
-    marketApi.enabled && !process.env.SHOPGATE_MARKET_API_URL?.trim()
-      ? 'SHOPGATE_MARKET_API_URL'
+    commerceApi.enabled && !process.env.SHOPGATE_COMMERCE_API_URL?.trim()
+      ? 'SHOPGATE_COMMERCE_API_URL'
       : null,
   ].filter((item): item is string => Boolean(item));
   const lokiSource = logSources.find((source) => source.id === 'loki');
   const databaseHealthy = infrastructure.data.connected && infrastructure.data.timescale.enabled;
   const databaseStatus: OpsCheckStatus = databaseHealthy ? 'ok' : componentUnavailableStatus(database);
-  const marketApiHealthy = marketHealth.ok && marketRegistry.ok;
-  const marketApiStatus: OpsCheckStatus = marketApiHealthy
+  const commerceApiHealthy = commerceHealth.ok && commerceRegistry.ok;
+  const commerceApiStatus: OpsCheckStatus = commerceApiHealthy
     ? 'ok'
-    : marketHealth.ok
+    : commerceHealth.ok
       ? 'warning'
-      : componentUnavailableStatus(marketApi);
+      : componentUnavailableStatus(commerceApi);
   const lokiStatus: OpsCheckStatus = lokiSource?.exists ? 'ok' : componentUnavailableStatus(observability);
 
   const nodeVersion = process.versions.node;
@@ -799,7 +799,7 @@ export async function getOpsPlatformDashboard(params: {
       id: 'degradation-mode',
       label: '降级配置',
       status: 'ok',
-      summary: `${degradation.mode} · DB ${componentModeSummary(database)} · Market API ${componentModeSummary(marketApi)} · Observability ${componentModeSummary(observability)}`,
+      summary: `${degradation.mode} · DB ${componentModeSummary(database)} · Commerce API ${componentModeSummary(commerceApi)} · Observability ${componentModeSummary(observability)}`,
       detail: 'auto 适合本地开发；strict 适合 CI/生产；offline 会跳过外部组件探测并使用文件/内置注册表兜底。',
     },
     {
@@ -849,14 +849,14 @@ export async function getOpsPlatformDashboard(params: {
       actions: observability.enabled && !lokiSource?.exists ? ['运行 npm run obs:up 启动 Loki、Grafana 和 Alloy。'] : [],
     },
     {
-      id: 'market-api',
+      id: 'commerce-api',
       label: '经营数据后端',
-      status: marketApiStatus,
-      summary: `${MARKET_API_BASE_URL} · health=${marketHealth.status ?? '-'} · registry=${marketRegistry.status ?? '-'}`,
-      detail: marketHealth.ok && marketRegistry.ok
-        ? `响应 ${Math.max(marketHealth.ms, marketRegistry.ms)}ms`
-        : marketHealth.error ?? marketRegistry.error ?? undefined,
-      actions: marketApi.enabled && !marketHealth.ok ? ['进入 services/commerce-data 后运行 uv run shopgate-commerce-api。'] : [],
+      status: commerceApiStatus,
+      summary: `${COMMERCE_API_BASE_URL} · health=${commerceHealth.status ?? '-'} · registry=${commerceRegistry.status ?? '-'}`,
+      detail: commerceHealth.ok && commerceRegistry.ok
+        ? `响应 ${Math.max(commerceHealth.ms, commerceRegistry.ms)}ms`
+        : commerceHealth.error ?? commerceRegistry.error ?? undefined,
+      actions: commerceApi.enabled && !commerceHealth.ok ? ['进入 services/commerce-data 后运行 uv run shopgate-commerce-api。'] : [],
     },
     {
       id: 'workspace-storage',
@@ -898,7 +898,7 @@ export async function getOpsPlatformDashboard(params: {
         ? capabilityCenter.summary.degradedProviders > 0 ? 'warning' : 'ok'
         : 'failed',
       summary: `${capabilityCenter.summary.availableProviders}/${capabilityCenter.summary.dataProviders} 个数据源可用`,
-      detail: `${capabilityCenter.summary.degradedProviders} 个数据源降级；market API ${capabilityCenter.marketApi.status}。`,
+      detail: `${capabilityCenter.summary.degradedProviders} 个数据源降级；commerce API ${capabilityCenter.commerceApi.status}。`,
       actions: capabilityCenter.summary.availableProviders ? [] : ['启动经营数据后端并检查数据源注册表。'],
     },
     {

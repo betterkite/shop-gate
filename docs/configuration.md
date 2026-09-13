@@ -297,7 +297,7 @@ SHOPGATE_MEMORY_ENABLED=0
 ```dotenv
 SHOPGATE_DEGRADATION_MODE=offline
 SHOPGATE_MEMORY_ENABLED=0
-SHOPGATE_MARKET_API_ENABLED=0
+SHOPGATE_COMMERCE_API_ENABLED=0
 SHOPGATE_OBSERVABILITY_ENABLED=0
 SHOPGATE_REDIS_CACHE_ENABLED=0
 ```
@@ -315,7 +315,7 @@ SHOPGATE_REDIS_CACHE_ENABLED=0
 | Web/预览 | `PORT`, `WEB_PORT`, `NEXT_PUBLIC_APP_URL`, `PREVIEW_PORT_*` | 主站与生成 workspace 预览端口池 |
 | 认证 | `SHOPGATE_AUTH_*`, `BETTER_AUTH_URL` | 本地可关闭；生产必须强 secret、安全 Cookie、可信 Origin |
 | 管理接口 | `SHOPGATE_ADMIN_TOKEN` | 保护 host 级写操作 |
-| 零售数据 | `SHOPGATE_MARKET_*`, `SHOPGATE_REDIS_*` | FastAPI 地址、启动、管理令牌和缓存配置 |
+| 零售数据 | `SHOPGATE_COMMERCE_*`, `SHOPGATE_REDIS_*` | FastAPI 地址、启动、管理令牌和缓存配置 |
 | Model/Agent | `MODELPORT_API_KEY`, `DEEPSEEK_API_KEY`, `SHOPGATE_LLM_*`, `PI_AGENT_*` | Provider 凭据、运行预算、超时、lease 和上下文上限 |
 | Memory | `SHOPGATE_MEMORY_*` | 可选召回、broker、租户和有界上下文 |
 | 受治理知识 | `SHOPGATE_KNOWLEDGE_*` | AKEP ContextPack、Space、Purpose、Citation、Usage 与 Feedback |

@@ -58,7 +58,7 @@ async function createGeneratedProject() {
     }, null, 2)}\n`,
     sources: `${JSON.stringify({
       schemaVersion: 1,
-      sources: [{ name: 'commerce-data-service', url: '/api/market/quote' }],
+      sources: [{ name: 'commerce-data-service', url: '/api/commerce/quote' }],
       preservationMarker: 'keep-sources-byte-for-byte',
     }, null, 2)}\n`,
     dataQuality: `${JSON.stringify({

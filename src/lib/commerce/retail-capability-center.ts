@@ -64,9 +64,9 @@ export interface CapabilityCenterData {
     dataProviders: number;
     availableProviders: number;
     degradedProviders: number;
-    marketApiReachable: boolean;
+    commerceApiReachable: boolean;
   };
-  marketApi: {
+  commerceApi: {
     baseUrl: string;
     reachable: boolean;
     status: string;
@@ -75,16 +75,16 @@ export interface CapabilityCenterData {
   };
   degradation: {
     mode: string;
-    marketApiEnabled: boolean;
-    marketApiRequired: boolean;
+    commerceApiEnabled: boolean;
+    commerceApiRequired: boolean;
   };
   capabilities: CapabilityCenterItem[];
   dataProviders: CapabilityCenterDataProvider[];
 }
 
-const MARKET_API_BASE_URL =
-  process.env.SHOPGATE_MARKET_API_URL ||
-  process.env.SHOPGATE_MARKET_API_BASE_URL ||
+const COMMERCE_API_BASE_URL =
+  process.env.SHOPGATE_COMMERCE_API_URL ||
+  process.env.SHOPGATE_COMMERCE_API_BASE_URL ||
   'http://127.0.0.1:8000';
 
 const FALLBACK_DATA_PROVIDERS: CapabilityCenterDataProvider[] = [
@@ -202,18 +202,18 @@ function normalizeProvider(value: unknown): CapabilityCenterDataProvider | null 
   };
 }
 
-async function fetchMarketRegistry(): Promise<{
+async function fetchCommerceRegistry(): Promise<{
   reachable: boolean;
   status: string;
   error: string | null;
   providers: CapabilityCenterDataProvider[];
 }> {
   const degradation = getRuntimeDegradationConfig();
-  if (!degradation.components.marketApi.enabled) {
+  if (!degradation.components.commerceApi.enabled) {
     return {
       reachable: false,
       status: 'disabled-fallback',
-      error: 'market API 已按降级配置停用，展示内置数据源注册表。',
+      error: 'commerce API 已按降级配置停用，展示内置数据源注册表。',
       providers: FALLBACK_DATA_PROVIDERS,
     };
   }
@@ -221,11 +221,11 @@ async function fetchMarketRegistry(): Promise<{
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2_500);
   try {
-    const healthResponse = await fetch(`${MARKET_API_BASE_URL}/health`, {
+    const healthResponse = await fetch(`${COMMERCE_API_BASE_URL}/health`, {
       cache: 'no-store',
       signal: controller.signal,
     });
-    const registryResponse = await fetch(`${MARKET_API_BASE_URL}/api/v1/registry`, {
+    const registryResponse = await fetch(`${COMMERCE_API_BASE_URL}/api/v1/registry`, {
       cache: 'no-store',
       signal: controller.signal,
     });
@@ -238,7 +238,7 @@ async function fetchMarketRegistry(): Promise<{
     return {
       reachable: healthResponse.ok && registryResponse.ok,
       status: healthResponse.ok && registryResponse.ok ? 'online' : 'degraded',
-      error: healthResponse.ok && registryResponse.ok ? null : `market API returned ${healthResponse.status}/${registryResponse.status}`,
+      error: healthResponse.ok && registryResponse.ok ? null : `commerce API returned ${healthResponse.status}/${registryResponse.status}`,
       providers: providers.length ? providers : FALLBACK_DATA_PROVIDERS,
     };
   } catch (error) {
@@ -291,9 +291,9 @@ function buildReadiness(params: {
 
 export async function getCapabilityCenterData(): Promise<CapabilityCenterData> {
   const degradation = getRuntimeDegradationConfig();
-  const [skillsData, market] = await Promise.all([
+  const [skillsData, commerce] = await Promise.all([
     getSkillsDashboardData(),
-    fetchMarketRegistry(),
+    fetchCommerceRegistry(),
   ]);
   const skillMap = new Map(skillsData.skills.map((skill) => [skill.id, skill]));
   const capabilities = serializeRetailCapabilities().map((capability): CapabilityCenterItem => {
@@ -352,10 +352,10 @@ export async function getCapabilityCenterData(): Promise<CapabilityCenterData> {
       blockedCapabilities: 0,
       skills: skillsData.totals.total,
       skillErrors: skillsData.totals.error,
-      dataProviders: market.providers.length,
-      availableProviders: market.providers.filter((provider) => provider.status === 'available').length,
-      degradedProviders: market.providers.filter((provider) => provider.status === 'degraded').length,
-      marketApiReachable: market.reachable,
+      dataProviders: commerce.providers.length,
+      availableProviders: commerce.providers.filter((provider) => provider.status === 'available').length,
+      degradedProviders: commerce.providers.filter((provider) => provider.status === 'degraded').length,
+      commerceApiReachable: commerce.reachable,
     },
   );
 
@@ -364,19 +364,19 @@ export async function getCapabilityCenterData(): Promise<CapabilityCenterData> {
     defaultCapabilityId: DEFAULT_RETAIL_CAPABILITY_ID,
     groups: RETAIL_CAPABILITY_GROUPS,
     summary,
-    marketApi: {
-      baseUrl: MARKET_API_BASE_URL,
-      reachable: market.reachable,
-      status: market.status,
+    commerceApi: {
+      baseUrl: COMMERCE_API_BASE_URL,
+      reachable: commerce.reachable,
+      status: commerce.status,
       checkedAt: new Date().toISOString(),
-      error: market.error,
+      error: commerce.error,
     },
     degradation: {
       mode: degradation.mode,
-      marketApiEnabled: degradation.components.marketApi.enabled,
-      marketApiRequired: degradation.components.marketApi.required,
+      commerceApiEnabled: degradation.components.commerceApi.enabled,
+      commerceApiRequired: degradation.components.commerceApi.required,
     },
     capabilities,
-    dataProviders: market.providers,
+    dataProviders: commerce.providers,
   };
 }

@@ -9,7 +9,7 @@ const rootDir = path.join(__dirname, '..', '..');
 const outputDir = path.join(rootDir, 'tmp', 'visual-checks', 'analytics-workbench');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const baseUrl = (process.env.ANALYTICS_WORKBENCH_URL || 'http://localhost:3000').replace(/\/+$/, '');
-const commerceApiBase = (process.env.SHOPGATE_MARKET_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+const commerceApiBase = (process.env.SHOPGATE_COMMERCE_API_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const datasetId = process.env.ANALYTICS_WORKBENCH_DATASET_ID || 'retail-demo-p28-elasticity-v1';
 const drilldownUrl = `${baseUrl}/analytics-workbench?view=drilldown&dataset_id=${encodeURIComponent(datasetId)}&dimension=item&value=1000009`;
 const trendUrl = `${baseUrl}/analytics-workbench?view=trend&dataset_id=${encodeURIComponent(datasetId)}&start=2025-11-04&end=2025-11-04`;

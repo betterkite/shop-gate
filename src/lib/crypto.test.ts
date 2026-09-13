@@ -27,11 +27,11 @@ afterAll(() => {
 describe('crypto', () => {
   it('round-trips secrets with the authenticated v2 format', async () => {
     const { decrypt, encrypt, isCurrentEncryptionFormat } = await loadCryptoModule();
-    const encrypted = encrypt('shopgate-secret-量化');
+    const encrypted = encrypt('shopgate-secret-commerce');
 
     expect(isCurrentEncryptionFormat(encrypted)).toBe(true);
     expect(encrypted).not.toContain('shopgate-secret');
-    expect(decrypt(encrypted)).toBe('shopgate-secret-量化');
+    expect(decrypt(encrypted)).toBe('shopgate-secret-commerce');
   });
 
   it('rejects a tampered authentication tag or ciphertext', async () => {

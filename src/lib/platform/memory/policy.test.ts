@@ -54,7 +54,7 @@ describe('personal memory policy', () => {
         {
           content: JSON.stringify({
             context: { product: 'shopgate', project_id: 'project-b' },
-            key: 'research.default_horizon',
+            key: 'analysis.default_period',
             value: 'one year',
           }),
           sources: [{ recordId: 'record-3', revisionId: 'rev-3', rank: 3, score: 0.7 }],

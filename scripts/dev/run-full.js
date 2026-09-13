@@ -7,7 +7,7 @@ const dotenv = require('dotenv');
 const { parseCliArgs, startWebDevServer } = require('./run-web');
 
 const rootDir = path.join(__dirname, '..', '..');
-const marketDataDir = path.join(rootDir, 'services', 'commerce-data');
+const commerceDataDir = path.join(rootDir, 'services', 'commerce-data');
 const isWindows = os.platform() === 'win32';
 
 dotenv.config({
@@ -22,10 +22,10 @@ function envFlag(name, fallback) {
   return fallback;
 }
 
-function shouldRunMarketApi() {
+function shouldRunCommerceApi() {
   return (
     process.env.SHOPGATE_DEGRADATION_MODE?.trim().toLowerCase() !== 'offline' &&
-    envFlag('SHOPGATE_MARKET_API_ENABLED', true)
+    envFlag('SHOPGATE_COMMERCE_API_ENABLED', true)
   );
 }
 
@@ -36,11 +36,11 @@ function shouldRunGenerationWorker() {
   );
 }
 
-function marketApiUrl() {
+function commerceApiUrl() {
   return (
-    process.env.SHOPGATE_MARKET_API_URL ||
-    process.env.SHOPGATE_MARKET_API_BASE_URL ||
-    `http://127.0.0.1:${process.env.SHOPGATE_MARKET_PORT || '8000'}`
+    process.env.SHOPGATE_COMMERCE_API_URL ||
+    process.env.SHOPGATE_COMMERCE_API_BASE_URL ||
+    `http://127.0.0.1:${process.env.SHOPGATE_COMMERCE_PORT || '8000'}`
   ).replace(/\/$/, '');
 }
 
@@ -81,16 +81,16 @@ function stopChild(child) {
   }
 }
 
-async function startMarketApiIfNeeded() {
-  if (!shouldRunMarketApi()) {
-    console.log('↪️  Market API disabled by degradation configuration.');
+async function startCommerceApiIfNeeded() {
+  if (!shouldRunCommerceApi()) {
+    console.log('↪️  Commerce API disabled by degradation configuration.');
     return { child: null, managed: false };
   }
 
-  const url = marketApiUrl();
+  const url = commerceApiUrl();
   if (await probeHealth(url)) {
-    process.env.SHOPGATE_MARKET_API_ENABLED = '1';
-    console.log(`✅ Market API already healthy at ${url}`);
+    process.env.SHOPGATE_COMMERCE_API_ENABLED = '1';
+    console.log(`✅ Commerce API already healthy at ${url}`);
     return { child: null, managed: false };
   }
 
@@ -106,7 +106,7 @@ async function startMarketApiIfNeeded() {
     'uv',
     ['run', 'shopgate-commerce-api'],
     {
-      cwd: marketDataDir,
+      cwd: commerceDataDir,
       stdio: 'inherit',
       shell: isWindows,
       detached: !isWindows,
@@ -114,8 +114,8 @@ async function startMarketApiIfNeeded() {
         ...process.env,
         NO_PROXY: noProxy,
         no_proxy: noProxy,
-        SHOPGATE_MARKET_HOST: host,
-        SHOPGATE_MARKET_PORT: port,
+        SHOPGATE_COMMERCE_HOST: host,
+        SHOPGATE_COMMERCE_PORT: port,
       },
     }
   );
@@ -126,8 +126,8 @@ async function startMarketApiIfNeeded() {
 
   for (let attempt = 1; attempt <= 40; attempt += 1) {
     if (await probeHealth(url)) {
-      process.env.SHOPGATE_MARKET_API_ENABLED = '1';
-      console.log(`✅ Market API ready at ${url}`);
+      process.env.SHOPGATE_COMMERCE_API_ENABLED = '1';
+      console.log(`✅ Commerce API ready at ${url}`);
       return { child, managed: true };
     }
     if (child.exitCode !== null) {
@@ -165,7 +165,7 @@ function startGenerationWorkerIfNeeded() {
 
 async function main() {
   const { preferredPort, passthrough } = parseCliArgs(process.argv.slice(2));
-  const market = await startMarketApiIfNeeded();
+  const commerce = await startCommerceApiIfNeeded();
   let web;
   let worker = { child: null, managed: false };
 
@@ -173,7 +173,7 @@ async function main() {
     web = await startWebDevServer({ preferredPort, passthrough, stdio: 'inherit' });
     worker = startGenerationWorkerIfNeeded();
   } catch (error) {
-    if (market.managed) stopChild(market.child);
+    if (commerce.managed) stopChild(commerce.child);
     if (worker.managed) stopChild(worker.child);
     throw error;
   }
@@ -183,7 +183,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     stopChild(web.child);
-    if (market.managed) stopChild(market.child);
+    if (commerce.managed) stopChild(commerce.child);
     if (worker.managed) stopChild(worker.child);
     setTimeout(() => process.exit(exitCode), 250).unref();
   };
@@ -194,8 +194,8 @@ async function main() {
   web.child.on('exit', (code) => {
     if (!shuttingDown) shutdown(typeof code === 'number' ? code : 1);
   });
-  if (market.managed) {
-    market.child.on('exit', (code) => {
+  if (commerce.managed) {
+    commerce.child.on('exit', (code) => {
       if (!shuttingDown) {
         console.error(`❌ commerce-data exited unexpectedly (code ${code ?? 'unknown'})`);
         shutdown(typeof code === 'number' && code !== 0 ? code : 1);
@@ -222,10 +222,10 @@ if (require.main === module) {
 
 module.exports = {
   envFlag,
-  marketApiUrl,
+  commerceApiUrl,
   probeHealth,
-  shouldRunMarketApi,
+  shouldRunCommerceApi,
   shouldRunGenerationWorker,
   startGenerationWorkerIfNeeded,
-  startMarketApiIfNeeded,
+  startCommerceApiIfNeeded,
 };

@@ -70,4 +70,4 @@ API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准
 - `cache.py`：可选 Redis JSON 缓存。
 - `readiness.py`：数据库与 Redis 的依赖就绪策略。
 
-旧股票行情、回测、财务、provider、ClickHouse 和研究模块已从本服务移除；新的零售能力直接落在 `retail.py` 与 `commerce` SQL 表上。
+历史无关数据模块已从本服务移除；当前零售能力直接落在 `retail.py` 与 `commerce` SQL 表上。

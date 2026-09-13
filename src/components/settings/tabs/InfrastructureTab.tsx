@@ -26,7 +26,7 @@ const INFRASTRUCTURE_RECOMMENDATIONS = [
   {
     name: "对象存储",
     stage: "产物规模上来后",
-    description: "保存截图、回测报告、原始行情文件和大 JSON，数据库只保留索引与摘要。",
+    description: "保存截图、经营分析报告、原始行为文件和大 JSON，数据库只保留索引与摘要。",
   },
 ];
 

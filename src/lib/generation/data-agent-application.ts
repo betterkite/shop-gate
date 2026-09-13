@@ -77,7 +77,7 @@ const retailAdapter: DataAgentApplicationAdapter = {
           composition: application.composition,
           llm,
           question: '',
-          symbols: [],
+          entities: [],
           timeRange: null,
           dataRequirements: capability.dataEndpoints,
           analysisSteps: [],

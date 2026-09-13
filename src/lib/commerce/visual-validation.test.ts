@@ -44,7 +44,7 @@ describe('visual validation infrastructure errors', () => {
   });
 });
 
-describe('financial workbench surface composition', () => {
+describe('retail workbench surface composition', () => {
   it('rejects a first viewport dominated by a rounded card grid', () => {
     const result = assessRetailWorkbenchSurface({
       contentRegionCount: 9,

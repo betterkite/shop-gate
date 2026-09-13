@@ -408,8 +408,8 @@ function suggestedActionsForResult(result: CommerceEvalResult): string[] {
   result.validationChecks.forEach((check) => {
     if (check.status !== 'failed') return;
     if (check.id.includes('build')) actions.add('检查生成项目依赖和 Next.js build 输出，优先修复编译错误。');
-    if (check.id.includes('chart')) actions.add('检查可视化模板是否生成 K 线、成交量或场景化图表容器。');
-    if (check.id.includes('market')) actions.add('确认 /api/market 同源代理和后端 8000 数据服务可用。');
+    if (check.id.includes('chart')) actions.add('检查可视化模板是否生成趋势、转化或场景化图表容器。');
+    if (check.id.includes('commerce')) actions.add('确认 /api/commerce 同源代理和后端 8000 数据服务可用。');
     if (check.id.includes('artifact')) actions.add('清理外部 CDN、mock 数据、明文密钥和非标准数据绑定。');
     if (check.id.includes('data')) actions.add('检查 data_file/final/dashboard-data.json、evidence/sources.json 和 data_quality.json。');
   });

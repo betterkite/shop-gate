@@ -114,8 +114,8 @@
     {
       "id": "K01",
       "category": "knowledge",
-      "question": "Shop Gate 的 Query Rewrite 为什么不能再用关键词匹配？大位科技名称如何处理？",
-      "expected": { "title": "Shop Gate 查询改写与标的识别规则", "behavior": "context_pack" }
+      "question": "Shop Gate 的 Query Rewrite 为什么不能再用关键词匹配？轻薄羽绒服名称如何处理？",
+      "expected": { "title": "Shop Gate 查询改写与商品类目识别规则", "behavior": "context_pack" }
     },
     {
       "id": "K02",
@@ -139,7 +139,7 @@
       "id": "K05",
       "category": "knowledge",
       "question": "经营指标卡太松散、数据源渠道占满页面时应该如何优化？",
-      "expected": { "title": "量化看板可读性与证据呈现规则", "behavior": "usage_idempotency" }
+      "expected": { "title": "电商看板可读性与证据呈现规则", "behavior": "usage_idempotency" }
     },
     {
       "id": "K06",

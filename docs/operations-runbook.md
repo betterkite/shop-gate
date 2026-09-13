@@ -113,7 +113,7 @@ sleep 2
 
 ```bash
 mkdir -p tmp/runtime
-setsid bash -c 'cd services/commerce-data && exec env SHOPGATE_MARKET_HOST=127.0.0.1 SHOPGATE_MARKET_PORT=8000 uv run shopgate-commerce-api' > tmp/runtime/market-api.log 2>&1 < /dev/null &
+setsid bash -c 'cd services/commerce-data && exec env SHOPGATE_COMMERCE_HOST=127.0.0.1 SHOPGATE_COMMERCE_PORT=8000 uv run shopgate-commerce-api' > tmp/runtime/commerce-api.log 2>&1 < /dev/null &
 setsid bash -c 'exec npm run dev -- --port 3000' > tmp/runtime/web.log 2>&1 < /dev/null &
 ```
 
@@ -123,7 +123,7 @@ setsid bash -c 'exec npm run dev -- --port 3000' > tmp/runtime/web.log 2>&1 < /d
 curl http://127.0.0.1:8000/health
 curl -I http://127.0.0.1:3000
 tail -n 80 tmp/runtime/web.log
-tail -n 80 tmp/runtime/market-api.log
+tail -n 80 tmp/runtime/commerce-api.log
 ```
 
 前端日志里应该看到 `Starting Next.js dev server on http://localhost:3000`。当前项目不再接入 `next-rspack`；如果日志里出现 Rspack 相关提示，说明依赖或启动命令不是当前模式。
@@ -155,7 +155,7 @@ uv run shopgate-commerce-import aggregate-daily
 
 事件 CSV 契约：表头严格 5 列 `user_id,item_id,category_id,behavior_type,timestamp`（Unix 秒）。行为类型为 `pv`(曝光) / `fav`(收藏) / `cart`(加购) / `buy`(购买)。零售数据是固定窗口的公开切片，没有“每日收盘后入库”的需求；重新演示其他窗口时使用 `--time-shift last-week`。
 
-导入命令以进程退出码作为成功信号；可重复执行的重建语义由 CLI 自身保证。任务表只保留导入记录和数据源书签，不再提供旧行情域的 HTTP 控制面。
+导入命令以进程退出码作为成功信号；可重复执行的重建语义由 CLI 自身保证。任务表只保留导入记录和数据源书签，不提供未注册行业的 HTTP 控制面。
 
 ### 验证导入结果
 

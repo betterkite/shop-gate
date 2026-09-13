@@ -33,7 +33,7 @@ def env_flag(environment: Mapping[str, str], name: str, fallback: bool) -> bool:
     return fallback
 
 
-async def get_market_readiness(
+async def get_commerce_readiness(
     *,
     database_probe: Callable[[], Awaitable[None]],
     redis_probe: Callable[[], Awaitable[bool]],

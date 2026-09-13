@@ -38,7 +38,7 @@ http://localhost:3000/eval-platform
 
 评测器本身必须接受回归测试。Mutation suite 会在一份先通过全部硬门的 golden fixture 上故意注入错误实体、空数据、缺失来源、虚假承诺、视觉溢出、运行错误、工具失败、快照篡改和未来数据泄漏，再检查预期 detector 是否真正拦截。
 
-> 注：变异套件、隐藏集/生产回放与判官校准属于金融域遗留的评测框架，已按基线归档，待零售语料后重建；当前仅证明门禁管线本身可用。
+> 注：变异套件、隐藏集/生产回放与判官校准是通用评测框架；仓库公开基准当前使用零售语料，隐藏集和生产回放通过环境变量注入。
 
 ```bash
 npm run check:eval-mutations
@@ -48,9 +48,9 @@ npm run check:eval-mutations
 
 ## 数据集、隐藏集与可重放快照
 
-零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。真实校验入口是 `npm run check:retail-e2e`（校验数据集结构与最近一次运行证据）和 `npm run check:task-e2e -- --dataset=task-e2e-retail-v1`（运行零售 task-E2E campaign）。金融域时代的 `benchmarks/shopgate` 数据集、快照清单与 query-rewrite fixtures 已随金融基准删除，对应回归框架（隐藏集/生产回放/判官校准）待零售语料后重建。
+零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。真实校验入口是 `npm run check:retail-e2e`（校验数据集结构与最近一次运行证据）和 `npm run check:task-e2e -- --dataset=task-e2e-retail-v1`（运行零售 task-E2E campaign）。公开仓库不携带隐藏基准、生产回放快照或私有 prompt。
 
-隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入（金融域遗留框架，待零售语料后重建）：
+隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入：
 
 ```text
 SHOPGATE_HIDDEN_EVAL_CASES_PATH
@@ -129,7 +129,7 @@ npm run check:eval-judge-calibration
 
 例如“数据窗口内 GMV 最高的 5 个类目是哪些”不能只看页面标题。它至少应该检查：类目 GMV 排序与真实聚合数据一致、转化率和客单价可追溯、金额处带合成口径标注、图表类型与模板匹配、数据来源与时间窗口写明、移动端不横向炸开。
 
-版本化事实和安全 oracle 的断言机制（如固定实体、固定数据快照、禁止性话术断言）属于金融域遗留的评测合同，已按基线归档，待零售语料后重建；当前零售用例以 `config/evals/task-e2e-retail-v1.json` 的固定 question + capabilityId 为准。
+版本化事实和安全 oracle 的断言机制（如固定实体、固定数据快照、禁止性话术断言）是通用评测合同；当前零售用例以 `config/evals/task-e2e-retail-v1.json` 的固定 question + capabilityId 为准。
 
 需要外部事实的数值断言应绑定固定 `asOf` 数据快照或可重放 fixture，不能把实时数据漂移当成模型回归。
 
@@ -174,7 +174,7 @@ npm run check:task-e2e -- --dataset=task-e2e-retail-v1 --limit=1 --campaign=reta
 
 历史命令 `benchmark:quant:*` 已从 package scripts 移除；当前使用 `benchmark:commerce:*`，其 contract/e2e/hidden/shadow 变体统一面向零售 task-E2E 数据集。
 
-金融域时代的确定性契约模式（`benchmarks/shopgate/query-rewrite-fixtures.json` 回放、版本化行情合同、证券 Resolver）已随金融基准删除；Query Rewrite 的 schema v4 字面证据校验、实体 Resolver、run plan 和数据预取链路在零售生成链路中保持一致，真实模型的语义理解、工具调用和失败关闭由零售 task-E2E 与集成体验集验真。
+确定性契约模式、Query Rewrite 的 schema v4 字面证据校验、实体 Resolver、run plan 和数据预取链路在零售生成链路中保持一致，真实模型的语义理解、工具调用和失败关闭由零售 task-E2E 与集成体验集验真。
 
 GitHub 托管 Runner 不允许 `unshare --map-root-user` 写入 `uid_map`。因此仅该
 确定性 contract job 同时设置 `SHOPGATE_GENERATED_SANDBOX=0` 与
@@ -191,7 +191,7 @@ npm run eval:ci
 npm run eval:ci:e2e
 ```
 
-金融域时代的 E2E 发布回归门（`benchmarks/shopgate/e2e-suite.json` 完整回归集、DeepSeek live-model 与零模型 control 分开验真、lineage 效率阈值、`--repeat` 稳定率 attestation）已随金融基准删除/归档，待零售语料后重建。仍然有效的平台级原则：真实生成证据必须来自 `/act -> Mission -> EvidenceVerifier -> accepted receipt` 链路，不同 case 不得复用 request、run、Mission、generation 或 accepted receipt 身份，兜底恢复候选不能冒充 Agent 能力成绩。零售 E2E 现以 `check:task-e2e --dataset=task-e2e-retail-v1` campaign 与 `check:retail-e2e` 证据校验为准。
+E2E 发布回归门使用零售 task-E2E 数据集，并区分真实模型与零模型 control。仍然有效的平台级原则：真实生成证据必须来自 `/act -> Mission -> EvidenceVerifier -> accepted receipt` 链路，不同 case 不得复用 request、run、Mission、generation 或 accepted receipt 身份，兜底恢复候选不能冒充 Agent 能力成绩。零售 E2E 现以 `check:task-e2e --dataset=task-e2e-retail-v1` campaign 与 `check:retail-e2e` 证据校验为准。
 
 ## 覆盖层级
 

@@ -9,18 +9,18 @@ import {
 describe('chat act request contract', () => {
   it('accepts the single current camelCase contract', () => {
     expect(parseChatActRequest({
-      instruction: '分析宁德时代',
-      displayInstruction: '分析宁德时代',
+      instruction: '分析轻薄羽绒服',
+      displayInstruction: '分析轻薄羽绒服',
       requestId: 'request-1',
       selectedModel: 'local_qwen:qwen3.5-9b-q5km',
       images: [{ name: 'holding.png', path: 'assets/holding.png', mimeType: 'image/png' }],
       isInitialPrompt: true,
-      capabilityId: 'single-stock-diagnosis',
+      capabilityId: 'price_inventory',
       capabilitySelectionSource: 'manual',
       datasetId: 'retail-demo-p31',
     })).toMatchObject({
       requestId: 'request-1',
-      capabilityId: 'single-stock-diagnosis',
+      capabilityId: 'price_inventory',
       capabilitySelectionSource: 'manual',
       datasetId: 'retail-demo-p31',
       images: [{ path: 'assets/holding.png' }],
@@ -29,7 +29,7 @@ describe('chat act request contract', () => {
   });
 
   it('supports an image-only request after the upload step', () => {
-    const parsed = parseChatActRequest({ images: [{ path: 'assets/portfolio.png' }] });
+    const parsed = parseChatActRequest({ images: [{ path: 'assets/catalog.png' }] });
     expect(parsed.instruction).toBe('');
     expect(parsed.images).toHaveLength(1);
   });
@@ -40,9 +40,9 @@ describe('chat act request contract', () => {
     { instruction: 'x', cliPreference: 'pi' },
     { instruction: 'x', commerceCapabilityId: 'old' },
     { instruction: 'x', commerceCapabilitySource: 'manual' },
-    { instruction: 'x', images: [{ path: '/tmp/portfolio.png' }] },
-    { instruction: 'x', images: [{ path: 'assets/../portfolio.png' }] },
-    { instruction: 'x', images: [{ path: 'assets/portfolio.png', base64_data: 'abc' }] },
+    { instruction: 'x', images: [{ path: '/tmp/catalog.png' }] },
+    { instruction: 'x', images: [{ path: 'assets/../catalog.png' }] },
+    { instruction: 'x', images: [{ path: 'assets/catalog.png', base64_data: 'abc' }] },
   ])('rejects obsolete or unsafe input %#', (input) => {
     expect(() => parseChatActRequest(input)).toThrow(ChatActContractError);
   });

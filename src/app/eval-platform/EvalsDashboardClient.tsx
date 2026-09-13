@@ -298,7 +298,7 @@ export default function EvalsDashboardClient({ data }: Props) {
   const filteredCases = useMemo(() => {
     const kw = caseKeyword.trim().toLowerCase();
     if (!kw) return selectedEvalSetCases;
-    return selectedEvalSetCases.filter((c) => [c.id, c.name, c.question, c.capabilityLabel, c.typeLabel, ...c.expectedSymbols, ...c.tags].join(" ").toLowerCase().includes(kw));
+    return selectedEvalSetCases.filter((c) => [c.id, c.name, c.question, c.capabilityLabel, c.typeLabel, ...c.expectedEntities, ...c.tags].join(" ").toLowerCase().includes(kw));
   }, [caseKeyword, selectedEvalSetCases]);
   const currentView = VIEW_META[activeView];
   const baselineReady = dashboard.runs.length > 0;

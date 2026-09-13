@@ -216,7 +216,7 @@ npm run package:skills -- <skill-id>
 生成项目完成后，平台验证会执行统一的产物策略检查：
 
 - 页面和配置不得引用外部 CDN、远程脚本、远程样式、远程字体、远程媒体或浏览器直连外部 API。
-- 浏览器取数只能读取 `data_file/final/dashboard-data.json` 或同源 `/api/market/**`。
+- 浏览器取数只能读取 `data_file/final/dashboard-data.json` 或同源 `/api/commerce/**`。
 - 不得留下 `MOCK_DATA`、`SAMPLE_DATA`、`STATIC_QUOTES`、示例数据、模拟数据或占位数据。
 - 不得把 token、api key、cookie、authorization 等敏感信息写入生成项目。
 - 必须保留 `.data-agent/retail-run-plan.json`、`data_file/final/dashboard-data.json`、`evidence/sources.json` 和 `evidence/data_quality.json`。

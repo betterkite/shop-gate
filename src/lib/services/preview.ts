@@ -129,7 +129,7 @@ type PreviewStatus = 'starting' | 'running' | 'stopped' | 'error';
 interface PreviewProcess {
   process: ChildProcess | null;
   networkProxy: PreviewNetworkProxy | null;
-  marketProxy: PreviewNetworkProxy | null;
+  commerceProxy: PreviewNetworkProxy | null;
   runtimeDirectory: string | null;
   port: number;
   url: string;
@@ -360,8 +360,8 @@ function resolvePreviewRuntimeDirectory(projectPath: string, port: number): stri
   return path.join('/tmp', 'shopgate-preview', runtimeId);
 }
 
-function resolveMarketDataTcpTarget(): { host: string; port: number } {
-  const configured = process.env.SHOPGATE_MARKET_API_URL?.trim()
+function resolveCommerceDataTcpTarget(): { host: string; port: number } {
+  const configured = process.env.SHOPGATE_COMMERCE_API_URL?.trim()
     || 'http://127.0.0.1:8000';
   const parsed = new URL(configured);
   if (
@@ -373,7 +373,7 @@ function resolveMarketDataTcpTarget(): { host: string; port: number } {
     || parsed.hash
   ) {
     throw new Error(
-      'Generated preview market bridge requires a credential-free internal http:// host:port base URL.',
+      'Generated preview commerce bridge requires a credential-free internal http:// host:port base URL.',
     );
   }
   return {
@@ -382,8 +382,8 @@ function resolveMarketDataTcpTarget(): { host: string; port: number } {
   };
 }
 
-async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetworkProxy> {
-  const target = resolveMarketDataTcpTarget();
+async function startCommerceNetworkProxy(socketPath: string): Promise<PreviewNetworkProxy> {
+  const target = resolveCommerceDataTcpTarget();
   await fs.mkdir(path.dirname(socketPath), { recursive: true });
   await fs.rm(socketPath, { force: true });
 
@@ -392,10 +392,10 @@ async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetwo
     const method = request.method?.toUpperCase() ?? '';
     let incomingUrl: URL;
     try {
-      incomingUrl = new URL(request.url ?? '/', 'http://market-bridge.local');
+      incomingUrl = new URL(request.url ?? '/', 'http://commerce-bridge.local');
     } catch {
       response.writeHead(400, { 'Content-Type': 'application/json' });
-      response.end('{"error":"invalid market bridge URL"}');
+      response.end('{"error":"invalid commerce bridge URL"}');
       return;
     }
     if (
@@ -403,7 +403,7 @@ async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetwo
       || !incomingUrl.pathname.startsWith('/api/v1/')
     ) {
       response.writeHead(403, { 'Content-Type': 'application/json' });
-      response.end('{"error":"market bridge permits only GET/HEAD /api/v1/**"}');
+      response.end('{"error":"commerce bridge permits only GET/HEAD /api/v1/**"}');
       return;
     }
 
@@ -414,7 +414,7 @@ async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetwo
       path: `${incomingUrl.pathname}${incomingUrl.search}`,
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'Shop Gate-Generated-Preview-Market-Bridge/1',
+        'User-Agent': 'Shop Gate-Generated-Preview-Commerce-Bridge/1',
       },
     }, (upstreamResponse) => {
       response.writeHead(upstreamResponse.statusCode ?? 502, {
@@ -425,12 +425,12 @@ async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetwo
       });
       upstreamResponse.pipe(response);
     });
-    upstream.setTimeout(10_000, () => upstream.destroy(new Error('market bridge timeout')));
+    upstream.setTimeout(10_000, () => upstream.destroy(new Error('commerce bridge timeout')));
     upstream.on('error', () => {
       if (!response.headersSent) {
         response.writeHead(502, { 'Content-Type': 'application/json' });
       }
-      response.end('{"error":"market data service unavailable"}');
+      response.end('{"error":"commerce data service unavailable"}');
     });
     request.on('aborted', () => upstream.destroy());
     upstream.end();
@@ -449,7 +449,7 @@ async function startMarketNetworkProxy(socketPath: string): Promise<PreviewNetwo
   });
   await fs.chmod(socketPath, 0o600);
   server.on('error', (error) => {
-    console.error('[PreviewManager] Market network proxy failed:', error);
+    console.error('[PreviewManager] Commerce network proxy failed:', error);
   });
   return { server, socketPath, sockets };
 }
@@ -481,7 +481,7 @@ async function terminatePreviewProcess(processInfo: PreviewProcess): Promise<voi
   terminateProcessTree(processInfo.process);
   await Promise.all([
     closePreviewNetworkProxy(processInfo.networkProxy),
-    closePreviewNetworkProxy(processInfo.marketProxy),
+    closePreviewNetworkProxy(processInfo.commerceProxy),
   ]);
   if (processInfo.runtimeDirectory) {
     await fs.rm(processInfo.runtimeDirectory, { recursive: true, force: true });
@@ -1637,7 +1637,7 @@ export class PreviewManager {
         const adoptedPreview: PreviewProcess = {
           process: null,
           networkProxy: null,
-          marketProxy: null,
+          commerceProxy: null,
           runtimeDirectory: null,
           port: adoptedPort,
           url: adoptedUrl,
@@ -1680,7 +1680,7 @@ export class PreviewManager {
     const previewProcess: PreviewProcess = {
       process: null,
       networkProxy: null,
-      marketProxy: null,
+      commerceProxy: null,
       runtimeDirectory: null,
       port: preferredPort,
       url: initialUrl,
@@ -1771,16 +1771,16 @@ export class PreviewManager {
       await fs.mkdir(runtimeDirectory, { recursive: true, mode: 0o700 });
       previewProcess.runtimeDirectory = runtimeDirectory;
       const previewSocketPath = path.join(runtimeDirectory, 'p.sock');
-      const marketSocketPath = path.join(runtimeDirectory, 'm.sock');
+      const commerceSocketPath = path.join(runtimeDirectory, 'c.sock');
       env.SHOPGATE_SANDBOX_PREVIEW_SOCKET = previewSocketPath;
       env.SHOPGATE_SANDBOX_PREVIEW_PORT = String(effectivePort);
-      env.SHOPGATE_SANDBOX_MARKET_SOCKET = marketSocketPath;
-      env.SHOPGATE_SANDBOX_MARKET_PORT = '8000';
+      env.SHOPGATE_SANDBOX_COMMERCE_SOCKET = commerceSocketPath;
+      env.SHOPGATE_SANDBOX_COMMERCE_PORT = '8000';
       previewProcess.networkProxy = await startPreviewNetworkProxy(
         effectivePort,
         previewSocketPath,
       );
-      previewProcess.marketProxy = await startMarketNetworkProxy(marketSocketPath);
+      previewProcess.commerceProxy = await startCommerceNetworkProxy(commerceSocketPath);
     }
     this.processes.set(projectId, previewProcess);
     this.assertStartActive(projectId, operation);
@@ -1816,7 +1816,7 @@ export class PreviewManager {
       previewProcess.status = code === 0 ? 'stopped' : 'error';
       void Promise.all([
         closePreviewNetworkProxy(previewProcess.networkProxy),
-        closePreviewNetworkProxy(previewProcess.marketProxy),
+        closePreviewNetworkProxy(previewProcess.commerceProxy),
       ]);
       if (this.processes.get(projectId) === previewProcess) {
         this.processes.delete(projectId);
@@ -1843,7 +1843,7 @@ export class PreviewManager {
       previewProcess.status = 'error';
       void Promise.all([
         closePreviewNetworkProxy(previewProcess.networkProxy),
-        closePreviewNetworkProxy(previewProcess.marketProxy),
+        closePreviewNetworkProxy(previewProcess.commerceProxy),
       ]);
       log(Buffer.from(`Preview process failed: ${error.message}`));
     });

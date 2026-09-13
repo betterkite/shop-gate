@@ -11,7 +11,7 @@ node_modules="$2"
 node_runtime="$3"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 preview_bridge="$script_dir/preview-network-bridge.mjs"
-market_bridge="$script_dir/market-network-bridge.mjs"
+commerce_bridge="$script_dir/commerce-network-bridge.mjs"
 shift 3
 if [[ "$1" != "--" ]]; then
   echo "sandbox command separator is required" >&2
@@ -93,7 +93,7 @@ ln -s usr/lib64 "$sandbox_root/lib64"
 bind_read_only "$node_runtime"
 bind_read_only "$node_modules"
 bind_read_only "$preview_bridge"
-bind_read_only "$market_bridge"
+bind_read_only "$commerce_bridge"
 bind_workspace
 
 mkdir -p "$sandbox_root/dev" "$sandbox_root/proc" "$sandbox_root/tmp"
@@ -112,14 +112,14 @@ ln -s /proc/self/fd/2 "$sandbox_root/dev/stderr"
 # short, per-preview runtime directory under /tmp. Bind only that empty runtime
 # directory into the chroot so the two narrow loopback bridges can rendezvous;
 # do not expose the host /tmp tree.
-if [[ -n "${SHOPGATE_SANDBOX_PREVIEW_SOCKET:-}" || -n "${SHOPGATE_SANDBOX_MARKET_SOCKET:-}" ]]; then
-  if [[ -z "${SHOPGATE_SANDBOX_PREVIEW_SOCKET:-}" || -z "${SHOPGATE_SANDBOX_MARKET_SOCKET:-}" ]]; then
-    echo "sandbox preview and market sockets must be configured together" >&2
+if [[ -n "${SHOPGATE_SANDBOX_PREVIEW_SOCKET:-}" || -n "${SHOPGATE_SANDBOX_COMMERCE_SOCKET:-}" ]]; then
+  if [[ -z "${SHOPGATE_SANDBOX_PREVIEW_SOCKET:-}" || -z "${SHOPGATE_SANDBOX_COMMERCE_SOCKET:-}" ]]; then
+    echo "sandbox preview and commerce sockets must be configured together" >&2
     exit 64
   fi
   preview_socket_dir="$(dirname "$SHOPGATE_SANDBOX_PREVIEW_SOCKET")"
-  market_socket_dir="$(dirname "$SHOPGATE_SANDBOX_MARKET_SOCKET")"
-  if [[ "$preview_socket_dir" != "$market_socket_dir" || ! -d "$preview_socket_dir" ]]; then
+  commerce_socket_dir="$(dirname "$SHOPGATE_SANDBOX_COMMERCE_SOCKET")"
+  if [[ "$preview_socket_dir" != "$commerce_socket_dir" || ! -d "$preview_socket_dir" ]]; then
     echo "sandbox sockets must share an existing runtime directory" >&2
     exit 64
   fi
@@ -213,26 +213,26 @@ if [[ -n "${SHOPGATE_SANDBOX_PREVIEW_SOCKET:-}" && -n "${SHOPGATE_SANDBOX_PREVIE
     bridge="$2"
     socket_path="$3"
     target_port="$4"
-    market_bridge="$5"
-    market_socket="$6"
-    market_port="$7"
+    commerce_bridge="$5"
+    commerce_socket="$6"
+    commerce_port="$7"
     shift 7
 
     node "$bridge" "$socket_path" "$target_port" &
     bridge_pid=$!
-    market_bridge_pid=""
-    if [ -n "$market_socket" ] && [ -n "$market_port" ]; then
-      node "$market_bridge" "$market_socket" "$market_port" &
-      market_bridge_pid=$!
+    commerce_bridge_pid=""
+    if [ -n "$commerce_socket" ] && [ -n "$commerce_port" ]; then
+      node "$commerce_bridge" "$commerce_socket" "$commerce_port" &
+      commerce_bridge_pid=$!
     fi
     cleanup_bridge() {
       kill "$bridge_pid" 2>/dev/null || true
-      if [ -n "$market_bridge_pid" ]; then
-        kill "$market_bridge_pid" 2>/dev/null || true
+      if [ -n "$commerce_bridge_pid" ]; then
+        kill "$commerce_bridge_pid" 2>/dev/null || true
       fi
       wait "$bridge_pid" 2>/dev/null || true
-      if [ -n "$market_bridge_pid" ]; then
-        wait "$market_bridge_pid" 2>/dev/null || true
+      if [ -n "$commerce_bridge_pid" ]; then
+        wait "$commerce_bridge_pid" 2>/dev/null || true
       fi
       rm -f "$socket_path"
     }
@@ -245,9 +245,9 @@ if [[ -n "${SHOPGATE_SANDBOX_PREVIEW_SOCKET:-}" && -n "${SHOPGATE_SANDBOX_PREVIE
     "$preview_bridge" \
     "$SHOPGATE_SANDBOX_PREVIEW_SOCKET" \
     "$SHOPGATE_SANDBOX_PREVIEW_PORT" \
-    "$market_bridge" \
-    "${SHOPGATE_SANDBOX_MARKET_SOCKET:-}" \
-    "${SHOPGATE_SANDBOX_MARKET_PORT:-}" \
+    "$commerce_bridge" \
+    "${SHOPGATE_SANDBOX_COMMERCE_SOCKET:-}" \
+    "${SHOPGATE_SANDBOX_COMMERCE_PORT:-}" \
     "$@"
 else
   "${chroot_command[@]}" \

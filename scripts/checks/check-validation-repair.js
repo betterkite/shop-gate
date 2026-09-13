@@ -37,16 +37,16 @@ const report = {
     },
     {
       id: 'chart_presence',
-      name: '金融图表存在性',
+      name: '经营图表存在性',
       status: 'failed',
-      summary: '未检测到 K 线、成交量或指标图表。',
+      summary: '未检测到行为转化、类目或库存分析图表。',
     },
     {
       id: 'final_data_file',
       name: '最终数据文件',
       status: 'failed',
       summary: '最终数据文件存在，但没有通过真实数据形态检查。',
-      details: 'data_file/final/dashboard-data.json 未提取到可用实时行情或 K 线样本。',
+      details: 'data_file/final/dashboard-data.json 未提取到可用商品、行为或库存样本。',
     },
   ],
 };
@@ -54,7 +54,7 @@ const report = {
 const failures = [];
 const plan = buildRetailValidationRepairPlan(report);
 const instruction = buildRetailValidationRepairInstruction(report, {
-  originalInstruction: '分析贵州茅台最近财务和 K 线，生成可视化看板。',
+  originalInstruction: '分析美妆类目最近 30 天的浏览、购买和库存，生成经营分析看板。',
 });
 const writableGlobs = retailValidationRepairWritableGlobs(report);
 
@@ -73,8 +73,8 @@ assertCondition(
   failures
 );
 assertCondition(
-  plan.steps[1]?.actions?.some((action) => action.includes('K 线')),
-  'chart_presence 修复动作应要求补齐 K 线等金融图表。',
+  plan.steps[1]?.actions?.some((action) => action.includes('零售图表')),
+  'chart_presence 修复动作应要求补齐零售经营图表。',
   failures
 );
 assertCondition(
@@ -83,8 +83,8 @@ assertCondition(
   failures
 );
 assertCondition(
-  plan.steps[2]?.actions?.some((action) => action.includes('quote.price') || action.includes('kline.bars')),
-  'final_data_file 修复动作应要求补齐真实数据形态字段。',
+  plan.steps[2]?.actions?.some((action) => action.includes('dataset_id') || action.includes('plannedEntities')),
+  'final_data_file 修复动作应要求补齐零售数据契约字段。',
   failures
 );
 assertCondition(
@@ -93,7 +93,7 @@ assertCondition(
   failures
 );
 assertCondition(instruction.includes('移除外部 CDN'), '修复提示词应包含外部 CDN 禁用规则。', failures);
-assertCondition(instruction.includes('金融图表'), '修复提示词应包含金融图表修复要求。', failures);
+assertCondition(instruction.includes('经营图表'), '修复提示词应包含经营图表修复要求。', failures);
 assertCondition(instruction.includes('真实数据形态检查'), '修复提示词应覆盖真实数据形态失败。', failures);
 assertCondition(instruction.includes('失败 ID：artifact_policy、chart_presence、final_data_file'), '修复提示词应固定本轮失败 ID。', failures);
 assertCondition(instruction.includes('定向读取'), '修复提示词应要求按失败指针定向读取。', failures);

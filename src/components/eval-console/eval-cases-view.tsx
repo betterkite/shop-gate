@@ -144,10 +144,10 @@ function CreateCaseSheet({
   const [question, setQuestion] = useState('');
   const [capabilityId, setCapabilityId] = useState(capabilityOptions[0] ?? 'asset_comparison');
   const [type, setType] = useState(typeOptions[0] ?? 'generated_project');
-  const [expectedSymbols, setExpectedSymbols] = useState('');
+  const [expectedEntities, setExpectedEntities] = useState('');
   const [expectedTemplateId, setExpectedTemplateId] = useState('');
   const [expectedVariantId, setExpectedVariantId] = useState('');
-  const [expectedAssetType, setExpectedAssetType] = useState('');
+  const [expectedEntityType, setExpectedEntityType] = useState('');
   const [expectedDatasets, setExpectedDatasets] = useState('');
   const [expectedRawFiles, setExpectedRawFiles] = useState('');
   const [expectedFinalFields, setExpectedFinalFields] = useState('');
@@ -170,10 +170,10 @@ function CreateCaseSheet({
     setQuestion('');
     setCapabilityId(capabilityOptions[0] ?? 'asset_comparison');
     setType(typeOptions[0] ?? 'generated_project');
-    setExpectedSymbols('');
+    setExpectedEntities('');
     setExpectedTemplateId('');
     setExpectedVariantId('');
-    setExpectedAssetType('');
+    setExpectedEntityType('');
     setExpectedDatasets('');
     setExpectedRawFiles('');
     setExpectedFinalFields('');
@@ -213,10 +213,10 @@ function CreateCaseSheet({
                 question: question.trim(),
                 capabilityId,
                 type,
-                expectedSymbols: splitList(expectedSymbols),
+                expectedEntities: splitList(expectedEntities),
                 expectedTemplateId: expectedTemplateId.trim() || undefined,
                 expectedVariantId: expectedVariantId.trim() || undefined,
-                expectedAssetType: expectedAssetType.trim() || undefined,
+                expectedEntityType: expectedEntityType.trim() || undefined,
                 expectedDatasets: splitList(expectedDatasets),
                 expectedRawFiles: splitList(expectedRawFiles),
                 expectedFinalFields: splitList(expectedFinalFields),
@@ -273,8 +273,8 @@ function CreateCaseSheet({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="case-symbols">预期标的</Label>
-                <Input id="case-symbols" value={expectedSymbols} onChange={(event) => setExpectedSymbols(event.target.value)} placeholder="600519, 000300" />
+                <Label htmlFor="case-entities">预期分析对象</Label>
+                <Input id="case-entities" value={expectedEntities} onChange={(event) => setExpectedEntities(event.target.value)} placeholder="商品ID、类目ID，例如 item-1001, category-apparel" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="case-template">模板 ID</Label>
@@ -288,19 +288,19 @@ function CreateCaseSheet({
                 <Input id="case-variant" value={expectedVariantId} onChange={(event) => setExpectedVariantId(event.target.value)} placeholder="selection-ranking-matrix" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="case-asset-type">资产类型</Label>
-                <Input id="case-asset-type" value={expectedAssetType} onChange={(event) => setExpectedAssetType(event.target.value)} placeholder="stock / index / etf，可选" />
+                <Label htmlFor="case-entity-type">对象类型</Label>
+                <Input id="case-entity-type" value={expectedEntityType} onChange={(event) => setExpectedEntityType(event.target.value)} placeholder="item / category / channel，可选" />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="case-datasets">预期数据集</Label>
-              <Textarea id="case-datasets" value={expectedDatasets} onChange={(event) => setExpectedDatasets(event.target.value)} placeholder="quote, kline, technical_indicators" />
+              <Textarea id="case-datasets" value={expectedDatasets} onChange={(event) => setExpectedDatasets(event.target.value)} placeholder="meta, funnel, funnelDaily, inventoryRisk" />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="case-raw-files">预期原始文件</Label>
-              <Textarea id="case-raw-files" value={expectedRawFiles} onChange={(event) => setExpectedRawFiles(event.target.value)} placeholder="quote.json, kline-daily-qfq.json" />
+              <Textarea id="case-raw-files" value={expectedRawFiles} onChange={(event) => setExpectedRawFiles(event.target.value)} placeholder="behavior-events.json, product-catalog.json" />
             </div>
 
             <div className="space-y-1.5">
@@ -598,7 +598,7 @@ export function EvalCasesView({
                 <th className="px-4 py-3">用例名称</th>
                 <th className="px-4 py-3">用户 Query</th>
                 <th className="px-4 py-3">标签</th>
-                <th className="px-4 py-3 text-center">预期标的</th>
+                <th className="px-4 py-3 text-center">预期分析对象</th>
                 <th className="px-4 py-3">状态</th>
                 <th className="px-4 py-3">所属能力</th>
                 <th className="px-4 py-3">最近运行</th>
@@ -671,7 +671,7 @@ export function EvalCasesView({
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 font-mono text-xs text-primary">
                         <Tags className="h-3 w-3" />
-                        {testCase.expectedSymbols.slice(0, 2).join(', ') || '-'}
+                        {testCase.expectedEntities.slice(0, 2).join(', ') || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-3">{statusPill(result)}</td>
@@ -738,7 +738,7 @@ export function EvalCasesView({
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">{testCase.typeLabel}</Badge>
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">{testCase.coverageLevel}</Badge>
                       {testCase.oracleAssertions.length > 0 && <Badge variant="outline" className="text-[10px] text-emerald-500">{testCase.oracleAssertions.length} oracle</Badge>}
-                      {testCase.expectedSymbols.length > 0 && <Badge variant="secondary" className="font-mono text-[10px]">{testCase.expectedSymbols.slice(0, 2).join(', ')}</Badge>}
+                      {testCase.expectedEntities.length > 0 && <Badge variant="secondary" className="font-mono text-[10px]">{testCase.expectedEntities.slice(0, 2).join(', ')}</Badge>}
                     </div>
                     <div className="mt-3 flex items-center justify-between border-t border-border/30 pt-3">
                       <span className="text-[11px] text-muted-foreground">{result ? `最近运行 ${formatRelativeTime(latestRun?.createdAt)}` : '尚未运行'}</span>

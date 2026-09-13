@@ -11,10 +11,10 @@
 ```text
 app/page.tsx
 app/globals.css
-app/api/market/[...path]/route.ts
+app/api/commerce/[...path]/route.ts
 ```
 
-`app/api/market/[...path]/route.ts` 用于同源代理到 Shop Gate 后端，避免浏览器直连外部 API。
+`app/api/commerce/[...path]/route.ts` 用于同源代理到 Shop Gate 后端，避免浏览器直连外部 API。
 
 ## 必需产物
 
@@ -88,7 +88,7 @@ evidence/data_quality.json
 - 使用真实数据，不保留 mock、static、sample 数据。
 - 不引用外部 CDN、远程脚本、远程样式、远程字体。
 - 不把 token、api key、cookie、authorization 写入生成项目。
-- 浏览器取数只能读取 `data_file/final/dashboard-data.json` 或同源 `/api/market/**`。
+- 浏览器取数只能读取 `data_file/final/dashboard-data.json` 或同源 `/api/commerce/**`。
 - 看板图表应包含真实数据驱动的漏斗、趋势、结构占比、对比或风险组件。
 - 金额处必须带“合成口径”标注。
 - 数据缺失时展示限制、warning 和人工确认项，不编造结论。
@@ -102,7 +102,7 @@ evidence/data_quality.json
 | 为了让 build 过而删除图表 | 页面能打开但不再满足用户目标 |
 | 缺字段时用 `0` 顶上 | 会把未知数据伪装成真实数值 |
 | 只改生成项目，不改 skill | 同类错误下次还会出现 |
-| 绕过 `/api/market/**` 直连外部网站 | 浏览器端容易跨域、泄露参数，也绕开本地事实库 |
+| 绕过 `/api/commerce/**` 直连外部网站 | 浏览器端容易跨域、泄露参数，也绕开本地事实库 |
 
 ## 自动验证
 
@@ -112,7 +112,7 @@ Agent 执行完成后，平台会自动验证生成项目。验证项包括：
 - 预览首页 HTTP 200。
 - `data_file/final/dashboard-data.json` 存在且包含真实数据。
 - `evidence/sources.json` 和 `evidence/data_quality.json` 存在。
-- 页面绑定真实数据或同源 `/api/market` 代理。
+- 页面绑定真实数据或同源 `/api/commerce` 代理。
 - 页面包含经营图表。
 - 生成项目没有外部 CDN、mock 数据或明文密钥。
 - run plan、final data、证据、生成状态和视觉报告符合产物契约。

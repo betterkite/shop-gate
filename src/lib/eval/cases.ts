@@ -39,13 +39,13 @@ function buildCaseTags(testCase: JsonRecord): string[] {
   const tags = new Set<string>();
   const capabilityId = stringValue(testCase.capabilityId);
   const type = inferCaseType(testCase);
-  const assetType = stringValue(testCase.expectedAssetType);
+  const entityType = stringValue(testCase.expectedEntityType);
   const templateId = stringValue(testCase.expectedTemplateId);
   const variantId = stringValue(testCase.expectedVariantId);
 
   if (capabilityId) tags.add(capabilityId);
   if (type) tags.add(type);
-  if (assetType) tags.add(`asset:${assetType}`);
+  if (entityType) tags.add(`entity:${entityType}`);
   if (templateId) tags.add(`template:${templateId}`);
   if (variantId) tags.add(`variant:${variantId}`);
   if (booleanValue(testCase.expectClarification)) tags.add('intent:clarification_required');
@@ -70,7 +70,7 @@ function buildCaseTags(testCase: JsonRecord): string[] {
     if (nestedTemplateId) tags.add(`template:${nestedTemplateId}`);
     if (nestedVariantId) tags.add(`variant:${nestedVariantId}`);
   }
-  if (stringArray(testCase.expectedSymbols).length > 1) tags.add('data:multi_symbol');
+  if (stringArray(testCase.expectedEntities).length > 1) tags.add('data:multi_entity');
 
   return Array.from(tags);
 }
@@ -78,10 +78,10 @@ function buildCaseTags(testCase: JsonRecord): string[] {
 export function normalizeCase(testCase: JsonRecord): CommerceEvalCase {
   const capabilityId = stringValue(testCase.capabilityId, 'unknown');
   const type = inferCaseType(testCase);
-  const expectedSymbols = [
+  const expectedEntities = [
     ...new Set([
-      ...stringArray(testCase.expectedSymbols),
-      stringValue(testCase.expectedSymbol),
+      ...stringArray(testCase.expectedEntities),
+      stringValue(testCase.expectedEntity),
     ].filter(Boolean)),
   ];
 
@@ -93,8 +93,8 @@ export function normalizeCase(testCase: JsonRecord): CommerceEvalCase {
     capabilityLabel: EVAL_CAPABILITY_LABELS[capabilityId] ?? capabilityId,
     type,
     typeLabel: EVAL_TYPE_LABELS[type] ?? type,
-    expectedSymbols,
-    expectedAssetType: stringValue(testCase.expectedAssetType) || null,
+    expectedEntities,
+    expectedEntityType: stringValue(testCase.expectedEntityType) || null,
     expectedTemplateId: stringValue(testCase.expectedTemplateId) || null,
     expectedVariantId: stringValue(testCase.expectedVariantId) || null,
     expectedDatasets: stringArray(testCase.expectedDatasets),
@@ -242,7 +242,7 @@ export async function createCommerceEvalCase(input: CreateCommerceEvalCaseInput)
   if (!name) throw new Error('请填写用例名称。');
   if (!question) throw new Error('请填写用户 Query。');
 
-  const expectedSymbols = normalizeStringList(input.expectedSymbols);
+  const expectedEntities = normalizeStringList(input.expectedEntities);
   const record: JsonRecord = {
     id,
     name,
@@ -251,9 +251,9 @@ export async function createCommerceEvalCase(input: CreateCommerceEvalCaseInput)
     type,
   };
 
-  if (expectedSymbols.length === 1) record.expectedSymbol = expectedSymbols[0];
-  if (expectedSymbols.length > 1) record.expectedSymbols = expectedSymbols;
-  if (input.expectedAssetType) record.expectedAssetType = input.expectedAssetType;
+  if (expectedEntities.length === 1) record.expectedEntity = expectedEntities[0];
+  if (expectedEntities.length > 1) record.expectedEntities = expectedEntities;
+  if (input.expectedEntityType) record.expectedEntityType = input.expectedEntityType;
   if (input.expectedTemplateId) record.expectedTemplateId = input.expectedTemplateId;
   if (input.expectedVariantId) record.expectedVariantId = input.expectedVariantId;
   const expectedDatasets = normalizeStringList(input.expectedDatasets);

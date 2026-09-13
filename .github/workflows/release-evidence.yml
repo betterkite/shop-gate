@@ -27,7 +27,7 @@ jobs:
       SHOPGATE_RELEASE_EVIDENCE_MODEL: deepseek-v4-flash
       DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
-      SHOPGATE_MARKET_API_URL: http://127.0.0.1:8000
+      SHOPGATE_COMMERCE_API_URL: http://127.0.0.1:8000
       PROJECTS_DIR: ./tmp/release-evidence-projects
       SHOPGATE_EVAL_MODE: e2e
       SHOPGATE_EVAL_TRIGGER: release
@@ -73,14 +73,14 @@ jobs:
           docker compose up -d --wait timescaledb redis
           npm run db:init
           mkdir -p tmp
-          npm run dev:commerce > tmp/release-market.log 2>&1 &
+          npm run dev:commerce > tmp/release-commerce.log 2>&1 &
           for attempt in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          tail -100 tmp/release-market.log
+          tail -100 tmp/release-commerce.log
           exit 1
 
       - name: Enforce complete release evidence gate
@@ -98,7 +98,7 @@ jobs:
             tmp/shopgate-benchmark-screenshots/
             tmp/shopgate-eval-mutations/
             tmp/visual-checks/
-            tmp/release-market.log
+            tmp/release-commerce.log
 
       - name: Stop infrastructure
         if: always()

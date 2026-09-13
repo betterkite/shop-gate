@@ -27,7 +27,7 @@ const MANAGED_PERMISSION_PROFILES = [
   {
     key: 'readonly-default',
     name: '只读研究员',
-    description: '只能读取已授权项目、源码、量化数据和研究报告。',
+    description: '只能读取已授权项目、源码、电商数据和经营分析报告。',
     isDefault: false,
     rules: ACCESS_CONTROL_CATALOG.profiles['readonly-default'],
   },

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import {
   Activity,
   ArrowRight,
-  BarChart3,
   BookOpenCheck,
   Boxes,
   BriefcaseBusiness,
@@ -21,8 +20,6 @@ import {
   Server,
   ShieldCheck,
   Sparkles,
-  Target,
-  TrendingUp,
   Workflow,
   Zap,
 } from "lucide-react";
@@ -61,36 +58,28 @@ const VIEW_ITEMS: SubNavItem[] = [
 ];
 
 const CAPABILITY_ICONS: Record<string, typeof Activity> = {
-  stock_diagnosis: Activity,
-  technical_analysis: TrendingUp,
-  fundamental_analysis: BarChart3,
-  asset_comparison: Boxes,
-  sector_rotation: LineChart,
-  strategy_research: Sparkles,
-  backtest_review: Target,
-  portfolio_risk: ShieldCheck,
+  traffic_funnel: Activity,
+  catalog_structure: Boxes,
+  price_inventory: Database,
+  daily_brief: LineChart,
 };
 
 const GROUP_ICONS: Record<string, typeof Activity> = {
   core_analysis: Activity,
-  market_research: LineChart,
-  strategy_risk: ShieldCheck,
+  operations: BriefcaseBusiness,
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  "commerce-data": "行情与价格",
-  symbol: "标的识别",
-  indicator: "指标计算",
-  backtest: "回测引擎",
-  fundamental: "基本面数据",
-  event: "公告与事件",
-  "index-etf": "指数与 ETF",
-  ingestion: "数据采集",
-  "research-config": "研究配置",
-  "fallback-provider": "容灾数据源",
-  "candidate-provider": "候选数据源",
-  "enrichment-provider": "数据增强",
-  "planned-provider": "计划接入",
+  "commerce-data": "经营数据",
+  item: "商品解析",
+  category: "类目解析",
+  behavior: "行为数据",
+  inventory: "库存数据",
+  orders: "订单数据",
+  ingestion: "数据导入",
+  "synthetic-dataset": "演示数据集",
+  "primary-dataset": "行为数据集",
+  "derived-dataset": "聚合数据集",
   "licensed-provider": "授权数据源",
 };
 
@@ -372,7 +361,7 @@ function OverviewView({ data, groupNameById, onViewChange, onOpenCapability, onO
         <SectionHeader eyebrow="KNOWLEDGE MODEL" title="一项业务能力如何被定义" description="统一从用户问题到质量验证的知识链路，让能力可理解、可执行、可复核。" />
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { step: "01", icon: Compass, title: "业务场景", text: "识别用户目标、标的与分析范围" },
+            { step: "01", icon: Compass, title: "业务场景", text: "识别用户目标、商品/类目与分析范围" },
             { step: "02", icon: LibraryBig, title: "分析知识", text: "明确指标、证据和风险关注点" },
             { step: "03", icon: FileCheck2, title: "交付契约", text: "定义结构化数据与页面产物" },
             { step: "04", icon: ShieldCheck, title: "质量规则", text: "验证完整性、真实性和展示质量" },
@@ -467,7 +456,7 @@ function ResourcesView({ data }: { data: CapabilityCenterData }) {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-border/60 bg-card/90 p-5 shadow-[0_24px_60px_-42px_hsl(var(--shadow-color)/0.65)] sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">SUPPORTING RESOURCES</Badge><h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground">业务能力背后的支撑资源</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Skills、数据接口与运行服务只负责支撑业务能力执行。在这里查看依赖健康度，而不是把它们误认为业务产品。</p></div><div className={cn("rounded-xl border px-4 py-3", data.marketApi.reachable ? "border-emerald-500/20 bg-emerald-500/5" : "border-red-500/20 bg-red-500/5")}><div className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className={cn("h-2 w-2 rounded-full", data.marketApi.reachable ? "bg-emerald-500" : "bg-red-500")} />市场数据服务{data.marketApi.reachable ? "在线" : "离线"}</div><p className="mt-1 font-mono text-[10px] text-muted-foreground">{data.marketApi.baseUrl}</p></div></div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">SUPPORTING RESOURCES</Badge><h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground">业务能力背后的支撑资源</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Skills、数据接口与运行服务只负责支撑业务能力执行。在这里查看依赖健康度，而不是把它们误认为业务产品。</p></div><div className={cn("rounded-xl border px-4 py-3", data.commerceApi.reachable ? "border-emerald-500/20 bg-emerald-500/5" : "border-red-500/20 bg-red-500/5")}><div className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className={cn("h-2 w-2 rounded-full", data.commerceApi.reachable ? "bg-emerald-500" : "bg-red-500")} />市场数据服务{data.commerceApi.reachable ? "在线" : "离线"}</div><p className="mt-1 font-mono text-[10px] text-muted-foreground">{data.commerceApi.baseUrl}</p></div></div>
       </section>
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">

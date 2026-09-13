@@ -50,7 +50,6 @@ export async function createRetailPiAgentMission(input: {
     composition: RetailRunPlan["composition"];
     question: string;
     entities?: string[];
-    symbols?: string[];
     expectedArtifacts: readonly string[];
     validationRules: readonly string[];
     createdAt: string;
@@ -73,9 +72,9 @@ export async function createRetailPiAgentMission(input: {
       deliveryPackVersion: input.runPlan.composition.deliveryPack.version,
       compositionSha256: input.runPlan.composition.sha256,
     },
-    entities: (input.runPlan.entities ?? input.runPlan.entities ?? []).map((symbol) => ({
+    entities: (input.runPlan.entities ?? []).map((entity) => ({
       entityType: 'retail.product',
-      canonicalId: symbol,
+      canonicalId: entity,
     })),
     maxRepairAttempts: input.maxRepairAttempts,
     definition: createRetailMissionDefinition({

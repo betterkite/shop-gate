@@ -127,7 +127,7 @@ export const EVAL_EVALUATOR_DEFINITIONS: EvalEvaluatorDefinition[] = [
     version: '2.1.0',
     rubricVersion: 'shopgate-visual-rubric-v3',
     name: '视觉契约评测器',
-    description: '强化多视口、可访问性、资源加载、布局和金融图表表达检查。',
+    description: '强化多视口、可访问性、资源加载、布局和电商图表表达检查。',
     supportedModes: ['contract', 'e2e'],
     requiresSemanticReview: false,
     dimensionWeights: {
@@ -218,7 +218,7 @@ export function applyEvalEvaluator(input: {
   const groundingStatuses = checkStatuses(result, [
     'final_data_file',
     'evidence_files',
-    'market_proxy',
+    'commerce_proxy',
   ]);
   if (oracle.passed === false) groundingStatuses.push('failed');
   if (oracle.warning === true) groundingStatuses.push('warning');

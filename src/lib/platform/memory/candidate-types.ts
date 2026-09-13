@@ -3,9 +3,8 @@ export const PERSONAL_MEMORY_PREFERENCE_KEYS = [
   'output.detail_level',
   'output.visual_style',
   'analysis.risk_style',
-  'analysis.default_market',
-  'research.default_horizon',
-  'research.evidence_style',
+  'analysis.default_period',
+  'analysis.evidence_style',
 ] as const;
 
 export type PersonalMemoryPreferenceKey =

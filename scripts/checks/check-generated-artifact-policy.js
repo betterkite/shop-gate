@@ -23,33 +23,39 @@ async function writeJson(filePath, value) {
 async function createBaseProject(projectPath) {
   await writeJson(path.join(projectPath, '.data-agent/retail-run-plan.json'), {
     schemaVersion: 1,
-    capabilityId: 'market_analysis',
-    symbols: ['600519'],
+    capabilityId: 'traffic_funnel',
+    entities: ['cat:10051'],
+    plannedEntities: { categoryIds: [10051], itemIds: [] },
     visualization: {
-      templateId: 'market-dashboard',
-      panels: ['quote', 'kline', 'volume'],
+      templateId: 'funnel-analysis',
+      panels: ['funnel', 'daily-trend'],
     },
   });
   await writeJson(path.join(projectPath, 'data_file/final/dashboard-data.json'), {
-    symbol: '600519',
-    name: '贵州茅台',
-    source: 'eastmoney',
-    fetched_at: '2026-05-25T00:00:00.000Z',
-    quote: {
-      price: 1660.12,
-      change_percent: 1.28,
-    },
-    kline: {
-      bars: [
-        { trade_date: '2026-05-22', open: 1620, high: 1668, low: 1610, close: 1660.12, volume: 1200000 },
-      ],
+    dataset_id: 'retail-contract-fixture',
+    dataset_name: '零售合同夹具',
+    window: { start: '2026-05-22', end: '2026-05-25' },
+    plannedEntities: { categoryIds: [10051], itemIds: [] },
+    datasets: {
+      meta: { event_count: 120, user_count: 48, item_count: 20 },
+      funnel: {
+        stages: [
+          { stage: 'pv', events: 100, unique_users: 48 },
+          { stage: 'fav', events: 28, unique_users: 22 },
+          { stage: 'cart', events: 18, unique_users: 16 },
+          { stage: 'buy', events: 8, unique_users: 8 },
+        ],
+      },
+      funnelDaily: {
+        rows: [{ stat_date: '2026-05-25', pv: 40, fav: 12, cart: 8, buy: 4 }],
+      },
     },
   });
   await writeJson(path.join(projectPath, 'evidence/sources.json'), {
     sources: [
       {
-        source: 'eastmoney',
-        endpoint: '/api/v1/quotes/realtime/600519',
+        source: 'retail-contract-fixture',
+        endpoint: '/api/v1/commerce/funnel',
         fetched_at: '2026-05-25T00:00:00.000Z',
         artifact_path: 'data_file/final/dashboard-data.json',
       },
@@ -57,7 +63,7 @@ async function createBaseProject(projectPath) {
   });
   await writeJson(path.join(projectPath, 'evidence/data_quality.json'), {
     status: 'ok',
-    datasets: [{ id: 'quote', row_count: 1, status: 'ok' }],
+    datasets: [{ id: 'funnel', row_count: 4, status: 'ok' }],
     warnings: [],
     limitations: [],
   });
@@ -107,19 +113,22 @@ const DATA_FILE = 'data_file/final/dashboard-data.json';
 
 export default async function Page() {
   const raw = await fs.readFile(DATA_FILE, 'utf8');
-  const data = JSON.parse(raw) as { symbol?: string; quote?: { price?: number } };
+  const data = JSON.parse(raw) as {
+    dataset_id?: string;
+    datasets?: { funnel?: { stages?: Array<{ stage?: string; events?: number }> } };
+  };
 
   return (
     <main data-source-file={DATA_FILE}>
-      <h1>Shop Gate 看板</h1>
-      <section aria-label="K 线与量价结构">
+      <h1>浏览到购买的转化过程</h1>
+      <section aria-label="浏览到购买的转化过程">
         <svg role="img" viewBox="0 0 120 60">
-          <title>K 线与成交量</title>
-          <rect className="candle-up" x="20" y="12" width="12" height="28" />
-          <rect className="volume-chart" x="60" y="34" width="12" height="18" />
+          <title>浏览到购买的行为阶段</title>
+          <rect className="bar-up" x="20" y="12" width="12" height="28" />
+          <rect className="bar-down" x="60" y="34" width="12" height="18" />
         </svg>
       </section>
-      <p>{data.symbol} 最新价 {data.quote?.price}</p>
+      <p>数据集 {data.dataset_id}；阶段数 {data.datasets?.funnel?.stages?.length ?? 0}</p>
     </main>
   );
 }

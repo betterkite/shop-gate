@@ -32,7 +32,7 @@ const SUBJECT_ARTIFACTS = [
   'app/page.tsx',
   'app/globals.css',
   'app/layout.tsx',
-  'app/api/market/[...path]/route.ts',
+  'app/api/commerce/[...path]/route.ts',
   'package.json',
   'data_file/final/dashboard-data.json',
   'evidence/sources.json',

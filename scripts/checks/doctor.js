@@ -244,12 +244,12 @@ function summarizeCommandFailure(result) {
     .slice(-6);
 }
 
-function latestBenchmarkReport() {
-  const reportsDir = path.join(ROOT, 'tmp', 'shopgate-benchmark-reports');
+function latestRetailE2eReport() {
+  const reportsDir = path.join(ROOT, 'tmp');
   if (!fs.existsSync(reportsDir)) return null;
   const files = fs
     .readdirSync(reportsDir)
-    .filter((fileName) => /^report-\d+\.json$/.test(fileName))
+    .filter((fileName) => /^task-e2e-retail-.*-latest\.json$/.test(fileName))
     .map((fileName) => {
       const filePath = path.join(reportsDir, fileName);
       return { filePath, mtimeMs: fs.statSync(filePath).mtimeMs };
@@ -423,20 +423,21 @@ async function main() {
     successSummary: '定时评测检查通过。',
   });
 
-  const report = latestBenchmarkReport();
+  const report = latestRetailE2eReport();
   if (report) {
-    const total = Number(report.report.total || 0);
-    const passed = Number(report.report.passedCount || 0);
-    const failed = Number(report.report.failedCount || 0);
-    const passRate = Number(report.report.passRate ?? (total ? Math.round((passed / total) * 100) : 0));
+    const total = Number(report.report.summary?.recorded ?? report.report.summary?.selected ?? 0);
+    const passed = Number(report.report.summary?.ready ?? 0);
+    const failed = Number(report.report.summary?.failed ?? Math.max(0, total - passed));
+    const rawPassRate = Number(report.report.summary?.passRate ?? (total ? passed / total : 0));
+    const passRate = rawPassRate <= 1 ? Math.round(rawPassRate * 100) : Math.round(rawPassRate);
     addCheck(
       '最近评测报告',
       failed ? 'warn' : 'ok',
-      `${path.relative(ROOT, report.filePath)} · ${passed}/${total} · ${passRate}%`,
+      `${path.relative(ROOT, report.filePath)} · ready ${passed}/${total} · ${passRate}%`,
       failed ? [`失败用例：${failed}`] : []
     );
   } else {
-    addCheck('最近评测报告', 'warn', '未找到 tmp/shopgate-benchmark-reports/report-*.json。', ['运行 npm run benchmark:commerce:contract 可生成报告。']);
+    addCheck('最近零售 E2E 证据', 'warn', '未找到 tmp/task-e2e-retail-*-latest.json。', ['运行 npm run check:task-e2e -- --dataset=task-e2e-retail-v1 可生成真实证据。']);
   }
 
   if (FULL_CHECKS) {

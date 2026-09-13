@@ -48,7 +48,7 @@ npm run check:eval-mutations
 
 ## 数据集、隐藏集与可重放快照
 
-零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。真实校验入口是 `npm run check:retail-e2e`（校验数据集结构与最近一次运行证据）和 `npm run check:task-e2e -- --dataset=task-e2e-retail-v1`（运行零售 task-E2E campaign）。公开仓库不携带隐藏基准、生产回放快照或私有 prompt。
+零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。公开仓库可直接运行 `npm run check:retail-e2e` 校验数据集契约；需要证明真实链路已运行时，再运行 `npm run check:retail-e2e -- --require-evidence` 校验证据。`npm run check:task-e2e -- --dataset=task-e2e-retail-v1` 负责运行零售 task-E2E campaign。公开仓库不携带隐藏基准、生产回放快照或私有 prompt。
 
 隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入：
 
@@ -170,7 +170,7 @@ npm run check:retail-e2e
 npm run check:task-e2e -- --dataset=task-e2e-retail-v1 --limit=1 --campaign=retail-smoke
 ```
 
-`check:retail-e2e` 校验零售数据集结构与最近一次运行证据（evidence ready > 0）；`check:task-e2e` 运行 `scripts/checks/check-task-e2e-campaign.ts`，按 `config/evals/task-e2e-retail-v1.json` 的 30 个零售 case 走完整生成链路，并以 `--campaign` 记录运行批次。
+`check:retail-e2e` 默认只校验公开零售数据集结构；加上 `--require-evidence` 后才校验最近一次运行证据（evidence ready > 0）。`check:task-e2e` 运行 `scripts/checks/check-task-e2e-campaign.ts`，按 `config/evals/task-e2e-retail-v1.json` 的 30 个零售 case 走完整生成链路，并以 `--campaign` 记录运行批次。
 
 历史命令 `benchmark:quant:*` 已从 package scripts 移除；当前使用 `benchmark:commerce:*`，其 contract/e2e/hidden/shadow 变体统一面向零售 task-E2E 数据集。
 

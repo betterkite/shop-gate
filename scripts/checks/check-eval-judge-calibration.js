@@ -13,4 +13,4 @@ const retailCheck = path.join(
 );
 const result = spawnSync(process.execPath, [retailCheck], { stdio: 'inherit' });
 if (result.status !== 0) process.exit(result.status || 1);
-console.log('[eval-benchmarks] 旧版通用基准入口已统一委托零售 task-E2E 基准。');
+console.log('[eval-benchmarks] 公开零售评测校准契约检查完成。');

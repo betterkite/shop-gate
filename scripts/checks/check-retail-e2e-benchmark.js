@@ -5,9 +5,10 @@
  *
  * 校验对象（真实存在的零售基准）：
  *  1. config/evals/task-e2e-retail-v1.json —— 30 条零售 case，能力 ∈ 零售 4 能力，id 唯一；
- *  2. 最近一次运行证据 tmp/task-e2e-retail-*-latest.json —— 存在且 passRate>0。
+ *  2. （可选）最近一次运行证据 tmp/task-e2e-retail-*-latest.json —— 存在且 ready>0。
  *
- * 这是"恢复真实校验"的入口：基准数据缺失/损坏、或从未成功运行过 → 失败（不再静默 SKIPPED）。
+ * 默认只校验公开数据集契约，因此干净 checkout 可以直接执行；传入
+ * --require-evidence 后才会要求本地存在真实 task-E2E 运行证据。
  */
 
 const fs = require('fs');
@@ -23,6 +24,8 @@ const RETAIL_CAPABILITIES = new Set([
 ]);
 const REPORT_DIR = path.resolve('tmp');
 const REQUIRED_CASES = 30;
+const requireEvidence = process.argv.includes('--require-evidence');
+const datasetOnly = process.argv.includes('--dataset-only');
 
 function fail(message) {
   console.error(`[retail-e2e] FAIL: ${message}`);
@@ -34,6 +37,9 @@ function readJson(filePath) {
 }
 
 function main() {
+  if (requireEvidence && datasetOnly) {
+    fail('--require-evidence 与 --dataset-only 不能同时使用。');
+  }
   if (!fs.existsSync(DATASET_PATH)) {
     fail(`零售基准数据集缺失：${path.relative(root, DATASET_PATH)}`);
   }
@@ -59,7 +65,19 @@ function main() {
     }
   }
 
+  if (datasetOnly || !requireEvidence) {
+    console.log(
+      `[retail-e2e] ok: 公开零售数据集契约 ${dataset.id} ` +
+        `${dataset.cases.length} 条 case（能力: ${RETAIL_CAPABILITIES.size} 个）；` +
+        '本次未要求运行证据。',
+    );
+    return;
+  }
+
   // 最近一次运行证据：证明基准真实可运行。
+  if (!fs.existsSync(REPORT_DIR)) {
+    fail('没有零售基准运行目录（tmp）。请先运行真实 task-E2E 基准。');
+  }
   const reports = fs
     .readdirSync(REPORT_DIR)
     .filter((name) => /^task-e2e-retail-.*-latest\.json$/.test(name))

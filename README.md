@@ -97,7 +97,8 @@ npm run dev
 | 数据库检查 | `npm run db:doctor` |
 | 本地单次消费 generation job | `PI_AGENT_DISPATCH_MODE=worker npm run worker:generation:once` |
 | 导入或重建零售数据 | `cd services/commerce-data && uv run shopgate-commerce-import --help` |
-| 检查零售基准数据与运行证据 | `npm run check:retail-e2e` |
+| 检查公开零售基准契约 | `npm run check:retail-e2e` |
+| 要求最近一次真实零售 E2E 证据 | `npm run check:retail-e2e -- --require-evidence` |
 | 初始化/维护登录管理员 | `npm run auth:bootstrap` |
 | 验证完整用户生命周期 | `npm run auth:verify` |
 | 清理过期认证数据与配额预留 | `npm run auth:cleanup` |

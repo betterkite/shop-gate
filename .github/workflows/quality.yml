@@ -55,7 +55,7 @@ jobs:
         run: npm run check:generated-artifacts
 
       - name: Retail E2E guardrails
-        run: npm run check:retail-e2e
+        run: npm run check:retail-e2e -- --dataset-only
 
       - name: Backend architecture guardrails
         run: npm run check:backend-architecture
@@ -213,7 +213,7 @@ jobs:
           path: tmp/auth-web.log
 
   contract-evaluation:
-    name: Retail contract evaluation
+    name: Retail contract dataset validation
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -270,7 +270,7 @@ jobs:
       - name: Prepare database
         run: npm run db:init
 
-      - name: Run deterministic contract suite
+      - name: Validate public retail contract dataset
         run: |
           mkdir -p tmp
           set -o pipefail
@@ -281,7 +281,7 @@ jobs:
           PI_AGENT_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
         run: npm run test:pi-agent:postgres
 
-      - name: Enforce contract gate
+      - name: Enforce public contract gate
         run: npm run eval:ci -- --min-pass-rate 100 --min-average-score 90 --min-first-pass-rate 100 --max-repair-rate 0 --min-stability-rate 100 --min-stability-confidence-lower 75 --max-score-standard-deviation 0
 
       - name: Upload contract evidence

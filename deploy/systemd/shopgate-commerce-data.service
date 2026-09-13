@@ -1,0 +1,28 @@
+[Unit]
+Description=Shop Gate commerce-data API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=shopgate
+Group=shopgate
+WorkingDirectory=/opt/shopgate/current
+EnvironmentFile=/etc/shopgate/shopgate.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=UV_CACHE_DIR=/var/cache/shopgate/uv
+ExecStart=/usr/bin/env uv run --frozen --project services/commerce-data shopgate-commerce-api
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillMode=mixed
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/shopgate /var/cache/shopgate
+LimitNOFILE=32768
+
+[Install]
+WantedBy=multi-user.target

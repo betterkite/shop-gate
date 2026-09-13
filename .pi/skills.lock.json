@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "packageFormat": "tgz",
+  "skills": {
+    "run-planner": {
+      "version": "0.7.0",
+      "packagePath": ".pi/skill-packages/run-planner.tgz",
+      "sourceSha256": "e9d9cf1a55c077c7f9ce6ebc993038aaad45a67a1bc98126251fca38ca6fb7ca",
+      "packageSha256": "aa37764f03bb388229500b2f7a68f9db43dc5bdc756d9e1336a8b1cb41da15f9",
+      "fileCount": 4
+    },
+    "image-extraction": {
+      "version": "0.6.0",
+      "packagePath": ".pi/skill-packages/image-extraction.tgz",
+      "sourceSha256": "ba0a68cce10e0dc01c1f25dc722c82c11a6fefa25bcda32ae27d4a4ff39e6461",
+      "packageSha256": "01eda03f3d6c4a179a15f9fc00f2e88cc5211ef5b6c7970a6b9d57f032f3b5e6",
+      "fileCount": 4
+    },
+    "data-quality": {
+      "version": "0.6.0",
+      "packagePath": ".pi/skill-packages/data-quality.tgz",
+      "sourceSha256": "a0d629e8803a45f100b2639f663c838840756cbb242e874f15a2142c2de4fa85",
+      "packageSha256": "fb7358fa424c7c2dd5f85500e5d744d11c0a2a409f8127b2813330099aecc549",
+      "fileCount": 4
+    },
+    "dashboard-visualization": {
+      "version": "0.10.0",
+      "packagePath": ".pi/skill-packages/dashboard-visualization.tgz",
+      "sourceSha256": "82907e1587d0c128592b88122994b61633d136089f1d84678da5249789ffdd13",
+      "packageSha256": "8dea892465441d43c2585244d2d155881c33cd9a66743cf0c2755b355a1fab5f",
+      "fileCount": 6
+    },
+    "platform-ui-product-design": {
+      "version": "0.4.0",
+      "packagePath": ".pi/skill-packages/platform-ui-product-design.tgz",
+      "sourceSha256": "6b27bb5484344c2a0d1b463d80a26859fb3b98b30f1ae74be464cb4a1dd620b8",
+      "packageSha256": "6c8470a3e28f97c0e0f84b52aa231bf6f457c58f3f1992e966dd0da31538d46c",
+      "fileCount": 5
+    },
+    "query-rewrite": {
+      "version": "0.7.0",
+      "packagePath": ".pi/skill-packages/query-rewrite.tgz",
+      "sourceSha256": "0c86775e8a52ef95acef3505cd4ed8bf0adee5dabe1f0574cc1c1b813c21d0ac",
+      "packageSha256": "2859ef212cb67dd25ba50f34a09c16fe85a7a08edd072107b590f9094e34e731",
+      "fileCount": 4
+    },
+    "commerce-market-data": {
+      "version": "1.1.1",
+      "packagePath": ".pi/skill-packages/commerce-market-data.tgz",
+      "sourceSha256": "5551c79f6568137ad1972075f5ed64ccb9debce476678697a453735d16734123",
+      "packageSha256": "47ffa20f1ac734900755d7e2aeb387db81c1e663f0f8a6f9a9a53cee202c2494",
+      "fileCount": 4
+    },
+    "commerce-master-data": {
+      "version": "1.1.0",
+      "packagePath": ".pi/skill-packages/commerce-master-data.tgz",
+      "sourceSha256": "1064cb9663bf9279bcbacd82030fcb83778cf7da2cc9c8b41532bdcfa26d31e2",
+      "packageSha256": "a08720f2d2226238d7ae1e9b80b0a439762dda5f27926e321616a5f40fd31999",
+      "fileCount": 4
+    },
+    "commerce-rule-review": {
+      "version": "1.1.1",
+      "packagePath": ".pi/skill-packages/commerce-rule-review.tgz",
+      "sourceSha256": "b4092e74bf54366166e19704147801fe8e35cd22dc2f48626177394281e5990b",
+      "packageSha256": "ff95850973f52dac1cf6a24631bd26daaaca1fe2b9568415e2d790bcc275f43d",
+      "fileCount": 4
+    },
+    "commerce-metrics": {
+      "version": "1.1.0",
+      "packagePath": ".pi/skill-packages/commerce-metrics.tgz",
+      "sourceSha256": "f16b25cca4672b892c3f900f7db7c8e0b5572fb1868c8c4f3cd7a295c29b6494",
+      "packageSha256": "15c9bbe3b603cdf061cd68a011f2ea60cc72573a04f1283074746eef17c7027a",
+      "fileCount": 6
+    },
+    "commerce-data-registry": {
+      "version": "1.1.1",
+      "packagePath": ".pi/skill-packages/commerce-data-registry.tgz",
+      "sourceSha256": "e3c6c057214119ad74fd6557bbbbb55a709af9af610550f3b52fe8009733d6b9",
+      "packageSha256": "4f95264df00b298c3a1cf8057368b722dbdb20f2552c22266d7fb6cad9466bfb",
+      "fileCount": 4
+    },
+    "commerce-entity-resolver": {
+      "version": "1.1.1",
+      "packagePath": ".pi/skill-packages/commerce-entity-resolver.tgz",
+      "sourceSha256": "0f2f9e784fd7e5c34efad143b7741e345bba482e0a4927f9cfd927646b79c391",
+      "packageSha256": "82d62de47cabe65ae3fb0b636960c51848c1ee6da541fc03adf674e53411b96f",
+      "fileCount": 4
+    }
+  }
+}

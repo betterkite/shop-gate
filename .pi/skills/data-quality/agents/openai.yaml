@@ -1,0 +1,4 @@
+interface:
+  display_name: "经营数据质量"
+  short_description: "审计零售数据来源、时效、缺失字段、证据、限制和质量结论"
+  default_prompt: "Use $data-quality to audit retail sources, freshness, missing fields, and evidence before visualization."

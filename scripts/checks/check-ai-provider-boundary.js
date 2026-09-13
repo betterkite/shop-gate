@@ -1,0 +1,291 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const ROOT = process.cwd();
+const DEEPSEEK_MODEL = 'deepseek-v4-flash';
+const MODELPORT_DEEPSEEK_MODEL = 'deepseek:deepseek-v4-flash';
+const OFFICIAL_BASE_URL = 'https://api.deepseek.com';
+const LOCAL_MODEL = 'local_qwen:qwen3.5-9b-q5km';
+const LOCAL_BASE_URL = 'http://127.0.0.1:38082/v1';
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+}
+
+function fail(message) {
+  console.error(`❌ ${message}`);
+  process.exitCode = 1;
+}
+
+function pass(message) {
+  console.log(`✅ ${message}`);
+}
+
+console.log('\n🔒 PI Agent AI 接入边界检查：ModelPort 日常路由 + 可选 DeepSeek 官方直连\n');
+
+const retiredFrameworkToken = ['mo', 'agent'].join('');
+const repositoryFiles = execFileSync(
+  'git',
+  ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+  { cwd: ROOT, maxBuffer: 16 * 1024 * 1024 },
+).toString('utf8').split('\0').filter(Boolean);
+const retiredFrameworkHits = [];
+for (const relativePath of repositoryFiles) {
+  const normalizedPath = relativePath.replaceAll('\\', '/');
+  const absolutePath = path.join(ROOT, relativePath);
+  if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) continue;
+  if (normalizedPath.startsWith('prisma/migrations/')) continue;
+  if (normalizedPath.toLowerCase().includes(retiredFrameworkToken)) {
+    retiredFrameworkHits.push(`${normalizedPath} (path)`);
+    continue;
+  }
+  const content = fs.readFileSync(absolutePath);
+  if (content.includes(0)) continue;
+  if (content.toString('utf8').toLowerCase().includes(retiredFrameworkToken)) {
+    retiredFrameworkHits.push(`${normalizedPath} (content)`);
+  }
+}
+if (retiredFrameworkHits.length > 0) {
+  fail(`活动仓库仍包含退役框架标识：${retiredFrameworkHits.join(', ')}`);
+} else {
+  pass('活动源码、配置、测试和文档只使用 PI Agent 标识');
+}
+
+const envExample = read('.env.example');
+if (!/^MODELPORT_API_KEY=/m.test(envExample)) {
+  fail('.env.example 必须声明 MODELPORT_API_KEY');
+} else if (/^(?:DEEPSEEK_API_KEY|LOCAL_OPENAI_API_KEY)=/m.test(envExample)) {
+  fail('.env.example 不得鼓励在 Shop Gate 本地保存上游 DeepSeek 或旧本地 Provider Key');
+} else {
+  pass('Shop Gate 只声明 ModelPort 客户端凭据；上游 DeepSeek Key 留在 ModelPort');
+}
+
+for (const key of [
+  'SHOPGATE_LLM_AGENT_ENABLED',
+  'SHOPGATE_LLM_QUERY_REWRITE_ENABLED',
+  'SHOPGATE_QUERY_REWRITE_LLM_TIMEOUT_MS',
+  'SHOPGATE_QUERY_REWRITE_LLM_MAX_RETRIES',
+  'SHOPGATE_QUERY_REWRITE_LLM_INVALID_OUTPUT_RETRIES',
+]) {
+  if (!new RegExp(`^${key}=`, 'm').test(envExample)) {
+    fail(`.env.example 必须声明 LLM 配置：${key}`);
+  }
+}
+
+const llmConfig = JSON.parse(read('config/llm.json'));
+const deepSeekProfile = llmConfig?.profiles?.[DEEPSEEK_MODEL];
+const modelPortDeepSeekProfile = llmConfig?.profiles?.[MODELPORT_DEEPSEEK_MODEL];
+const localProfile = llmConfig?.profiles?.[LOCAL_MODEL];
+if (
+  llmConfig?.schemaVersion !== 1 ||
+  llmConfig?.defaultProfileId !== LOCAL_MODEL ||
+  deepSeekProfile?.provider !== 'deepseek' ||
+  deepSeekProfile?.model !== DEEPSEEK_MODEL ||
+  deepSeekProfile?.baseUrl !== OFFICIAL_BASE_URL ||
+  deepSeekProfile?.credentialEnv !== 'DEEPSEEK_API_KEY' ||
+  modelPortDeepSeekProfile?.provider !== 'openai' ||
+  modelPortDeepSeekProfile?.model !== MODELPORT_DEEPSEEK_MODEL ||
+  modelPortDeepSeekProfile?.baseUrl !== LOCAL_BASE_URL ||
+  modelPortDeepSeekProfile?.credentialEnv !== 'MODELPORT_API_KEY' ||
+  localProfile?.provider !== 'openai' ||
+  localProfile?.model !== LOCAL_MODEL ||
+  localProfile?.baseUrl !== LOCAL_BASE_URL ||
+  localProfile?.credentialEnv !== 'MODELPORT_API_KEY' ||
+  typeof deepSeekProfile?.agent?.enabled !== 'boolean' ||
+  typeof modelPortDeepSeekProfile?.agent?.enabled !== 'boolean' ||
+  typeof localProfile?.agent?.enabled !== 'boolean' ||
+  deepSeekProfile?.queryRewrite?.enabled !== true ||
+  modelPortDeepSeekProfile?.queryRewrite?.enabled !== true ||
+  localProfile?.queryRewrite?.enabled !== true ||
+  deepSeekProfile?.queryRewrite?.timeoutMs !== 15_000 ||
+  modelPortDeepSeekProfile?.queryRewrite?.timeoutMs !== 15_000 ||
+  localProfile?.queryRewrite?.timeoutMs !== 15_000
+) {
+  fail('config/llm.json 必须提供 Qwen、ModelPort DeepSeek 与官方直连三个锁定 profiles');
+} else {
+  pass('中央 LLM profiles、Qwen 默认值、ModelPort DeepSeek 与官方直连配置完整');
+}
+
+for (const key of [
+  'ANTHROPIC_BASE_URL',
+  'LOCAL_OPENAI_API_KEY',
+  'OPENAI_API_KEY',
+  'CODEX_OPENAI_API_KEY',
+  'MINIMAX_API_KEY',
+]) {
+  if (new RegExp(`^${key}=`, 'm').test(envExample)) {
+    fail(`.env.example 不得暴露旧供应商或中转配置：${key}`);
+  }
+}
+
+const modelRegistry = read('src/lib/constants/models.ts');
+if (!modelRegistry.includes(`DEEPSEEK_MODEL_ID = '${DEEPSEEK_MODEL}'`)) {
+  fail(`模型注册表必须锁定为 ${DEEPSEEK_MODEL}`);
+} else if (!modelRegistry.includes(`DEEPSEEK_OFFICIAL_BASE_URL = '${OFFICIAL_BASE_URL}'`)) {
+  fail(`模型注册表必须锁定 DeepSeek 官方地址 ${OFFICIAL_BASE_URL}`);
+} else if (!modelRegistry.includes(`LOCAL_QWEN_MODEL_ID = '${LOCAL_MODEL}'`)) {
+  fail(`模型注册表必须包含本地模型 ${LOCAL_MODEL}`);
+} else if (!modelRegistry.includes(`LOCAL_OPENAI_BASE_URL = '${LOCAL_BASE_URL}'`)) {
+  fail(`模型注册表必须锁定本地地址 ${LOCAL_BASE_URL}`);
+} else if (!modelRegistry.includes(`MODELPORT_DEEPSEEK_MODEL_ID = '${MODELPORT_DEEPSEEK_MODEL}'`)) {
+  fail(`模型注册表必须包含 ModelPort DeepSeek 模型 ${MODELPORT_DEEPSEEK_MODEL}`);
+} else if (!modelRegistry.includes('PI_AGENT_DEFAULT_MODEL: PiAgentModelId = LOCAL_QWEN_MODEL_ID')) {
+  fail(`PI Agent 默认模型必须为 ${LOCAL_MODEL}`);
+} else {
+  pass('本地 Qwen 默认模型、ModelPort DeepSeek 与官方直连地址均已锁定');
+}
+
+const requiredRuntimeFiles = [
+  'src/lib/agent/types.ts',
+  'src/lib/agent/providers/deepseek.ts',
+  'src/lib/agent/providers/openai-compatible.ts',
+  'src/lib/agent/pi/identity.ts',
+  'src/lib/agent/pi/options.ts',
+  'src/lib/agent/pi/run-engine.ts',
+  'src/lib/agent/tools/index.ts',
+  'src/lib/agent/skills/compiler.ts',
+  'src/lib/services/cli/pi-agent.ts',
+];
+for (const file of requiredRuntimeFiles) {
+  if (!fs.existsSync(path.join(ROOT, file))) fail(`PI Agent 运行时缺少：${file}`);
+}
+
+const removedRuntimeFiles = [
+  'src/lib/services/cli/claude.ts',
+  'src/lib/services/quant-image-mcp.ts',
+];
+for (const file of removedRuntimeFiles) {
+  if (fs.existsSync(path.join(ROOT, file))) fail(`旧 Agent 运行时仍然存在：${file}`);
+}
+
+const packageJson = read('package.json');
+const nextConfig = read('next.config.js');
+const sdkPackageName = ['@anthropic-ai', 'claude-agent-sdk'].join('/');
+if (packageJson.includes(sdkPackageName) || nextConfig.includes(sdkPackageName)) {
+  fail('依赖或 Next.js 配置中仍存在旧 Anthropic Agent SDK');
+} else {
+  pass('旧 Anthropic Agent SDK 已从依赖和构建配置移除');
+}
+if (
+  !packageJson.includes('"@earendil-works/pi-agent-core": "0.82.1"') ||
+  !packageJson.includes('"@earendil-works/pi-ai": "0.82.1"')
+) {
+  fail('PI Agent 依赖必须精确锁定为 0.82.1');
+} else {
+  pass('PI Agent core 与 AI 包已精确锁定为 0.82.1');
+}
+
+const provider = read('src/lib/agent/providers/deepseek.ts');
+const openAICompatibleProvider = read('src/lib/agent/providers/openai-compatible.ts');
+if (!provider.includes('/chat/completions') || !provider.includes('globalThis.fetch')) {
+  fail('DeepSeek Provider 必须由 PI Agent 适配层直接调用 /chat/completions');
+} else if (provider.includes('/anthropic')) {
+  fail('DeepSeek Provider 不得继续使用 Anthropic 兼容端点');
+} else {
+  pass('PI Agent 通过 OpenAI-compatible SSE 适配层直连 DeepSeek');
+}
+if (
+  !openAICompatibleProvider.includes("reasoningWireFormat: 'none'") ||
+  !openAICompatibleProvider.includes('OpenAICompatibleProvider')
+) {
+  fail('本地 OpenAI-compatible Provider 必须复用受控 SSE 边界并禁用 DeepSeek 私有字段');
+} else {
+  pass('本地 OpenAI-compatible Provider 已禁用 DeepSeek 私有 thinking wire format');
+}
+
+const runtime = read('src/lib/services/cli/pi-agent.ts');
+for (const input of [
+  'process.env.ANTHROPIC_BASE_URL',
+  'process.env.OPENAI_API_KEY',
+  'process.env.CODEX_OPENAI_API_KEY',
+  'process.env.MINIMAX_API_KEY',
+  'process.env.DEEPSEEK_BASE_URL',
+]) {
+  if (runtime.includes(input)) fail(`PI Agent 不得读取旧供应商或自定义中转配置：${input}`);
+}
+if (!runtime.includes('process.env[llmConfig.credentialEnv]')) {
+  fail('PI Agent 必须按锁定 profile 读取对应凭据');
+} else if (!runtime.includes('baseUrl: llmConfig.baseUrl')) {
+  fail('PI Agent 必须按锁定 profile 使用 Provider Base URL');
+} else if (!runtime.includes("llmConfig.provider === 'deepseek'")) {
+  fail('PI Agent 必须显式分派 DeepSeek 与 OpenAI-compatible Provider');
+} else {
+  pass('PI Agent 多 Provider 凭据和地址边界正确');
+}
+
+const piRunEngine = read('src/lib/agent/pi/run-engine.ts');
+if (
+  !piRunEngine.includes('runAgentLoopContinue') ||
+  !piRunEngine.includes("toolExecution: 'sequential'")
+) {
+  fail('PI Agent 必须使用上游完整 loop 并保持受控顺序工具执行');
+} else if (
+  !piRunEngine.includes("import('@earendil-works/pi-agent-core')") ||
+  !piRunEngine.includes("import('@earendil-works/pi-ai')") ||
+  !piRunEngine.includes('loadUpstreamPiRuntime')
+) {
+  fail('PI Agent ESM-only 上游包必须通过 Worker 可用的动态 import 边界加载');
+} else {
+  pass('PI Agent 使用上游完整多轮 loop、Worker ESM 边界与受控顺序工具执行');
+}
+
+const route = read('src/app/api/chat/[project_id]/act/route.ts');
+const generationRuntime = read('src/lib/generation/generation-runtime.ts');
+const retailGenerationExecutor = read('src/lib/commerce/retail-generation-executor.ts');
+if (
+  !route.includes('createApplicationGenerationRuntime().execute') ||
+  !generationRuntime.includes('RETAIL_GENERATION_HANDLER') ||
+  !retailGenerationExecutor.includes('import("@/lib/services/cli/pi-agent")')
+) {
+  fail('聊天执行链路尚未切换至 PI Agent');
+} else if (
+  route.includes('activeClaudeSessionId') ||
+  retailGenerationExecutor.includes('activeClaudeSessionId')
+) {
+  fail('聊天执行链路仍依赖供应商 session id');
+} else {
+  pass('Shop Gate inline 与 Worker 主执行链路均通过 Domain handler 使用 PI Agent');
+}
+
+const queryRewriteRoute = read('src/app/api/commerce/query/rewrite/route.ts');
+const queryRewriteAdapter = read('src/lib/domains/retail/query-rewrite-llm.ts');
+const queryRewriteRuntime = read('src/lib/domains/retail/query-rewrite.ts');
+const queryRewriteWorkspace = read('src/lib/domains/retail/workspace.ts');
+const queryRewritePrefetch = read('src/lib/commerce/retail-data-prefetch.ts');
+const chatInput = read('src/components/chat/ChatInput.tsx');
+const homePage = read('src/app/page.tsx');
+if (
+  queryRewriteRoute.includes("action: purpose === 'execution'")
+) {
+  fail('Query Rewrite API 的所有 purpose 都必须走受控 LLM 权限与执行路径');
+} else if (
+  queryRewriteAdapter.includes('deterministicDraft') ||
+  queryRewriteAdapter.includes('input.deterministic') ||
+  queryRewriteRoute.includes('allowLlm') ||
+  queryRewriteRuntime.includes('extractQueryTargetCandidates') ||
+  queryRewriteRuntime.includes('deterministic_fallback') ||
+  queryRewriteWorkspace.includes('inferSymbolsFromText') ||
+  queryRewritePrefetch.includes('inferSymbolsFromText(plan.question)')
+) {
+  fail('正常 Query Rewrite 模型路径不得注入或依赖关键词/正则草稿');
+} else if (
+  chatInput.includes("purpose: 'preview'") ||
+  chatInput.includes('inferSymbolSearchQuery') ||
+  chatInput.includes('inferQuestionTimeRange') ||
+  chatInput.includes('inferQuestionFocus') ||
+  homePage.includes('inferSymbolSearchQuery') ||
+  homePage.includes('inferQuestionTimeRange') ||
+  homePage.includes('inferQuestionFocus')
+) {
+  fail('输入界面不得把关键词预判展示为 Query Rewrite 结果');
+} else {
+  pass('Query Rewrite 正常路径与输入界面均为 LLM-first');
+}
+
+if (!process.exitCode) {
+  pass('PI Agent 双 Provider 边界完整');
+  console.log('');
+}

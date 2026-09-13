@@ -1,0 +1,464 @@
+import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import * as tar from 'tar';
+import { afterEach, describe, expect, it } from 'vitest';
+import { compilePiAgentSkills, installPiAgentSkillsForWorkspace } from './compiler';
+import type { PiAgentSkillCapabilityDescriptor } from './types';
+
+const TEST_CAPABILITY_SKILLS = {
+  traffic_funnel: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
+  catalog_structure: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  price_inventory: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  daily_brief: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
+} as const;
+
+function getRetailSkillCapabilityDescriptor(
+  id: keyof typeof TEST_CAPABILITY_SKILLS,
+): PiAgentSkillCapabilityDescriptor {
+  return { id, status: 'ready', requiredSkillIds: TEST_CAPABILITY_SKILLS[id] };
+}
+
+const temporaryDirectories: string[] = [];
+
+async function temporaryDirectory(prefix: string): Promise<string> {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
+  temporaryDirectories.push(directory);
+  return directory;
+}
+
+async function createPackageOnlyFixture(skillId: string) {
+  const repositoryRoot = process.cwd();
+  const fixtureRoot = await temporaryDirectory('pi-agent-package-only-');
+  const fixtureState = path.join(fixtureRoot, '.pi');
+  const fixtureConfig = path.join(fixtureRoot, 'config');
+  const fixturePackageDir = path.join(fixtureState, 'skill-packages');
+  const [registry, lock, capsuleRegistry] = await Promise.all([
+    fs.readFile(path.join(repositoryRoot, '.pi', 'skills.registry.json'), 'utf8').then(JSON.parse),
+    fs.readFile(path.join(repositoryRoot, '.pi', 'skills.lock.json'), 'utf8').then(JSON.parse),
+    fs.readFile(path.join(repositoryRoot, 'config', 'pi-agent-skill-capsules.json'), 'utf8').then(JSON.parse),
+  ]);
+  const skill = registry.coreSkills.find((entry: { id: string }) => entry.id === skillId);
+  if (!skill) throw new Error(`missing fixture skill ${skillId}`);
+  await Promise.all([
+    fs.mkdir(fixturePackageDir, { recursive: true }),
+    fs.mkdir(fixtureConfig, { recursive: true }),
+  ]);
+  const packagePath = path.join(fixturePackageDir, `${skillId}.tgz`);
+  await Promise.all([
+    fs.copyFile(
+      path.join(repositoryRoot, '.pi', 'skill-packages', `${skillId}.tgz`),
+      packagePath,
+    ),
+    fs.writeFile(path.join(fixtureState, 'skills.registry.json'), JSON.stringify({
+      ...registry,
+      coreSkills: [skill],
+    })),
+    fs.writeFile(path.join(fixtureState, 'skills.lock.json'), JSON.stringify({
+      ...lock,
+      skills: { [skillId]: lock.skills[skillId] },
+    })),
+    fs.writeFile(path.join(fixtureConfig, 'pi-agent-skill-capsules.json'), JSON.stringify({
+      ...capsuleRegistry,
+      skills: { [skillId]: capsuleRegistry.skills[skillId] },
+    })),
+  ]);
+  return {
+    fixtureRoot,
+    fixtureState,
+    packagePath,
+  };
+}
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories.splice(0).map((directory) =>
+      fs.rm(directory, { recursive: true, force: true }),
+    ),
+  );
+});
+
+describe('compilePiAgentSkills', () => {
+  it('selects phase-compatible capsules, validates hashes, and obeys the total character budget', async () => {
+    const result = await compilePiAgentSkills({
+      capabilityId: 'catalog_structure',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
+      phase: 'data-preparation',
+      excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
+      maxSystemContextChars: 6_000,
+    });
+
+    expect(result.runtime).toBe('PI Agent');
+    expect(result.selectedSkillIds).toContain('commerce-market-data');
+    expect(result.selectedSkillIds).toContain('commerce-metrics');
+    expect(result.selectedSkillIds).not.toContain('commerce-rule-review');
+    expect(result.totalCharacters).toBeLessThanOrEqual(6_000);
+    expect(result.selectedSkillIds).not.toContain('run-planner');
+    expect(result.selectedSkillIds).not.toContain('image-extraction');
+    expect(result.systemContext).toContain('# PI Agent Skill Manifest');
+    expect(result.taskContext).toContain('# PI Agent Skill Capsules');
+    expect(result.taskContext).toContain('commerce_api_get');
+    expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('.pi/skills/');
+    expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('mcp__ShopGateImage__');
+    expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('workspaceResponseContract');
+    expect(`${result.systemContext}\n${result.taskContext}`).not.toContain('正在理解问题');
+    expect(result.truncated).toBe(false);
+    expect(result.skills.every((skill) => Boolean(skill.sourceSha256))).toBe(true);
+    expect(result.skills.every((skill) => Boolean(skill.capsuleSha256))).toBe(true);
+  });
+
+  it.each([
+    ['traffic_funnel', 'funnel-analysis'],
+    ['catalog_structure', 'catalog-structure'],
+    ['price_inventory', 'price-inventory'],
+    ['daily_brief', 'daily-brief'],
+  ] as const)(
+    'keeps %s phase skills and its %s scenario atomic under the production budget',
+    async (capabilityId, templateId) => {
+      const result = await compilePiAgentSkills({
+        capabilityId,
+        capability: getRetailSkillCapabilityDescriptor(capabilityId),
+        phase: 'data-preparation',
+        excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
+        templateId,
+        maxSystemContextChars: 6_000,
+      });
+
+      expect(result.totalCharacters).toBeLessThanOrEqual(6_000);
+      expect(result.taskContext).toContain(`## ${templateId}`);
+      expect(result.truncated).toBe(false);
+      expect(result.skills.every((skill) => skill.truncated === false)).toBe(true);
+      expect(result.skills.every((skill) => skill.status === 'stable')).toBe(true);
+    },
+  );
+
+  it('injects only the selected dashboard scenario and judgement reference fragments', async () => {
+    const result = await compilePiAgentSkills({
+      capabilityId: 'catalog_structure',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
+      requiredSkillIds: ['dashboard-visualization'],
+      phase: 'workspace-generation',
+      templateId: 'catalog-structure',
+      variantId: 'catalog-ranking-matrix',
+      maxSystemContextChars: 4_000,
+    });
+
+    expect(result.totalCharacters).toBeLessThan(4_000);
+    expect(result.taskContext).toContain('catalog-structure：商品与类目结构');
+    expect(result.taskContext).not.toContain('price-inventory：价格与库存健康');
+    expect(result.taskContext).toContain('指标口径');
+    expect(result.taskContext).toContain('图表选择');
+    expect(result.taskContext).toContain('data_file/final/dashboard-data.json');
+    expect(result.taskContext).toContain('data_file/final/dashboard-data.json');
+    expect(result.taskContext).not.toContain('references/scenario_templates.md');
+    expect(result.skills[0].includedResources.map((resource) => resource.id)).toEqual([
+      'scenario-template',
+      'visual-judgement',
+    ]);
+  });
+
+  it('activates attachment skills independently of capability and rejects incompatible tools', async () => {
+    const result = await compilePiAgentSkills({
+      capabilityId: 'traffic_funnel',
+      capability: getRetailSkillCapabilityDescriptor('traffic_funnel'),
+      phase: 'data-preparation',
+      activatedSkillIds: ['image-extraction', 'data-quality'],
+      excludedSkillIds: ['commerce-entity-resolver'],
+      maxSystemContextChars: 5_200,
+    });
+    expect(result.selectedSkillIds).toContain('image-extraction');
+    expect(result.selectedSkillIds).toContain('data-quality');
+
+    await expect(compilePiAgentSkills({
+      capabilityId: 'traffic_funnel',
+      capability: getRetailSkillCapabilityDescriptor('traffic_funnel'),
+      requiredSkillIds: ['image-extraction'],
+      phase: 'data-preparation',
+      availableToolNames: ['commerce_api_get'],
+    })).rejects.toThrow('commerce_extract_uploaded_image');
+  });
+
+  it('accepts both prepared dashboard surfaces and rejects an incomplete mutation route', async () => {
+    const common = {
+      capabilityId: 'traffic_funnel' as const,
+      capability: getRetailSkillCapabilityDescriptor('traffic_funnel'),
+      requiredSkillIds: ['dashboard-visualization'],
+      phase: 'workspace-generation' as const,
+      maxSystemContextChars: 5_000,
+    };
+
+    await expect(compilePiAgentSkills({
+      ...common,
+      availableToolNames: [
+        'apply_dashboard_spec',
+        'submit_result',
+      ],
+    })).resolves.toMatchObject({ selectedSkillIds: ['dashboard-visualization'] });
+    await expect(compilePiAgentSkills({
+      ...common,
+      availableToolNames: [
+        'query_json',
+        'query_text_file',
+        'semantic_edit',
+        'submit_result',
+      ],
+    })).resolves.toMatchObject({ selectedSkillIds: ['dashboard-visualization'] });
+    await expect(compilePiAgentSkills({
+      ...common,
+      availableToolNames: ['query_json', 'submit_result'],
+    })).rejects.toThrow('至少需要一组完整替代工具');
+  });
+
+  it('fails closed instead of cutting a runtime capsule mid-section', async () => {
+    await expect(compilePiAgentSkills({
+      capabilityId: 'catalog_structure',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
+      requiredSkillIds: ['dashboard-visualization'],
+      phase: 'workspace-generation',
+      templateId: 'funnel-analysis',
+      maxSystemContextChars: 512,
+    })).rejects.toThrow('拒绝截断');
+  });
+
+  it('rejects removed aliases instead of silently selecting another skill', async () => {
+    await expect(compilePiAgentSkills({
+      requiredSkillIds: ['quant-technical-indicators'],
+      maxSystemContextChars: 4_000,
+    })).rejects.toThrow('未在 registry 注册');
+  });
+
+  it('accepts domain capability labels with explicit skills and rejects descriptor identity drift', async () => {
+    await expect(compilePiAgentSkills({
+      capabilityId: 'unknown-capability',
+      requiredSkillIds: ['data-quality'],
+    })).resolves.toMatchObject({ capabilityId: 'unknown-capability' });
+    await expect(compilePiAgentSkills({
+      capabilityId: 'unknown-capability',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
+      requiredSkillIds: ['data-quality'],
+    })).rejects.toThrow('capability identity mismatch');
+  });
+
+  it('installs verified assets only under the workspace .pi directory', async () => {
+    const workspace = await temporaryDirectory('pi-agent-skills-workspace-');
+    await fs.mkdir(path.join(workspace, '.pi', 'skills', 'user-owned-skill'), { recursive: true });
+    await fs.writeFile(
+      path.join(workspace, '.pi', 'skills', 'user-owned-skill', 'SKILL.md'),
+      '# unmanaged\n',
+    );
+    const receipt = await installPiAgentSkillsForWorkspace(workspace, {
+      requiredSkillIds: ['image-extraction'],
+      maxSystemContextChars: 4_000,
+    });
+
+    expect(receipt.runtime).toBe('PI Agent');
+    expect(receipt.skillsDirectory).toBe('.pi/skills');
+    const installedSkill = await fs.readFile(
+      path.join(workspace, '.pi', 'skills', 'image-extraction', 'SKILL.md'),
+      'utf8',
+    );
+    expect(installedSkill).toContain('图片提取能力');
+    expect(installedSkill).toContain('commerce_extract_uploaded_image');
+    expect(installedSkill).not.toContain('mcp__ShopGateImage__');
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'image-extraction', 'references', 'catalog-image-contract.md'),
+    )).resolves.toBeUndefined();
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'image-extraction', 'scripts', 'normalize_extraction.py'),
+    )).resolves.toBeUndefined();
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'image-extraction', 'agents', 'openai.yaml'),
+    )).resolves.toBeUndefined();
+    await expect(
+      fs.readFile(path.join(workspace, '.pi', 'skills', 'user-owned-skill', 'SKILL.md'), 'utf8'),
+    ).resolves.toContain('unmanaged');
+    await expect(
+      fs.readFile(path.join(workspace, '.pi', 'skills', 'image-extraction', 'SKILL.md'), 'utf8'),
+    ).resolves.toContain('图片提取能力');
+    await expect(fs.access(path.join(workspace, '.claude'))).rejects.toThrow();
+  });
+
+  it('keeps the reference mirror complete while runtime capsules stay phase-scoped', async () => {
+    const workspace = await temporaryDirectory('pi-agent-skills-full-mirror-');
+    const receipt = await installPiAgentSkillsForWorkspace(workspace, {
+      capabilityId: 'price_inventory',
+      capability: getRetailSkillCapabilityDescriptor('price_inventory'),
+      additionalSkillIds: ['platform-ui-product-design'],
+    });
+
+    expect(Object.keys(receipt.skills)).toEqual(expect.arrayContaining([
+      'run-planner',
+      'image-extraction',
+      'commerce-entity-resolver',
+      'commerce-market-data',
+      'commerce-metrics',
+      'data-quality',
+      'dashboard-visualization',
+      'platform-ui-product-design',
+    ]));
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'run-planner', 'SKILL.md'),
+    )).resolves.toBeUndefined();
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'platform-ui-product-design', 'SKILL.md'),
+    )).resolves.toBeUndefined();
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'platform-ui-product-design', 'references', 'platform-ui-contract.md'),
+    )).resolves.toBeUndefined();
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'platform-ui-product-design', 'scripts', 'validate_state_matrix.py'),
+    )).resolves.toBeUndefined();
+    await expect(fs.access(
+      path.join(workspace, '.pi', 'skills', 'platform-ui-product-design', 'agents', 'openai.yaml'),
+    )).resolves.toBeUndefined();
+  });
+
+  it('installs a complete Skill mirror from a verified package when source is absent', async () => {
+    const { fixtureRoot } = await createPackageOnlyFixture('image-extraction');
+    const workspace = await temporaryDirectory('pi-agent-package-workspace-');
+
+    const receipt = await installPiAgentSkillsForWorkspace(workspace, {
+      repositoryRoot: fixtureRoot,
+      requiredSkillIds: ['image-extraction'],
+      maxSystemContextChars: 4_000,
+    });
+
+    expect(receipt.skills['image-extraction'].source).toBe('package');
+    for (const relativePath of [
+      'SKILL.md',
+      'references/catalog-image-contract.md',
+      'scripts/normalize_extraction.py',
+      'agents/openai.yaml',
+    ]) {
+      await expect(fs.access(
+        path.join(workspace, '.pi', 'skills', 'image-extraction', relativePath),
+      )).resolves.toBeUndefined();
+    }
+  });
+
+  it.each(['symlink', 'hardlink'] as const)(
+    'rejects a package-only Skill containing an internal %s before workspace installation',
+    async (linkType) => {
+      const { fixtureRoot, fixtureState, packagePath } = await createPackageOnlyFixture('image-extraction');
+      const extractRoot = await temporaryDirectory('pi-agent-malicious-package-');
+      await tar.x({ file: packagePath, cwd: extractRoot, preserveOwner: false });
+      const skillRoot = path.join(extractRoot, 'image-extraction');
+      const agentFile = path.join(skillRoot, 'agents', 'openai.yaml');
+      await fs.rm(agentFile);
+      if (linkType === 'symlink') {
+        await fs.symlink('../SKILL.md', agentFile);
+      } else {
+        await fs.link(path.join(skillRoot, 'SKILL.md'), agentFile);
+      }
+      await tar.c({
+        gzip: true,
+        file: packagePath,
+        cwd: extractRoot,
+        portable: true,
+        noMtime: true,
+      }, ['image-extraction']);
+
+      const lockPath = path.join(fixtureState, 'skills.lock.json');
+      const lock = JSON.parse(await fs.readFile(lockPath, 'utf8'));
+      const packageBuffer = await fs.readFile(packagePath);
+      lock.skills['image-extraction'].packageSha256 = createHash('sha256')
+        .update(packageBuffer)
+        .digest('hex');
+      await fs.writeFile(lockPath, JSON.stringify(lock));
+      const workspace = await temporaryDirectory('pi-agent-reject-package-workspace-');
+
+      await expect(installPiAgentSkillsForWorkspace(workspace, {
+        repositoryRoot: fixtureRoot,
+        requiredSkillIds: ['image-extraction'],
+        maxSystemContextChars: 4_000,
+      })).rejects.toThrow('安装包包含不安全类型');
+      await expect(fs.access(
+        path.join(workspace, '.pi', 'skills', 'image-extraction'),
+      )).rejects.toThrow();
+    },
+  );
+
+  it('rejects a package-only Skill whose content tree drifts from sourceSha256', async () => {
+    const { fixtureRoot, fixtureState, packagePath } = await createPackageOnlyFixture('image-extraction');
+    const extractRoot = await temporaryDirectory('pi-agent-drifted-package-');
+    await tar.x({ file: packagePath, cwd: extractRoot, preserveOwner: false });
+    await fs.appendFile(
+      path.join(extractRoot, 'image-extraction', 'SKILL.md'),
+      '\nUNREVIEWED_PACKAGE_ONLY_INSTRUCTION\n',
+    );
+    await tar.c({
+      gzip: true,
+      file: packagePath,
+      cwd: extractRoot,
+      portable: true,
+      noMtime: true,
+    }, ['image-extraction']);
+    const lockPath = path.join(fixtureState, 'skills.lock.json');
+    const lock = JSON.parse(await fs.readFile(lockPath, 'utf8'));
+    lock.skills['image-extraction'].packageSha256 = createHash('sha256')
+      .update(await fs.readFile(packagePath))
+      .digest('hex');
+    await fs.writeFile(lockPath, JSON.stringify(lock));
+
+    await expect(compilePiAgentSkills({
+      repositoryRoot: fixtureRoot,
+      requiredSkillIds: ['image-extraction'],
+      maxSystemContextChars: 4_000,
+    })).rejects.toThrow('安装包内容与 source lock 不一致');
+  });
+
+  it('fails closed when a compatible source directory no longer matches its lock hash', async () => {
+    const repositoryRoot = process.cwd();
+    const fixtureRoot = await temporaryDirectory('pi-agent-skills-fixture-');
+    const fixtureState = path.join(fixtureRoot, '.pi');
+    const fixtureConfig = path.join(fixtureRoot, 'config');
+    const [registry, lock, capsuleRegistry] = await Promise.all([
+      fs.readFile(path.join(repositoryRoot, '.pi', 'skills.registry.json'), 'utf8').then(JSON.parse),
+      fs.readFile(path.join(repositoryRoot, '.pi', 'skills.lock.json'), 'utf8').then(JSON.parse),
+      fs.readFile(path.join(repositoryRoot, 'config', 'pi-agent-skill-capsules.json'), 'utf8').then(JSON.parse),
+    ]);
+    const skill = registry.coreSkills.find((entry: { id: string }) => entry.id === 'image-extraction');
+    await fs.mkdir(path.join(fixtureState, 'skills'), { recursive: true });
+    await fs.mkdir(path.join(fixtureState, 'skill-packages'), { recursive: true });
+    await fs.mkdir(fixtureConfig, { recursive: true });
+    await Promise.all([
+      fs.cp(
+        path.join(repositoryRoot, '.pi', 'skills', 'image-extraction'),
+        path.join(fixtureState, 'skills', 'image-extraction'),
+        { recursive: true },
+      ),
+      fs.copyFile(
+        path.join(repositoryRoot, '.pi', 'skill-packages', 'image-extraction.tgz'),
+        path.join(fixtureState, 'skill-packages', 'image-extraction.tgz'),
+      ),
+      fs.writeFile(
+        path.join(fixtureConfig, 'pi-agent-skill-capsules.json'),
+        JSON.stringify({
+          ...capsuleRegistry,
+          skills: { 'image-extraction': capsuleRegistry.skills['image-extraction'] },
+        }),
+      ),
+    ]);
+    await Promise.all([
+      fs.writeFile(path.join(fixtureState, 'skills.registry.json'), JSON.stringify({
+        ...registry,
+        coreSkills: [skill],
+      })),
+      fs.writeFile(path.join(fixtureState, 'skills.lock.json'), JSON.stringify({
+        ...lock,
+        skills: { 'image-extraction': lock.skills['image-extraction'] },
+      })),
+      fs.appendFile(
+        path.join(fixtureState, 'skills', 'image-extraction', 'SKILL.md'),
+        '\nunauthorized change\n',
+      ),
+    ]);
+
+    const canonicalFixtureRoot = await fs.realpath(fixtureRoot);
+    await expect(compilePiAgentSkills({
+      repositoryRoot: canonicalFixtureRoot,
+      requiredSkillIds: ['image-extraction'],
+    })).rejects.toThrow('源目录哈希不一致');
+  });
+});

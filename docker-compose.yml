@@ -1,0 +1,107 @@
+name: shopgate
+
+services:
+  timescaledb:
+    image: ${TIMESCALEDB_IMAGE:-timescale/timescaledb:2.27.1-pg18}
+    container_name: shopgate-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shopgate}
+      POSTGRES_USER: ${POSTGRES_USER:-shopgate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopgate_dev_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-35433}:5432"
+    volumes:
+      - shopgate_timescaledb_data:/var/lib/postgresql/data
+      - ./sqls:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # The image starts a temporary Unix-socket-only PostgreSQL server while
+      # running /docker-entrypoint-initdb.d. Requiring TCP keeps Compose from
+      # reporting healthy before the final database server is accepting the
+      # same connections used by Prisma and the application.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:8-alpine}
+    container_name: shopgate-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1000"
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-36380}:6379"
+    volumes:
+      - shopgate_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  loki:
+    image: ${LOKI_IMAGE:-grafana/loki:3.6.0}
+    container_name: shopgate-loki
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - -config.file=/etc/loki/config.yaml
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-33100}:3100"
+    volumes:
+      - ./deploy/observability/loki/loki-config.yaml:/etc/loki/config.yaml:ro
+      - shopgate_loki_data:/loki
+
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:13.0.1}
+    container_name: shopgate-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-shopgate_dev_password}
+      GF_USERS_DEFAULT_THEME: light
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED:-true}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-33012}:3000"
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - shopgate_grafana_data:/var/lib/grafana
+    depends_on:
+      - loki
+
+  alloy:
+    image: ${GRAFANA_ALLOY_IMAGE:-grafana/alloy:v1.16.1}
+    container_name: shopgate-alloy
+    restart: unless-stopped
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    ports:
+      - "127.0.0.1:${GRAFANA_ALLOY_PORT:-33145}:12345"
+    volumes:
+      - ./deploy/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./tmp:/var/log/shopgate/tmp:ro
+      - ./.next:/var/log/shopgate/.next:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - shopgate_alloy_data:/var/lib/alloy
+    depends_on:
+      - loki
+
+volumes:
+  shopgate_timescaledb_data:
+  shopgate_redis_data:
+  shopgate_loki_data:
+  shopgate_grafana_data:
+  shopgate_alloy_data:

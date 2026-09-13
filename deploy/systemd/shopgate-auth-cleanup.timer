@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Shop Gate auth retention cleanup daily
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=10m
+Unit=shopgate-auth-cleanup.service
+
+[Install]
+WantedBy=timers.target

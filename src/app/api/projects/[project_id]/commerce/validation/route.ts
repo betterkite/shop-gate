@@ -1,0 +1,735 @@
+import path from "path";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAction } from "@/lib/auth/action";
+import { AuthorizationError } from "@/lib/auth/authorization";
+import { authErrorResponse } from "@/lib/auth/http";
+import { getProjectById } from "@/lib/services/project";
+import {
+  readGenerationState,
+  updateRetailGenerationStep,
+} from "@/lib/generation/generation-state";
+import { startPersistentValidatedPreview } from "@/lib/generation/generation-preview";
+import { runRetailGenerationStage } from "@/lib/generation/generation-queue";
+import { PiAgentGenerationLeaseError } from "@/lib/services/pi-agent-generation-lease-store";
+import { streamManager } from "@/lib/services/stream";
+import {
+  capturePlatformMissionCandidate,
+  claimRetailPiAgentMissionVerification,
+  sealRetailPiAgentMissionCandidate,
+  verifyAndRecordRetailPiAgentMission,
+  type PiAgentMissionContext,
+} from "@/lib/services/pi-agent-mission-control";
+import {
+  markPiAgentMissionRepairing,
+  PiAgentMissionStateError,
+  readPiAgentAcceptedMissionSnapshot,
+  readPiAgentMission,
+} from "@/lib/services/pi-agent-mission-store";
+import {
+  assertUserRequestProjectBinding,
+  UserRequestProjectMismatchError,
+} from "@/lib/services/user-requests";
+
+interface RouteContext {
+  params: Promise<{ project_id: string }>;
+}
+
+const PROJECTS_DIR = process.env.PROJECTS_DIR || "./data/projects";
+const PROJECTS_DIR_ABSOLUTE = path.isAbsolute(PROJECTS_DIR)
+  ? PROJECTS_DIR
+  : path.resolve(/*turbopackIgnore: true*/ process.cwd(), PROJECTS_DIR);
+
+function resolveProjectPath(
+  projectId: string,
+  repoPath?: string | null,
+): string {
+  if (repoPath) {
+    return path.isAbsolute(repoPath)
+      ? repoPath
+      : path.resolve(/*turbopackIgnore: true*/ process.cwd(), repoPath);
+  }
+  return path.join(PROJECTS_DIR_ABSOLUTE, projectId);
+}
+
+async function loadRetailValidation() {
+  return import("@/lib/commerce/retail-validation");
+}
+
+async function stopProvisionalPreview(projectId: string) {
+  const { previewManager } = await import("@/lib/services/preview");
+  return previewManager.stop(projectId);
+}
+
+function missionContext(
+  mission: NonNullable<Awaited<ReturnType<typeof readPiAgentMission>>>,
+  projectPath: string,
+): PiAgentMissionContext {
+  return { ...mission, projectPath };
+}
+
+async function terminalMissionResponse(mission: PiAgentMissionContext) {
+  const completed = mission.status === "completed";
+  const acceptance = completed
+    ? await readPiAgentAcceptedMissionSnapshot(
+        mission.projectId,
+        mission.requestId,
+      )
+    : null;
+  return NextResponse.json(
+    {
+      success: false,
+      error: completed
+        ? "Completed Mission cannot be manually revalidated"
+        : `Mission is ${mission.status}`,
+      code: completed
+        ? "MISSION_REVALIDATION_REQUIRES_NEW_REQUEST"
+        : "MISSION_TERMINAL",
+      message: completed
+        ? "该请求已经拥有不可变的 accepted receipt；如需重新验证工作区，请创建新的 request。"
+        : `该 Mission 已处于 ${mission.status} 终态，不能追加候选或验收证据。请创建新的 request。`,
+      mission: {
+        missionId: mission.id,
+        generationId: mission.generationId,
+        requestId: mission.requestId,
+        status: mission.status,
+        candidateVersion: mission.candidateVersion,
+        acceptedReceiptId: mission.acceptedReceiptId,
+      },
+      ...(completed ? { acceptance } : {}),
+    },
+    { status: 409 },
+  );
+}
+
+function busyMissionResponse(mission: PiAgentMissionContext) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: `Mission is ${mission.status}`,
+      code: "MISSION_BUSY",
+      message:
+        "该 Mission 仍在执行或验收中，手动验证不能并发读取或封存正在变化的工作区。请等待当前阶段结束后重试。",
+      mission: {
+        missionId: mission.id,
+        generationId: mission.generationId,
+        requestId: mission.requestId,
+        status: mission.status,
+        candidateVersion: mission.candidateVersion,
+      },
+    },
+    { status: 409 },
+  );
+}
+
+function committedAcceptance(
+  evidence: Awaited<ReturnType<typeof verifyAndRecordRetailPiAgentMission>>,
+): boolean {
+  return (
+    evidence.decision.verdict === "accepted" &&
+    evidence.mission.status === "completed" &&
+    evidence.receipt.receiptType === "acceptance" &&
+    evidence.receipt.verdict === "accepted" &&
+    evidence.mission.acceptedReceiptId === evidence.receipt.id
+  );
+}
+
+function acceptanceProjection(
+  evidence: Awaited<ReturnType<typeof verifyAndRecordRetailPiAgentMission>>,
+  satisfied: boolean,
+) {
+  return {
+    required: true,
+    satisfied,
+    verdict: evidence.decision.verdict,
+    reasonCodes: evidence.decision.reasonCodes,
+    failedCheckIds: evidence.decision.failedCheckIds,
+    missionId: evidence.mission.id,
+    generationId: evidence.mission.generationId,
+    missionStatus: evidence.mission.status,
+    candidateVersion: evidence.mission.candidateVersion,
+    receiptId: evidence.receipt.id,
+    receiptSha256: evidence.receipt.receiptHash,
+  };
+}
+
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  try {
+    const { project_id } = await params;
+    await requireAction({
+      headers: request.headers,
+      action: "project.read",
+      projectId: project_id,
+    });
+    const project = await getProjectById(project_id);
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: "Project not found" },
+        { status: 404 },
+      );
+    }
+
+    const projectPath = resolveProjectPath(project_id, project.repoPath);
+    const retailValidation = await loadRetailValidation();
+    const [report, repairPlan, generationState] = await Promise.all([
+      retailValidation.readRetailValidationReport(projectPath),
+      retailValidation.readRetailValidationRepairPlan(projectPath),
+      readGenerationState(projectPath),
+    ]);
+    const acceptance = generationState?.requestId
+      ? await readPiAgentAcceptedMissionSnapshot(
+          project_id,
+          generationState.requestId,
+        )
+      : null;
+    return NextResponse.json({
+      success: true,
+      data: report,
+      repairPlan,
+      generationState,
+      acceptance,
+    });
+  } catch (error) {
+    if (error instanceof AuthorizationError) return authErrorResponse(error);
+    console.error("[API] Failed to read quant validation report:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to read quant validation report",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest, { params }: RouteContext) {
+  const verificationSessionHolder: {
+    current: PiAgentMissionContext["verificationSession"] | null;
+  } = { current: null };
+  try {
+    const { project_id } = await params;
+    await requireAction({
+      headers: request.headers,
+      action: "agent.run",
+      projectId: project_id,
+    });
+    await requireAction({
+      headers: request.headers,
+      action: "project.source.write",
+      projectId: project_id,
+    });
+    const project = await getProjectById(project_id);
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: "Project not found" },
+        { status: 404 },
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const requestedRequestId =
+      typeof body.requestId === "string" && body.requestId.trim()
+        ? body.requestId.trim()
+        : undefined;
+    const conversationId =
+      typeof body.conversationId === "string" ? body.conversationId : undefined;
+    const projectPath = resolveProjectPath(project_id, project.repoPath);
+    if (requestedRequestId) {
+      try {
+        const requestExists = await assertUserRequestProjectBinding(
+          project_id,
+          requestedRequestId,
+        );
+        if (!requestExists) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Request does not exist",
+              code: "REQUEST_NOT_FOUND",
+              message:
+                "手动验证不能创建或伪造 generation requestId；请使用当前请求，或省略 requestId 执行历史项目验证。",
+            },
+            { status: 404 },
+          );
+        }
+      } catch (error) {
+        if (error instanceof UserRequestProjectMismatchError) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Request ID belongs to a different project",
+              code: "REQUEST_PROJECT_MISMATCH",
+            },
+            { status: 409 },
+          );
+        }
+        throw error;
+      }
+    }
+    return await runRetailGenerationStage({
+      projectPath,
+      projectId: project_id,
+      requestId: requestedRequestId ?? null,
+      stage: "manual_validation",
+      task: async () => {
+        const generationState = await readGenerationState(projectPath);
+        if (
+          requestedRequestId &&
+          generationState?.requestId &&
+          requestedRequestId !== generationState.requestId
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Request does not match the current generation",
+              code: "GENERATION_REQUEST_ID_MISMATCH",
+              message:
+                "手动验证 requestId 必须与当前 generation requestId 一致；如需新一轮验证，请创建新的完整请求。",
+            },
+            { status: 409 },
+          );
+        }
+        const missionLookupRequestId =
+          requestedRequestId ?? generationState?.requestId;
+        const durableMission = missionLookupRequestId
+          ? await readPiAgentMission(project_id, missionLookupRequestId)
+          : null;
+
+        const requestId = durableMission?.requestId ?? requestedRequestId;
+        let activeMission = durableMission
+          ? missionContext(durableMission, projectPath)
+          : null;
+        if (
+          activeMission &&
+          ["completed", "failed", "cancelled"].includes(activeMission.status)
+        ) {
+          return await terminalMissionResponse(activeMission);
+        }
+        if (
+          activeMission &&
+          ["running", "repairing"].includes(activeMission.status)
+        ) {
+          return busyMissionResponse(activeMission);
+        }
+
+        if (activeMission?.status === "verifying") {
+          // beginPiAgentMissionVerification uses the database clock: a live
+          // owner still raises MISSION_VERIFICATION_BUSY, while an expired or
+          // legacy ownerless claim is fenced and taken over. Return the claim
+          // to candidate_complete before preparing and sealing a fresh subject
+          // hash, so recovery never validates a workspace that changed after
+          // the original candidate receipt.
+          activeMission =
+            await claimRetailPiAgentMissionVerification(activeMission);
+          verificationSessionHolder.current =
+            activeMission.verificationSession ?? null;
+          if (!verificationSessionHolder.current) {
+            throw new Error(
+              "Mission verification takeover did not return a live lease session.",
+            );
+          }
+          await verificationSessionHolder.current.dispose();
+          verificationSessionHolder.current = null;
+          const releasedMission = await readPiAgentMission(
+            activeMission.projectId,
+            activeMission.requestId,
+          );
+          if (
+            !releasedMission ||
+            releasedMission.status !== "candidate_complete"
+          ) {
+            throw new Error(
+              "Mission verification takeover did not return to candidate_complete.",
+            );
+          }
+          activeMission = missionContext(releasedMission, projectPath);
+        }
+
+        const retailValidation = await loadRetailValidation();
+        let candidateReceipt:
+          | Awaited<
+              ReturnType<typeof sealRetailPiAgentMissionCandidate>
+            >["receipt"]
+          | null = null;
+        if (
+          activeMission &&
+          ["repair_required", "candidate_complete"].includes(
+            activeMission.status,
+          )
+        ) {
+          await retailValidation.prepareRetailProjectForValidation({
+            projectId: project_id,
+            projectPath,
+          });
+          if (activeMission.status === "repair_required") {
+            activeMission = missionContext(
+              await markPiAgentMissionRepairing({
+                missionId: activeMission.id,
+                projectId: activeMission.projectId,
+                requestId: activeMission.requestId,
+              }),
+              projectPath,
+            );
+          }
+          const candidate = await capturePlatformMissionCandidate({
+            mission: activeMission,
+            source: "workspace_recovery",
+            summary: "手动验证前，平台基于可信准备后的当前工作区封存恢复候选。",
+          });
+          const sealed = await sealRetailPiAgentMissionCandidate({
+            mission: activeMission,
+            candidate,
+          });
+          activeMission = sealed.mission;
+          activeMission =
+            await claimRetailPiAgentMissionVerification(activeMission);
+          verificationSessionHolder.current =
+            activeMission.verificationSession ?? null;
+          if (!verificationSessionHolder.current) {
+            throw new Error(
+              "Mission verification claim did not return a live lease session.",
+            );
+          }
+          candidateReceipt = sealed.receipt;
+        }
+
+        if (requestId) {
+          await updateRetailGenerationStep({
+            projectPath,
+            projectId: project_id,
+            requestId,
+            stepId: "validation",
+            status: "running",
+            summary: activeMission
+              ? "手动触发 Mission 候选自动验证。"
+              : "手动触发自动验证。",
+            ...(activeMission
+              ? {
+                  metadata: {
+                    missionId: activeMission.id,
+                    generationId: activeMission.generationId,
+                    candidateVersion: activeMission.candidateVersion,
+                    candidateReceiptId: candidateReceipt?.id,
+                  },
+                }
+              : {}),
+          });
+        }
+        const report = await retailValidation.validateRetailProject({
+          projectId: project_id,
+          projectPath,
+          requestId,
+          conversationId,
+          cliSource: "validator",
+        });
+        const repairPlan =
+          await retailValidation.readRetailValidationRepairPlan(projectPath);
+        const failedChecks = report.checks.filter(
+          (check) => check.status === "failed",
+        );
+
+        if (!activeMission) {
+          let preview: Awaited<
+            ReturnType<typeof startPersistentValidatedPreview>
+          > | null = null;
+          if (report.passed) {
+            preview = await startPersistentValidatedPreview({
+              projectId: project_id,
+            });
+            streamManager.publish(project_id, {
+              type: "status",
+              data: {
+                status: "preview_ready",
+                message: "自动验证通过，看板预览已恢复。",
+                requestId,
+                metadata: {
+                  previewUrl: preview.url,
+                  previewPort: preview.port,
+                  validationPassed: true,
+                },
+              },
+            });
+          }
+          if (requestId) {
+            await updateRetailGenerationStep({
+              projectPath,
+              projectId: project_id,
+              requestId,
+              stepId: "validation",
+              status: report.passed ? "success" : "failed",
+              summary: report.passed
+                ? "手动验证通过。"
+                : `手动验证未通过：${failedChecks.length} 项失败。`,
+              ...(report.passed
+                ? {}
+                : {
+                    errorMessage: "手动验证未通过。",
+                    metadata: {
+                      failedChecks: failedChecks.map((check) => ({
+                        id: check.id,
+                        summary: check.summary,
+                      })),
+                    },
+                  }),
+            });
+          }
+
+          return NextResponse.json({
+            success: true,
+            data: report,
+            repairPlan,
+            preview,
+          });
+        }
+
+        await updateRetailGenerationStep({
+          projectPath,
+          projectId: project_id,
+          requestId: activeMission.requestId,
+          stepId: "validation",
+          status: report.passed ? "success" : "failed",
+          summary: report.passed
+            ? "手动验证报告通过，等待持久预览与独立证据验收。"
+            : `手动验证未通过：${failedChecks.length} 项失败。`,
+          ...(report.passed
+            ? {}
+            : {
+                errorMessage: "手动验证未通过。",
+                metadata: {
+                  failedChecks: failedChecks.map((check) => ({
+                    id: check.id,
+                    summary: check.summary,
+                  })),
+                },
+              }),
+        });
+
+        let provisionalPreview: Awaited<
+          ReturnType<typeof startPersistentValidatedPreview>
+        > | null = null;
+        let previewStartError: string | null = null;
+        if (report.passed) {
+          await updateRetailGenerationStep({
+            projectPath,
+            projectId: project_id,
+            requestId: activeMission.requestId,
+            stepId: "preview",
+            status: "running",
+            summary: "验证报告通过，正在启动待验收的持久预览。",
+          });
+          try {
+            provisionalPreview = await startPersistentValidatedPreview({
+              projectId: project_id,
+            });
+            await updateRetailGenerationStep({
+              projectPath,
+              projectId: project_id,
+              requestId: activeMission.requestId,
+              stepId: "preview",
+              status: "success",
+              summary: "持久预览已就绪，等待 EvidenceVerifier 验收。",
+              metadata: {
+                previewUrl: provisionalPreview.url,
+                previewPort: provisionalPreview.port,
+              },
+            });
+          } catch (error) {
+            previewStartError =
+              error instanceof Error ? error.message : String(error);
+            await updateRetailGenerationStep({
+              projectPath,
+              projectId: project_id,
+              requestId: activeMission.requestId,
+              stepId: "preview",
+              status: "failed",
+              summary:
+                "持久预览启动失败，交由 EvidenceVerifier 记录基础设施判定。",
+              errorMessage: previewStartError,
+            });
+          }
+        }
+
+        await updateRetailGenerationStep({
+          projectPath,
+          projectId: project_id,
+          requestId: activeMission.requestId,
+          stepId: "evidence_verification",
+          status: "running",
+          summary: "正在验证候选、报告、产物哈希和持久预览。",
+        });
+
+        let evidence: Awaited<
+          ReturnType<typeof verifyAndRecordRetailPiAgentMission>
+        >;
+        try {
+        evidence = await verifyAndRecordRetailPiAgentMission({
+            mission: activeMission,
+            preview: provisionalPreview
+              ? { url: provisionalPreview.url, port: provisionalPreview.port }
+              : { url: "http://127.0.0.1:1", port: 1 },
+          });
+        } catch (error) {
+          if (provisionalPreview) {
+            await stopProvisionalPreview(project_id).catch((stopError) => {
+              console.error(
+                "[API] Failed to stop provisional preview after evidence error:",
+                stopError,
+              );
+            });
+          }
+          throw error;
+        }
+
+        const accepted = committedAcceptance(evidence);
+        if (evidence.decision.verdict === "accepted" && !accepted) {
+          if (provisionalPreview) {
+            await stopProvisionalPreview(project_id).catch((stopError) => {
+              console.error(
+                "[API] Failed to stop inconsistent accepted preview:",
+                stopError,
+              );
+            });
+          }
+          throw new Error(
+            "EvidenceVerifier returned accepted without a committed acceptance receipt.",
+          );
+        }
+
+        await updateRetailGenerationStep({
+          projectPath,
+          projectId: project_id,
+          requestId: activeMission.requestId,
+          stepId: "evidence_verification",
+          status: accepted ? "success" : "failed",
+          summary: accepted
+            ? "当前候选已获得独立 accepted receipt。"
+            : `证据验收未通过：${evidence.decision.verdict}。`,
+          metadata: {
+            missionId: evidence.mission.id,
+            generationId: evidence.mission.generationId,
+            candidateVersion: evidence.decision.candidateVersion,
+            evidenceReceiptId: evidence.receipt.id,
+            evidenceReceiptSha256: evidence.receipt.receiptHash,
+            verdict: evidence.decision.verdict,
+            reasonCodes: evidence.decision.reasonCodes,
+            failedCheckIds: evidence.decision.failedCheckIds,
+            ...(previewStartError ? { previewStartError } : {}),
+          },
+          ...(accepted
+            ? {}
+            : {
+                errorMessage: `证据验收未通过：${evidence.decision.verdict}。`,
+              }),
+        });
+
+        if (!accepted && provisionalPreview) {
+          await stopProvisionalPreview(project_id).catch((error) => {
+            console.error(
+              "[API] Failed to stop unaccepted provisional preview:",
+              error,
+            );
+          });
+          provisionalPreview = null;
+        }
+
+        if (accepted) {
+          if (!report.passed || !provisionalPreview) {
+            throw new Error(
+              "Mission acceptance requires a passed report and a ready persistent preview.",
+            );
+          }
+          await updateRetailGenerationStep({
+            projectPath,
+            projectId: project_id,
+            requestId: activeMission.requestId,
+            stepId: "completed",
+            status: "success",
+            summary: "手动恢复链路已完成独立证据验收。",
+            runStatus: "completed",
+            metadata: {
+              missionId: evidence.mission.id,
+              generationId: evidence.mission.generationId,
+              candidateVersion: evidence.mission.candidateVersion,
+              acceptedReceiptId: evidence.receipt.id,
+              acceptedReceiptSha256: evidence.receipt.receiptHash,
+              previewUrl: provisionalPreview.url,
+              previewPort: provisionalPreview.port,
+            },
+          });
+          streamManager.publish(project_id, {
+            type: "status",
+            data: {
+              status: "preview_ready",
+              message: "自动验证与独立证据验收通过，看板预览已恢复。",
+              requestId: activeMission.requestId,
+              metadata: {
+                previewUrl: provisionalPreview.url,
+                previewPort: provisionalPreview.port,
+                validationPassed: true,
+                missionId: evidence.mission.id,
+                generationId: evidence.mission.generationId,
+                acceptedReceiptId: evidence.receipt.id,
+                acceptedReceiptSha256: evidence.receipt.receiptHash,
+              },
+            },
+          });
+        }
+
+        return NextResponse.json({
+          success: true,
+          data: report,
+          repairPlan,
+          preview: accepted ? provisionalPreview : null,
+          acceptance: acceptanceProjection(evidence, accepted),
+        });
+      },
+    });
+  } catch (error) {
+    if (error instanceof AuthorizationError) return authErrorResponse(error);
+    if (error instanceof PiAgentGenerationLeaseError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Project generation is busy",
+          code: error.code,
+          message: error.message,
+          activeRequestId: error.activeRequestId,
+          activeStage: error.activeStage,
+        },
+        { status: 409 },
+      );
+    }
+    if (error instanceof PiAgentMissionStateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Mission state conflict",
+          code: error.code,
+          message: error.message,
+        },
+        { status: 409 },
+      );
+    }
+    console.error("[API] Failed to run quant validation:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to run quant validation",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    );
+  } finally {
+    await verificationSessionHolder.current
+      ?.dispose()
+      .catch((error: unknown) => {
+        console.error(
+          "[API] Failed to release manual Mission verification lease:",
+          error,
+        );
+      });
+  }
+}
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";

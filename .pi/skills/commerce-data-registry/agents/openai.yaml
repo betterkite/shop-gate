@@ -1,0 +1,4 @@
+interface:
+  display_name: "零售数据集注册"
+  short_description: "核对数据集窗口、来源、字段质量并选择可审计的经营分析端点"
+  default_prompt: "Use $commerce-data-registry to select the smallest auditable retail dataset and endpoint for this task."

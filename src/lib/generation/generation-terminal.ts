@@ -1,0 +1,255 @@
+import type { PiAgentAcceptedMissionSnapshot } from '@/lib/agent/mission';
+import type { GenerationRunStatus } from '@/lib/generation/generation-state';
+import type { RetailValidationReport } from '@/lib/commerce/retail-validation';
+import type { PreviewInfo } from '@/lib/services/preview';
+
+export type GenerationTerminalStatus =
+  | 'idle'
+  | 'running'
+  | 'answer_ready'
+  | 'preview_pending'
+  | 'needs_revalidation'
+  | 'ready'
+  | 'failed'
+  | 'cancelled'
+  | 'needs_clarification'
+  | 'refused';
+
+export type GenerationTerminalGenerationInput = {
+  projectId?: string;
+  requestId: string;
+  status: GenerationRunStatus;
+  cliPreference?: string | null;
+  steps?: Array<{
+    metadata?: Record<string, unknown>;
+  }>;
+  error?: { message?: string | null } | null;
+} | null;
+
+export type GenerationOutputIntent = 'dashboard' | 'answer';
+
+type GenerationStateInput = GenerationTerminalGenerationInput;
+
+type ValidationReportInput = Pick<
+  RetailValidationReport,
+  'runId' | 'status' | 'passed' | 'checks'
+> | null;
+
+type PreviewInput = Pick<PreviewInfo, 'status' | 'url' | 'port'>;
+
+type AcceptedMissionInput = Pick<
+  PiAgentAcceptedMissionSnapshot,
+  | 'generationId'
+  | 'projectId'
+  | 'requestId'
+  | 'missionStatus'
+  | 'acceptedReceiptId'
+  | 'acceptedReceiptHash'
+  | 'acceptedAt'
+> | null;
+
+export interface GenerationTerminalSnapshot {
+  requestId: string | null;
+  outputIntent: GenerationOutputIntent | null;
+  status: GenerationTerminalStatus;
+  terminal: boolean;
+  validationStatus: 'passed' | 'failed' | 'pending';
+  validationRunId: string | null;
+  validationMatchesCurrentRun: boolean;
+  missionAcceptanceRequired: boolean;
+  missionAcceptanceSatisfied: boolean;
+  acceptedReceiptId: string | null;
+  previewStatus: PreviewInfo['status'];
+  previewUrl: string | null;
+  previewPort: number | null;
+  persistedPreviewUrl: string | null;
+  errorMessage: string | null;
+}
+
+function isValidationReportStale(report: ValidationReportInput): boolean {
+  return Boolean(
+    report?.checks.some((check) => check.id === 'validation_report_stale'),
+  );
+}
+
+function generationIdFromState(
+  generation: GenerationStateInput,
+): string | null {
+  if (!generation?.steps) return null;
+  for (let index = generation.steps.length - 1; index >= 0; index -= 1) {
+    const generationId = generation.steps[index].metadata?.generationId;
+    if (typeof generationId === 'string' && generationId.trim()) {
+      return generationId;
+    }
+  }
+  return null;
+}
+
+export function requiresPiAgentMissionAcceptance(
+  generation: GenerationTerminalGenerationInput,
+  outputIntent: GenerationOutputIntent | null = null,
+): boolean {
+  if (!generation) return false;
+  if (outputIntent === 'answer') return false;
+  // Refusals and other non-delivery terminal states never produce a candidate.
+  // Every state that can expose or recover a preview must prove that the
+  // current PI Agent Mission accepted it. Unknown or incomplete persisted
+  // identity therefore fails closed instead of bypassing the receipt gate.
+  return !['cancelled', 'needs_clarification', 'refused'].includes(
+    generation.status,
+  );
+}
+
+function hasCurrentAcceptedMission(
+  generation: GenerationStateInput,
+  acceptedMission: AcceptedMissionInput,
+): boolean {
+  if (!generation || !acceptedMission) return false;
+  const expectedGenerationId = generationIdFromState(generation);
+  return (
+    acceptedMission.requestId === generation.requestId &&
+    (!generation.projectId ||
+      acceptedMission.projectId === generation.projectId) &&
+    (!expectedGenerationId ||
+      acceptedMission.generationId === expectedGenerationId) &&
+    acceptedMission.missionStatus === 'completed' &&
+    Boolean(
+      acceptedMission.acceptedReceiptId &&
+      acceptedMission.acceptedReceiptHash &&
+      acceptedMission.acceptedAt,
+    )
+  );
+}
+
+/**
+ * Derive the one authoritative user-facing generation state.
+ * A healthy preview is never accepted for a different generation run, and an
+ * Agent/validation success is not terminal until the preview is HTTP-ready.
+ */
+export function deriveGenerationTerminalSnapshot(params: {
+  generation: GenerationStateInput;
+  validation: ValidationReportInput;
+  preview: PreviewInput;
+  acceptedMission?: AcceptedMissionInput;
+  persistedPreviewUrl?: string | null;
+  outputIntent?: GenerationOutputIntent | null;
+}): GenerationTerminalSnapshot {
+  const requestId = params.generation?.requestId ?? null;
+  const outputIntent = params.outputIntent ?? null;
+  const validationRunId = params.validation?.runId ?? null;
+  const validationMatchesCurrentRun = !params.generation
+    ? true
+    : validationRunId
+      ? validationRunId === params.generation.requestId
+      : params.generation.status === 'completed' || params.generation.status === 'failed';
+  const validationStale = isValidationReportStale(params.validation);
+  const validationPassed = Boolean(
+    params.validation &&
+      (params.validation.passed || params.validation.status === 'passed') &&
+      validationMatchesCurrentRun &&
+      !validationStale,
+  );
+  const validationFailed = Boolean(
+    params.validation &&
+      (!params.validation.passed || params.validation.status === 'failed') &&
+      validationMatchesCurrentRun &&
+      !validationStale,
+  );
+  const previewReady =
+    params.preview.status === 'running' && Boolean(params.preview.url);
+  const missionAcceptanceRequired = requiresPiAgentMissionAcceptance(
+    params.generation,
+    outputIntent,
+  );
+  const missionAccepted = hasCurrentAcceptedMission(
+    params.generation,
+    params.acceptedMission ?? null,
+  );
+  const missionAcceptanceSatisfied =
+    !missionAcceptanceRequired || missionAccepted;
+  const acceptedReceiptId = missionAccepted
+    ? (params.acceptedMission?.acceptedReceiptId ?? null)
+    : null;
+  const previewUrl =
+    outputIntent !== 'answer' && validationPassed && previewReady && missionAcceptanceSatisfied
+      ? params.preview.url
+      : null;
+
+  let status: GenerationTerminalStatus = 'idle';
+  if (params.generation?.status === 'cancelled') {
+    status = 'cancelled';
+  } else if (params.generation?.status === 'refused') {
+    status = 'refused';
+  } else if (params.generation?.status === 'needs_clarification') {
+    status = 'needs_clarification';
+  } else if (outputIntent === 'answer') {
+    status = params.generation?.status === 'completed'
+      ? 'answer_ready'
+      : params.generation?.status === 'failed'
+        ? 'failed'
+        : 'running';
+  } else if (
+    params.generation?.status === 'failed' &&
+    missionAcceptanceRequired &&
+    !missionAccepted
+  ) {
+    // A Mission-backed generation cannot be revived from a merely passed
+    // report after its durable Mission failed without an acceptance receipt.
+    status = 'failed';
+  } else if (validationPassed && previewReady && missionAcceptanceSatisfied) {
+    status = 'ready';
+  } else if (validationPassed) {
+    // This also intentionally covers a prior preview-start failure. Reopening
+    // the project can safely retry/adopt the validated preview.
+    status = 'preview_pending';
+  } else if (
+    params.generation?.status === 'completed' &&
+    validationStale
+  ) {
+    // A completed run with subsequently edited artifacts is not still
+    // generating. Surface an explicit maintenance state so the client does
+    // not leave the user on an endless generation animation.
+    status = 'needs_revalidation';
+  } else if (
+    params.generation &&
+    params.validation &&
+    (validationStale || !validationMatchesCurrentRun)
+  ) {
+    status = 'running';
+  } else if (
+    params.generation &&
+    ['pending', 'running', 'repairing'].includes(params.generation.status)
+  ) {
+    // A failed validation report is an intermediate result while the bounded
+    // auto-repair loop is still active. Do not publish a terminal failure and
+    // race the repair that can still produce an accepted candidate.
+    status = 'running';
+  } else if (params.generation?.status === 'failed' || validationFailed) {
+    status = 'failed';
+  }
+
+  return {
+    requestId,
+    outputIntent,
+    status,
+    terminal: ['ready', 'answer_ready', 'needs_revalidation', 'failed', 'cancelled', 'needs_clarification', 'refused'].includes(status),
+    validationStatus: validationPassed
+      ? 'passed'
+      : validationFailed
+        ? 'failed'
+        : 'pending',
+    validationRunId,
+    validationMatchesCurrentRun,
+    missionAcceptanceRequired,
+    missionAcceptanceSatisfied,
+    acceptedReceiptId,
+    previewStatus: params.preview.status,
+    previewUrl,
+    previewPort:
+      outputIntent !== 'answer' && validationPassed && previewReady && missionAcceptanceSatisfied
+        ? params.preview.port
+        : null,
+    persistedPreviewUrl: params.persistedPreviewUrl ?? null,
+    errorMessage: params.generation?.error?.message ?? null,
+  };
+}

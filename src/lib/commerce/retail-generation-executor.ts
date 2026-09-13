@@ -1,0 +1,537 @@
+import type {
+  DataAgentGenerationEnvelope,
+  DataAgentGenerationHandler,
+  DataAgentGenerationJobInput,
+  ProcessedDataAgentImageAttachment,
+} from "@/lib/data-agent";
+import {
+  assertManagedWorkspaceExists,
+  resolveManagedWorkspacePath,
+} from "@/lib/data-agent";
+import {
+  capturePlatformMissionCandidate,
+  loadPiAgentMissionContext,
+} from "@/lib/services/pi-agent-mission-control";
+import {
+  failPiAgentMission,
+  readPiAgentMissionSpec,
+} from "@/lib/services/pi-agent-mission-store";
+import { getProjectById, updateProjectActivity } from "@/lib/services/project";
+import { createWorkspaceProgressPublisher } from "@/lib/generation/workspace-progress";
+import { updateRetailGenerationStep } from "@/lib/generation/generation-state";
+import {
+  readRetailRunPlan,
+  type RetailRunPlan,
+} from "@/lib/domains/retail/workspace";
+import type { PiAgentMissionSpec } from "@/lib/agent/mission";
+import {
+  exposePersonalization,
+  type PersonalizationRecallResult,
+} from "@/lib/platform/memory";
+import { type GovernedKnowledgePreparation } from "@/lib/platform/knowledge";
+import { getProjectIntegrationScope } from "@/lib/platform/context/integration-scope";
+import { recordContextExposure } from "@/lib/platform/context/use-manifest";
+import { streamManager } from "@/lib/services/stream";
+import { markUserRequestAsFailed } from "@/lib/services/user-requests";
+import { runValidationAfterExecution } from "@/lib/generation/generation-validation";
+import {
+  RETAIL_AGENT_PROFILE_ID,
+} from "@/lib/domains/retail/agent-profile";
+import { getApplicationDataAgentCatalog } from "@/lib/generation/data-agent-application";
+
+export interface RetailGenerationPayload {
+  effectiveInstruction: string;
+  userVisibleInstructionForRepair: string;
+  selectedModel: string;
+  cliPreference: "pi";
+  isInitialPrompt: boolean;
+  conversationId: string | null;
+  actorUserId: string | null;
+  memorySubjectId: string;
+  processedImages: ProcessedDataAgentImageAttachment[];
+  usePrefetchedSelectionDashboard: boolean;
+  missionId: string;
+  generationId: string;
+  governedKnowledgeTaskCategory: string;
+  personalizationRecall: PersonalizationRecallResult;
+  governedKnowledgePreparation: GovernedKnowledgePreparation;
+}
+
+type CliRuntime = typeof import("@/lib/services/cli/pi-agent");
+
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function requiredString(value: unknown, label: string, max = 100_000): string {
+  if (typeof value !== "string" || !value.trim() || value.length > max) {
+    throw new Error(`${label} must be a non-empty bounded string.`);
+  }
+  return value;
+}
+
+function nullableString(value: unknown, label: string): string | null {
+  if (value === null || value === undefined) return null;
+  return requiredString(value, label, 512);
+}
+
+function imageAttachments(value: unknown): ProcessedDataAgentImageAttachment[] {
+  if (!Array.isArray(value) || value.length > 8) {
+    throw new Error(
+      "processedImages must be an array with at most eight entries.",
+    );
+  }
+  return value.map((item, index) => {
+    const image = record(item, `processedImages[${index}]`);
+    const size = Number(image.size);
+    if (!Number.isSafeInteger(size) || size < 0) {
+      throw new Error(
+        `processedImages[${index}].size must be a non-negative integer.`,
+      );
+    }
+    return {
+      name: requiredString(image.name, `processedImages[${index}].name`, 512),
+      path: requiredString(image.path, `processedImages[${index}].path`, 4_096),
+      url: requiredString(image.url, `processedImages[${index}].url`, 4_096),
+      publicUrl: requiredString(
+        image.publicUrl,
+        `processedImages[${index}].publicUrl`,
+        4_096,
+      ),
+      mimeType: requiredString(
+        image.mimeType,
+        `processedImages[${index}].mimeType`,
+        128,
+      ),
+      size,
+    };
+  });
+}
+
+function personalizationRecall(value: unknown): PersonalizationRecallResult {
+  const recall = record(value, "personalizationRecall");
+  if (
+    !["disabled", "opted_out", "unavailable", "empty", "prepared"].includes(
+      String(recall.status),
+    )
+  ) {
+    throw new Error("personalizationRecall.status is invalid.");
+  }
+  if (
+    !Number.isSafeInteger(recall.exposedMemoryCount) ||
+    Number(recall.exposedMemoryCount) < 0
+  ) {
+    throw new Error(
+      "personalizationRecall.exposedMemoryCount must be a non-negative integer.",
+    );
+  }
+  if (recall.capsule !== null)
+    record(recall.capsule, "personalizationRecall.capsule");
+  if (recall.preparedUse !== null)
+    record(recall.preparedUse, "personalizationRecall.preparedUse");
+  if (
+    recall.status === "prepared" &&
+    (recall.capsule === null ||
+      recall.preparedUse === null ||
+      Number(recall.exposedMemoryCount) === 0)
+  ) {
+    throw new Error(
+      "Prepared personalization recall requires a capsule, prepared use, and exposed memory.",
+    );
+  }
+  return recall as unknown as PersonalizationRecallResult;
+}
+
+function governedKnowledgePreparation(
+  value: unknown,
+): GovernedKnowledgePreparation {
+  const preparation = record(value, "governedKnowledgePreparation");
+  if (
+    !["disabled", "unavailable", "empty", "prepared"].includes(
+      String(preparation.status),
+    )
+  ) {
+    throw new Error("governedKnowledgePreparation.status is invalid.");
+  }
+  if (
+    !Number.isSafeInteger(preparation.passageCount) ||
+    Number(preparation.passageCount) < 0
+  ) {
+    throw new Error(
+      "governedKnowledgePreparation.passageCount must be a non-negative integer.",
+    );
+  }
+  if (
+    !Number.isSafeInteger(preparation.citationCount) ||
+    Number(preparation.citationCount) < 0
+  ) {
+    throw new Error(
+      "governedKnowledgePreparation.citationCount must be a non-negative integer.",
+    );
+  }
+  if (preparation.capsule !== null)
+    record(preparation.capsule, "governedKnowledgePreparation.capsule");
+  if (
+    preparation.status === "prepared" &&
+    (preparation.capsule === null || Number(preparation.citationCount) === 0)
+  ) {
+    throw new Error(
+      "Prepared governed knowledge requires a capsule and citations.",
+    );
+  }
+  return preparation as unknown as GovernedKnowledgePreparation;
+}
+
+export function createRetailGenerationEnvelope(
+  payload: RetailGenerationPayload,
+  input: {
+    projectId: string;
+    requestId: string;
+    capabilityId: string;
+  },
+): DataAgentGenerationEnvelope<RetailGenerationPayload> {
+  const application = getApplicationDataAgentCatalog().resolve(
+    RETAIL_AGENT_PROFILE_ID,
+    input.capabilityId,
+  );
+  const integrationScope = getProjectIntegrationScope(input.projectId);
+  return {
+    schemaVersion: 3,
+    kind: "data-agent.generation",
+    composition: application.composition,
+    scope: {
+      schemaVersion: 1,
+      consumerId: integrationScope.consumerId,
+      tenantId: integrationScope.memory.tenantId,
+      projectId: input.projectId,
+      workspaceId: input.projectId,
+      requestId: input.requestId,
+      agentProfileId: application.profile.id,
+      domainPackIds: application.domainPacks.map((pack) => pack.id),
+      integrationScopeSha256: integrationScope.scopeSha256,
+    },
+    payload,
+  };
+}
+
+export function parseRetailGenerationEnvelope(
+  envelope: DataAgentGenerationEnvelope,
+): RetailGenerationPayload {
+  const application = getApplicationDataAgentCatalog().resolve(
+    envelope.composition.profile.id,
+    envelope.composition.capability.id,
+  );
+  if (
+    application.profile.id !== RETAIL_AGENT_PROFILE_ID ||
+    application.composition.sha256 !== envelope.composition.sha256 ||
+    application.composition.profile.version !== envelope.composition.profile.version ||
+    application.composition.deliveryPack.id !== envelope.composition.deliveryPack.id ||
+    application.composition.deliveryPack.version !== envelope.composition.deliveryPack.version ||
+    JSON.stringify(application.composition.domainPacks) !==
+      JSON.stringify(envelope.composition.domainPacks) ||
+    envelope.scope.agentProfileId !== application.profile.id ||
+    JSON.stringify(envelope.scope.domainPackIds) !==
+      JSON.stringify(application.domainPacks.map((pack) => pack.id))
+  ) {
+    throw new Error(
+      "Retail generation composition does not match the registered profile.",
+    );
+  }
+  const payload = record(envelope.payload, "retail generation payload");
+  if (payload.cliPreference !== "pi") {
+    throw new Error("Retail generation only supports the PI Agent runtime.");
+  }
+  if (typeof payload.isInitialPrompt !== "boolean") {
+    throw new Error("isInitialPrompt must be a boolean.");
+  }
+  if (typeof payload.usePrefetchedSelectionDashboard !== "boolean") {
+    throw new Error("usePrefetchedSelectionDashboard must be a boolean.");
+  }
+  return {
+    effectiveInstruction: requiredString(
+      payload.effectiveInstruction,
+      "effectiveInstruction",
+    ),
+    userVisibleInstructionForRepair: requiredString(
+      payload.userVisibleInstructionForRepair,
+      "userVisibleInstructionForRepair",
+    ),
+    selectedModel: requiredString(payload.selectedModel, "selectedModel", 512),
+    cliPreference: "pi",
+    isInitialPrompt: payload.isInitialPrompt,
+    conversationId: nullableString(payload.conversationId, "conversationId"),
+    actorUserId: nullableString(payload.actorUserId, "actorUserId"),
+    memorySubjectId: requiredString(
+      payload.memorySubjectId,
+      "memorySubjectId",
+      512,
+    ),
+    processedImages: imageAttachments(payload.processedImages),
+    usePrefetchedSelectionDashboard: payload.usePrefetchedSelectionDashboard,
+    missionId: requiredString(payload.missionId, "missionId", 512),
+    generationId: requiredString(payload.generationId, "generationId", 512),
+    governedKnowledgeTaskCategory: requiredString(
+      payload.governedKnowledgeTaskCategory,
+      "governedKnowledgeTaskCategory",
+      512,
+    ),
+    personalizationRecall: personalizationRecall(payload.personalizationRecall),
+    governedKnowledgePreparation: governedKnowledgePreparation(
+      payload.governedKnowledgePreparation,
+    ),
+  };
+}
+
+function sameVersionedRefs(
+  left: Array<{ id: string; version: string }>,
+  right: Array<{ id: string; version: string }>,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function assertRetailGenerationComposition(input: {
+  envelope: DataAgentGenerationEnvelope;
+  runPlan: RetailRunPlan;
+  missionSpec: PiAgentMissionSpec;
+}): void {
+  const { envelope, runPlan, missionSpec } = input;
+  const composition = envelope.composition;
+  const selectedCapabilityId =
+    runPlan.requestedCapabilityId ?? runPlan.capabilityId;
+
+  if (
+    runPlan.composition.sha256 !== composition.sha256 ||
+    selectedCapabilityId !== composition.capability.id
+  ) {
+    throw new Error(
+      "Retail run plan composition does not match the dispatch envelope.",
+    );
+  }
+  if (
+    missionSpec.projectId !== envelope.scope.projectId ||
+    missionSpec.requestId !== envelope.scope.requestId ||
+    missionSpec.runPlanId !== runPlan.runId ||
+    missionSpec.capabilityId !== composition.capability.id ||
+    missionSpec.composition.profileId !== composition.profile.id ||
+    missionSpec.composition.profileVersion !== composition.profile.version ||
+    missionSpec.composition.deliveryPackId !== composition.deliveryPack.id ||
+    missionSpec.composition.deliveryPackVersion !==
+      composition.deliveryPack.version ||
+    missionSpec.composition.compositionSha256 !== composition.sha256 ||
+    !sameVersionedRefs(
+      missionSpec.composition.domainPacks,
+      composition.domainPacks,
+    )
+  ) {
+    throw new Error(
+      "PI Agent Mission composition does not match the dispatch envelope.",
+    );
+  }
+}
+
+async function executeRetailGeneration(
+  job: DataAgentGenerationJobInput,
+): Promise<void> {
+  const envelope = job.executionEnvelope as DataAgentGenerationEnvelope;
+  const payload = parseRetailGenerationEnvelope(envelope);
+  if (
+    envelope.scope.projectId !== job.projectId ||
+    envelope.scope.workspaceId !== job.projectId ||
+    envelope.scope.requestId !== job.requestId
+  ) {
+    throw new Error("Generation job identity does not match the durable Data Agent scope.");
+  }
+  if (job.selectedModel && job.selectedModel !== payload.selectedModel) {
+    throw new Error(
+      "Selected model does not match the durable retail payload.",
+    );
+  }
+  const project = await getProjectById(job.projectId);
+  if (!project) throw new Error("Generation project does not exist.");
+  if (
+    project.agentProfileId !== envelope.composition.profile.id ||
+    project.agentProfileVersion !== envelope.composition.profile.version ||
+    project.dataAgentCompositionSha256 !== envelope.composition.sha256
+  ) {
+    throw new Error("Generation project composition does not match the dispatch envelope.");
+  }
+  const integrationScope = getProjectIntegrationScope(job.projectId);
+  if (
+    integrationScope.scopeSha256 !== envelope.scope.integrationScopeSha256 ||
+    integrationScope.consumerId !== envelope.scope.consumerId ||
+    integrationScope.memory.tenantId !== envelope.scope.tenantId
+  ) {
+    throw new Error("Generation integration scope changed after dispatch.");
+  }
+  const workspace = await assertManagedWorkspaceExists(
+    job.projectId,
+    project.repoPath,
+  );
+  const mission = await loadPiAgentMissionContext({
+    projectId: job.projectId,
+    projectPath: workspace,
+    requestId: job.requestId,
+    missionId: payload.missionId,
+    generationId: payload.generationId,
+  });
+  const runPlan = await readRetailRunPlan(workspace);
+  if (!runPlan || runPlan.status !== "planned" || !runPlan.capabilityId) {
+    throw new Error(
+      "A planned Retail run plan is required before worker execution.",
+    );
+  }
+  const missionSpec = await readPiAgentMissionSpec({
+    missionId: mission.id,
+    projectId: job.projectId,
+    requestId: job.requestId,
+  });
+  assertRetailGenerationComposition({
+    envelope,
+    runPlan,
+    missionSpec,
+  });
+  const relatedAgentRequestIds = new Set<string>([job.requestId]);
+  const outputIntent = runPlan.queryRewrite?.outputIntent ?? "dashboard";
+  const publishWorkspaceProgress = createWorkspaceProgressPublisher({
+    projectId: job.projectId,
+    requestId: job.requestId,
+    conversationId: payload.conversationId,
+    cliSource: payload.cliPreference,
+    relatedAgentRequestIds,
+  });
+  const personalization = await exposePersonalization({
+    projectId: job.projectId,
+    actorUserId: payload.memorySubjectId,
+    requestId: job.requestId,
+    recall: payload.personalizationRecall,
+  });
+  const governedKnowledge = payload.usePrefetchedSelectionDashboard
+    ? null
+    : payload.governedKnowledgePreparation.capsule;
+  await recordContextExposure({
+    projectPath: workspace,
+    projectId: job.projectId,
+    requestId: job.requestId,
+    integrationScope,
+    memory: personalization,
+    knowledge: governedKnowledge,
+  });
+  await updateProjectActivity(job.projectId);
+  const cliRuntime: CliRuntime = await import("@/lib/services/cli/pi-agent");
+
+  await runValidationAfterExecution({
+    execution: (async () => {
+      await updateRetailGenerationStep({
+        projectPath: workspace,
+        projectId: job.projectId,
+        requestId: job.requestId,
+        stepId: "agent_execution",
+        status: "running",
+        summary: payload.usePrefetchedSelectionDashboard
+          ? "平台已完成零售数据预取和标准看板生成，跳过 Agent 生成。"
+          : payload.isInitialPrompt
+            ? "开始初始化并生成工作空间。"
+            : "开始让 Agent 修改工作空间。",
+      });
+      if (payload.usePrefetchedSelectionDashboard) {
+        streamManager.publish(job.projectId, {
+          type: "status",
+          data: {
+            status: "prefetched_selection_dashboard_ready",
+            message:
+              "已基于本地 commerce-data 接口和数据库数据生成标准零售看板，正在进入自动验证。",
+            requestId: job.requestId,
+          },
+        });
+        return capturePlatformMissionCandidate({
+          mission,
+          source: "platform_prefetch",
+          sourceRequestId: job.requestId,
+          summary: "平台已基于预取数据生成确定性零售看板候选。",
+        });
+      }
+      if (payload.isInitialPrompt) {
+        return cliRuntime.initializeNextJsProject(
+          job.projectId,
+          workspace,
+          payload.effectiveInstruction,
+          payload.selectedModel,
+          job.requestId,
+          personalization,
+          governedKnowledge,
+        );
+      }
+      return cliRuntime.applyChanges(
+        job.projectId,
+        workspace,
+        payload.effectiveInstruction,
+        payload.selectedModel,
+        job.requestId,
+        payload.processedImages,
+        personalization,
+        governedKnowledge,
+      );
+    })(),
+    repairExecutor: cliRuntime.applyRepairChanges,
+    mission,
+    projectId: job.projectId,
+    projectPath: workspace,
+    instruction: payload.userVisibleInstructionForRepair,
+    selectedModel: payload.selectedModel,
+    requestId: job.requestId,
+    actorUserId: payload.actorUserId,
+    conversationId: payload.conversationId,
+    cliSource: payload.cliPreference,
+    agentExecutionSuccessSummary: payload.usePrefetchedSelectionDashboard
+      ? "平台已完成本地零售数据预取和标准看板生成，跳过 Agent 生成并进入自动验证。"
+      : undefined,
+    outputIntent,
+    governedKnowledge,
+    governedKnowledgePreparation: payload.governedKnowledgePreparation,
+    governedKnowledgeTaskCategory: payload.governedKnowledgeTaskCategory,
+    publishWorkspaceProgress,
+    relatedAgentRequestIds,
+  });
+}
+
+export const RETAIL_GENERATION_HANDLER: DataAgentGenerationHandler = {
+  profileId: RETAIL_AGENT_PROFILE_ID,
+  async execute(job) {
+    const envelope = job.executionEnvelope as DataAgentGenerationEnvelope;
+    const payload = parseRetailGenerationEnvelope(envelope);
+    try {
+      await executeRetailGeneration(job);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const project = await getProjectById(job.projectId).catch(() => null);
+      const workspace = resolveManagedWorkspacePath(
+        job.projectId,
+        project?.repoPath,
+      );
+      await Promise.allSettled([
+        failPiAgentMission({
+          missionId: payload.missionId,
+          projectId: job.projectId,
+          requestId: job.requestId,
+          code: "GENERATION_WORKER_FAILED",
+          message,
+        }),
+        updateRetailGenerationStep({
+          projectPath: workspace,
+          projectId: job.projectId,
+          requestId: job.requestId,
+          stepId: "agent_execution",
+          status: "failed",
+          summary: `独立生成 Worker 执行失败：${message}`,
+          runStatus: "failed",
+          errorMessage: message,
+        }),
+        markUserRequestAsFailed(job.projectId, job.requestId, message),
+      ]);
+      throw error;
+    }
+  },
+};

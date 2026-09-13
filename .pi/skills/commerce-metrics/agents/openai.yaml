@@ -1,0 +1,4 @@
+interface:
+  display_name: "经营指标计算"
+  short_description: "计算漏斗转化GMV库销比动销率和商品经营趋势指标与口径"
+  default_prompt: "Use $commerce-metrics to compute deterministic retail operating metrics with clear formulas and limits."

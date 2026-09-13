@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "defaultMemberProfile": "member-default",
+  "actions": {
+    "project.create": {
+      "scope": "account",
+      "description": "Create a project"
+    },
+    "project.read": {
+      "scope": "project",
+      "description": "Read project metadata and ordinary outputs"
+    },
+    "project.update": {
+      "scope": "project",
+      "description": "Update project metadata and settings"
+    },
+    "project.delete": {
+      "scope": "project",
+      "description": "Delete a project"
+    },
+    "project.members.manage": {
+      "scope": "project",
+      "description": "Manage project memberships"
+    },
+    "project.source.read": {
+      "scope": "project",
+      "description": "Read non-secret project source files"
+    },
+    "project.source.write": {
+      "scope": "project",
+      "description": "Modify project source files"
+    },
+    "project.secrets.read": {
+      "scope": "project",
+      "description": "Read project secrets"
+    },
+    "project.secrets.write": {
+      "scope": "project",
+      "description": "Create, update, or delete project secrets"
+    },
+    "project.services.read": {
+      "scope": "project",
+      "description": "Read project service status and metadata"
+    },
+    "project.services.manage": {
+      "scope": "project",
+      "description": "Manage project services and external integrations"
+    },
+    "project.deploy": {
+      "scope": "project",
+      "description": "Deploy a project to an external runtime"
+    },
+    "agent.run": {
+      "scope": "project",
+      "description": "Start an agent run"
+    },
+    "agent.cancel": {
+      "scope": "project",
+      "description": "Cancel an agent run"
+    },
+    "commerce.data.read": {
+      "scope": "account",
+      "description": "Query commerce data sources"
+    },
+    "commerce.query.rewrite.llm": {
+      "scope": "account",
+      "description": "Use an LLM to rewrite a commerce query"
+    },
+    "commerce.operation.run": {
+      "scope": "account",
+      "description": "Run a commerce operation"
+    },
+    "commerce.operation.manage": {
+      "scope": "account",
+      "description": "Create or modify commerce operations"
+    },
+    "operations.brief.read": {
+      "scope": "account",
+      "description": "Read operations briefs"
+    },
+    "operations.brief.run": {
+      "scope": "account",
+      "description": "Generate operations briefs"
+    },
+    "operations.brief.send": {
+      "scope": "account",
+      "description": "Send or publish operations briefs"
+    },
+    "platform.users.manage": {
+      "scope": "platform",
+      "description": "Manage platform users and sessions"
+    },
+    "platform.quotas.manage": {
+      "scope": "platform",
+      "description": "Manage quota policies and user quota overrides"
+    },
+    "platform.audit.read": {
+      "scope": "platform",
+      "description": "Read the security audit log"
+    },
+    "platform.observability.read": {
+      "scope": "platform",
+      "description": "Read platform-wide operational telemetry"
+    },
+    "platform.settings.manage": {
+      "scope": "platform",
+      "description": "Manage platform-wide settings"
+    },
+    "platform.tokens.manage": {
+      "scope": "platform",
+      "description": "Manage platform-wide provider tokens"
+    }
+  },
+  "profiles": {
+    "member-default": {
+      "name": "Standard researcher",
+      "allow": [
+        "project.create",
+        "project.read",
+        "project.update",
+        "project.delete",
+        "project.members.manage",
+        "project.source.read",
+        "project.source.write",
+        "project.secrets.read",
+        "project.secrets.write",
+        "project.services.read",
+        "project.services.manage",
+        "project.deploy",
+        "agent.run",
+        "agent.cancel",
+        "commerce.data.read",
+        "commerce.query.rewrite.llm",
+        "commerce.operation.run",
+        "operations.brief.read",
+        "operations.brief.run"
+      ],
+      "deny": []
+    },
+    "standard-researcher": {
+      "name": "Standard researcher",
+      "allow": [
+        "project.create",
+        "project.read",
+        "project.update",
+        "project.delete",
+        "project.members.manage",
+        "project.source.read",
+        "project.source.write",
+        "project.secrets.read",
+        "project.secrets.write",
+        "project.services.read",
+        "project.services.manage",
+        "project.deploy",
+        "agent.run",
+        "agent.cancel",
+        "commerce.data.read",
+        "commerce.query.rewrite.llm",
+        "commerce.operation.run",
+        "commerce.operation.manage",
+        "operations.brief.read",
+        "operations.brief.run",
+        "operations.brief.send"
+      ],
+      "deny": []
+    },
+    "readonly-default": {
+      "name": "Read only",
+      "allow": [
+        "project.read",
+        "project.source.read",
+        "commerce.data.read",
+        "operations.brief.read"
+      ],
+      "deny": []
+    },
+    "read-only": {
+      "name": "Read only",
+      "allow": [
+        "project.read",
+        "project.source.read",
+        "commerce.data.read",
+        "operations.brief.read"
+      ],
+      "deny": []
+    }
+  },
+  "projectRoles": {
+    "viewer": {
+      "allow": [
+        "project.read",
+        "project.source.read",
+        "project.services.read"
+      ],
+      "deny": []
+    },
+    "editor": {
+      "allow": [
+        "project.read",
+        "project.update",
+        "project.source.read",
+        "project.source.write",
+        "project.services.read",
+        "agent.run",
+        "agent.cancel"
+      ],
+      "deny": []
+    },
+    "owner": {
+      "allow": [
+        "project.read",
+        "project.update",
+        "project.delete",
+        "project.members.manage",
+        "project.source.read",
+        "project.source.write",
+        "project.secrets.read",
+        "project.secrets.write",
+        "project.services.read",
+        "project.services.manage",
+        "project.deploy",
+        "agent.run",
+        "agent.cancel"
+      ],
+      "deny": []
+    }
+  }
+}

@@ -1,0 +1,50 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# production
+dist/
+build/
+!scripts/build/
+!scripts/build/**
+
+# local env files
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# local app data
+data/
+prisma/data/
+public/uploads/
+public/generated/
+tmp/
+test-results/
+playwright-report/
+coverage/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# generated caches
+*.tsbuildinfo
+.eslintcache
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# electron packaging
+release/

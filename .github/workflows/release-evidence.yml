@@ -1,0 +1,105 @@
+name: Release Evidence Gate
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+  workflow_call:
+    secrets:
+      DEEPSEEK_API_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    name: Current-build PiAgent release evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      SHOPGATE_RELEASE_EVIDENCE_MODEL: deepseek-v4-flash
+      DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
+      REDIS_URL: redis://127.0.0.1:36380/0
+      SHOPGATE_COMMERCE_API_URL: http://127.0.0.1:8000
+      PROJECTS_DIR: ./tmp/release-evidence-projects
+      SHOPGATE_EVAL_MODE: e2e
+      SHOPGATE_EVAL_TRIGGER: release
+      PI_AGENT_BUILD_REVISION: ${{ github.sha }}
+      PI_AGENT_MAX_TURNS: '3'
+      PI_AGENT_TIMEOUT_MS: '900000'
+      PI_AGENT_E2E_MAX_TURNS_PER_CASE: '12'
+      PI_AGENT_E2E_MAX_CACHE_MISS_INPUT_TOKENS_PER_CASE: '84000'
+      PI_AGENT_E2E_MAX_UNEXPECTED_TOOL_FAILURES: '0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Require release evaluation secret
+        shell: bash
+        run: |
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "::error::DEEPSEEK_API_KEY is required; release evidence cannot be skipped."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          uv sync --project services/commerce-data --locked --all-groups
+          npm run prisma:generate
+
+      - name: Start release evidence infrastructure
+        run: |
+          docker compose up -d --wait timescaledb redis
+          npm run db:init
+          mkdir -p tmp
+          npm run dev:commerce > tmp/release-commerce.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -100 tmp/release-commerce.log
+          exit 1
+
+      - name: Enforce complete release evidence gate
+        run: npm run release:check:evidence
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-evidence-${{ github.run_id }}-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 90
+          path: |
+            tmp/shopgate-benchmark-reports/
+            tmp/shopgate-benchmark-screenshots/
+            tmp/shopgate-eval-mutations/
+            tmp/visual-checks/
+            tmp/release-commerce.log
+
+      - name: Stop infrastructure
+        if: always()
+        run: docker compose down -v

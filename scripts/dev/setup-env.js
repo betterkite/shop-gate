@@ -1,0 +1,458 @@
+#!/usr/bin/env node
+
+/**
+ * 开发环境初始化脚本。
+ * - 确保 .env 和 .env.local 存在
+ * - 主应用默认优先使用 3000 端口
+ * - 同步 NEXT_PUBLIC_APP_URL、PORT、WEB_PORT 等本地配置
+ */
+
+const fs = require('fs');
+const path = require('path');
+const net = require('net');
+const crypto = require('crypto');
+
+const rootDir = path.join(__dirname, '..', '..');
+const envFile = path.join(rootDir, '.env');
+const envLocalFile = path.join(rootDir, '.env.local');
+const rootDataDir = path.join(rootDir, 'data');
+const projectsDir = path.join(rootDataDir, 'projects');
+const defaultDatabaseUrl =
+  '"postgresql://shopgate:shopgate_dev_password@127.0.0.1:5432/shopgate?schema=public"';
+
+const MAX_PORT = 65_535;
+// Preview servers (per-project) dynamic pool
+const FALLBACK_PORT_START = 4_100;
+const FALLBACK_PORT_END = 4_999;
+const DEFAULT_RANGE_SPAN = FALLBACK_PORT_END - FALLBACK_PORT_START;
+// Shop Gate 主应用默认端口，扫描范围避开生成项目预览端口池
+const DEFAULT_WEB_PORT = 3_000;
+const DEFAULT_WEB_SCAN_SPAN = 99; // scan up to 3099 at most
+const DEFAULT_WEB_MAX = DEFAULT_WEB_PORT + DEFAULT_WEB_SCAN_SPAN;
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function readFileSafe(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function writeFileSafe(filePath, contents) {
+  if (!contents.endsWith('\n')) {
+    contents += '\n';
+  }
+  fs.writeFileSync(filePath, contents, 'utf8');
+}
+
+function upsertEnvValue(contents, key, value) {
+  const pattern = new RegExp(`^${escapeRegExp(key)}=.*$`, 'm');
+  if (pattern.test(contents)) {
+    return contents.replace(pattern, `${key}=${value}`);
+  }
+
+  if (contents.length && !contents.endsWith('\n')) {
+    contents += '\n';
+  }
+
+  return contents + `${key}=${value}\n`;
+}
+
+function normalizeGeneratedEnvValue(value) {
+  const normalized = String(value);
+  const first = normalized[0];
+  const last = normalized[normalized.length - 1];
+  if (normalized.length >= 2 && (first === '"' || first === "'") && last === first) {
+    return normalized.slice(1, -1);
+  }
+  return normalized;
+}
+
+function applyRuntimeEnvUpdates(updates, { overwrite = true, target = process.env } = {}) {
+  for (const [key, value] of Object.entries(updates)) {
+    if (!overwrite && target[key] !== undefined) continue;
+    target[key] = normalizeGeneratedEnvValue(value);
+  }
+}
+
+function hasEnvKey(contents, key) {
+  if (!contents) return false;
+  const pattern = new RegExp(`^${escapeRegExp(key)}=`, 'm');
+  return pattern.test(contents);
+}
+
+function isValidEncryptionKey(value) {
+  return /^[0-9a-f]{64}$/i.test(value);
+}
+
+function readEnvRawValue(contents, key) {
+  if (!contents) return '';
+  const pattern = new RegExp(`^${escapeRegExp(key)}=["']?([^"'\\n]+)["']?$`, 'm');
+  const match = contents.match(pattern);
+  return match ? match[1] : '';
+}
+
+function shouldSetPostgresDatabaseUrl(contents) {
+  const current = readEnvRawValue(contents, 'DATABASE_URL');
+  if (!current) return true;
+  return !current.startsWith('postgresql://') && !current.startsWith('postgres://');
+}
+
+function ensureDirectory(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function extractPort(contents, keys) {
+  for (const key of keys) {
+    const pattern = new RegExp(
+      `^${escapeRegExp(key)}=["']?([0-9]{2,5})["']?$`,
+      'm'
+    );
+    const match = contents.match(pattern);
+    if (match) {
+      const port = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(port) && port > 0 && port <= MAX_PORT) {
+        return port;
+      }
+    }
+  }
+  return null;
+}
+
+function parsePortValue(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isNaN(numeric) || numeric <= 0 || numeric > MAX_PORT) {
+    return null;
+  }
+  return numeric;
+}
+
+function checkPort(host, port) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    const cleanup = (available) => {
+      socket.removeAllListeners();
+      try {
+        socket.end();
+        socket.destroy();
+      } catch (_) {
+        // no-op
+      }
+      resolve(available);
+    };
+
+    socket.once('connect', () => cleanup(false));
+    socket.once('error', () => cleanup(true));
+    socket.setTimeout(500, () => cleanup(true));
+  });
+}
+
+async function isPortAvailable(port) {
+  const results = await Promise.allSettled([
+    checkPort('127.0.0.1', port),
+    checkPort('::1', port),
+  ]);
+
+  // Treat IPv6 errors (e.g., not supported) as available
+  return results.every((result) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    return true;
+  });
+}
+
+async function findAvailablePort(rangeStart, rangeEnd, preferredPort) {
+  if (rangeStart > rangeEnd) {
+    throw new Error(
+      `Invalid port range: start ${rangeStart} is greater than end ${rangeEnd}.`
+    );
+  }
+
+  const normalizedPreferred = Math.min(
+    Math.max(preferredPort ?? rangeStart, rangeStart),
+    rangeEnd
+  );
+
+  for (let port = normalizedPreferred; port <= rangeEnd; port += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const available = await isPortAvailable(port);
+    if (available) {
+      return port;
+    }
+  }
+
+  for (let port = rangeStart; port < normalizedPreferred; port += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const available = await isPortAvailable(port);
+    if (available) {
+      return port;
+    }
+  }
+
+  throw new Error(
+    `Could not find an available port between ${rangeStart} and ${rangeEnd}.`
+  );
+}
+
+async function ensureEnvironment(options = {}) {
+  console.log('🔧 Setting up development environment...');
+
+  const {
+    preferredPort: preferredOverride,
+    enableAuth: enableAuthOverride = false,
+  } = options ?? {};
+
+  let envContents = readFileSafe(envFile);
+  const envLocalContentsRaw = readFileSafe(envLocalFile);
+
+  // Ensure required directories/files exist
+  ensureDirectory(rootDataDir);
+  ensureDirectory(projectsDir);
+
+  const envDefaults = {};
+  if (shouldSetPostgresDatabaseUrl(envContents)) {
+    envDefaults.DATABASE_URL = defaultDatabaseUrl;
+  }
+  if (!hasEnvKey(envContents, 'TIMESCALEDB_IMAGE')) {
+    envDefaults.TIMESCALEDB_IMAGE = '"timescale/timescaledb:2.27.1-pg18"';
+  }
+  if (!hasEnvKey(envContents, 'POSTGRES_DB')) {
+    envDefaults.POSTGRES_DB = '"shopgate"';
+  }
+  if (!hasEnvKey(envContents, 'POSTGRES_USER')) {
+    envDefaults.POSTGRES_USER = '"shopgate"';
+  }
+  if (!hasEnvKey(envContents, 'POSTGRES_PASSWORD')) {
+    envDefaults.POSTGRES_PASSWORD = '"shopgate_dev_password"';
+  }
+  if (!hasEnvKey(envContents, 'POSTGRES_PORT')) {
+    envDefaults.POSTGRES_PORT = '5432';
+  }
+  if (!hasEnvKey(envContents, 'REDIS_URL')) {
+    envDefaults.REDIS_URL = '"redis://127.0.0.1:6379/0"';
+  }
+  if (!hasEnvKey(envContents, 'REDIS_IMAGE')) {
+    envDefaults.REDIS_IMAGE = '"redis:8-alpine"';
+  }
+  if (!hasEnvKey(envContents, 'REDIS_PORT')) {
+    envDefaults.REDIS_PORT = '6379';
+  }
+  if (!hasEnvKey(envContents, 'REDIS_NAMESPACE')) {
+    envDefaults.REDIS_NAMESPACE = '"shopgate"';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_REDIS_CACHE_ENABLED')) {
+    envDefaults.SHOPGATE_REDIS_CACHE_ENABLED = '1';
+  }
+  if (!hasEnvKey(envContents, 'PROJECTS_DIR')) {
+    envDefaults.PROJECTS_DIR = '"./data/projects"';
+  }
+  const encryptionKey = readEnvRawValue(envContents, 'ENCRYPTION_KEY');
+  if (!isValidEncryptionKey(encryptionKey)) {
+    envDefaults.ENCRYPTION_KEY = `"${crypto.randomBytes(32).toString('hex')}"`;
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_ENABLE_INTERNAL_TOKEN_API')) {
+    envDefaults.SHOPGATE_ENABLE_INTERNAL_TOKEN_API = '0';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_INTERNAL_API_TOKEN')) {
+    envDefaults.SHOPGATE_INTERNAL_API_TOKEN = '""';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_MAX_IMAGE_UPLOAD_BYTES')) {
+    envDefaults.SHOPGATE_MAX_IMAGE_UPLOAD_BYTES = String(10 * 1024 * 1024);
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_DEGRADATION_MODE')) {
+    envDefaults.SHOPGATE_DEGRADATION_MODE = '"auto"';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_DATABASE_ENABLED')) {
+    envDefaults.SHOPGATE_DATABASE_ENABLED = '1';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_DATABASE_REQUIRED')) {
+    envDefaults.SHOPGATE_DATABASE_REQUIRED = '1';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_COMMERCE_API_ENABLED')) {
+    envDefaults.SHOPGATE_COMMERCE_API_ENABLED = '1';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_COMMERCE_API_REQUIRED')) {
+    envDefaults.SHOPGATE_COMMERCE_API_REQUIRED = '0';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_OBSERVABILITY_ENABLED')) {
+    envDefaults.SHOPGATE_OBSERVABILITY_ENABLED = '1';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_OBSERVABILITY_REQUIRED')) {
+    envDefaults.SHOPGATE_OBSERVABILITY_REQUIRED = '0';
+  }
+  if (!hasEnvKey(envContents, 'SHOPGATE_REDIS_REQUIRED')) {
+    envDefaults.SHOPGATE_REDIS_REQUIRED = '0';
+  }
+  const portStartCandidates = [
+    parsePortValue(process.env.PREVIEW_PORT_START),
+    extractPort(envContents, ['PREVIEW_PORT_START']),
+  ];
+
+  let portRangeStart =
+    portStartCandidates.find((value) => value !== null) ?? FALLBACK_PORT_START;
+
+  const portEndCandidates = [
+    parsePortValue(process.env.PREVIEW_PORT_END),
+    extractPort(envContents, ['PREVIEW_PORT_END']),
+  ];
+
+  let portRangeEnd =
+    portEndCandidates.find((value) => value !== null) ?? FALLBACK_PORT_END;
+
+  if (portRangeEnd < portRangeStart) {
+    portRangeEnd = Math.min(
+      MAX_PORT,
+      portRangeStart + DEFAULT_RANGE_SPAN
+    );
+  }
+
+  const overridePreferred =
+    preferredOverride !== undefined && preferredOverride !== null
+      ? parsePortValue(String(preferredOverride))
+      : null;
+
+  const sanitizeWebCandidate = (val) => {
+    if (val === null || val === undefined) return null;
+    if (val >= portRangeStart && val <= portRangeEnd) return null;
+    if (val < DEFAULT_WEB_PORT || val > DEFAULT_WEB_MAX) {
+      return DEFAULT_WEB_PORT;
+    }
+    return val;
+  };
+
+  const explicitPreferredPort = sanitizeWebCandidate(overridePreferred);
+  const preferredPort = explicitPreferredPort ?? DEFAULT_WEB_PORT;
+
+  // Compute scan window for WEB app: stay below preview range when possible
+  let webRangeStart = preferredPort;
+  let webRangeEnd = Math.min(
+    preferredPort + DEFAULT_WEB_SCAN_SPAN,
+    portRangeStart > preferredPort ? portRangeStart - 1 : preferredPort + DEFAULT_WEB_SCAN_SPAN
+  );
+  if (webRangeEnd < webRangeStart) {
+    webRangeEnd = webRangeStart;
+  }
+
+  const port = await findAvailablePort(webRangeStart, webRangeEnd, preferredPort);
+  const url = `http://localhost:${port}`;
+
+  if (port !== preferredPort) {
+    console.log(
+      `⚠️  Port ${preferredPort} is busy. Switching to available port ${port} within ${webRangeStart}-${webRangeEnd}.`
+    );
+  } else {
+    console.log(
+      `✅ Using port ${port} (range ${webRangeStart}-${webRangeEnd}).`
+    );
+  }
+
+  const envUpdates = {
+    PORT: String(port),
+    WEB_PORT: String(port),
+    NEXT_PUBLIC_APP_URL: `"${url}"`,
+    PREVIEW_PORT_START: String(portRangeStart),
+    PREVIEW_PORT_END: String(portRangeEnd),
+  };
+
+  let updatedEnv =
+    envContents ||
+    [
+      '# Shop Gate local infrastructure defaults.',
+      '# Generated and maintained by scripts/dev/setup-env.js; this file is ignored by Git.',
+      '# Keep non-secret shared defaults here. Put credentials and machine-specific overrides',
+      '# in .env.local. Runtime precedence: process environment > .env.local > .env.',
+      '# See docs/configuration.md and .env.example for every supported variable and mode.',
+      '',
+    ].join('\n');
+  for (const [key, value] of Object.entries(envDefaults)) {
+    updatedEnv = upsertEnvValue(updatedEnv, key, value);
+  }
+  for (const [key, value] of Object.entries(envUpdates)) {
+    updatedEnv = upsertEnvValue(updatedEnv, key, value);
+  }
+  writeFileSafe(envFile, updatedEnv);
+  console.log(`📝 Updated ${path.relative(rootDir, envFile)}`);
+
+  let envLocalContents = envLocalContentsRaw;
+  if (!envLocalContents.trim()) {
+    envLocalContents = [
+      '# Shop Gate local secrets and machine-specific overrides.',
+      '# This file is ignored by Git. Never copy upstream Provider keys into a committed file.',
+      '# Runtime precedence: process environment > .env.local > .env.',
+      '# See docs/configuration.md for ModelPort, direct DeepSeek, and Memory-off examples.',
+      '',
+    ].join('\n');
+  }
+
+  const configuredAuthMode =
+    readEnvRawValue(envLocalContents, 'SHOPGATE_AUTH_MODE') ||
+    readEnvRawValue(envContents, 'SHOPGATE_AUTH_MODE');
+  const enableLocalAuth = enableAuthOverride || configuredAuthMode === 'local';
+  const existingAuthSecret =
+    readEnvRawValue(envLocalContents, 'SHOPGATE_AUTH_SECRET') ||
+    readEnvRawValue(envContents, 'SHOPGATE_AUTH_SECRET') ||
+    readEnvRawValue(envLocalContents, 'BETTER_AUTH_SECRET') ||
+    readEnvRawValue(envContents, 'BETTER_AUTH_SECRET');
+  const authSecret = existingAuthSecret || crypto.randomBytes(48).toString('base64url');
+
+  const envLocalUpdates = {
+    NEXT_PUBLIC_APP_URL: url,
+    PORT: String(port),
+    WEB_PORT: String(port),
+    PREVIEW_PORT_START: String(portRangeStart),
+    PREVIEW_PORT_END: String(portRangeEnd),
+    ...(enableLocalAuth
+      ? {
+          SHOPGATE_AUTH_MODE: 'local',
+          SHOPGATE_AUTH_SECRET: authSecret,
+          BETTER_AUTH_URL: url,
+          SHOPGATE_AUTH_SECURE_COOKIES: '0',
+          SHOPGATE_AUTH_TRUSTED_ORIGINS: `${url},http://127.0.0.1:${port}`,
+          SHOPGATE_AUTH_ALLOW_SIGNUP: '0',
+        }
+      : {}),
+  };
+
+  for (const [key, value] of Object.entries(envLocalUpdates)) {
+    envLocalContents = upsertEnvValue(envLocalContents, key, value);
+  }
+  writeFileSafe(envLocalFile, envLocalContents);
+  console.log(`📝 Updated ${path.relative(rootDir, envLocalFile)}`);
+
+  // dotenv has already populated process.env before this function runs. When
+  // the selected port changes (or a new generated setting is introduced), the
+  // values just written to disk would otherwise remain stale for this launch
+  // and only take effect after a second restart. Keep generated defaults
+  // subordinate to an existing runtime value, while applying the settings this
+  // setup deliberately synchronizes on every run.
+  applyRuntimeEnvUpdates(envDefaults, { overwrite: false });
+  applyRuntimeEnvUpdates(envUpdates);
+  applyRuntimeEnvUpdates(envLocalUpdates);
+
+  console.log('✅ Environment ready!');
+  return { port, url };
+}
+
+if (require.main === module) {
+  ensureEnvironment({ enableAuth: process.argv.includes('--enable-auth') }).catch((error) => {
+    console.error('❌ Failed to set up environment.');
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  applyRuntimeEnvUpdates,
+  ensureEnvironment,
+  normalizeGeneratedEnvValue,
+};

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "dateFormat": "YYYY-MM-DD",
+    "versioning": "semver",
+    "description": "每个核心 skill 的版本变更必须记录在这里；修改 SKILL.md、references、scripts 或输出契约时必须同步升级 registry 版本并新增 release。"
+  },
+  "skills": {
+    "run-planner": {"releases": [{"version": "0.7.0", "date": "2026-09-13", "summary": "将运行计划、澄清和多轮继承统一为零售经营任务口径。", "changes": ["澄清商品、类目、渠道、活动、用户、数据集和窗口缺口。", "辅助脚本不再使用旧领域实体识别规则。"]}]},
+    "query-rewrite": {"releases": [{"version": "0.7.0", "date": "2026-09-13", "summary": "将语义合同和失败关闭说明统一为零售经营实体、数据集与范围口径。", "changes": ["明确商品、类目、渠道和活动由独立实体解析服务确认。", "移除活动 Skill 中的旧领域描述和旧实体命名。"]}]},
+    "commerce-data-registry": {"releases": [{"version": "1.1.1", "date": "2026-09-13", "summary": "统一零售数据集、登记信源和接口边界。", "changes": ["明确只读取已登记的零售数据源和接口。"]}]},
+    "commerce-entity-resolver": {"releases": [{"version": "1.1.1", "date": "2026-09-13", "summary": "统一商品、类目、渠道和活动的实体解析合同。", "changes": ["实体合同统一使用零售实体类型，不引用旧业务编码。"]}]},
+    "image-extraction": {"releases": [{"version": "0.6.0", "date": "2026-09-13", "summary": "图片提取改为商品、库存、订单和经营报表截图口径。", "changes": ["将图片证据参考合同改为 catalog-image-contract.md。", "明确截图事实、接口补全和人工确认的边界。"]}]},
+    "commerce-market-data": {"releases": [{"version": "1.1.1", "date": "2026-09-13", "summary": "统一零售行为、商品、类目和时间窗口的取数边界。", "changes": ["只允许绑定当前数据集读取已登记的零售接口。"]}]},
+    "commerce-master-data": {"releases": [{"version": "1.1.0", "date": "2026-09-12", "summary": "将主数据和分层脚本切换为商品、类目、价格与库存。", "changes": ["移除非零售主数据和估值内容。", "区分实际字段与合成字段，并补充商品经营阶段规则。"]}]},
+    "commerce-metrics": {"releases": [{"version": "1.1.0", "date": "2026-09-12", "summary": "将指标脚本切换为零售漏斗、库存和日趋势。", "changes": ["移除非零售指标计算。", "新增转化、GMV、库销比、动销率和分母边界。"]}]},
+    "commerce-rule-review": {"releases": [{"version": "1.1.1", "date": "2026-09-13", "summary": "将规则复核统一为数据支持和零售经营边界。", "changes": ["明确漏斗、GMV、库存和商品分层的复核口径。"]}]},
+    "data-quality": {"releases": [{"version": "0.6.0", "date": "2026-09-13", "summary": "数据质量和 evidence 合同统一为零售数据集、行为、库存和经营指标。", "changes": ["补充数量、去重用户、金额、比例、库存天数和利润率的检查边界。", "移除非零售数据示例和解释。"]}]},
+    "platform-ui-product-design": {"releases": [{"version": "0.4.0", "date": "2026-09-13", "summary": "将平台 UI 设计规则统一为 Shop Gate 零售经营工作台。", "changes": ["补充数据集切换、分页、筛选、空态和桌面/移动响应式要求。", "移除生成页面中的旧领域设计描述。"]}]},
+    "dashboard-visualization": {"releases": [{"version": "0.10.0", "date": "2026-09-13", "summary": "重写为零售经营 BI 看板能力，统一数据、文案、筛选和缺口边界。", "changes": ["新增零售综合 BI、库存、生命周期、留存和价格观察模板说明。", "校验器改为检查 dataset_id、经营数据区、组件覆盖和敏感值。", "移除旧领域图表、实体和交易语义。"]}]}
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "经营任务规划"
+  short_description: "校验经营任务、实体、数据集、窗口与验收合同的一致性"
+  default_prompt: "Use $run-planner to validate the platform-created run plan and identify only material ambiguities."

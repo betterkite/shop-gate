@@ -1,0 +1,247 @@
+#!/usr/bin/env node
+
+import './worker-environment';
+
+import { createApplicationGenerationRuntime } from '../../src/lib/generation/generation-runtime';
+import { prisma } from '../../src/lib/db/client';
+import { PiAgentGenerationDispatchSession } from '../../src/lib/services/pi-agent-generation-dispatch-session';
+import {
+  finishPiAgentGenerationJob,
+  getPiAgentGenerationJob,
+  listClaimablePiAgentGenerationJobs,
+  PiAgentGenerationDispatchError,
+  reconcileExpiredPiAgentGenerationJobs,
+} from '../../src/lib/services/pi-agent-generation-dispatch-store';
+import { PiAgentWorkerCapacitySession } from '../../src/lib/services/pi-agent-worker-capacity';
+import { PiAgentWorkerRegistrySession } from '../../src/lib/services/pi-agent-worker-registry';
+import { previewManager } from '../../src/lib/services/preview';
+import { QuotaExceededError } from '../../src/lib/quota';
+
+function positiveInteger(name: string, fallback: number, max: number): number {
+  const value = Number.parseInt(process.env[name] ?? '', 10) || fallback;
+  if (!Number.isSafeInteger(value) || value < 1 || value > max) {
+    throw new Error(`${name} must be an integer between 1 and ${max}.`);
+  }
+  return value;
+}
+
+const pollIntervalMs = positiveInteger('PI_AGENT_WORKER_POLL_INTERVAL_MS', 1_000, 60_000);
+const concurrency = positiveInteger('PI_AGENT_WORKER_CONCURRENCY', 1, 16);
+const globalConcurrency = positiveInteger(
+  'PI_AGENT_WORKER_GLOBAL_CONCURRENCY',
+  concurrency,
+  256,
+);
+const slotLeaseTtlMs = positiveInteger(
+  'PI_AGENT_WORKER_SLOT_LEASE_TTL_MS',
+  120_000,
+  24 * 60 * 60 * 1_000,
+);
+const slotHeartbeatIntervalMs = positiveInteger(
+  'PI_AGENT_WORKER_SLOT_HEARTBEAT_INTERVAL_MS',
+  30_000,
+  24 * 60 * 60 * 1_000,
+);
+const claimBatchSize = positiveInteger('PI_AGENT_WORKER_CLAIM_BATCH_SIZE', 20, 200);
+const previewReconcileIntervalMs = positiveInteger(
+  'PI_AGENT_WORKER_PREVIEW_RECONCILE_INTERVAL_MS',
+  5_000,
+  60 * 60 * 1_000,
+);
+const once = process.argv.includes('--once');
+const runtime = createApplicationGenerationRuntime();
+let stopping = false;
+let nextPreviewReconcileAt = 0;
+
+if (concurrency > globalConcurrency) {
+  throw new Error(
+    'PI_AGENT_WORKER_CONCURRENCY cannot exceed PI_AGENT_WORKER_GLOBAL_CONCURRENCY.',
+  );
+}
+if (slotHeartbeatIntervalMs >= slotLeaseTtlMs) {
+  throw new Error(
+    'PI_AGENT_WORKER_SLOT_HEARTBEAT_INTERVAL_MS must be smaller than its lease TTL.',
+  );
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function executeJob(
+  job: Awaited<ReturnType<typeof listClaimablePiAgentGenerationJobs>>[number],
+  workerLeaseOwner: string,
+): Promise<boolean> {
+  let session: PiAgentGenerationDispatchSession | null = null;
+  const capacity = await PiAgentWorkerCapacitySession.tryClaim({
+    capacity: globalConcurrency,
+    activeJobId: job.id,
+    leaseOwner: workerLeaseOwner,
+    leaseTtlMs: slotLeaseTtlMs,
+    heartbeatIntervalMs: slotHeartbeatIntervalMs,
+  });
+  if (!capacity) return false;
+  try {
+    session = await PiAgentGenerationDispatchSession.claimExisting({
+      projectId: job.projectId,
+      requestId: job.requestId,
+    });
+    console.log(JSON.stringify({
+      event: 'generation_worker_claimed',
+      jobId: job.id,
+      projectId: job.projectId,
+      requestId: job.requestId,
+      attemptCount: session.claim.attemptCount,
+    }));
+    await session.run(() => runtime.execute({
+      jobId: job.id,
+      projectId: job.projectId,
+      requestId: job.requestId,
+      selectedModel: job.selectedModel,
+      cliPreference: job.cliPreference,
+      executionEnvelope: job.executionEnvelope,
+    }));
+    const current = await getPiAgentGenerationJob(job.projectId, job.requestId);
+    if (current?.status === 'running') {
+      throw new Error('Generation handler returned without committing a terminal job state.');
+    }
+    console.log(JSON.stringify({
+      event: 'generation_worker_finished',
+      jobId: job.id,
+      projectId: job.projectId,
+      requestId: job.requestId,
+      status: current?.status ?? 'missing',
+    }));
+    capacity.assertHealthy();
+    return true;
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return false;
+    }
+    if (
+      error instanceof PiAgentGenerationDispatchError
+      && [
+        'GENERATION_DISPATCH_BUSY',
+        'GENERATION_PROJECT_BUSY',
+        'GENERATION_DISPATCH_CONFLICT',
+        'GENERATION_DISPATCH_NOT_AVAILABLE',
+        'GENERATION_DISPATCH_TERMINAL',
+        'GENERATION_DISPATCH_CANCELLED',
+        'GENERATION_DISPATCH_ATTEMPTS_EXHAUSTED',
+      ]
+        .includes(error.code)
+    ) {
+      return false;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({
+      event: 'generation_worker_failed',
+      jobId: job.id,
+      projectId: job.projectId,
+      requestId: job.requestId,
+      error: message,
+    }));
+    if (session) {
+      await session.run(() => finishPiAgentGenerationJob({
+        projectId: job.projectId,
+        requestId: job.requestId,
+        status: 'failed',
+        errorCode: 'GENERATION_WORKER_FAILED',
+        errorMessage: message,
+        fence: session!.fence,
+      })).catch((finishError) => {
+        console.error('[GenerationWorker] Failed to persist worker failure:', finishError);
+      });
+      session.markTerminal();
+    }
+    return Boolean(session);
+  } finally {
+    session?.dispose();
+    await capacity.release().catch((error) => {
+      console.error(
+        `[GenerationWorker] Failed to release global Worker slot: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  }
+}
+
+async function tick(workerLeaseOwner: string): Promise<number> {
+  const now = Date.now();
+  if (now >= nextPreviewReconcileAt) {
+    nextPreviewReconcileAt = now + previewReconcileIntervalMs;
+    const cleaned = await previewManager.cleanupDeletedProjects();
+    if (cleaned.length > 0) {
+      console.log(JSON.stringify({
+        event: 'generation_worker_preview_reconciled',
+        projectIds: cleaned,
+      }));
+    }
+  }
+  await reconcileExpiredPiAgentGenerationJobs({ limit: claimBatchSize });
+  const jobs = await listClaimablePiAgentGenerationJobs(claimBatchSize);
+  let completed = 0;
+  for (let index = 0; index < jobs.length && !stopping; index += concurrency) {
+    const batch = jobs.slice(index, index + concurrency);
+    const results = await Promise.all(
+      batch.map((job) => executeJob(job, workerLeaseOwner)),
+    );
+    completed += results.filter(Boolean).length;
+  }
+  return completed;
+}
+
+async function main() {
+  if (process.env.PI_AGENT_DISPATCH_MODE !== 'worker') {
+    throw new Error('Generation worker requires PI_AGENT_DISPATCH_MODE=worker.');
+  }
+  const registration = await PiAgentWorkerRegistrySession.start({
+    processConcurrency: concurrency,
+    globalConcurrency,
+    leaseTtlMs: slotLeaseTtlMs,
+    heartbeatIntervalMs: slotHeartbeatIntervalMs,
+  });
+  try {
+    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+      process.on(signal, () => {
+        stopping = true;
+      });
+    }
+    console.log(JSON.stringify({
+      event: 'generation_worker_ready',
+      workerId: registration.claim.id,
+      concurrency,
+      globalConcurrency,
+      pollIntervalMs,
+      previewReconcileIntervalMs,
+    }));
+    do {
+      registration.assertHealthy();
+      const processed = await tick(registration.leaseOwner);
+      registration.assertHealthy();
+      if (once || stopping) break;
+      if (processed === 0) await delay(pollIntervalMs);
+    } while (!stopping);
+  } finally {
+    const cleaned = await previewManager.cleanupAll();
+    if (cleaned.length > 0) {
+      console.log(JSON.stringify({
+        event: 'generation_worker_previews_stopped',
+        projectIds: cleaned,
+      }));
+    }
+    await registration.stop().catch((error) => {
+      console.error(
+        `[GenerationWorker] Failed to stop Worker registration: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+  }
+}
+
+main()
+  .catch((error) => {
+    console.error(`[GenerationWorker] fatal: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect().catch(() => undefined);
+  });

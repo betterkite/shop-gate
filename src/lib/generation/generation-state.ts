@@ -1,0 +1,385 @@
+import fs from 'fs/promises';
+import path from 'path';
+import { DATA_AGENT_GENERATION_STATE_RELATIVE_PATH } from '@/lib/data-agent/workspace-layout';
+import { appendRetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
+
+export type GenerationStepId =
+  | 'request_received'
+  | 'planning'
+  | 'data_prefetch'
+  | 'agent_execution'
+  | 'validation'
+  | 'repair'
+  | 'final_validation'
+  | 'preview'
+  | 'evidence_verification'
+  | 'completed';
+
+export type GenerationStepStatus = 'pending' | 'running' | 'success' | 'warning' | 'failed' | 'skipped';
+
+export type GenerationRunStatus =
+  | 'pending'
+  | 'running'
+  | 'needs_clarification'
+  | 'refused'
+  | 'repairing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export interface GenerationStep {
+  id: GenerationStepId;
+  label: string;
+  status: GenerationStepStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  summary: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GenerationState {
+  schemaVersion: 1;
+  projectId: string;
+  requestId: string;
+  status: GenerationRunStatus;
+  activeStep: GenerationStepId;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  originalInstruction: string;
+  cliPreference: string | null;
+  selectedModel: string | null;
+  repairAttemptCount: number;
+  maxRepairAttempts: number;
+  steps: GenerationStep[];
+  error: {
+    step: GenerationStepId;
+    message: string;
+  } | null;
+}
+
+const configuredMaxRepairAttempts = Number.parseInt(
+  process.env.SHOPGATE_MAX_VALIDATION_REPAIR_ATTEMPTS ?? '',
+  10
+);
+const DEFAULT_MAX_REPAIR_ATTEMPTS =
+  Number.isFinite(configuredMaxRepairAttempts) && configuredMaxRepairAttempts > 0
+    ? configuredMaxRepairAttempts
+    : 3;
+const stateLocks = new Map<string, Promise<void>>();
+
+const STEP_LABELS: Record<GenerationStepId, string> = {
+  request_received: '接收请求',
+  planning: '生成计划',
+  data_prefetch: '数据预取',
+  agent_execution: 'Agent 执行',
+  validation: '自动验证',
+  repair: '自动修复',
+  final_validation: '修复后验证',
+  preview: '持久看板预览',
+  evidence_verification: '独立证据验收',
+  completed: '完成',
+};
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function statePath(projectPath: string) {
+  return path.join(projectPath, DATA_AGENT_GENERATION_STATE_RELATIVE_PATH);
+}
+
+function initialSteps(): GenerationStep[] {
+  return (Object.keys(STEP_LABELS) as GenerationStepId[]).map((id) => ({
+    id,
+    label: STEP_LABELS[id],
+    status: id === 'request_received' ? 'running' : 'pending',
+    startedAt: id === 'request_received' ? nowIso() : null,
+    completedAt: null,
+    summary: '',
+  }));
+}
+
+async function readState(projectPath: string): Promise<GenerationState | null> {
+  const content = await fs.readFile(statePath(projectPath), 'utf8').catch(() => null);
+  if (!content) return null;
+  try {
+    const parsed = JSON.parse(content) as GenerationState;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeState(projectPath: string, state: GenerationState) {
+  const filePath = statePath(projectPath);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  await fs.rename(temporaryPath, filePath);
+}
+
+async function withStateLock<T>(projectPath: string, task: () => Promise<T>): Promise<T> {
+  const key = path.resolve(projectPath);
+  const previous = stateLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.then(() => current, () => current);
+  stateLocks.set(key, queued);
+  await previous.catch(() => undefined);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (stateLocks.get(key) === queued) stateLocks.delete(key);
+  }
+}
+
+function mergeStep(
+  state: GenerationState,
+  stepId: GenerationStepId,
+  status: GenerationStepStatus,
+  summary: string,
+  metadata?: Record<string, unknown>
+) {
+  const timestamp = nowIso();
+  let found = false;
+  const steps = state.steps.map((step) => {
+    if (step.id === 'request_received' && stepId !== 'request_received' && step.status === 'running') {
+      return {
+        ...step,
+        status: 'success' as const,
+        completedAt: step.completedAt ?? timestamp,
+        summary: step.summary || '请求已接收。',
+      };
+    }
+    if (step.id !== stepId) return step;
+    found = true;
+    return {
+      ...step,
+      status,
+      startedAt: step.startedAt ?? timestamp,
+      completedAt: ['success', 'warning', 'failed', 'skipped'].includes(status) ? timestamp : step.completedAt,
+      summary,
+      ...(metadata ? { metadata: { ...(step.metadata ?? {}), ...metadata } } : {}),
+    };
+  });
+
+  if (!found) {
+    steps.push({
+      id: stepId,
+      label: STEP_LABELS[stepId],
+      status,
+      startedAt: timestamp,
+      completedAt: ['success', 'warning', 'failed', 'skipped'].includes(status) ? timestamp : null,
+      summary,
+      ...(metadata ? { metadata } : {}),
+    });
+  }
+
+  return steps;
+}
+
+function deriveRunStatus(params: {
+  previous: GenerationRunStatus;
+  stepId: GenerationStepId;
+  stepStatus: GenerationStepStatus;
+  runStatus?: GenerationRunStatus;
+}) {
+  if (params.runStatus) return params.runStatus;
+  if (params.stepStatus === 'failed') return 'failed';
+  if (params.stepId === 'repair' && params.stepStatus === 'running') return 'repairing';
+  if (params.stepId === 'completed' && params.stepStatus === 'success') return 'completed';
+  if (params.previous === 'needs_clarification' || params.previous === 'refused') return params.previous;
+  return 'running';
+}
+
+async function startRetailGenerationRunUnlocked(params: {
+  projectPath: string;
+  projectId: string;
+  requestId: string;
+  instruction: string;
+  cliPreference?: string | null;
+  selectedModel?: string | null;
+  maxRepairAttempts?: number;
+}) {
+  const existing = await readState(params.projectPath);
+  if (existing?.requestId === params.requestId && existing.status === 'cancelled') {
+    return existing;
+  }
+  const timestamp = nowIso();
+  const state: GenerationState = {
+    schemaVersion: 1,
+    projectId: params.projectId,
+    requestId: params.requestId,
+    status: 'running',
+    activeStep: 'request_received',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    completedAt: null,
+    originalInstruction: params.instruction,
+    cliPreference: params.cliPreference ?? null,
+    selectedModel: params.selectedModel ?? null,
+    repairAttemptCount: 0,
+    maxRepairAttempts: params.maxRepairAttempts ?? DEFAULT_MAX_REPAIR_ATTEMPTS,
+    steps: initialSteps(),
+    error: null,
+  };
+  await writeState(params.projectPath, state);
+  await appendRetailWorkspaceEvent(params.projectPath, {
+    event_type: 'generation_state_started',
+    stage: 'state_machine',
+    status: 'pending',
+    run_id: params.requestId,
+    artifact_path: DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
+    summary: '生成状态机已启动。',
+    created_at: timestamp,
+  });
+  return state;
+}
+
+export async function startRetailGenerationRun(
+  params: Parameters<typeof startRetailGenerationRunUnlocked>[0]
+) {
+  return withStateLock(params.projectPath, () => startRetailGenerationRunUnlocked(params));
+}
+
+async function updateRetailGenerationStepUnlocked(params: {
+  projectPath: string;
+  projectId: string;
+  requestId: string;
+  stepId: GenerationStepId;
+  status: GenerationStepStatus;
+  summary: string;
+  metadata?: Record<string, unknown>;
+  runStatus?: GenerationRunStatus;
+  errorMessage?: string | null;
+}) {
+  const existing = await readState(params.projectPath);
+  if (
+    existing?.requestId === params.requestId &&
+    existing.status === 'cancelled' &&
+    params.runStatus !== 'cancelled'
+  ) {
+    return existing;
+  }
+  const timestamp = nowIso();
+  const state: GenerationState =
+    existing?.requestId === params.requestId
+      ? existing
+      : {
+          schemaVersion: 1,
+          projectId: params.projectId,
+          requestId: params.requestId,
+          status: 'running',
+          activeStep: params.stepId,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          completedAt: null,
+          originalInstruction: '',
+          cliPreference: null,
+          selectedModel: null,
+          repairAttemptCount: 0,
+          maxRepairAttempts: DEFAULT_MAX_REPAIR_ATTEMPTS,
+          steps: initialSteps(),
+          error: null,
+        };
+
+  const nextStatus = deriveRunStatus({
+    previous: state.status,
+    stepId: params.stepId,
+    stepStatus: params.status,
+    runStatus: params.runStatus,
+  });
+  const nextState: GenerationState = {
+    ...state,
+    status: nextStatus,
+    activeStep: params.stepId,
+    updatedAt: timestamp,
+    completedAt: ['completed', 'failed', 'cancelled', 'refused'].includes(nextStatus) ? timestamp : null,
+    steps: mergeStep(state, params.stepId, params.status, params.summary, params.metadata),
+    error:
+      params.errorMessage || params.status === 'failed'
+        ? {
+            step: params.stepId,
+            message: params.errorMessage ?? params.summary,
+          }
+        : nextStatus === 'completed'
+          ? null
+          : state.error,
+  };
+
+  await writeState(params.projectPath, nextState);
+  await appendRetailWorkspaceEvent(params.projectPath, {
+    event_type: 'generation_state_updated',
+    stage: params.stepId,
+    status: params.status === 'failed' ? 'error' : params.status === 'warning' ? 'warning' : params.status === 'running' ? 'pending' : 'success',
+    run_id: params.requestId,
+    artifact_path: DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
+    summary: `${STEP_LABELS[params.stepId]}：${params.summary}`,
+    created_at: timestamp,
+  });
+  return nextState;
+}
+
+export async function updateRetailGenerationStep(
+  params: Parameters<typeof updateRetailGenerationStepUnlocked>[0]
+) {
+  return withStateLock(params.projectPath, () => updateRetailGenerationStepUnlocked(params));
+}
+
+export async function incrementGenerationRepairAttempt(params: {
+  projectPath: string;
+  projectId: string;
+  requestId: string;
+}) {
+  return withStateLock(params.projectPath, async () => {
+    const existing = await readState(params.projectPath);
+    if (!existing || existing.requestId !== params.requestId) {
+      await updateRetailGenerationStepUnlocked({
+        projectPath: params.projectPath,
+        projectId: params.projectId,
+        requestId: params.requestId,
+        stepId: 'repair',
+        status: 'running',
+        summary: '开始自动修复。',
+        runStatus: 'repairing',
+      });
+    }
+    const state = (await readState(params.projectPath))!;
+    if (state.status === 'cancelled') {
+      return state.repairAttemptCount;
+    }
+    const nextState = {
+      ...state,
+      repairAttemptCount: state.repairAttemptCount + 1,
+      updatedAt: nowIso(),
+    };
+    await writeState(params.projectPath, nextState);
+    return nextState.repairAttemptCount;
+  });
+}
+
+export async function readGenerationState(projectPath: string) {
+  return readState(projectPath);
+}
+
+export async function cancelGenerationRun(params: {
+  projectPath: string;
+  projectId: string;
+  requestId: string;
+  reason?: string | null;
+}) {
+  return updateRetailGenerationStep({
+    projectPath: params.projectPath,
+    projectId: params.projectId,
+    requestId: params.requestId,
+    stepId: 'agent_execution',
+    status: 'failed',
+    summary: params.reason ?? '用户暂停了当前任务。',
+    runStatus: 'cancelled',
+    errorMessage: params.reason ?? '用户暂停了当前任务。',
+  });
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Create a verified Shop Gate release backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=shopgate
+Group=shopgate
+WorkingDirectory=/opt/shopgate/current
+EnvironmentFile=/etc/shopgate/shopgate.env
+Environment=SHOPGATE_BACKUP_ROOT=/var/backups/shopgate
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env npm run db:backup:release
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/shopgate /var/lib/shopgate

@@ -1,0 +1,490 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "shared-kernel",
+      "name": "共享内核",
+      "summary": "跨模块稳定类型、配置、工具函数和无业务状态的基础能力。",
+      "owner": "platform",
+      "paths": [
+        "src/types/**",
+        "src/lib/config/**",
+        "src/lib/utils.ts",
+        "src/lib/runtime-degradation.ts"
+      ],
+      "dependsOn": [],
+      "publicSurface": [
+        "@/types/shared",
+        "@/types/client",
+        "@/types/server",
+        "@/lib/utils",
+        "@/lib/config/constants"
+      ]
+    },
+    {
+      "id": "ui-kit",
+      "name": "通用 UI 组件",
+      "summary": "按钮、输入、弹窗、选择器等无领域知识的基础 UI。",
+      "owner": "frontend-platform",
+      "paths": [
+        "src/components/ui/**"
+      ],
+      "dependsOn": [
+        "shared-kernel"
+      ],
+      "publicSurface": [
+        "@/components/ui/button",
+        "@/components/ui/input",
+        "@/components/ui/select"
+      ]
+    },
+    {
+      "id": "platform-navigation-ui",
+      "name": "平台导航 UI",
+      "summary": "跨业务页面复用的页头、平台切换、子导航与路由加载状态。",
+      "owner": "frontend-platform",
+      "paths": [
+        "src/components/layout/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "ui-kit"
+      ],
+      "publicSurface": [
+        "@/components/layout/PageHeader",
+        "@/components/layout/PlatformSwitcher",
+        "@/components/layout/SubNav",
+        "@/components/layout/PlatformRouteLoading"
+      ]
+    },
+    {
+      "id": "product-shell",
+      "name": "产品壳层",
+      "summary": "首页、导航、布局、主题和平台入口编排。",
+      "owner": "frontend-platform",
+      "paths": [
+        "src/app/page.tsx",
+        "src/app/layout.tsx",
+        "src/app/globals.css",
+        "src/app/error.tsx",
+        "src/app/global-error.tsx",
+        "src/app/not-found.tsx",
+        "src/components/theme/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "ui-kit",
+        "platform-navigation-ui",
+        "platform-core",
+        "commerce-core",
+        "retail-domain"
+      ],
+      "publicSurface": [
+        "@/components/layout/PageHeader",
+        "@/components/layout/SubNav"
+      ]
+    },
+    {
+      "id": "platform-core",
+      "name": "平台核心",
+      "summary": "项目、设置、Token、服务目录、GitHub/Vercel 集成和工作空间基础状态。",
+      "owner": "platform",
+      "paths": [
+        "src/lib/platform/**",
+        "src/lib/services/project-services.ts",
+        "src/lib/services/settings.ts",
+        "src/lib/services/tokens.ts",
+        "src/lib/services/git.ts",
+        "src/lib/services/supabase.ts",
+        "src/app/api/settings/**",
+        "src/app/api/tokens/**",
+        "src/app/api/infrastructure/**"
+      ],
+      "dependsOn": [
+        "shared-kernel"
+      ],
+      "publicSurface": [
+        "@/lib/platform/service-catalog",
+        "@/lib/platform/memory",
+        "@/lib/services/settings"
+      ],
+      "migrationNotes": [
+        "项目创建服务已归入 commerce-core；默认 Domain Pack 通过注册表解析，不写回平台核心。"
+      ]
+    },
+    {
+      "id": "agent-runtime",
+      "name": "Agent 运行时",
+      "summary": "开源 PI Agent 运行内核、多 Provider 适配、类型化工具、流式消息和技能编译。",
+      "owner": "agent-platform",
+      "paths": [
+        "src/lib/services/agent-runtime.ts",
+        "src/lib/services/message.ts",
+        "src/lib/services/stream.ts",
+        "src/lib/services/user-requests.ts",
+        "src/lib/agent/**",
+        "src/lib/services/pi-agent-candidate.ts",
+        "src/lib/services/pi-agent-checkpoint*.ts",
+        "src/lib/services/pi-agent-execution-error*.ts",
+        "src/lib/services/pi-agent-generation-*.ts",
+        "src/lib/services/pi-agent-worker-*.ts",
+        "src/lib/services/pi-agent-mission-store*.ts",
+        "src/lib/services/pi-agent-mission-verification-session*.ts",
+        "src/lib/services/pi-agent-provenance*.ts",
+        "src/lib/services/pi-agent-recovery*.ts",
+        "src/lib/services/pi-agent-run-store*.ts",
+        "src/lib/services/pi-agent-turn-metrics*.ts"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core"
+      ],
+      "publicSurface": [
+        "@/lib/services/agent-runtime",
+        "@/lib/agent/core",
+        "@/lib/agent/providers/deepseek",
+        "@/lib/agent/providers/openai-compatible",
+        "@/lib/agent/tools",
+        "@/lib/agent/skills"
+      ]
+    },
+    {
+      "id": "data-agent-core",
+      "name": "通用 Data Agent",
+      "summary": "LLM-first 数据任务合同、Agent Profile、Domain Pack、Connector 与数据交付编排边界。",
+      "owner": "data-agent-platform",
+      "paths": [
+        "src/lib/data-agent/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "agent-runtime"
+      ],
+      "publicSurface": [
+        "@/lib/data-agent"
+      ]
+    },
+    {
+      "id": "retail-domain",
+      "name": "零售电商 Domain Pack",
+      "summary": "零售能力目录、商品/类目 Resolver、commerce 工具、零售 Mission 合同与零售可视化配置。",
+      "owner": "commerce-platform",
+      "paths": [
+        "src/lib/domains/retail/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "agent-runtime",
+        "data-agent-core",
+        "platform-core"
+      ],
+      "publicSurface": [
+        "@/lib/domains/retail"
+      ]
+    },
+    {
+      "id": "commerce-core",
+      "name": "电商业务核心",
+      "summary": "零售能力编排、数据预取、工作空间证据、验证和技能治理。",
+      "owner": "commerce-platform",
+      "paths": [
+        "src/lib/commerce/**",
+        "src/lib/services/project.ts",
+        "src/lib/services/env.ts",
+        "src/lib/services/file-browser.ts",
+        "src/lib/services/github.ts",
+        "src/lib/services/preview.ts",
+        "src/lib/services/service-integration.ts",
+        "src/lib/services/vercel.ts",
+        "src/lib/services/pi-agent-mission-control.ts",
+        "src/lib/services/pi-agent-prompts*.ts",
+        "src/lib/services/cli/**",
+        "src/app/api/commerce/**",
+        "src/app/api/chat/**",
+        "src/app/api/projects/**",
+        "src/app/[project_id]/**",
+        "src/app/operations-briefing/**",
+        "src/app/business-knowledge/**",
+        "src/components/eval-console/skills-*.tsx",
+        "src/components/eval-console/workspace-*.tsx",
+        "src/components/eval-console/console-primitives.tsx",
+        "src/components/chat/**",
+        "src/lib/generation/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core",
+        "agent-runtime",
+        "data-agent-core",
+        "retail-domain",
+        "ui-kit",
+        "platform-navigation-ui"
+      ],
+      "publicSurface": [
+        "@/lib/services/project",
+        "@/lib/services/cli/pi-agent",
+        "@/lib/domains/retail",
+        "@/lib/commerce/retail-briefing",
+        "@/lib/commerce/retail-validation"
+      ],
+      "migrationNotes": [
+        "零售生成与经营情报链路已按 Domain Pack、commerce service、generation platform 分层；继续拆分超大 validation facade 时保持单一公开入口。"
+      ]
+    },
+    {
+      "id": "eval-core",
+      "name": "评测核心",
+      "summary": "评测集、用例、运行历史、评测器、报告和质量门。",
+      "owner": "eval-platform",
+      "paths": [
+        "src/lib/eval/**",
+        "src/app/eval-platform/**",
+        "src/app/api/evals/**",
+        "src/components/eval-console/eval-*.tsx",
+        "scripts/evals/**",
+        "scripts/checks/check-eval-*.js",
+        "scripts/checks/check-commerce-benchmark-coverage.js",
+        "docs/evals-guide.md"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core",
+        "commerce-core",
+        "agent-runtime",
+        "platform-navigation-ui",
+        "ui-kit"
+      ],
+      "publicSurface": [
+        "@/lib/eval",
+        "@/components/eval-console/eval-console-primitives"
+      ],
+      "migrationNotes": [
+        "eval-core 已迁出 quant 目录；cases/sets、paths、runtime-utils 和 runtime-mappers 已拆分。runtime.ts 后续继续拆 runs / queue / repairs / scheduling。"
+      ]
+    },
+    {
+      "id": "ops-core",
+      "name": "运维核心",
+      "summary": "Docker、服务健康、基础设施、工作空间健康和可观测性入口。",
+      "owner": "ops-platform",
+      "paths": [
+        "src/lib/ops/**",
+        "src/app/ops-platform/**",
+        "src/app/api/ops/**",
+        "src/app/api/infrastructure/health/**",
+        "src/app/api/observability/**",
+        "src/components/eval-console/ops-*.tsx",
+        "deploy/observability/**"
+      ],
+      "dependsOn": [
+        "shared-kernel",
+        "platform-core",
+        "commerce-core",
+        "platform-navigation-ui",
+        "ui-kit"
+      ],
+      "publicSurface": [
+        "@/lib/ops/ops-platform",
+        "@/lib/ops/infrastructure-health"
+      ]
+    },
+    {
+      "id": "commerce-data-backend",
+      "name": "Python 零售数据后端",
+      "summary": "FastAPI 零售行为查询、商品主数据、导入 CLI、TimescaleDB 和 Redis 缓存。",
+      "owner": "backend-platform",
+      "paths": [
+        "services/commerce-data/**"
+      ],
+      "dependsOn": [],
+      "publicSurface": [
+        "services/commerce-data/src/shopgate_commerce_data/api.py",
+        "services/commerce-data/src/shopgate_commerce_data/routers/commerce.py",
+        "services/commerce-data/src/shopgate_commerce_data/retail.py",
+        "services/commerce-data/src/shopgate_commerce_data/import_cli.py"
+      ],
+      "migrationNotes": [
+        "旧数据域的 provider、回放、ClickHouse 和 repository/service 分层已删除；零售查询统一进入 retail.py，连接与共享转换进入 database_core.py。"
+      ]
+    }
+  ],
+  "rules": {
+    "forbiddenImports": [
+      {
+        "from": "src/lib/**",
+        "to": "src/app/**",
+        "reason": "领域和服务层不能反向依赖 Next.js 页面。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/app/**",
+        "reason": "通用 UI 不能依赖页面层。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/lib/commerce/**",
+        "reason": "通用 UI 不能携带具体业务领域知识。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/lib/services/**",
+        "reason": "通用 UI 不能直接依赖运行时服务。"
+      },
+      {
+        "from": "src/components/ui/**",
+        "to": "src/lib/ops/**",
+        "reason": "通用 UI 不能直接依赖运维领域。"
+      },
+      {
+        "from": "src/lib/agent/**",
+        "to": "src/lib/commerce/**",
+        "reason": "PI Agent Framework 不能依赖电商应用核心。"
+      },
+      {
+        "from": "src/lib/agent/**",
+        "to": "src/lib/domains/**",
+        "reason": "PI Agent Framework 不能依赖业务 Domain Pack。"
+      },
+      {
+        "from": "src/lib/agent/**",
+        "to": "src/lib/data-agent/**",
+        "reason": "PI Agent Framework 是 Data Agent 的下层运行时，不能反向依赖。"
+      },
+      {
+        "from": "src/lib/data-agent/**",
+        "to": "src/lib/commerce/**",
+        "reason": "通用 Data Agent 不能依赖电商应用实现。"
+      },
+      {
+        "from": "src/lib/data-agent/**",
+        "to": "src/lib/domains/**",
+        "reason": "通用 Data Agent 只能消费注册合同，不能反向依赖具体 Domain Pack。"
+      },
+      {
+        "from": "src/lib/domains/retail/**",
+        "to": "src/lib/commerce/**",
+        "reason": "Retail Domain Pack 不能反向依赖 Shop Gate 产品编排层。"
+      },
+      {
+        "from": "services/commerce-data/**",
+        "to": "src/**",
+        "reason": "Python 后端不能依赖 Next.js 前端源码。"
+      }
+    ],
+    "removedPaths": [
+      {
+        "path": "src/app/api/chat/**/active-session/**",
+        "reason": "运行身份只由 Mission 和 AgentRun 管理，不恢复旧 active-session API。"
+      },
+      {
+        "path": "src/app/api/chat/**/sessions/**/status/**",
+        "reason": "运行状态只从 generation/status 和 Mission 存储读取。"
+      },
+      {
+        "path": "src/lib/services/chat-sessions.*",
+        "reason": "旧聊天 session 服务已经被 durable Mission 生命周期替代。"
+      },
+      {
+        "path": "src/app/api/chat/**/cli-preference/**",
+        "reason": "模型选择只通过项目当前合同持久化，不恢复平行偏好 API。"
+      },
+      {
+        "path": "services/commerce-data/src/shopgate_commerce_data/database.py",
+        "reason": "数据库连接与业务 SQL 已拆入 database_core 和 repositories。"
+      }
+    ],
+    "forbiddenContent": [
+      {
+        "path": "prisma/schema.prisma",
+        "pattern": "@default\\(\\\"legacy:unknown\\\"\\)|active_claude_session_id",
+        "reason": "运行记录必须显式携带 canonical workspace SHA-256 身份。"
+      },
+      {
+        "path": "src/app/api/chat/[project_id]/act/route.ts",
+        "pattern": "body\\.(request_id|selected_model|cliPreference|commerceCapabilityId|commerceCapabilitySource|commerce_capability_id|commerce_capability_source|is_initial_prompt)|base64_data",
+        "reason": "Act ingress 只接受 chat-act-contract.ts 定义的通用 Data Agent camelCase 当前契约。"
+      },
+      {
+        "path": "src/app/api/projects/route.ts",
+        "pattern": "body\\.(project_id|initial_prompt|selected_model|commerceCapabilityId|commerceCapabilitySource|commerce_capability_id|commerce_capability_source|capability_source)",
+        "reason": "项目创建只接受通用 capabilityId/capabilitySelectionSource 当前合同。"
+      },
+      {
+        "path": "src/lib/server/image-assets.ts",
+        "pattern": "temporary compatibility shape|outside this project",
+        "reason": "图片资产只接受严格 assets/<filename> 工作空间相对路径。"
+      },
+      {
+        "path": "src/lib/services/env.ts",
+        "pattern": "value_preview|has_value|var_type|is_secret",
+        "reason": "Secret API 和服务投影只维护单一 camelCase 当前合同。"
+      },
+      {
+        "path": "src/lib/agent/tools/structured-read.ts",
+        "pattern": "finance-query|finance-run|dashboard-data|final_dashboard|requestedSymbol|ARTIFACT_SYMBOL",
+        "reason": "PI Agent 结构化读取内核必须由 Domain Pack 注入业务 artifact、alias 与 identity 规则。"
+      },
+      {
+        "path": "src/lib/agent/skills/compiler.ts",
+        "pattern": "ShopGateImage|mcp__MiniMax__understand_image",
+        "reason": "PI Agent Skill 编译器不保留具体产品或 Provider 的旧工具别名兼容。"
+      }
+    ],
+    "largeFileBudgets": [
+      {
+        "path": "src/lib/utils/scaffold.ts",
+        "maxLines": 600,
+        "targetLines": 500,
+        "nextAction": "保持 workspace writer 与零售模板选择职责；运行时脚本和零售页面模板继续独立维护。"
+      },
+      {
+        "path": "src/app/[project_id]/chat/page.tsx",
+        "maxLines": 4100,
+        "targetLines": 1800,
+        "nextAction": "把 generation controller、preview reconciliation、message transport 和页面布局拆入独立 hooks/components，页面只保留组合。"
+      },
+      {
+        "path": "src/app/api/chat/[project_id]/act/route.ts",
+        "maxLines": 900,
+        "targetLines": 800,
+        "nextAction": "保持 route 只承担 HTTP 接纳和 dispatch；零售规划、取数、Mission 与执行逻辑必须留在应用服务和 Domain handler。"
+      },
+      {
+        "path": "src/components/chat/ChatLog.tsx",
+        "maxLines": 1400,
+        "targetLines": 900,
+        "nextAction": "保持状态控制器、结构化消息协议、工具视图和 Markdown renderer 分离；禁止恢复纯文本工具占位符推断。"
+      },
+      {
+        "path": "src/lib/agent/pi/run-engine.ts",
+        "maxLines": 2100,
+        "targetLines": 1600,
+        "nextAction": "保持上游 PI loop 单一入口，并按 adapter、tool governance、event projection 和 terminalization 拆分宿主逻辑。"
+      },
+      {
+        "path": "src/lib/commerce/retail-validation.ts",
+        "maxLines": 3140,
+        "targetLines": 1600,
+        "nextAction": "按 artifact、data contract、visual、repair 和 acceptance pipeline 拆分，保留单一 validation facade。"
+      },
+      {
+        "path": "src/lib/commerce/retail-data-prefetch.ts",
+        "maxLines": 2040,
+        "targetLines": 1200,
+        "nextAction": "将通用数据计划、零售 endpoint adapter、证据落盘和错误归一化拆开。"
+      },
+      {
+        "path": "services/commerce-data/src/shopgate_commerce_data/api.py",
+        "maxLines": 120,
+        "targetLines": 120,
+        "nextAction": "保持 app factory、健康检查和唯一 commerce router 装配边界。"
+      },
+      {
+        "path": "src/lib/eval/runtime.ts",
+        "maxLines": 1080,
+        "targetLines": 850,
+        "nextAction": "已拆 cases/sets、paths、runtime-utils 和 report/database mappers；继续拆 runs / queue / repairs / scheduling，保留 src/lib/eval 作为唯一公开入口。"
+      }
+    ]
+  }
+}

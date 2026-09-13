@@ -1,0 +1,758 @@
+import fs from 'fs/promises';
+import path from 'path';
+import { getAllProjects } from '@/lib/services/project';
+import { readRetailRunPlan, type RetailWorkspaceEvent } from '@/lib/domains/retail/workspace';
+import type { RetailValidationRepairPlan, RetailValidationReport } from '@/lib/commerce/retail-validation';
+import {
+  DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+  DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
+  DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
+  DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+} from '@/lib/data-agent/workspace-layout';
+import { readDataAgentArtifactContractReport } from '@/lib/generation/artifact-contracts';
+import { readGenerationQueue } from '@/lib/generation/generation-queue';
+import { readGenerationState, type GenerationState } from '@/lib/generation/generation-state';
+import { readRetailVisualValidationReport } from '@/lib/commerce/visual-validation';
+import {
+  RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+  RETAIL_RUN_PLAN_RELATIVE_PATH,
+} from '@/lib/domains/retail/workspace-artifacts';
+import type { Project } from '@/types/backend';
+
+type JsonRecord = Record<string, unknown>;
+
+export type WorkspaceHealthStatus = 'healthy' | 'warning' | 'failed' | 'unknown';
+export type WorkspaceLifecycleStatus =
+  | 'idle'
+  | 'awaiting_input'
+  | 'queued'
+  | 'running'
+  | 'repairing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+export type WorkspaceDeliverySegmentId = 'showcase' | 'at_risk' | 'needs_repair' | 'archive_candidate';
+
+export interface WorkspaceDeliverySegment {
+  id: WorkspaceDeliverySegmentId;
+  label: string;
+  reason: string;
+}
+
+export interface WorkspaceHealthArtifact {
+  id: string;
+  label: string;
+  path: string;
+  exists: boolean;
+  status: WorkspaceHealthStatus;
+  updatedAt: string | null;
+  summary: string;
+}
+
+export interface WorkspaceHealthItem {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  repoPath: string;
+  preferredCli: string | null;
+  selectedModel: string | null;
+  capabilityId: string | null;
+  previewUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastActiveAt: string | null;
+  health: {
+    status: WorkspaceHealthStatus;
+    score: number;
+    summary: string;
+    blockers: number;
+    warnings: number;
+  };
+  lifecycle: {
+    status: WorkspaceLifecycleStatus;
+    label: string;
+    active: boolean;
+    requestId: string | null;
+    updatedAt: string | null;
+  };
+  deliverySegment: WorkspaceDeliverySegment;
+  validation: {
+    status: WorkspaceHealthStatus;
+    passed: boolean | null;
+    updatedAt: string | null;
+    failedChecks: number;
+    warningChecks: number;
+  };
+  dataQuality: {
+    status: WorkspaceHealthStatus;
+    datasetCount: number;
+    warningCount: number;
+    sourceCount: number;
+    updatedAt: string | null;
+  };
+  runPlan: {
+    status: string | null;
+    capabilityId: string | null;
+    entities: string[];
+    updatedAt: string | null;
+  };
+  generationQueue: {
+    activeRequestId: string | null;
+    running: number;
+    queued: number;
+    failed: number;
+    updatedAt: string | null;
+  };
+  artifactContracts: {
+    status: WorkspaceHealthStatus;
+    passed: boolean | null;
+    failedChecks: number;
+    warningChecks: number;
+    updatedAt: string | null;
+    path: string;
+  };
+  visualValidation: {
+    status: WorkspaceHealthStatus;
+    passed: boolean | null;
+    failedChecks: number;
+    warningChecks: number;
+    updatedAt: string | null;
+    path: string;
+  };
+  artifacts: WorkspaceHealthArtifact[];
+  events: RetailWorkspaceEvent[];
+  repairPlan: {
+    needed: boolean;
+    stepCount: number;
+    path: string | null;
+  };
+  nextActions: string[];
+}
+
+export interface WorkspaceHealthDashboard {
+  generatedAt: string;
+  projectsDir: string;
+  summary: {
+    total: number;
+    healthy: number;
+    warning: number;
+    failed: number;
+    unknown: number;
+    averageScore: number;
+  };
+  delivery: {
+    showcase: number;
+    atRisk: number;
+    needsRepair: number;
+    archiveCandidates: number;
+    activeTotal: number;
+    activeAverageScore: number;
+  };
+  lifecycle: Record<WorkspaceLifecycleStatus, number>;
+  projects: WorkspaceHealthItem[];
+}
+
+const ROOT = path.resolve(/*turbopackIgnore: true*/ process.cwd());
+const PROJECTS_DIR = process.env.PROJECTS_DIR || './data/projects';
+const PROJECTS_DIR_ABSOLUTE = path.isAbsolute(PROJECTS_DIR)
+  ? PROJECTS_DIR
+  : path.resolve(/*turbopackIgnore: true*/ process.cwd(), PROJECTS_DIR);
+const VALIDATION_REPORT_RELATIVE_PATH = '.data-agent/validation.json';
+const VALIDATION_REPAIR_PLAN_RELATIVE_PATH = '.data-agent/validation-repair-plan.json';
+
+const REQUIRED_ARTIFACTS = [
+  { id: 'workspace', label: 'Data Agent Workspace', path: '.data-agent/workspace.json' },
+  { id: 'profile', label: 'Agent Profile', path: '.data-agent/profile.json' },
+  { id: 'task', label: 'Data Agent Task', path: '.data-agent/task.json' },
+  { id: 'plan', label: 'Data Agent Plan', path: '.data-agent/plan.json' },
+  { id: 'query_rewrite', label: 'Retail Query Rewrite', path: RETAIL_QUERY_REWRITE_RELATIVE_PATH },
+  { id: 'run_plan', label: 'Retail Run Plan', path: RETAIL_RUN_PLAN_RELATIVE_PATH },
+  { id: 'generation_state', label: '生成状态', path: DATA_AGENT_GENERATION_STATE_RELATIVE_PATH },
+  { id: 'generation_queue', label: '生成队列', path: DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH },
+  { id: 'events', label: '事件日志', path: '.data-agent/events.jsonl' },
+  { id: 'final_data', label: '最终数据', path: 'data_file/final/dashboard-data.json' },
+  { id: 'sources', label: '数据来源', path: 'evidence/sources.json' },
+  { id: 'data_quality', label: '数据质量', path: 'evidence/data_quality.json' },
+  { id: 'artifact_contracts', label: '产物契约', path: DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH },
+  { id: 'visual_validation', label: '视觉验收', path: DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH },
+  { id: 'validation', label: '验证报告', path: '.data-agent/validation.json' },
+  { id: 'page', label: '页面入口', path: 'app/page.tsx' },
+];
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function stringValue(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function readSettingsCapabilityId(settings?: string | null) {
+  if (!settings) return null;
+  try {
+    const parsed = JSON.parse(settings);
+    if (!isRecord(parsed) || !isRecord(parsed.retail)) return null;
+    return stringValue(parsed.retail.capabilityId) || null;
+  } catch {
+    return null;
+  }
+}
+
+async function readJson(filePath: string): Promise<unknown> {
+  const content = await fs.readFile(filePath, 'utf8');
+  return JSON.parse(content);
+}
+
+async function readJsonRecord(filePath: string): Promise<JsonRecord | null> {
+  const parsed = await readJson(filePath).catch(() => null);
+  return isRecord(parsed) ? parsed : null;
+}
+
+async function readValidationReport(projectPath: string): Promise<RetailValidationReport | null> {
+  const parsed = await readJson(path.join(projectPath, VALIDATION_REPORT_RELATIVE_PATH)).catch(() => null);
+  return isRecord(parsed) ? (parsed as unknown as RetailValidationReport) : null;
+}
+
+async function readValidationRepairPlan(projectPath: string): Promise<RetailValidationRepairPlan | null> {
+  const parsed = await readJson(path.join(projectPath, VALIDATION_REPAIR_PLAN_RELATIVE_PATH)).catch(() => null);
+  return isRecord(parsed) ? (parsed as unknown as RetailValidationRepairPlan) : null;
+}
+
+async function statFile(filePath: string) {
+  const stat = await fs.stat(filePath).catch(() => null);
+  return stat?.isFile() ? stat : null;
+}
+
+function statusRank(status: WorkspaceHealthStatus) {
+  return { healthy: 0, warning: 1, unknown: 2, failed: 3 }[status];
+}
+
+const LIFECYCLE_LABELS: Record<WorkspaceLifecycleStatus, string> = {
+  idle: '空闲',
+  awaiting_input: '等待补充',
+  queued: '排队中',
+  running: '生成中',
+  repairing: '修复中',
+  completed: '已完成',
+  failed: '失败',
+  cancelled: '已取消',
+};
+
+const ACTIVE_LIFECYCLES = new Set<WorkspaceLifecycleStatus>([
+  'awaiting_input',
+  'queued',
+  'running',
+  'repairing',
+]);
+
+export function deriveWorkspaceLifecycle(params: {
+  runPlanStatus?: string | null;
+  generationState?: Pick<GenerationState, 'status' | 'requestId' | 'updatedAt'> | null;
+  queue?: {
+    activeRequestId?: string | null;
+    items?: Array<{ requestId: string; status: string; queuedAt?: string | null; startedAt?: string | null; completedAt?: string | null }>;
+    updatedAt?: string | null;
+  } | null;
+}): WorkspaceHealthItem['lifecycle'] {
+  const state = params.generationState;
+  const items = params.queue?.items ?? [];
+  const runningItem = items.find((item) => item.status === 'running');
+  const queuedItem = items.find((item) => item.status === 'queued');
+  let status: WorkspaceLifecycleStatus = 'idle';
+  let requestId = state?.requestId ?? params.queue?.activeRequestId ?? null;
+
+  if (state?.status === 'cancelled') {
+    status = 'cancelled';
+  } else if (state?.status === 'failed') {
+    status = 'failed';
+  } else if (state?.status === 'completed') {
+    status = 'completed';
+  } else if (state?.status === 'needs_clarification' || (!state && params.runPlanStatus === 'needs_clarification')) {
+    status = 'awaiting_input';
+  } else if (state?.status === 'repairing') {
+    status = 'repairing';
+  } else if (runningItem || state?.status === 'running' || state?.status === 'pending') {
+    status = 'running';
+    requestId = runningItem?.requestId ?? requestId;
+  } else if (queuedItem) {
+    status = 'queued';
+    requestId = queuedItem.requestId;
+  }
+
+  return {
+    status,
+    label: LIFECYCLE_LABELS[status],
+    active: ACTIVE_LIFECYCLES.has(status),
+    requestId,
+    updatedAt: state?.updatedAt ?? params.queue?.updatedAt ?? null,
+  };
+}
+
+function normalizeArtifactStatus(exists: boolean, id: string, validation: RetailValidationReport | null, dataQuality: JsonRecord | null): WorkspaceHealthStatus {
+  if (!exists) {
+    if (id === 'generation_state') return 'unknown';
+    if (id === 'generation_queue') return 'unknown';
+    if (id === 'artifact_contracts') return 'unknown';
+    if (id === 'visual_validation') return 'unknown';
+    if (id === 'validation') return 'unknown';
+    if (id === 'events') return 'warning';
+    return 'failed';
+  }
+  if (id === 'validation') {
+    if (!validation) return 'unknown';
+    return validation.passed ? 'healthy' : 'failed';
+  }
+  if (id === 'data_quality') {
+    const status = stringValue(dataQuality?.status);
+    if (status === 'ok' || status === 'passed') return 'healthy';
+    if (status === 'warning') return 'warning';
+  }
+  return 'healthy';
+}
+
+function countValidationChecks(report: RetailValidationReport | null, status: 'failed' | 'warning') {
+  return report?.checks.filter((check) => check.status === status).length ?? 0;
+}
+
+function readArrayLength(value: unknown) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function buildDataQualitySummary(dataQuality: JsonRecord | null, sources: JsonRecord | null): WorkspaceHealthItem['dataQuality'] {
+  const datasets = Array.isArray(dataQuality?.datasets) ? dataQuality.datasets : [];
+  const checks = Array.isArray(dataQuality?.checks) ? dataQuality.checks : [];
+  const warnings = readArrayLength(dataQuality?.warnings) + checks.filter((check) => isRecord(check) && stringValue(check.status) === 'warning').length;
+  const sourceCount =
+    readArrayLength(sources?.sources) ||
+    readArrayLength(sources?.datasets) ||
+    readArrayLength(sources?.items) ||
+    datasets.filter((dataset) => isRecord(dataset) && stringValue(dataset.source)).length;
+  const statusText = stringValue(dataQuality?.status);
+  const status =
+    statusText === 'ok' || statusText === 'passed'
+      ? 'healthy'
+      : statusText === 'warning'
+        ? 'warning'
+        : dataQuality
+          ? 'unknown'
+          : 'failed';
+
+  return {
+    status,
+    datasetCount: datasets.length,
+    warningCount: warnings,
+    sourceCount,
+    updatedAt: stringValue(dataQuality?.created_at) || stringValue(dataQuality?.updatedAt) || null,
+  };
+}
+
+async function readEvents(projectPath: string): Promise<RetailWorkspaceEvent[]> {
+  const filePath = path.join(projectPath, '.data-agent', 'events.jsonl');
+  const content = await fs.readFile(filePath, 'utf8').catch(() => '');
+  return content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-20)
+    .map((line) => {
+      try {
+        const parsed = JSON.parse(line);
+        return isRecord(parsed) ? (parsed as unknown as RetailWorkspaceEvent) : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter((event): event is RetailWorkspaceEvent => Boolean(event));
+}
+
+function buildNextActions(params: {
+  artifacts: WorkspaceHealthArtifact[];
+  validation: WorkspaceHealthItem['validation'];
+  dataQuality: WorkspaceHealthItem['dataQuality'];
+  repairPlanNeeded: boolean;
+  contracts: WorkspaceHealthItem['artifactContracts'];
+  visual: WorkspaceHealthItem['visualValidation'];
+  queue: WorkspaceHealthItem['generationQueue'];
+  lifecycle: WorkspaceHealthItem['lifecycle'];
+}) {
+  const actions: string[] = [];
+  if (params.lifecycle.status === 'awaiting_input') {
+    return ['补充当前任务缺失的商品/类目、范围或时间信息，再继续生成。'];
+  }
+  if (params.lifecycle.status === 'queued') {
+    return ['任务已进入生成队列，等待前序任务完成。'];
+  }
+  if (params.lifecycle.status === 'running') {
+    return ['生成链路正在运行，完成后再按最新验证结果判断是否需要修复。'];
+  }
+  if (params.lifecycle.status === 'repairing') {
+    return ['自动修复正在执行，等待修复后验证完成。'];
+  }
+  const missing = params.artifacts.filter((artifact) => !artifact.exists);
+  if (missing.length) {
+    actions.push(`补齐缺失产物：${missing.slice(0, 3).map((artifact) => artifact.label).join('、')}。`);
+  }
+  if (params.validation.status === 'failed') {
+    actions.push('重新运行自动验证，并按失败 check 生成修复指令。');
+  } else if (params.validation.status === 'unknown') {
+    actions.push('运行一次自动验证，生成 .data-agent/validation.json。');
+  }
+  if (params.dataQuality.status === 'warning') {
+    actions.push('检查 evidence/data_quality.json 中的数据缺口，并在页面结论中说明限制。');
+  }
+  if (params.repairPlanNeeded) {
+    actions.push('处理 validation-repair-plan.json 中的修复步骤。');
+  }
+  if (params.contracts.status === 'failed') {
+    actions.push(`修复 ${params.contracts.path} 中的 ${params.contracts.failedChecks} 个失败契约。`);
+  }
+  if (params.visual.status === 'failed') {
+    actions.push(`查看 ${params.visual.path} 和截图，修复 ${params.visual.failedChecks} 个视觉阻断项。`);
+  }
+  if (params.queue.queued > 0 || params.queue.running > 0) {
+    actions.push(`生成队列中仍有 ${params.queue.running} 个运行中、${params.queue.queued} 个排队任务。`);
+  }
+  if (!actions.length) {
+    actions.push('保持当前 workspace，后续变更后重新验证。');
+  }
+  return actions;
+}
+
+function summarizeHealth(status: WorkspaceHealthStatus, blockers: number, warnings: number) {
+  if (status === 'healthy') return '工作空间关键产物和验证状态正常。';
+  if (status === 'failed') return `${blockers} 个阻断项需要处理。`;
+  if (status === 'warning') return `${warnings} 个风险项需要关注。`;
+  return '工作空间状态不完整，需要先补充验证报告。';
+}
+
+function daysSince(value: string | Date | null | undefined) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86_400_000));
+}
+
+function classifyDeliverySegment(params: {
+  project: Project;
+  healthStatus: WorkspaceHealthStatus;
+  blockers: number;
+  warnings: number;
+  score: number;
+  queue: WorkspaceHealthItem['generationQueue'];
+  repairPlanNeeded: boolean;
+  lifecycle: WorkspaceHealthItem['lifecycle'];
+}): WorkspaceDeliverySegment {
+  const inactiveDays = daysSince(params.project.lastActiveAt ?? params.project.updatedAt);
+  const hasActiveQueue = params.queue.running > 0 || params.queue.queued > 0;
+  if (params.lifecycle.status === 'awaiting_input') {
+    return {
+      id: 'at_risk',
+      label: '等待补充',
+      reason: '任务正在等待用户补齐关键信息，不属于生成失败或待修复。',
+    };
+  }
+  if (['queued', 'running', 'repairing'].includes(params.lifecycle.status)) {
+    return {
+      id: 'at_risk',
+      label: params.lifecycle.label,
+      reason: '生成链路仍在执行，完成后再按最新验证结果进入交付分层。',
+    };
+  }
+  if (params.healthStatus === 'healthy' || (params.blockers === 0 && params.score >= 82)) {
+    return {
+      id: 'showcase',
+      label: '可演示',
+      reason: '关键产物、验证和页面交付状态可用于展示。',
+    };
+  }
+  if (
+    params.healthStatus === 'failed' &&
+    !hasActiveQueue &&
+    !params.repairPlanNeeded &&
+    inactiveDays !== null &&
+    inactiveDays >= 7
+  ) {
+    return {
+      id: 'archive_candidate',
+      label: '归档候选',
+      reason: `已 ${inactiveDays} 天未活跃且存在阻断项，建议从主可用性口径中分离。`,
+    };
+  }
+  if (params.healthStatus === 'failed' || params.repairPlanNeeded || hasActiveQueue) {
+    return {
+      id: 'needs_repair',
+      label: '待修复',
+      reason: hasActiveQueue
+        ? '仍有生成队列任务，需要等待完成后重新验收。'
+        : '存在验证、产物契约或视觉验收阻断项。',
+    };
+  }
+  if (params.warnings > 0 || params.healthStatus === 'warning' || params.healthStatus === 'unknown') {
+    return {
+      id: 'at_risk',
+      label: '有风险',
+      reason: '产物可追踪但存在警告、未知验证或数据质量风险。',
+    };
+  }
+  return {
+    id: 'at_risk',
+    label: '有风险',
+    reason: '状态不完整，建议补充验证报告。',
+  };
+}
+
+async function inspectWorkspace(project: Project): Promise<WorkspaceHealthItem> {
+  const projectPath = project.repoPath
+    ? path.isAbsolute(project.repoPath)
+      ? project.repoPath
+      : path.resolve(/*turbopackIgnore: true*/ process.cwd(), project.repoPath)
+    : path.join(PROJECTS_DIR_ABSOLUTE, project.id);
+  const [validationReport, repairPlan, runPlan, events, dataQuality, sources, generationState, generationQueue, artifactContractReport, visualValidationReport] = await Promise.all([
+    readValidationReport(projectPath),
+    readValidationRepairPlan(projectPath),
+    readRetailRunPlan(projectPath),
+    readEvents(projectPath),
+    readJsonRecord(path.join(projectPath, 'evidence', 'data_quality.json')),
+    readJsonRecord(path.join(projectPath, 'evidence', 'sources.json')),
+    readGenerationState(projectPath),
+    readGenerationQueue(projectPath, project.id),
+    readDataAgentArtifactContractReport(projectPath),
+    readRetailVisualValidationReport(projectPath),
+  ]);
+
+  const lifecycle = deriveWorkspaceLifecycle({
+    runPlanStatus: runPlan?.status,
+    generationState,
+    queue: generationQueue,
+  });
+  const lifecycleInProgress = lifecycle.active;
+  const artifacts = await Promise.all(
+    REQUIRED_ARTIFACTS.map(async (artifact): Promise<WorkspaceHealthArtifact> => {
+      const absolutePath = path.join(projectPath, artifact.path);
+      const stat = await statFile(absolutePath);
+      const rawStatus = normalizeArtifactStatus(Boolean(stat), artifact.id, validationReport, dataQuality);
+      const status = lifecycleInProgress && rawStatus === 'failed' ? 'unknown' : rawStatus;
+      return {
+        ...artifact,
+        exists: Boolean(stat),
+        status,
+        updatedAt: stat?.mtime.toISOString() ?? null,
+        summary: stat ? '已生成' : lifecycleInProgress ? '当前生命周期尚未生成' : '缺失',
+      };
+    })
+  );
+  const dataQualitySummary = buildDataQualitySummary(dataQuality, sources);
+  const validationStatus: WorkspaceHealthItem['validation'] = {
+    status: validationReport
+      ? validationReport.passed
+        ? 'healthy'
+        : lifecycleInProgress
+          ? 'warning'
+          : 'failed'
+      : 'unknown',
+    passed: validationReport?.passed ?? null,
+    updatedAt: validationReport?.updatedAt ?? validationReport?.createdAt ?? null,
+    failedChecks: countValidationChecks(validationReport, 'failed'),
+    warningChecks: countValidationChecks(validationReport, 'warning'),
+  };
+  const queueSummary: WorkspaceHealthItem['generationQueue'] = {
+    activeRequestId: generationQueue.activeRequestId,
+    running: generationQueue.items.filter((item) => item.status === 'running').length,
+    queued: generationQueue.items.filter((item) => item.status === 'queued').length,
+    failed: generationQueue.items.filter((item) => item.status === 'failed').length,
+    updatedAt: generationQueue.updatedAt ?? null,
+  };
+  const artifactContracts: WorkspaceHealthItem['artifactContracts'] = {
+    status: artifactContractReport
+      ? artifactContractReport.status === 'passed'
+        ? 'healthy'
+        : artifactContractReport.status === 'warning'
+          ? 'warning'
+          : lifecycleInProgress
+            ? 'warning'
+            : 'failed'
+      : 'unknown',
+    passed: artifactContractReport?.passed ?? null,
+    failedChecks: artifactContractReport?.checks.filter((check) => check.status === 'failed').length ?? 0,
+    warningChecks: artifactContractReport?.checks.filter((check) => check.status === 'warning').length ?? 0,
+    updatedAt: artifactContractReport?.updatedAt ?? null,
+    path: DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+  };
+  const visualValidation: WorkspaceHealthItem['visualValidation'] = {
+    status: visualValidationReport
+      ? visualValidationReport.status === 'passed'
+        ? 'healthy'
+        : visualValidationReport.status === 'warning'
+          ? 'warning'
+          : lifecycleInProgress
+            ? 'warning'
+            : 'failed'
+      : 'unknown',
+    passed: visualValidationReport?.passed ?? null,
+    failedChecks: visualValidationReport?.failures.length ?? 0,
+    warningChecks: visualValidationReport?.warnings.length ?? 0,
+    updatedAt: visualValidationReport?.updatedAt ?? null,
+    path: DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+  };
+  const blockers = lifecycleInProgress
+    ? 0
+    : artifacts.filter((artifact) => artifact.status === 'failed').length +
+      (validationStatus.status === 'failed' ? validationStatus.failedChecks || 1 : 0) +
+      (artifactContracts.status === 'failed' ? artifactContracts.failedChecks || 1 : 0) +
+      (visualValidation.status === 'failed' ? visualValidation.failedChecks || 1 : 0);
+  const warnings =
+    artifacts.filter((artifact) => artifact.status === 'warning' || artifact.status === 'unknown').length +
+    validationStatus.warningChecks +
+    dataQualitySummary.warningCount +
+    artifactContracts.warningChecks +
+    visualValidation.warningChecks +
+    (queueSummary.running + queueSummary.queued > 0 ? 1 : 0);
+  const worstStatus = [validationStatus.status, dataQualitySummary.status, artifactContracts.status, visualValidation.status, ...artifacts.map((artifact) => artifact.status)]
+    .sort((a, b) => statusRank(b) - statusRank(a))[0] ?? 'unknown';
+  const healthStatus: WorkspaceHealthStatus = lifecycleInProgress
+    ? 'warning'
+    : blockers
+      ? 'failed'
+      : worstStatus === 'failed'
+        ? 'failed'
+        : warnings
+          ? 'warning'
+          : 'healthy';
+  const score = Math.max(0, Math.min(100, 100 - blockers * 18 - warnings * 4));
+  const repairPlanNeeded = Boolean(repairPlan?.steps?.length);
+  const deliverySegment = classifyDeliverySegment({
+    project,
+    healthStatus,
+    blockers,
+    warnings,
+    score,
+    queue: queueSummary,
+    repairPlanNeeded,
+    lifecycle,
+  });
+
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description ?? null,
+    status: project.status,
+    repoPath: path.relative(ROOT, projectPath),
+    preferredCli: project.preferredCli ?? null,
+    selectedModel: project.selectedModel ?? null,
+    capabilityId: readSettingsCapabilityId(project.settings),
+    previewUrl: project.previewUrl ?? null,
+    createdAt: project.createdAt.toISOString(),
+    updatedAt: project.updatedAt.toISOString(),
+    lastActiveAt: project.lastActiveAt?.toISOString() ?? null,
+    health: {
+      status: healthStatus,
+      score,
+      summary: summarizeHealth(healthStatus, blockers, warnings),
+      blockers,
+      warnings,
+    },
+    lifecycle,
+    deliverySegment,
+    validation: validationStatus,
+    dataQuality: dataQualitySummary,
+    runPlan: {
+      status: runPlan?.status ?? null,
+      capabilityId: runPlan?.capabilityId ?? null,
+      entities: runPlan?.entities ?? [],
+      updatedAt: runPlan?.updatedAt ?? null,
+    },
+    generationQueue: queueSummary,
+    artifactContracts,
+    visualValidation,
+    artifacts,
+    events,
+    repairPlan: {
+      needed: repairPlanNeeded,
+      stepCount: repairPlan?.steps.length ?? 0,
+      path: repairPlan?.repairPlanPath ?? null,
+    },
+    nextActions: buildNextActions({
+      artifacts,
+      validation: validationStatus,
+      dataQuality: dataQualitySummary,
+      repairPlanNeeded,
+      contracts: artifactContracts,
+      visual: visualValidation,
+      queue: queueSummary,
+      lifecycle,
+    }),
+  };
+}
+
+export async function getWorkspaceHealthDashboard(): Promise<WorkspaceHealthDashboard> {
+  const projects = await getAllProjects();
+  const items = await Promise.all(projects.map((project) => inspectWorkspace(project)));
+  const summary = items.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      acc[item.health.status] += 1;
+      acc.averageScore += item.health.score;
+      return acc;
+    },
+    { total: 0, healthy: 0, warning: 0, failed: 0, unknown: 0, averageScore: 0 }
+  );
+  const delivery = items.reduce(
+    (acc, item) => {
+      if (item.deliverySegment.id === 'showcase') acc.showcase += 1;
+      if (item.deliverySegment.id === 'at_risk') acc.atRisk += 1;
+      if (item.deliverySegment.id === 'needs_repair') acc.needsRepair += 1;
+      if (item.deliverySegment.id === 'archive_candidate') acc.archiveCandidates += 1;
+      if (item.deliverySegment.id !== 'archive_candidate') {
+        acc.activeTotal += 1;
+        acc.activeScore += item.health.score;
+      }
+      return acc;
+    },
+    {
+      showcase: 0,
+      atRisk: 0,
+      needsRepair: 0,
+      archiveCandidates: 0,
+      activeTotal: 0,
+      activeScore: 0,
+    }
+  );
+  const lifecycle = items.reduce<Record<WorkspaceLifecycleStatus, number>>(
+    (acc, item) => {
+      acc[item.lifecycle.status] += 1;
+      return acc;
+    },
+    {
+      idle: 0,
+      awaiting_input: 0,
+      queued: 0,
+      running: 0,
+      repairing: 0,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+    }
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    projectsDir: path.relative(ROOT, PROJECTS_DIR_ABSOLUTE),
+    summary: {
+      ...summary,
+      averageScore: summary.total ? Math.round(summary.averageScore / summary.total) : 0,
+    },
+    delivery: {
+      showcase: delivery.showcase,
+      atRisk: delivery.atRisk,
+      needsRepair: delivery.needsRepair,
+      archiveCandidates: delivery.archiveCandidates,
+      activeTotal: delivery.activeTotal,
+      activeAverageScore: delivery.activeTotal
+        ? Math.round(delivery.activeScore / delivery.activeTotal)
+        : 0,
+    },
+    lifecycle,
+    projects: items.sort((a, b) => statusRank(b.health.status) - statusRank(a.health.status) || b.updatedAt.localeCompare(a.updatedAt)),
+  };
+}

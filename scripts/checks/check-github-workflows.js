@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const root = process.cwd();
+const workflowDir = path.join(root, '.github', 'workflows');
+const expectedActions = new Map([
+  ['actions/checkout', 'v7'],
+  ['actions/setup-node', 'v7'],
+  ['actions/upload-artifact', 'v7'],
+  // setup-uv publishes immutable release tags but does not currently expose
+  // a moving v8 tag, so the major-only reference cannot be resolved by Actions.
+  ['astral-sh/setup-uv', 'v8.3.2'],
+]);
+const failures = [];
+
+for (const filename of fs.readdirSync(workflowDir).filter((name) => /\.ya?ml$/.test(name)).sort()) {
+  const relativePath = path.posix.join('.github', 'workflows', filename);
+  const source = fs.readFileSync(path.join(workflowDir, filename), 'utf8');
+  for (const match of source.matchAll(/^\s*uses:\s*([^\s@]+)@([^\s#]+).*$/gm)) {
+    const [, action, revision] = match;
+    const expectedRevision = expectedActions.get(action);
+    if (expectedRevision && revision !== expectedRevision) {
+      failures.push(`${relativePath}: ${action} must use ${expectedRevision}, found ${revision}`);
+    }
+  }
+}
+
+const quality = fs.readFileSync(path.join(workflowDir, 'quality.yml'), 'utf8');
+const nativeTimescaleServices = quality.match(/^\s{6}timescaledb:\s*$/gm) ?? [];
+if (nativeTimescaleServices.length !== 2) {
+  failures.push(
+    `.github/workflows/quality.yml: native TimescaleDB service must be declared twice, found ${nativeTimescaleServices.length}`,
+  );
+}
+const nativeRedisServices = quality.match(/^\s{6}redis:\s*$/gm) ?? [];
+if (nativeRedisServices.length !== 2) {
+  failures.push(
+    `.github/workflows/quality.yml: native Redis service must be declared twice, found ${nativeRedisServices.length}`,
+  );
+}
+if ((quality.match(/35433:5432/g) ?? []).length !== 2 || (quality.match(/36380:6379/g) ?? []).length !== 2) {
+  failures.push('.github/workflows/quality.yml: native service ports must match DATABASE_URL and REDIS_URL');
+}
+if (!/SHOPGATE_AUTH_ADMIN_EMAIL:\s*auth-smoke-admin@shopgate\.local/.test(quality)) {
+  failures.push('.github/workflows/quality.yml: authenticated smoke must use an explicit CI administrator');
+}
+if (!/npm run check:module-boundaries/.test(quality)) {
+  failures.push('.github/workflows/quality.yml: every PR must enforce module boundary guardrails');
+}
+if (/npm run dev:commerce/.test(quality)) {
+  failures.push('.github/workflows/quality.yml: deterministic contract evaluation must not depend on a live commerce API');
+}
+if (
+  !/SHOPGATE_GENERATED_SANDBOX:\s*0/.test(quality) ||
+  !/SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE:\s*1/.test(quality)
+) {
+  failures.push('.github/workflows/quality.yml: trusted contract templates must explicitly opt out of unavailable runner namespaces');
+}
+
+const nightlyPath = path.join(workflowDir, 'eval-nightly.yml');
+const nightly = fs.readFileSync(nightlyPath, 'utf8');
+const nightlyContracts = [
+  ['scheduled runs expose a configuration job', /^  configuration:\s*$/m],
+  ['configuration exports the secret availability result', /deepseek-configured:\s*\$\{\{\s*steps\.secret\.outputs\.configured\s*\}\}/],
+  ['live evaluation depends on configuration', /^\s+needs:\s*configuration\s*$/m],
+  ['live evaluation only runs with a configured secret', /if:\s*needs\.configuration\.outputs\.deepseek-configured\s*==\s*'true'/],
+  ['manual live evaluation remains fail-closed', /GITHUB_EVENT_NAME.*workflow_dispatch[\s\S]*DEEPSEEK_API_KEY must be configured/],
+  ['scheduled missing-secret runs emit a notice', /::notice::DEEPSEEK_API_KEY is not configured/],
+  ['hosted live evaluation selects the remote DeepSeek model', /SHOPGATE_EVAL_MODEL:\s*deepseek-v4-flash/],
+  ['generation passes the expected DeepSeek model explicitly', /benchmark:commerce:e2e -- --model deepseek-v4-flash/],
+  ['the independent gate expects the same DeepSeek model', /eval:ci:e2e -- --model deepseek-v4-flash/],
+];
+for (const [description, pattern] of nightlyContracts) {
+  if (!pattern.test(nightly)) failures.push(`.github/workflows/eval-nightly.yml: ${description}`);
+}
+
+const release = fs.readFileSync(path.join(workflowDir, 'release-evidence.yml'), 'utf8');
+if (!/SHOPGATE_RELEASE_EVIDENCE_MODEL:\s*deepseek-v4-flash/.test(release)) {
+  failures.push('.github/workflows/release-evidence.yml: hosted evidence must explicitly select the remote DeepSeek model');
+}
+if (!/DEEPSEEK_API_KEY is required; release evidence cannot be skipped/.test(release)) {
+  failures.push('.github/workflows/release-evidence.yml: hosted evidence must remain fail-closed without DEEPSEEK_API_KEY');
+}
+
+if (failures.length > 0) {
+  console.error('[github-workflows] failed');
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('[github-workflows] ok: current action runtimes and evaluation secret policies are enforced');

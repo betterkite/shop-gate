@@ -1,0 +1,446 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "targetCoreSkillCount": 12,
+    "packageFormat": "tgz",
+    "packageDir": ".pi/skill-packages",
+    "description": "Shop Gate Skills 仅使用已登记的规范 ID 和当前版本合同；新增能力优先并入现有核心 Skill，避免重复注册。"
+  },
+  "coreSkills": [
+    {
+      "id": "run-planner",
+      "name": "经营任务规划",
+      "version": "0.7.0",
+      "status": "stable",
+      "scope": "workflow",
+      "boundary": "解释平台生成的通用任务、领域计划和澄清门禁，指导后续执行；不生成或改写平台控制产物。",
+      "inputs": [
+        "用户问题",
+        ".data-agent/workspace.json",
+        ".data-agent/profile.json",
+        ".data-agent/task.json",
+        ".data-agent/plan.json",
+        ".data-agent/retail-query-rewrite.json",
+        "当前或上一轮 .data-agent/retail-run-plan.json"
+      ],
+      "outputs": [
+        "意图完整性结果",
+        "可执行事实、真实缺口与下一步指引"
+      ],
+      "scripts": [
+        "scripts/intent_clarifier.py"
+      ],
+      "validation": [
+        "不清晰任务必须停在 needs_clarification",
+        "清晰任务必须进入 planned",
+        "明确的零售实体不得仅因缺少内部 ID 而追问",
+        "泛化经营问题必须使用数据集默认范围继续",
+        "无新实体的页面修订必须继承上一轮 dataset/entities/timeRange/template",
+        "平台附加执行说明不得参与能力或模板判断"
+      ],
+      "references": [
+        "references/run-plan-contract.md"
+      ]
+    },
+    {
+      "id": "query-rewrite",
+      "name": "经营问题改写",
+      "version": "0.7.0",
+      "status": "stable",
+      "scope": "workflow",
+      "boundary": "作为规划前唯一语义事实源，由所选 LLM 通过严格 Schema 解析零售经营语义，再经原文字面证据、独立实体解析与确定性安全策略核验；模型不可用时失败关闭。",
+      "inputs": [
+        "用户原始问题",
+        "用户选定的 ModelPort 或直连 LLM",
+        ".data-agent/workspace.json.runtime 与零售 Run Plan 无密钥 LLM profile",
+        "平台零售实体解析服务",
+        "用户选择的 capabilityId"
+      ],
+      "outputs": [
+        ".data-agent/retail-query-rewrite.json",
+        "resolvedEntities",
+        "timeRange",
+        "analysisFocus",
+        "clarification issues",
+        "execution strategy/LLM trace",
+        "deterministic safety decision"
+      ],
+      "endpoints": [
+        "平台 Query Rewrite 服务",
+        "平台零售实体解析服务"
+      ],
+      "scripts": [
+        "scripts/validate_query_rewrite.py"
+      ],
+      "references": [
+        "references/query-rewrite-contract.md"
+      ],
+      "validation": [
+        "问题改写必须先于 run plan 和数据预取",
+        "preview 与 execution 都必须调用所选 LLM，不存在关键词语义改写旁路",
+        "LLM 未配置、超时、失败或输出无效时必须返回 llm_unavailable 并停止下游执行",
+        "LLM 只能拆语义，不得发明或确认商品、类目或渠道 ID",
+        "resolvedEntities 必须使用稳定零售实体 ID 且不得重复",
+        "前端、规划器、预取器和 Skills 必须消费同一契约",
+        "实体未找到、实体歧义和解析服务不可用必须使用不同错误码",
+        "确定性结果承诺必须返回 refused，禁止进入取数和 Agent 执行",
+        "Run Plan 不得脱离 Query Rewrite 重新猜测实体、周期或分析重点",
+        "数据预取只能消费 run plan 中的 dataset_id 和 entities，不得从原始问题二次解析"
+      ]
+    },
+    {
+      "id": "commerce-data-registry",
+      "name": "数据注册与信源",
+      "version": "1.1.1",
+      "status": "stable",
+      "scope": "commerce",
+      "boundary": "发现零售数据集、窗口覆盖、字段质量、来源和最小经营分析端点。",
+      "inputs": [
+        ".data-agent/retail-run-plan.json",
+        "GET /api/v1/commerce/datasets",
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/*",
+        "GET /api/v1/commerce/items/{item_id}/events"
+      ],
+      "outputs": [
+        "数据集覆盖说明",
+        "经营端点选择说明",
+        "字段质量与数据边界"
+      ],
+      "validation": [
+        "必须绑定 dataset_id 并说明 source、as_of、fetched_at、row_count 和 data_quality",
+        "商品级问题必须使用商品级证据，不能以聚合结果冒充明细",
+        "窗口外数据不得用于趋势"
+      ],
+      "scripts": [
+        "scripts/select_data_route.py"
+      ],
+      "references": [
+        "references/dataset-routing-contract.md"
+      ],
+      "description": "发现 commerce-data 覆盖、能力与正确后端端点。"
+    },
+    {
+      "id": "commerce-entity-resolver",
+      "name": "实体解析",
+      "version": "1.1.1",
+      "status": "stable",
+      "scope": "commerce",
+      "boundary": "把商品、类目、渠道和活动名称解析为稳定零售实体标识。",
+      "inputs": [
+        "用户问题",
+        "候选实体文本"
+      ],
+      "outputs": [
+        "resolvedEntities",
+        "entityCandidates"
+      ],
+      "validation": [
+        "实体标识必须是非空字符串并带有实体类型",
+        "唯一候选自动继续",
+        "只有多个同优先级候选时才允许追问"
+      ],
+      "scripts": [
+        "scripts/rank_candidates.py"
+      ],
+      "references": [
+        "references/entity-resolution-contract.md"
+      ],
+      "description": "把商品/类目名称或标识解析到实体（item:/cat:）。"
+    },
+    {
+      "id": "image-extraction",
+      "name": "图片提取",
+      "version": "0.6.0",
+      "status": "stable",
+      "scope": "input",
+      "boundary": "读取用户上传的图片附件清单，校验图片文件，抽取或标注商品、SKU、价格、库存和经营指标字段。",
+      "inputs": [
+        ".data-agent/attachments.json",
+        "uploaded images",
+        "用户问题"
+      ],
+      "outputs": [
+        "evidence/image_extraction.json",
+        "dashboard-data.json.imageExtraction"
+      ],
+      "endpoints": [
+        "commerce_extract_uploaded_image"
+      ],
+      "validation": [
+        "图片任务必须先调用 image-extraction",
+        "无法识别的截图字段必须写 null 并列入 needs_manual_confirmation",
+        "不得编造截图中的持仓、成本、现金或盈亏"
+      ],
+      "scripts": [
+        "scripts/normalize_extraction.py"
+      ],
+      "references": [
+        "references/catalog-image-contract.md"
+      ]
+    },
+    {
+      "id": "commerce-market-data",
+      "name": "经营数据取数",
+      "version": "1.1.1",
+      "status": "stable",
+      "scope": "commerce",
+      "boundary": "读取并校验当前零售数据集的行为、商品、类目和日指标。",
+      "inputs": [
+        "dataset_id",
+        "timeRange",
+        "entity_ids"
+      ],
+      "outputs": [
+        "dataset_meta",
+        "behavior_events",
+        "analytics",
+        "data_quality"
+      ],
+      "endpoints": [
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/overview?dataset_id=...",
+        "GET /api/v1/commerce/analytics/funnel?dataset_id=...",
+        "GET /api/v1/commerce/analytics/categories?dataset_id=...",
+        "GET /api/v1/commerce/analytics/inventory?dataset_id=...",
+        "GET /api/v1/commerce/analytics/lifecycle?dataset_id=...",
+        "GET /api/v1/commerce/analytics/profit?dataset_id=...",
+        "GET /api/v1/commerce/items/{item_id}/events?dataset_id=..."
+      ],
+      "validation": [
+        "所有请求必须带当前 dataset_id",
+        "行为事件校验失败时不得生成确定性漏斗结论",
+        "商品级问题没有商品级事件时必须说明数据边界"
+      ],
+      "scripts": [
+        "scripts/validate_behavior_events.py"
+      ],
+      "references": [
+        "references/behavior-data-contract.md"
+      ],
+      "description": "取零售行为与商品窗口数据，复用 commerce-data 后端接证据。"
+    },
+    {
+      "id": "commerce-master-data",
+      "name": "商品主数据",
+      "version": "1.1.0",
+      "status": "stable",
+      "scope": "commerce",
+      "boundary": "商品、类目、价格、库存、渠道、活动和用户维度的主数据。",
+      "inputs": [
+        "dataset_id",
+        "entity_ids",
+        "timeRange"
+      ],
+      "endpoints": [
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/lifecycle?dataset_id=...",
+        "GET /api/v1/commerce/analytics/price-elasticity?dataset_id=..."
+      ],
+      "outputs": [
+        "products",
+        "categories",
+        "prices",
+        "inventory",
+        "synthetic_field_notes"
+      ],
+      "scripts": [
+        "scripts/product_segments.py"
+      ],
+      "validation": [
+        "必须说明 dataset_id、窗口、字段来源和缺失字段",
+        "实际价格与合成价格必须分开",
+        "价格弹性样本不足时必须明确返回数据不足"
+      ],
+      "references": [
+        "references/master-data-contract.md"
+      ],
+      "description": "商品/类目主数据（价格/库存/属性，合成口径）与经营基础指标。"
+    },
+    {
+      "id": "commerce-metrics",
+      "name": "经营指标",
+      "version": "1.1.0",
+      "status": "stable",
+      "scope": "commerce",
+      "boundary": "确定性计算漏斗转化、GMV、动销率、库销比、商品阶段和日趋势。",
+      "inputs": [
+        "behavior_events",
+        "products",
+        "daily_metrics"
+      ],
+      "outputs": [
+        "funnelMetrics",
+        "inventoryHealth",
+        "productSegments",
+        "retailTrend"
+      ],
+      "endpoints": [
+        "GET /api/v1/commerce/analytics/overview?dataset_id=..."
+      ],
+      "scripts": [
+        "scripts/funnel_metrics.py",
+        "scripts/inventory_health.py",
+        "scripts/retail_trend.py"
+      ],
+      "validation": [
+        "必须明确样本长度和计算口径",
+        "每个指标必须说明公式、窗口和样本量",
+        "分母为零时返回空值或明确无销量",
+        "PV、UV、收藏、加购和购买不得混用"
+      ],
+      "references": [
+        "references/retail-metrics-methodology.md"
+      ],
+      "description": "计算转化/客单价/库销比/环比/动销等经营指标。"
+    },
+    {
+      "id": "commerce-rule-review",
+      "name": "规则/策略验证",
+      "version": "1.1.1",
+      "status": "stable",
+      "scope": "commerce",
+      "boundary": "验证零售漏斗、GMV、库存和商品分层规则的一致性与数据边界。",
+      "inputs": [
+        "dataset_id",
+        "behavior_events",
+        "products",
+        "analytics"
+      ],
+      "outputs": [
+        "rule_results",
+        "errors",
+        "warnings",
+        "data_quality"
+      ],
+      "endpoints": [
+        "GET /api/v1/commerce/meta?dataset_id=...",
+        "GET /api/v1/commerce/analytics/overview?dataset_id=..."
+      ],
+      "validation": [
+        "必须先确认 dataset_id、窗口和来源",
+        "PV/购买/GMV/库存规则失败时必须阻止完成状态"
+      ],
+      "scripts": [
+        "scripts/validate_retail_rules.py"
+      ],
+      "references": [
+        "references/retail-rule-contract.md"
+      ],
+      "description": "对类目/选品/定价规则做可复现的窗口验证与复盘。"
+    },
+    {
+      "id": "data-quality",
+      "name": "数据质量",
+      "version": "0.6.0",
+      "status": "stable",
+      "scope": "evidence",
+      "boundary": "证据文件、来源、时效、缺失字段、异常值和限制说明。",
+      "inputs": [
+        "raw data",
+        "dashboard-data.json",
+        ".data-agent/retail-run-plan.json"
+      ],
+      "outputs": [
+        "evidence/sources.json",
+        "evidence/data_quality.json"
+      ],
+      "validation": [
+        "每个展示数据必须可追溯到 source",
+        "数量、用户、金额、比例和库存天数必须按正确口径检查"
+      ],
+      "scripts": [
+        "scripts/assess_data_quality.py"
+      ],
+      "references": [
+        "references/evidence-contract.md"
+      ]
+    },
+    {
+      "id": "platform-ui-product-design",
+      "name": "平台 UI 产品设计",
+      "version": "0.4.0",
+      "status": "stable",
+      "scope": "platform",
+      "boundary": "Shop Gate 主平台页面、组件、控制台、设置、列表、导航、状态和响应式体验设计，不负责生成工作空间经营看板。",
+      "inputs": [
+        "src/app 页面",
+        "src/components 组件",
+        "docs/ui-shadcn-migration.md",
+        "现有设计 token"
+      ],
+      "outputs": [
+        "平台 React/Tailwind UI",
+        "可复用组件",
+        "页面状态和响应式布局"
+      ],
+      "validation": [
+        "必须复用现有 UI primitives",
+        "必须覆盖 loading/empty/error/disabled/long text 状态",
+        "必须通过 lint 和 type-check"
+      ],
+      "scripts": [
+        "scripts/validate_state_matrix.py"
+      ],
+      "references": [
+        "references/ui-ux-pro-max-adapter.md",
+        "references/platform-ui-contract.md"
+      ]
+    },
+    {
+      "id": "dashboard-visualization",
+      "name": "可视化看板",
+      "version": "0.10.0",
+      "status": "stable",
+      "scope": "visualization",
+      "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与经营指标判读生成 Next.js 零售经营看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",
+      "inputs": [
+        "data_file/final/dashboard-data.json",
+        "evidence",
+        ".data-agent/retail-run-plan.json",
+        ".data-agent/validation.json",
+        ".data-agent/validation-repair-plan.json",
+        ".data-agent/visual-validation.json"
+      ],
+      "outputs": [
+        "app/page.tsx",
+        "app/globals.css",
+        "visualization.template_id",
+        "visualization.variant_id"
+      ],
+      "validation": [
+        "页面必须绑定真实数据",
+        "生成前必须按 visual_judgement 判读时间/维度/指标字段和指标口径",
+        "首屏必须呈现真实经营内容和核心图表/明细表",
+        "多商品或多类目任务不得降级成单商品模板",
+        "用户要求日趋势时必须绘制带日期轴和统一口径的折线图",
+        "用户要求维度比较时必须绘制真实比较图或矩阵表",
+        "未明确要求时不得新增补货、调价或经营执行承诺",
+        "迷你 sparkline 不能替代主图或对比表",
+        "缺数据时不得散落占位符，必须呈现专业待接入/待确认空态",
+        "移动端不得出现页面级横向溢出",
+        "页面必须使用连续电商经营画布，禁止独立圆角卡片网格、悬浮阴影和 card 套 card",
+        "指标带必须说明时间窗口、覆盖对象和计算口径，不能裸写内部公式",
+        "指标带必须按指标数量均衡分栏，禁止桌面端 N+1 孤项、大面积空白和数值拆行",
+        "渠道端点、技术证据、模板名称和必备组件状态不得作为用户可见分区",
+        "必须包含图表、数据时间/质量、加载/错误/空状态，后台 evidence 保留来源",
+        "必须按 visualization.templateId 选择模板族，并按 visualization.variantId/layout 覆盖具体页面结构",
+        "动态 JSON 的每一层嵌套对象都必须分别使用 asRecord 守卫并通过 Next.js build",
+        "自动验证失败时必须按 failure ID 和文件指针定向读取报告并实际修复",
+        "最终数据形态失败必须修复 dashboard-data.json 标准契约和页面绑定",
+        ".data-agent 全目录只读，Agent 不得改写计划、状态、事件或验证报告",
+        "不得顺序全量读取工作空间、run plan 或 references，优先消费 Task Packet、skill capsule 和 initial dashboard contract",
+        "Agent 调用 submit_result 后必须停止，build、preview 和 validation 统一由平台执行",
+        "不得引用外部 CDN/远程资源、不得保留 mock/static 数据、不得写入明文密钥"
+      ],
+      "scripts": [
+        "scripts/validate_dashboard_contract.py"
+      ],
+      "references": [
+        "references/scenario_templates.md",
+        "references/visual_judgement.md",
+        "references/dashboard-data-contract.md"
+      ]
+    }
+  ]
+}

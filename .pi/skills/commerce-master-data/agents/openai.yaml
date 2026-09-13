@@ -1,0 +1,4 @@
+interface:
+  display_name: "商品主数据"
+  short_description: "组织商品类目价格库存属性及合成字段的来源边界说明与质量"
+  default_prompt: "Use $commerce-master-data to assemble auditable retail product, price, inventory, and category evidence."

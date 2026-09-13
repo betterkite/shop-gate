@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shop Gate Production Release"
+  short_description: "Safely release Shop Gate without routine full data sync"
+  default_prompt: "Use $shopgate-production-release to plan and execute a safe feature-focused production release."

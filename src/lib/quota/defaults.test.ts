@@ -1,0 +1,128 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { ACCESS_CONTROL_CATALOG } from '../auth/permissions';
+import { DEFAULT_QUOTA_PROFILE, DEFAULT_QUOTA_RULES } from './defaults';
+
+const MIGRATION_PATH = path.join(
+  process.cwd(),
+  'prisma/migrations/20260716000400_add_permissions_and_usage_quotas/migration.sql',
+);
+const migrationSql = readFileSync(MIGRATION_PATH, 'utf8');
+const retailNamingMigrationSql = readFileSync(path.join(
+  process.cwd(),
+  'prisma/migrations/20260909000200_rename_retail_access_metrics/migration.sql',
+), 'utf8');
+const hardeningMigrationSql = readFileSync(path.join(
+  process.cwd(),
+  'prisma/migrations/20260717000100_harden_default_member_quotas/migration.sql',
+), 'utf8');
+const structuralQuotaMigrationSql = readFileSync(path.join(
+  process.cwd(),
+  'prisma/migrations/20260723000300_worker_capacity_and_structural_quotas/migration.sql',
+), 'utf8');
+const hardeningBlock = hardeningMigrationSql.match(
+  /SET\s+"enforcement" = 'hard'[\s\S]+?;/,
+)?.[0] ?? '';
+const warningBlock = hardeningMigrationSql.match(
+  /SET\s+"enforcement" = 'warn'[\s\S]+?;/,
+)?.[0] ?? '';
+const RETAIL_IDENTIFIER_RENAMES: Record<string, string> = {
+  'quant.data.read': 'commerce.data.read',
+  'quant.query.rewrite.llm': 'commerce.query.rewrite.llm',
+  'quant.strategy.run': 'commerce.operation.run',
+  'quant.strategy.manage': 'commerce.operation.manage',
+  'research.report.read': 'operations.brief.read',
+  'research.report.run': 'operations.brief.run',
+  'research.report.send': 'operations.brief.send',
+  'query_rewrite.llm.daily': 'commerce.query_rewrite.llm.daily',
+  'quant.data_units.daily': 'commerce.data_units.daily',
+  'research.report_runs.daily': 'operations.brief_runs.daily',
+  'research.report_sends.daily': 'operations.brief_sends.daily',
+};
+
+function migrationPermissionGrants(profileId: string): string[] {
+  const marker = `\n  '${profileId}',\n  permission_key,`;
+  const profileOffset = migrationSql.indexOf(marker);
+  if (profileOffset < 0) throw new Error(`Migration grant block not found for ${profileId}.`);
+  const arrayOffset = migrationSql.indexOf('FROM unnest(ARRAY[', profileOffset);
+  const arrayEnd = migrationSql.indexOf(']) AS permission_key;', arrayOffset);
+  if (arrayOffset < 0 || arrayEnd < 0) {
+    throw new Error(`Migration grant array is malformed for ${profileId}.`);
+  }
+  return [...migrationSql.slice(arrayOffset, arrayEnd).matchAll(/'([^']+)'/g)]
+    .map((match) => RETAIL_IDENTIFIER_RENAMES[match[1]] ?? match[1]);
+}
+
+function migrationQuotaRules(): Array<{
+  metric: string;
+  limit: bigint;
+  enforcement: string;
+  windowType: string;
+  windowSeconds: number | null;
+  reservationTtlSeconds: number;
+}> {
+  const block = migrationSql.match(
+    /INSERT INTO "quota_rules"[\s\S]+?\) VALUES([\s\S]+?);\n\nUPDATE "auth_users"/,
+  )?.[0];
+  if (!block) throw new Error('Migration quota rule seed block was not found.');
+
+  const rules = [...block.matchAll(
+    /\('[^']+', 'quota_profile_member_default', '([^']+)', (\d+), '([^']+)', '([^']+)', (NULL|\d+), (\d+),/g,
+  )].map((match) => ({
+    metric: RETAIL_IDENTIFIER_RENAMES[match[1]] ?? match[1],
+    limit: BigInt(match[2]),
+    enforcement: match[3],
+    windowType: match[4],
+    windowSeconds: match[5] === 'NULL' ? null : Number(match[5]),
+    reservationTtlSeconds: Number(match[6]),
+  }));
+  const pending = structuralQuotaMigrationSql.match(
+    /'agent\.pending',\s+(\d+),\s+'([^']+)',\s+'([^']+)',\s+(NULL|\d+),\s+(\d+)/,
+  );
+  if (!pending) throw new Error('Structural pending quota migration was not found.');
+  rules.push({
+    metric: 'agent.pending',
+    limit: BigInt(pending[1]),
+    enforcement: pending[2],
+    windowType: pending[3],
+    windowSeconds: pending[4] === 'NULL' ? null : Number(pending[4]),
+    reservationTtlSeconds: Number(pending[5]),
+  });
+  return rules;
+}
+
+describe('built-in access-control defaults', () => {
+  it('keeps migration permission grants synchronized with the capability catalog', () => {
+    expect(migrationPermissionGrants('permission_profile_member_default'))
+      .toEqual([...ACCESS_CONTROL_CATALOG.profiles['member-default'].allow]);
+    expect(migrationPermissionGrants('permission_profile_readonly_default'))
+      .toEqual([...ACCESS_CONTROL_CATALOG.profiles['readonly-default'].allow]);
+    expect(ACCESS_CONTROL_CATALOG.profiles['member-default'].deny).toEqual([]);
+    expect(ACCESS_CONTROL_CATALOG.profiles['readonly-default'].deny).toEqual([]);
+  });
+
+  it('keeps all migration quota rules synchronized with the runtime catalog', () => {
+    const expected = DEFAULT_QUOTA_RULES.map((rule) => ({ ...rule }))
+      .sort((left, right) => left.metric.localeCompare(right.metric));
+    const actual = migrationQuotaRules()
+      .map((rule) => hardeningBlock.includes(`'${Object.entries(RETAIL_IDENTIFIER_RENAMES).find(([, current]) => current === rule.metric)?.[0] ?? rule.metric}'`)
+        ? { ...rule, enforcement: 'hard' }
+        : warningBlock.includes(`'${Object.entries(RETAIL_IDENTIFIER_RENAMES).find(([, current]) => current === rule.metric)?.[0] ?? rule.metric}'`)
+          ? { ...rule, enforcement: 'warn' }
+          : rule)
+      .sort((left, right) => left.metric.localeCompare(right.metric));
+
+    expect(new Set(DEFAULT_QUOTA_RULES.map((rule) => rule.metric)).size)
+      .toBe(DEFAULT_QUOTA_RULES.length);
+    expect(actual).toEqual(expected);
+    expect(migrationSql).toContain(`'${DEFAULT_QUOTA_PROFILE.key}'`);
+    expect(migrationSql).toContain(`'${DEFAULT_QUOTA_PROFILE.name}'`);
+    expect(`${migrationSql}\n${hardeningMigrationSql}`)
+      .toContain(`'${DEFAULT_QUOTA_PROFILE.description}'`);
+    expect(retailNamingMigrationSql).toContain("'quant.data.read'");
+    expect(retailNamingMigrationSql).toContain("'commerce.data.read'");
+  });
+});

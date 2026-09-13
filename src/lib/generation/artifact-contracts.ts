@@ -1,0 +1,662 @@
+import fs from 'fs/promises';
+import path from 'path';
+import { z } from 'zod';
+import {
+  DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+  DATA_AGENT_EVENTS_RELATIVE_PATH,
+  DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
+  DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
+  DATA_AGENT_PLAN_RELATIVE_PATH,
+  DATA_AGENT_PROFILE_RELATIVE_PATH,
+  DATA_AGENT_TASK_RELATIVE_PATH,
+  DATA_AGENT_VALIDATION_RELATIVE_PATH,
+  DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+  DATA_AGENT_WORKSPACE_RELATIVE_PATH,
+} from '@/lib/data-agent/workspace-layout';
+import {
+  RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+  RETAIL_RUN_PLAN_RELATIVE_PATH,
+} from '@/lib/domains/retail/workspace-artifacts';
+import { appendRetailWorkspaceEvent, ensureRetailWorkspace } from '@/lib/domains/retail/workspace';
+
+export type DataAgentArtifactContractStatus = 'passed' | 'failed' | 'warning';
+
+export interface DataAgentArtifactContractCheck {
+  id: string;
+  label: string;
+  path: string;
+  required: boolean;
+  status: DataAgentArtifactContractStatus;
+  summary: string;
+  details?: string;
+}
+
+export interface DataAgentArtifactContractReport {
+  schemaVersion: 1;
+  projectId: string;
+  requestId?: string | null;
+  status: DataAgentArtifactContractStatus;
+  passed: boolean;
+  reportPath: string;
+  checks: DataAgentArtifactContractCheck[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+type JsonRecord = Record<string, unknown>;
+
+type ContractDefinition = {
+  id: string;
+  label: string;
+  relativePath: string;
+  required: boolean;
+  schema: z.ZodType<unknown>;
+  extraValidate?: (value: unknown) => string[];
+};
+
+const optionalString = z.string().nullable().optional();
+const nonEmptyString = z.string().trim().min(1);
+const statusString = z.string().trim().min(1);
+const sha256Identity = z.string().regex(/^sha256:[a-f0-9]{64}$/u);
+const compositionLockSchema = z.object({
+  schemaVersion: z.literal(1),
+  profile: z.object({
+    id: nonEmptyString,
+    version: nonEmptyString,
+  }),
+  domainPacks: z.array(z.object({
+    id: nonEmptyString,
+    version: nonEmptyString,
+  })).min(1),
+  deliveryPack: z.object({
+    id: nonEmptyString,
+    version: nonEmptyString,
+  }),
+  capability: z.object({
+    id: nonEmptyString,
+  }),
+  sha256: sha256Identity,
+});
+const optionalTimeRange = z.union([
+  z.string(),
+  z.object({
+    period: z.string().optional(),
+    lookbackDays: z.number().int().positive().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+  }).passthrough(),
+]).nullable().optional();
+
+const workspaceSchema = z.object({
+  schemaVersion: z.literal(1),
+  workspaceId: nonEmptyString,
+  projectId: nonEmptyString,
+  projectName: nonEmptyString,
+  platform: nonEmptyString,
+  composition: compositionLockSchema,
+  runtime: z.object({
+    framework: z.literal('PI Agent'),
+    executorId: z.literal('pi'),
+    modelId: nonEmptyString,
+    modelProfileId: nonEmptyString,
+  }),
+  createdAt: nonEmptyString,
+  updatedAt: nonEmptyString,
+});
+
+const profileSchema = z.object({
+  schemaVersion: z.literal(1),
+  profile: z.object({
+    id: nonEmptyString,
+    version: nonEmptyString,
+    domainPackIds: z.array(nonEmptyString).min(1),
+    defaultCapabilityId: nonEmptyString,
+    deliveryPackId: nonEmptyString,
+  }).passthrough(),
+  selectedCapabilityId: nonEmptyString,
+  composition: compositionLockSchema,
+  selectionSource: z.enum(['manual', 'default', 'inferred']),
+  updatedAt: nonEmptyString,
+}).passthrough();
+
+const taskSchema = z.object({
+  schemaVersion: z.literal(1),
+  originalQuery: nonEmptyString,
+  objective: nonEmptyString,
+  entities: z.array(z.unknown()),
+  resolvedEntities: z.array(z.unknown()),
+  metrics: z.array(z.unknown()),
+  dimensions: z.array(z.unknown()),
+  filters: z.array(z.unknown()),
+  output: z.enum(['answer', 'table', 'chart', 'dashboard', 'report', 'dataset']),
+  domainHints: z.array(nonEmptyString),
+  status: z.enum(['ready', 'partial', 'needs_clarification', 'refused']),
+  issues: z.array(z.unknown()),
+}).passthrough();
+
+const dataAgentPlanSchema = z.object({
+  schemaVersion: z.literal(1),
+  runId: nonEmptyString,
+  status: z.enum(['planned', 'needs_clarification', 'refused']),
+  profile: z.object({
+    id: nonEmptyString,
+    version: nonEmptyString,
+    domainPacks: z.array(z.object({
+      id: nonEmptyString,
+      version: nonEmptyString,
+    })).min(1),
+    deliveryPack: z.object({
+      id: nonEmptyString,
+      version: nonEmptyString,
+    }),
+    compositionSha256: sha256Identity,
+  }),
+  capabilityId: nonEmptyString,
+  taskArtifact: z.literal(DATA_AGENT_TASK_RELATIVE_PATH),
+  domainPlanArtifact: z.literal(RETAIL_RUN_PLAN_RELATIVE_PATH),
+  expectedArtifacts: z.array(nonEmptyString),
+  validationRuleIds: z.array(nonEmptyString),
+  createdAt: nonEmptyString,
+  updatedAt: nonEmptyString,
+});
+
+const retailQueryRewriteSchema = z.object({
+  schemaVersion: z.literal(4),
+  originalQuery: nonEmptyString,
+  normalizedQuery: nonEmptyString,
+  rewrittenQuery: nonEmptyString,
+  status: z.enum(['ready', 'partial', 'needs_clarification', 'refused']),
+  confidence: z.number().min(0).max(1),
+  capabilityHint: nonEmptyString,
+  targetCandidates: z.array(z.string()),
+  resolvedEntities: z.array(z.unknown()),
+  unresolvedTargets: z.array(z.string()),
+  ambiguousTargets: z.array(z.unknown()),
+  outputIntent: z.enum(['dashboard', 'answer']),
+  broadUniverse: z.boolean(),
+  issues: z.array(z.unknown()),
+}).passthrough();
+
+const runPlanSchema = z.object({
+  schemaVersion: z.literal(1),
+  runId: nonEmptyString,
+  status: z.enum(['pending', 'planned', 'needs_clarification', 'refused']),
+  capabilityId: nonEmptyString,
+  composition: compositionLockSchema,
+  question: nonEmptyString,
+  entities: z.array(z.string()).optional(),
+  plannedEntities: z.object({
+    categoryIds: z.array(z.number()),
+    itemIds: z.array(z.number()),
+  }).optional(),
+  window: z.object({
+    start: z.string(),
+    end: z.string(),
+  }).nullable().optional(),
+  timeRange: optionalTimeRange,
+  dataRequirements: z.array(z.string()),
+  analysisSteps: z.array(z.string()),
+  visualization: z.object({
+    required: z.boolean(),
+    templateId: z.string().optional(),
+    panels: z.array(z.string()),
+  }).passthrough(),
+  expectedArtifacts: z.array(z.string()),
+  validationRules: z.array(z.string()),
+  createdAt: nonEmptyString,
+  updatedAt: nonEmptyString,
+}).passthrough();
+
+const generationStateSchema = z.object({
+  schemaVersion: z.literal(1),
+  projectId: nonEmptyString,
+  requestId: nonEmptyString,
+  status: z.enum(['pending', 'running', 'needs_clarification', 'refused', 'repairing', 'completed', 'failed', 'cancelled']),
+  activeStep: nonEmptyString,
+  createdAt: nonEmptyString,
+  updatedAt: nonEmptyString,
+  completedAt: optionalString,
+  originalInstruction: z.string(),
+  cliPreference: optionalString,
+  selectedModel: optionalString,
+  repairAttemptCount: z.number().int().min(0),
+  maxRepairAttempts: z.number().int().min(0),
+  steps: z.array(z.object({
+    id: nonEmptyString,
+    label: nonEmptyString,
+    status: z.enum(['pending', 'running', 'success', 'warning', 'failed', 'skipped']),
+    startedAt: optionalString,
+    completedAt: optionalString,
+    summary: z.string(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  }).passthrough()),
+  error: z.object({
+    step: nonEmptyString,
+    message: nonEmptyString,
+  }).nullable(),
+}).passthrough();
+
+const validationSchema = z.object({
+  schemaVersion: z.literal(1),
+  status: z.enum(['passed', 'failed']),
+  passed: z.boolean(),
+  projectId: nonEmptyString,
+  reportPath: nonEmptyString,
+  checks: z.array(z.object({
+    id: nonEmptyString,
+    name: nonEmptyString,
+    status: z.enum(['passed', 'failed', 'warning']),
+    summary: z.string(),
+  }).passthrough()),
+  createdAt: nonEmptyString,
+  updatedAt: nonEmptyString,
+}).passthrough();
+
+const queueSchema = z.object({
+  schemaVersion: z.literal(1),
+  projectId: nonEmptyString,
+  activeRequestId: optionalString,
+  updatedAt: nonEmptyString,
+  items: z.array(z.object({
+    id: nonEmptyString,
+    projectId: nonEmptyString,
+    requestId: nonEmptyString,
+    status: z.enum(['queued', 'running', 'completed', 'failed', 'cancelled']),
+    cliPreference: optionalString,
+    selectedModel: optionalString,
+    instructionPreview: z.string(),
+    queuedAt: nonEmptyString,
+    startedAt: optionalString,
+    completedAt: optionalString,
+    errorMessage: optionalString,
+  }).passthrough()),
+}).passthrough();
+
+const visualValidationSchema = z.object({
+  schemaVersion: z.literal(1),
+  projectId: nonEmptyString,
+  requestId: optionalString,
+  status: z.enum(['passed', 'failed', 'warning']),
+  passed: z.boolean(),
+  previewUrl: nonEmptyString,
+  reportPath: nonEmptyString,
+  screenshotDir: nonEmptyString,
+  viewports: z.array(z.object({
+    id: z.enum(['desktop', 'mobile']),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    screenshotPath: nonEmptyString,
+    status: z.enum(['passed', 'failed', 'warning']),
+    failures: z.array(z.string()),
+    warnings: z.array(z.string()),
+    metrics: z.record(z.string(), z.unknown()),
+  }).passthrough()).min(1),
+  failures: z.array(z.string()),
+  warnings: z.array(z.string()),
+  createdAt: nonEmptyString,
+  updatedAt: nonEmptyString,
+}).passthrough();
+
+const sourcesSchema = z.object({
+  sources: z.array(z.object({
+    source: statusString,
+    endpoint: statusString,
+    artifact_path: statusString.optional(),
+  }).passthrough()).min(1),
+}).passthrough();
+
+const dataQualitySchema = z.object({
+  status: z.enum(['ok', 'warning', 'error']),
+}).passthrough();
+
+const dashboardDataSchema = z.record(z.string(), z.unknown());
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function asRecord(value: unknown): JsonRecord | null {
+  return isRecord(value) ? value : null;
+}
+
+function hasPresentValue(record: JsonRecord | null, keys: string[]) {
+  return Boolean(
+    record &&
+      keys.some((key) => {
+        const value = record[key];
+        if (value === null || value === undefined) return false;
+        return typeof value !== 'string' || value.trim().length > 0;
+      })
+  );
+}
+
+function hasArrayValue(record: JsonRecord | null, keys: string[]) {
+  return Boolean(record && keys.some((key) => Array.isArray(record[key]) && (record[key] as unknown[]).length > 0));
+}
+
+function inspectDashboardData(value: unknown): string[] {
+  const record = asRecord(value);
+  const errors: string[] = [];
+  if (!record || Object.keys(record).length === 0) {
+    return ['dashboard-data.json 必须是非空对象。'];
+  }
+
+  // 零售契约：datasets（meta/funnel/categories/inventoryRisk/summary 等）+
+  // window + plannedEntities 视为有效业务载荷（PRD §5.4）。
+  const datasets = asRecord(record.datasets);
+  const hasRetailPayload = Boolean(datasets && Object.values(datasets).some((dataset) => {
+    const candidate = asRecord(dataset);
+    return Boolean(candidate && (
+      hasArrayValue(candidate, ['rows', 'stages', 'items', 'groups', 'points']) ||
+      hasPresentValue(candidate, ['window', 'event_count', 'user_count', 'totals', 'status', 'limitations'])
+    ));
+  }));
+  const hasWindow = asRecord(record.window) !== null;
+  const hasPlannedEntities = asRecord(record.plannedEntities) !== null;
+
+  if (!hasRetailPayload) {
+    errors.push('dashboard-data.json 至少需要包含一个可用的零售数据集（商品、行为、订单、库存或经营汇总）。');
+  }
+  if (datasets && !hasWindow) {
+    errors.push('datasets 存在时必须声明 window（start/end）。');
+  }
+  if (datasets && !hasPlannedEntities) {
+    errors.push('datasets 存在时必须声明 plannedEntities（categoryIds/itemIds）。');
+  }
+
+  const visualization = asRecord(record.visualization);
+  if (visualization && !hasPresentValue(visualization, ['template_id', 'templateId'])) {
+    errors.push('visualization 存在时必须声明 template_id/templateId。');
+  }
+
+  return errors;
+}
+
+function inspectRunPlan(value: unknown) {
+  const record = asRecord(value);
+  const expectedArtifacts = Array.isArray(record?.expectedArtifacts) ? record.expectedArtifacts : [];
+  const errors: string[] = [];
+  [
+    DATA_AGENT_WORKSPACE_RELATIVE_PATH,
+    DATA_AGENT_PROFILE_RELATIVE_PATH,
+    DATA_AGENT_TASK_RELATIVE_PATH,
+    DATA_AGENT_PLAN_RELATIVE_PATH,
+    RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+    RETAIL_RUN_PLAN_RELATIVE_PATH,
+    DATA_AGENT_GENERATION_STATE_RELATIVE_PATH,
+    DATA_AGENT_GENERATION_QUEUE_RELATIVE_PATH,
+    DATA_AGENT_EVENTS_RELATIVE_PATH,
+    DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+    DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+    DATA_AGENT_VALIDATION_RELATIVE_PATH,
+    'evidence/sources.json',
+    'evidence/data_quality.json',
+    'data_file/final/dashboard-data.json',
+    'app/page.tsx',
+  ].forEach((artifact) => {
+    if (!expectedArtifacts.includes(artifact)) {
+      errors.push(`expectedArtifacts 缺少 ${artifact}。`);
+    }
+  });
+  return errors;
+}
+
+function inspectGenerationState(value: unknown) {
+  const record = asRecord(value);
+  const steps = Array.isArray(record?.steps) ? record.steps.map(asRecord).filter(Boolean) : [];
+  const requiredSteps = ['request_received', 'planning', 'data_prefetch', 'agent_execution', 'validation', 'repair', 'final_validation', 'completed'];
+  const present = new Set(steps.map((step) => typeof step?.id === 'string' ? step.id : ''));
+  return requiredSteps.filter((step) => !present.has(step)).map((step) => `steps 缺少 ${step}。`);
+}
+
+function inspectSources(value: unknown) {
+  const sources = Array.isArray(asRecord(value)?.sources) ? asRecord(value)?.sources as unknown[] : [];
+  return sources.flatMap((source, index) => {
+    const record = asRecord(source);
+    const errors: string[] = [];
+    if (!hasPresentValue(record, ['source'])) errors.push(`sources[${index}].source 缺失。`);
+    if (!hasPresentValue(record, ['endpoint'])) errors.push(`sources[${index}].endpoint 缺失。`);
+    if (!hasPresentValue(record, ['artifact_path', 'dataset'])) errors.push(`sources[${index}].artifact_path 缺失。`);
+    if (!hasPresentValue(record, ['fetched_at', 'as_of', 'window'])) errors.push(`sources[${index}] 缺少 fetched_at/as_of/window。`);
+    return errors;
+  });
+}
+
+function inspectDataQuality(value: unknown) {
+  const record = asRecord(value);
+  const errors: string[] = [];
+  if (!hasArrayValue(record, ['datasets']) && !hasArrayValue(record, ['checks'])) {
+    errors.push('data_quality.json 需要包含 datasets 或 checks。');
+  }
+  if (!hasArrayValue(record, ['warnings']) && !hasArrayValue(record, ['limitations']) && !JSON.stringify(value).match(/row_count|missing_fields|fetched_at/i)) {
+    errors.push('data_quality.json 需要记录样本数、缺失字段、警告或限制。');
+  }
+  return errors;
+}
+
+const CONTRACTS: ContractDefinition[] = [
+  {
+    id: 'workspace_contract',
+    label: 'Data Agent 工作空间契约',
+    relativePath: DATA_AGENT_WORKSPACE_RELATIVE_PATH,
+    required: true,
+    schema: workspaceSchema,
+  },
+  {
+    id: 'profile_contract',
+    label: 'Agent Profile 契约',
+    relativePath: DATA_AGENT_PROFILE_RELATIVE_PATH,
+    required: true,
+    schema: profileSchema,
+  },
+  {
+    id: 'task_contract',
+    label: 'Data Agent Task 契约',
+    relativePath: DATA_AGENT_TASK_RELATIVE_PATH,
+    required: true,
+    schema: taskSchema,
+  },
+  {
+    id: 'data_agent_plan_contract',
+    label: 'Data Agent 执行计划契约',
+    relativePath: DATA_AGENT_PLAN_RELATIVE_PATH,
+    required: true,
+    schema: dataAgentPlanSchema,
+  },
+  {
+    id: 'retail_query_rewrite_contract',
+    label: 'Retail Query Rewrite 契约',
+    relativePath: RETAIL_QUERY_REWRITE_RELATIVE_PATH,
+    required: true,
+    schema: retailQueryRewriteSchema,
+  },
+  {
+    id: 'run_plan_contract',
+    label: '运行计划契约',
+    relativePath: RETAIL_RUN_PLAN_RELATIVE_PATH,
+    required: true,
+    schema: runPlanSchema,
+    extraValidate: inspectRunPlan,
+  },
+  {
+    id: 'generation_state_contract',
+    label: '生成状态契约',
+    relativePath: '.data-agent/generation-state.json',
+    required: true,
+    schema: generationStateSchema,
+    extraValidate: inspectGenerationState,
+  },
+  {
+    id: 'validation_contract',
+    label: '验证报告契约',
+    relativePath: '.data-agent/validation.json',
+    required: false,
+    schema: validationSchema,
+  },
+  {
+    id: 'generation_queue_contract',
+    label: '生成队列契约',
+    relativePath: '.data-agent/generation-queue.json',
+    required: false,
+    schema: queueSchema,
+  },
+  {
+    id: 'visual_validation_contract',
+    label: '视觉验收契约',
+    relativePath: '.data-agent/visual-validation.json',
+    required: false,
+    schema: visualValidationSchema,
+  },
+  {
+    id: 'sources_contract',
+    label: '数据信源契约',
+    relativePath: 'evidence/sources.json',
+    required: true,
+    schema: sourcesSchema,
+    extraValidate: inspectSources,
+  },
+  {
+    id: 'data_quality_contract',
+    label: '数据质量契约',
+    relativePath: 'evidence/data_quality.json',
+    required: true,
+    schema: dataQualitySchema,
+    extraValidate: inspectDataQuality,
+  },
+  {
+    id: 'dashboard_data_contract',
+    label: '最终数据契约',
+    relativePath: 'data_file/final/dashboard-data.json',
+    required: true,
+    schema: dashboardDataSchema,
+    extraValidate: inspectDashboardData,
+  },
+];
+
+async function readJson(projectPath: string, relativePath: string) {
+  const absolutePath = path.join(projectPath, relativePath);
+  const content = await fs.readFile(absolutePath, 'utf8').catch(() => null);
+  if (!content) {
+    return { ok: false as const, error: `缺少或为空：${relativePath}` };
+  }
+  try {
+    return { ok: true as const, value: JSON.parse(content) as unknown };
+  } catch (error) {
+    return {
+      ok: false as const,
+      error: `JSON 解析失败：${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
+function formatZodIssue(issue: z.core.$ZodIssue) {
+  const pathLabel = issue.path.length ? issue.path.join('.') : '<root>';
+  return `${pathLabel}: ${issue.message}`;
+}
+
+async function checkContract(projectPath: string, definition: ContractDefinition): Promise<DataAgentArtifactContractCheck> {
+  const payload = await readJson(projectPath, definition.relativePath);
+  if (!payload.ok) {
+    return {
+      id: definition.id,
+      label: definition.label,
+      path: definition.relativePath,
+      required: definition.required,
+      status: definition.required ? 'failed' : 'passed',
+      summary: definition.required
+        ? payload.error
+        : `${definition.label}尚未生成（可选产物）。`,
+    };
+  }
+
+  const parsed = definition.schema.safeParse(payload.value);
+  if (!parsed.success) {
+    return {
+      id: definition.id,
+      label: definition.label,
+      path: definition.relativePath,
+      required: definition.required,
+      status: 'failed',
+      summary: `${definition.label}结构不符合契约。`,
+      details: parsed.error.issues.slice(0, 12).map(formatZodIssue).join('\n'),
+    };
+  }
+
+  const extraErrors = definition.extraValidate?.(payload.value) ?? [];
+  if (extraErrors.length > 0) {
+    return {
+      id: definition.id,
+      label: definition.label,
+      path: definition.relativePath,
+      required: definition.required,
+      status: definition.required ? 'failed' : 'warning',
+      summary: `${definition.label}缺少关键业务字段。`,
+      details: extraErrors.slice(0, 16).join('\n'),
+    };
+  }
+
+  return {
+    id: definition.id,
+    label: definition.label,
+    path: definition.relativePath,
+    required: definition.required,
+    status: 'passed',
+    summary: `${definition.label}通过。`,
+  };
+}
+
+export async function validateDataAgentArtifactContracts(params: {
+  projectPath: string;
+  projectId: string;
+  requestId?: string | null;
+}): Promise<DataAgentArtifactContractReport> {
+  const projectPath = path.resolve(params.projectPath);
+  const now = new Date().toISOString();
+  await ensureRetailWorkspace(projectPath);
+  const checks = await Promise.all(CONTRACTS.map((definition) => checkContract(projectPath, definition)));
+  const requiredFailures = checks.filter((check) => check.required && check.status === 'failed');
+  const warnings = checks.filter((check) => check.status === 'warning');
+  const status: DataAgentArtifactContractStatus = requiredFailures.length ? 'failed' : warnings.length ? 'warning' : 'passed';
+  const report: DataAgentArtifactContractReport = {
+    schemaVersion: 1,
+    projectId: params.projectId,
+    requestId: params.requestId ?? null,
+    status,
+    passed: status !== 'failed',
+    reportPath: DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+    checks,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await fs.writeFile(
+    path.join(projectPath, DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH),
+    `${JSON.stringify(report, null, 2)}\n`,
+    'utf8'
+  );
+  await appendRetailWorkspaceEvent(projectPath, {
+    event_type: 'artifact_contracts_checked',
+    stage: 'validation',
+    status: status === 'failed' ? 'error' : status === 'warning' ? 'warning' : 'success',
+    run_id: params.requestId ?? undefined,
+    artifact_path: DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+    summary: status === 'failed'
+      ? `产物契约未通过：${requiredFailures.length} 个必需契约失败。`
+      : status === 'warning'
+        ? `产物契约通过但有 ${warnings.length} 个警告。`
+        : '产物契约全部通过。',
+    created_at: now,
+  });
+  return report;
+}
+
+export async function readDataAgentArtifactContractReport(projectPath: string): Promise<DataAgentArtifactContractReport | null> {
+  const content = await fs.readFile(path.join(projectPath, DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH), 'utf8').catch(() => null);
+  if (!content) return null;
+  try {
+    const parsed = JSON.parse(content);
+    return parsed && typeof parsed === 'object' ? parsed as DataAgentArtifactContractReport : null;
+  } catch {
+    return null;
+  }
+}

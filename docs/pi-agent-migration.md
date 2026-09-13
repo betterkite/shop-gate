@@ -59,7 +59,7 @@ HTTP / Generation Worker
 直到 loop 结束。项目已删除原有自定义多轮 Run Engine；不得再引入另一套
 `while provider -> tool -> provider` 状态机。
 
-Provider adapter 把 Shop Gate 的 ModelPort、本地 Qwen、受控 DeepSeek 和确定性测试
+Provider adapter 把 Shop Gate 的外部模型网关、本地 Qwen、受控 DeepSeek 和确定性测试
 Provider 转成 PI `StreamFn`。Tool adapter 把 `PiAgentTool` 转成 PI `AgentTool`，并按以下
 顺序执行：
 

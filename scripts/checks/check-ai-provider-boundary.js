@@ -24,7 +24,7 @@ function pass(message) {
   console.log(`✅ ${message}`);
 }
 
-console.log('\n🔒 PI Agent AI 接入边界检查：ModelPort 日常路由 + 可选 DeepSeek 官方直连\n');
+console.log('\n🔒 PI Agent AI 接入边界检查：外部模型网关 + 可选 DeepSeek 官方直连\n');
 
 const retiredFrameworkToken = ['mo', 'agent'].join('');
 const repositoryFiles = execFileSync(
@@ -60,7 +60,7 @@ if (!/^MODELPORT_API_KEY=/m.test(envExample)) {
 } else if (/^(?:DEEPSEEK_API_KEY|LOCAL_OPENAI_API_KEY)=/m.test(envExample)) {
   fail('.env.example 不得鼓励在 Shop Gate 本地保存上游 DeepSeek 或旧本地 Provider Key');
 } else {
-  pass('Shop Gate 只声明 ModelPort 客户端凭据；上游 DeepSeek Key 留在 ModelPort');
+  pass('Shop Gate 只声明外部网关客户端凭据；上游模型 Key 留在外部服务');
 }
 
 for (const key of [
@@ -104,9 +104,9 @@ if (
   modelPortDeepSeekProfile?.queryRewrite?.timeoutMs !== 15_000 ||
   localProfile?.queryRewrite?.timeoutMs !== 15_000
 ) {
-  fail('config/llm.json 必须提供 Qwen、ModelPort DeepSeek 与官方直连三个锁定 profiles');
+  fail('config/llm.json 必须提供 Qwen、外部网关 DeepSeek 与官方直连三个锁定 profiles');
 } else {
-  pass('中央 LLM profiles、Qwen 默认值、ModelPort DeepSeek 与官方直连配置完整');
+  pass('中央 LLM profiles、Qwen 默认值、外部网关 DeepSeek 与官方直连配置完整');
 }
 
 for (const key of [
@@ -131,11 +131,11 @@ if (!modelRegistry.includes(`DEEPSEEK_MODEL_ID = '${DEEPSEEK_MODEL}'`)) {
 } else if (!modelRegistry.includes(`LOCAL_OPENAI_BASE_URL = '${LOCAL_BASE_URL}'`)) {
   fail(`模型注册表必须锁定本地地址 ${LOCAL_BASE_URL}`);
 } else if (!modelRegistry.includes(`MODELPORT_DEEPSEEK_MODEL_ID = '${MODELPORT_DEEPSEEK_MODEL}'`)) {
-  fail(`模型注册表必须包含 ModelPort DeepSeek 模型 ${MODELPORT_DEEPSEEK_MODEL}`);
+  fail(`模型注册表必须包含外部网关 DeepSeek 模型 ${MODELPORT_DEEPSEEK_MODEL}`);
 } else if (!modelRegistry.includes('PI_AGENT_DEFAULT_MODEL: PiAgentModelId = LOCAL_QWEN_MODEL_ID')) {
   fail(`PI Agent 默认模型必须为 ${LOCAL_MODEL}`);
 } else {
-  pass('本地 Qwen 默认模型、ModelPort DeepSeek 与官方直连地址均已锁定');
+  pass('本地 Qwen 默认模型、外部网关 DeepSeek 与官方直连地址均已锁定');
 }
 
 const requiredRuntimeFiles = [

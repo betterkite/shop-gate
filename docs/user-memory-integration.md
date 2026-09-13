@@ -29,7 +29,7 @@ Shop Gate 当前把 Memory 作为可选外部服务使用。聊天执行、项�
 
 ## 可以不启用 Memory
 
-Memory 是可选组件，不是模型调用、数据读取或 workspace 生成的前置条件。如果当前不需要个性化、还没有部署 Memory，或希望先独立验收 Shop Gate 与 ModelPort，只需设置：
+Memory 是可选组件，不是模型调用、数据读取或 workspace 生成的前置条件。如果当前不需要个性化、还没有部署 Memory，或希望先独立验收 Shop Gate 与外部模型网关，只需设置：
 
 ```dotenv
 SHOPGATE_MEMORY_ENABLED=0
@@ -443,17 +443,17 @@ console.table(revisions.data);
 - Memory 不可用时的降级不能绕过项目授权、权限限制或安全策略。
 - 隐私删除、权限治理、删除证明和完整生产运维完成前，不应把该集成声明为生产就绪。
 
-## Qwen、ModelPort 与 Memory 的三方长期验收
+## Qwen、外部模型网关与 Memory 的三方长期验收
 
 长期运行由 Shop Gate 负责编排，但三个模块保持独立部署：
 
 ```text
-Shop Gate -- OpenAI-compatible HTTP --> ModelPort -- provider route --> Qwen
-Shop Gate -- OpenAI-compatible HTTP --> ModelPort -- Anthropic protocol --> DeepSeek
+Shop Gate -- OpenAI-compatible HTTP --> 外部模型网关 -- provider route --> Qwen
+Shop Gate -- OpenAI-compatible HTTP --> 外部模型网关 -- Anthropic protocol --> DeepSeek
 Shop Gate -- evolvable-memory-http/v1 --> Evolvable User Memory
 ```
 
-ModelPort 不读取用户记忆，Memory 不调用模型，Qwen 不直接访问两个项目的数据库。Shop Gate 先通过 `PersonalMemoryPort` 召回并过滤有界 capsule，再把它作为不可信偏好数据放进 PI Agent prompt；模型 Provider 与 Memory adapter 因而可以独立替换和降级。
+外部模型网关不读取用户记忆，Memory 不调用模型，Qwen 不直接访问两个项目的数据库。Shop Gate 先通过 `PersonalMemoryPort` 召回并过滤有界 capsule，再把它作为不可信偏好数据放进 PI Agent prompt；模型 Provider 与 Memory adapter 因而可以独立替换和降级。
 
 默认只读验收不会创建偏好或 Outcome：
 
@@ -461,7 +461,7 @@ ModelPort 不读取用户记忆，Memory 不调用模型，Qwen 不直接访问�
 npm run check:integrations
 ```
 
-需要在真实持久化环境完整验证“写入 → 幂等重放 → 同项目召回 → 跨项目隔离 → Shop Gate prompt → ModelPort/Qwen 工具调用与续写 → Outcome 幂等重放”时，显式指定两个已经存在的项目：
+需要在真实持久化环境完整验证“写入 → 幂等重放 → 同项目召回 → 跨项目隔离 → Shop Gate prompt → 外部网关/Qwen 工具调用与续写 → Outcome 幂等重放”时，显式指定两个已经存在的项目：
 
 ```bash
 npm run check:integrations -- \
@@ -474,7 +474,7 @@ npm run check:integrations -- \
 
 验收成功必须同时满足：
 
-- ModelPort 公布限定 Qwen 与 DeepSeek ID，错误凭据被拒绝，两个模型的工具流和续写都完整；DeepSeek 上游使用 Anthropic 协议。
+- 外部模型网关公布限定 Qwen 与 DeepSeek ID，错误凭据被拒绝，两个模型的工具流和续写都完整；DeepSeek 上游使用 Anthropic 协议。
 - Query Rewrite 状态是 `llm-applied`，目标保持用户输入的原文实体。
 - Memory discovery 契约兼容且 `/readyz` 就绪。
 - 本地长期联调至少满足 PostgreSQL 权威存储和持久授权审计，验收输出为 `localDurabilityBaseline=passed`。
@@ -531,4 +531,4 @@ npm run doctor
 | `src/app/api/account/memory/route.ts` | 账号级启停、状态与偏好透明度入口 |
 | `src/app/api/chat/[project_id]/act/route.ts` | 聊天自动召回和 PI Agent 注入点 |
 | `prisma/schema.prisma` 的 `ExternalMemoryUse` / `PersonalMemoryFeedbackReceipt` / `PersonalMemoryControl` | 本地归因、反馈收据与用户控制数据结构 |
-| `scripts/checks/check-long-term-integrations.ts` | ModelPort/Qwen/Memory 只读探测和显式合成闭环验收 |
+| `scripts/checks/check-long-term-integrations.ts` | 外部网关/Qwen/Memory 只读探测和显式合成闭环验收 |

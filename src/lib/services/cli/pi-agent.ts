@@ -587,7 +587,7 @@ async function executePiAgentPhase(
   const apiKey = process.env[llmConfig.credentialEnv]?.trim();
   const providerLabel = llmConfig.provider === 'deepseek'
     ? 'DeepSeek 官方 API'
-    : 'ModelPort OpenAI-compatible API';
+    : '外部 OpenAI-compatible 模型网关';
   const abortController = new AbortController();
   const totalTimeoutMs = positiveIntegerEnv('PI_AGENT_TIMEOUT_MS', 20 * 60 * 1_000);
   const deadlineAt = Date.now() + totalTimeoutMs;

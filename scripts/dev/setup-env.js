@@ -389,7 +389,7 @@ async function ensureEnvironment(options = {}) {
       '# Shop Gate local secrets and machine-specific overrides.',
       '# This file is ignored by Git. Never copy upstream Provider keys into a committed file.',
       '# Runtime precedence: process environment > .env.local > .env.',
-      '# See docs/configuration.md for ModelPort, direct DeepSeek, and Memory-off examples.',
+      '# See docs/configuration.md for external model gateway, direct DeepSeek, and Memory-off examples.',
       '',
     ].join('\n');
   }

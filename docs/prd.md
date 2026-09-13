@@ -60,7 +60,7 @@ Domain Pack ID：`retail.core`；默认 Profile ID：`shopgate.retail-ops`。
 2. 定价策略优化、选品推荐、履约、客服：二期。
 3. 真实电商平台开放 API（淘宝/京东/抖店）：二期；Connector 保持可插拔，v1 只做离线导入。
 4. 日报自动推送与回执：P7。
-5. 模型层改造：ModelPort/本地 Qwen/DeepSeek 机制原样沿用（Q9a），任何模型层改动都不在本 PRD 范围。
+5. 模型层改造：外部模型网关/本地 Qwen/DeepSeek 机制原样沿用（Q9a），任何模型层改动都不在本 PRD 范围。
 
 ## 5. 数据口径
 

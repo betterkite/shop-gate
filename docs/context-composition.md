@@ -12,33 +12,33 @@ Shop Gate 是两个外部上下文平台的编排者，但不是它们的共同�
 
 所有外部调用都从已完成项目授权的路由参数 `Project.id` 派生同一份 `ProjectIntegrationScope`，不接受浏览器或模型提交 tenant/space：
 
-| 层级 | 含义 | ModelPort | Memory | AKEP |
+| 层级 | 含义 | 外部模型网关 | Memory | AKEP |
 | --- | --- | --- | --- | --- |
 | Consumer | 一个独立接入应用 | API Key 绑定 `organization/project/environment` | 独占 `tenant_id` | 独占 Tenant 或生产实例 |
 | Workspace | Shop Gate 中的一个项目 | 通过本地 scope digest 关联，预算默认按 Consumer | `context.project_id` 且交付前再次过滤 | `shared Spaces + <project-base>/<Project.id>` |
 | Subject | 当前用户 | principal/usage | `subject_id` | 不保存个人偏好 |
 
-ModelPort 请求头只是对 API Key 绑定的断言；伪造另一 project 会返回 403。Memory 的 `tenant_id` 是硬安全边界，`context.project_id` 是工作区个性化选择器，不能把多个互不信任的产品放进同一 Memory tenant。AKEP Space 是工作区硬检索边界，返回任一未请求 Space 的 passage/citation 会被 Shop Gate 拒绝。
+外部模型网关请求头只是对 API Key 绑定的断言；伪造另一 project 会返回 403。Memory 的 `tenant_id` 是硬安全边界，`context.project_id` 是工作区个性化选择器，不能把多个互不信任的产品放进同一 Memory tenant。AKEP Space 是工作区硬检索边界，返回任一未请求 Space 的 passage/citation 会被 Shop Gate 拒绝。
 
-`consumerId` 是 Shop Gate 自己的接入身份，不是三个外部平台共享的 tenant 主键。Memory tenant、AKEP Tenant/Space 与 ModelPort organization/project 各自属于独立命名空间，不能相互 join 或用同一个字符串推导权限；联合清单只保存这些作用域的不可变投影与摘要。
+`consumerId` 是 Shop Gate 自己的接入身份，不是三个外部平台共享的 tenant 主键。Memory tenant、AKEP Tenant/Space 与外部网关 organization/project 各自属于独立命名空间，不能相互 join 或用同一个字符串推导权限；联合清单只保存这些作用域的不可变投影与摘要。
 
 作用域的 canonical SHA-256 同时写入 PostgreSQL 归因记录和 `ContextUseManifest`。同一 request ID 若换项目、租户或 Space 集合重放，会触发幂等冲突。
 
 ## 后续产品接入规范
 
-ModelPort、Memory 与 AKEP 是共享基础设施，不代表接入它们的产品可以共享身份。每增加一个消费产品，至少分配下面这组资源；禁止复制 Shop Gate 的 Key、tenant 或项目私有 Space：
+外部模型网关、Memory 与 AKEP 是共享基础设施，不代表接入它们的产品可以共享身份。每增加一个消费产品，至少分配下面这组资源；禁止复制 Shop Gate 的 Key、tenant 或项目私有 Space：
 
 | 资源 | Shop Gate 示例 | 新产品要求 |
 | --- | --- | --- |
 | Consumer ID | `shopgate` | 全局稳定且不复用，用于本地证据命名和审计 |
-| ModelPort | `prj_shopgate` + 独立 API Key | 管理员创建独立 project/environment、Key、预算与模型策略，再绑定 Key；请求头只是绑定断言 |
+| 外部模型网关 | `prj_shopgate` + 独立 API Key | 管理员创建独立 project/environment、Key、预算与模型策略，再绑定 Key；请求头只是绑定断言 |
 | Memory | `shopgate-local` tenant | 独立 tenant、服务凭据和 subject token grant；不能只靠 `context.product` 隔离互不信任产品 |
 | AKEP | Shop Gate Tenant/shared Spaces/project-Space base | 独立 Tenant 或明确授权的 Space 集合；每个 workspace 只追加自己的确定性 project Space |
 | 本地数据库 | `Project.id` + scope digest | 保存完整作用域摘要；所有 Exposure、Usage、Feedback 必须带可追溯的 project 外键 |
 
-接入顺序固定为“先建控制面资源，再注入 Secret，最后启用 REQUIRED 模式”。不要先共享一把通配 Key 再计划后续拆分，因为历史账本、配额和反馈归因无法可靠回切。生产验收必须包含至少四个负向用例：伪造 ModelPort project 返回 403、跨 Memory tenant/subject 无结果或拒绝、AKEP 返回未请求 Space 时消费者失败关闭、同一 request ID 换 scope 重放触发冲突。
+接入顺序固定为“先建控制面资源，再注入 Secret，最后启用 REQUIRED 模式”。不要先共享一把通配 Key 再计划后续拆分，因为历史账本、配额和反馈归因无法可靠回切。生产验收必须包含至少四个负向用例：伪造外部网关 project 返回 403、跨 Memory tenant/subject 无结果或拒绝、AKEP 返回未请求 Space 时消费者失败关闭、同一 request ID 换 scope 重放触发冲突。
 
-Shop Gate 内新建 workspace 不需要创建新的 ModelPort Key 或 Memory tenant：它继承 Shop Gate Consumer 边界，并以服务端可信 `Project.id` 隔离 Memory facet、AKEP project Space 和本地 evidence。只有预算或合规要求必须按 workspace 独立核算时，才把 ModelPort scope 从 Consumer 级升级为 workspace 级；这需要显式的服务端 scope registry，不能允许浏览器自行选择 Key 或 project header。
+Shop Gate 内新建 workspace 不需要创建新的外部网关 Key 或 Memory tenant：它继承 Shop Gate Consumer 边界，并以服务端可信 `Project.id` 隔离 Memory facet、AKEP project Space 和本地 evidence。只有预算或合规要求必须按 workspace 独立核算时，才把外部网关 scope 从 Consumer 级升级为 workspace 级；这需要显式的服务端 scope registry，不能允许浏览器自行选择 Key 或 project header。
 
 ## 一次任务的证据链
 
@@ -100,7 +100,7 @@ npm run check:triad-experience:large
 npm run check:task-e2e -- --campaign=20260719a
 ```
 
-`check:integrations` 是 ModelPort/Memory 的轻量契约探测；`check:triad-experience` 运行固定 30 题服务级真实体验集；large 模式把每题扩成四种不改变业务语义的自然语言表达，共执行 120 个 case。大规模模式不是复制通过结果：48 个 Query Rewrite 会分别调用 Qwen，24 个 Memory case 分四个稳定测试 subject 执行真实写入/召回/隔离/退出/Usage/历史闭环，24 个 AKEP case 分别创建 ContextPack/Usage/Feedback，24 个组合 case 分别调用模型并核对偏好、Citation 和工具协议。报告分别写入 `tmp/triad-experience-latest.json` 与 `tmp/triad-experience-4x-latest.json`。
+`check:integrations` 是外部模型网关/Memory 的轻量契约探测；`check:triad-experience` 运行固定 30 题服务级真实体验集；large 模式把每题扩成四种不改变业务语义的自然语言表达，共执行 120 个 case。大规模模式不是复制通过结果：48 个 Query Rewrite 会分别调用 Qwen，24 个 Memory case 分四个稳定测试 subject 执行真实写入/召回/隔离/退出/Usage/历史闭环，24 个 AKEP case 分别创建 ContextPack/Usage/Feedback，24 个组合 case 分别调用模型并核对偏好、Citation 和工具协议。报告分别写入 `tmp/triad-experience-latest.json` 与 `tmp/triad-experience-4x-latest.json`。
 
 这些 service-level case 不创建 Project，不能用任务抽屉数量证明执行过。`check:task-e2e` 才走和首页一致的认证后端入口：创建带 `[E2E <campaign>/<case>]` 前缀的 Project，提交 `/api/chat/:projectId/act`，轮询权威 generation terminal snapshot，并核对当前 run 的 Validation、Mission accepted receipt、Workspace 核心产物、持久预览 HTTP 200 和任务抽屉可见性。固定数据集有 30 个任务，默认并发 2、单任务最长 20 分钟；可先用 `--limit=2` 校准，再用同一 campaign 继续全量，已有 Project 会被恢复而不是复制。失败子集使用 `--only=Cxx,Cyy --retry-failed=N` 在原任务记录内重试；运行中或自动修复中的 generation 保持非终态，不能被中间 Validation 失败抢先判死。报告写入 `tmp/task-e2e-<campaign>-latest.json`。部分运行或存在失败时保留 Project，便于复查和重试；完整 30 题全部通过后，脚本在验证任务抽屉后自动删除该批测试 Project 与 Workspace，避免污染真实任务记录。需要人工长期复核时显式传 `--retain-projects`；需要清理失败/部分批次时传 `--cleanup`。`latest` 反映最后一次命令选择的 case，正式留档前必须再跑一次完整 30 题。
 
@@ -131,7 +131,7 @@ npm run check:memory-knowledge-50 -- \
 1. 向专用 subject 写入一条项目级偏好，并以同一 event 重放验证幂等；
 2. 从逐渐增长的 Memory 集合精确召回本题 revision，签发 Usage Receipt；
 3. 只从专用 AKEP Space 创建 ContextPack，并包含本题已发布知识；
-4. 经 ModelPort 调用默认本地 Qwen，强制输出结构化工具调用；
+4. 经外部模型网关调用默认本地 Qwen，强制输出结构化工具调用；
 5. 模型明确使用本题 Memory key，并返回当前 ContextPack 中真实存在、且至少一条属于本题预期 record 的 citation ID；
 6. 成功后写入 Memory Outcome、AKEP Usage 与 AKEP Feedback。
 

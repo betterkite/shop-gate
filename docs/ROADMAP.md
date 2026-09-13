@@ -14,7 +14,7 @@ Shop Gate 的主平台、零售数据后端、评测平台、商品运营和基�
 - 数据能力已经有行为事件、日度指标覆盖率与聚合查询，但商品主数据质量、渠道口径对齐和日频衍生指标批处理仍需补齐。
 - 经营日报已经有观察池、报告契约和本地证据采样，推送回执的通知渠道尚未接入；后续要接外部资讯源、LLM 摘要和定时 worker。
 - generation 已由 PostgreSQL job/outbox 和独立 Worker 执行；评测、规则验证和补数仍需统一暂停、恢复、失败重试与事件语义。
-- 本地 Qwen 与 DeepSeek Anthropic 上游已通过 ModelPort 的限定模型发现、鉴权、流式工具调用和续写验收；ModelPort 已为 OpenAI Chat Completions 应用本地 Qwen 默认思考策略，避免工具任务耗尽隐藏推理预算。Query Rewrite 已升级为 schema v4 LLM-first 合同，保持用户输入中的商品、类目等原文实体，并在模型不可用时停止规划/预取，不再走关键词语义降级。Evolvable User Memory 已通过隔离 subject 的写入、召回、项目隔离、提示注入和 Outcome 闭环；AKEP 已通过自然语言检索、Citation、Usage 与 Feedback 幂等闭环。服务级固定 30 题体验集连续两轮 60/60 通过；任务级 campaign 进一步以 24 个 Qwen、6 个 ModelPort DeepSeek 的真实 Project 验证 `/act`、Workspace、Validation、Mission receipt、持久预览和任务抽屉，最终 30/30 READY。当前本地长期使用链路已打通；Memory 的持久治理、耐久审计、可信 JWT 和 production profile 仍是生产阻塞项。
+- 本地 Qwen 与 DeepSeek Anthropic 上游已通过外部模型网关的限定模型发现、鉴权、流式工具调用和续写验收；外部网关负责 OpenAI Chat Completions 与上游协议之间的适配，避免工具任务耗尽隐藏推理预算。Query Rewrite 已升级为 schema v4 LLM-first 合同，保持用户输入中的商品、类目等原文实体，并在模型不可用时停止规划/预取，不再走关键词语义降级。Evolvable User Memory 已通过隔离 subject 的写入、召回、项目隔离、提示注入和 Outcome 闭环；AKEP 已通过自然语言检索、Citation、Usage 与 Feedback 幂等闭环。服务级固定 30 题体验集连续两轮 60/60 通过；任务级 campaign 进一步以 24 个 Qwen、6 个外部网关 DeepSeek 的真实 Project 验证 `/act`、Workspace、Validation、Mission receipt、持久预览和任务抽屉，最终 30/30 READY。当前本地长期使用链路已打通；Memory 的持久治理、耐久审计、可信 JWT 和 production profile 仍是生产阻塞项。
 
 ## 精炼优先级快照
 
@@ -43,7 +43,7 @@ Shop Gate 的主平台、零售数据后端、评测平台、商品运营和基�
 | 生成生命周期准确性 | `needs_clarification`、排队、运行、修复不能被统计成失败 | 健康度按生命周期分层，仅终态任务进入交付成功率；等待输入给出明确下一步 |
 | 生成任务持久化 | 规划和预取也可能并发覆盖，长任务不能依赖请求进程 | 从请求入队开始串行执行，支持 request/run 级取消、幂等、恢复和终态 CAS |
 | 评测真实性分层 | 模板契约通过不等于模型生成通过 | contract 与 DeepSeek E2E 报告明确分开，夜间 E2E 绑定 commit、prompt、Skills 和数据证据 |
-| 长期集成契约门禁 | ModelPort、Memory、AKEP 独立升级后不能靠人工聊天猜兼容性 | `npm run check:integrations` 做基础只读验收；`npm run check:triad-experience` 固定 30 题覆盖语义、回执和组合回答；不共享源码或数据库 |
+| 长期集成契约门禁 | 外部模型网关、Memory、AKEP 独立升级后不能靠人工聊天猜兼容性 | `npm run check:integrations` 做基础只读验收；`npm run check:triad-experience` 固定 30 题覆盖语义、回执和组合回答；不共享源码或数据库 |
 | 跨平台项目空间隔离 | 后续多个产品共享基础设施时，不能共享身份、账本、偏好或项目知识 | 已建立 Consumer + Workspace 两层作用域、API Key 绑定、Memory tenant/facet 边界、shared + project Space 白名单和 scope digest；新产品接入必须通过伪造 scope、跨 tenant/Space 与重放负向测试 |
 | Query Rewrite 单一语义入口 | 关键词旁路会让模型配置正确时仍执行错误商品/时间窗口 | schema v4、Provider 边界检查和单测共同保证 LLM-first；Resolver 只核验身份；模型失败时不进入 run plan/预取 |
 | 任务终态与修复竞态 | 中间 Validation 失败不能抢先终止仍在运行的自动修复 | `pending/running/repairing` 始终保持非终态；只有编排完成或失败后才发布 ready/failed；任务级 E2E 原记录重试并复核 30/30 |

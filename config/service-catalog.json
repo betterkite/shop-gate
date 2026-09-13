@@ -119,8 +119,8 @@
     },
     {
       "id": "modelport",
-      "name": "ModelPort 模型网关",
-      "summary": "统一承接 Qwen、DeepSeek 等模型的 OpenAI/Anthropic 协议、鉴权、路由、配额和用量证据。",
+      "name": "外部模型网关",
+      "summary": "Shop Gate 可选的外部模型服务，通过 OpenAI-compatible HTTP 提供模型调用；服务本身不包含在本仓库。",
       "runtime": "rust",
       "kind": "api",
       "domain": "model-gateway",

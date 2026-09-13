@@ -1,6 +1,6 @@
 # PI Agent 架构
 
-Shop Gate 使用开源 `@earendil-works/pi-agent-core@0.82.1` 作为唯一 Agent loop，运行身份为 `pi-agent:0.82.1`。PI Agent 以进程内 TypeScript 模块运行；需要模型的 lane 默认通过 ModelPort 使用 Qwen，也可通过 ModelPort 使用 Anthropic 协议上游 DeepSeek，另保留 DeepSeek 官方 OpenAI-compatible 直连 profile；可信标准看板 lane 则执行零模型 Token 的确定性工具计划。Shop Gate 在上游 loop 外提供权限、副作用、持久化、恢复、并发和交付治理，不启动 PI Coding Agent CLI 子进程，也不持久化供应商 session。
+Shop Gate 使用开源 `@earendil-works/pi-agent-core@0.82.1` 作为唯一 Agent loop，运行身份为 `pi-agent:0.82.1`。PI Agent 以进程内 TypeScript 模块运行；需要模型的 lane 默认通过外部模型网关使用 Qwen，也可通过外部网关使用 Anthropic 协议上游 DeepSeek，另保留 DeepSeek 官方 OpenAI-compatible 直连 profile；可信标准看板 lane 则执行零模型 Token 的确定性工具计划。Shop Gate 在上游 loop 外提供权限、副作用、持久化、恢复、并发和交付治理，不启动 PI Coding Agent CLI 子进程，也不持久化供应商 session。
 
 ## 设计目标
 
@@ -15,7 +15,7 @@ Shop Gate 使用开源 `@earendil-works/pi-agent-core@0.82.1` 作为唯一 Agent
 - 显式完成：至少一次 workspace write 成功后才允许 `submit_result`；它只把物理 AgentRun 和 `workspace_generation` 节点推进到 `candidate_complete`。只有当前 candidate version 通过独立 EvidenceVerifier 并写入 accepted receipt，产品 Mission 才能进入 `completed`。
 - 信息增益驱动：工作区版本未变化时，相同参数的可缓存读取只保留第一次真实观察；重复读取返回带原始结果摘要哈希的短引用并立即推动阶段收敛。实时数据/API 读取永不进入该缓存。
 - Cache 可诊断：每轮 Provider 请求前持久化 Prompt Prefix Ledger 的哈希、长度、最长共同消息前缀、工具面变化和压缩原因，不保存 prompt 原文。
-- 推理隐私：DeepSeek 官方直连的 thinking 内容仅在当前 tool-call 循环内部回放；ModelPort 的 OpenAI→DeepSeek Anthropic 协议桥因无法无损回传 Anthropic thinking block 而关闭 thinking，本地 Qwen adapter 也不发送 DeepSeek 私有字段。所有路径都不把 hidden reasoning 写入数据库或推送前端；公共 assistant/终态事件也不包含 raw cause 或完整内部 messages。
+- 推理隐私：DeepSeek 官方直连的 thinking 内容仅在当前 tool-call 循环内部回放；外部网关的 OpenAI→DeepSeek Anthropic 协议桥因无法无损回传 Anthropic thinking block 而关闭 thinking，本地 Qwen adapter 也不发送 DeepSeek 私有字段。所有路径都不把 hidden reasoning 写入数据库或推送前端；公共 assistant/终态事件也不包含 raw cause 或完整内部 messages。
 
 ## 分层
 
@@ -23,7 +23,7 @@ Shop Gate 使用开源 `@earendil-works/pi-agent-core@0.82.1` 作为唯一 Agent
 | --- | --- | --- |
 | 协议 | `src/lib/agent/types.ts` | Provider-neutral message、event、tool、usage 和 result 类型 |
 | PhaseGraph | `src/lib/agent/core/phase-graph.ts` | 根据受信平台准备状态确定 deterministic standard、model custom、model repair 或 data-preparation lane，并冻结 lane 预算与安全不变量 |
-| Provider | `src/lib/agent/providers/deepseek.ts`、`src/lib/agent/providers/openai-compatible.ts`、`src/lib/agent/providers/deterministic-tool-plan.ts` | ModelPort OpenAI-compatible `/chat/completions`（Qwen 与托管 DeepSeek）、DeepSeek 官方直连、SSE、严格 identity/usage 校验；或在 standard lane 生成可信预编译工具调用且不发起网络/模型请求、usage 恒为零 |
+| Provider | `src/lib/agent/providers/deepseek.ts`、`src/lib/agent/providers/openai-compatible.ts`、`src/lib/agent/providers/deterministic-tool-plan.ts` | 外部网关 OpenAI-compatible `/chat/completions`（Qwen 与托管 DeepSeek）、DeepSeek 官方直连、SSE、严格 identity/usage 校验；或在 standard lane 生成可信预编译工具调用且不发起网络/模型请求、usage 恒为零 |
 | Run Engine | `src/lib/agent/pi/run-engine.ts` | 上游 PI 多轮 loop 适配、Observation Ledger、物理 run 内固定工具 schema、执行时动态权限、预算、取消、工具调用身份校验与独占 terminal result |
 | Tool Executor | `src/lib/agent/core/tool-executor.ts` | 单次工具参数解析、typed input 校验、AbortSignal、副作用提交回调、结果 envelope 和可信 context receipt 投影 |
 | HITL Control | `src/lib/agent/core/tool-approval.ts`、`src/lib/services/pi-agent-tool-approval-store.ts` | 受信工具审批策略、公开参数投影、决策校验、等待轮询和 PostgreSQL approval ledger；不持久化原始调用参数 |
@@ -199,7 +199,7 @@ Workspace 的可见回答由平台确定性投影为五个阶段：理解问题�
 
 PI Agent 本身没有 Shell 工具，但生成项目仍需要由平台执行 build 和 preview。Linux 上，这些命令默认进入 user、mount、network 和 PID namespace：只读挂载当前生成工作空间、共享 `node_modules` 和 Node runtime，仅开放工作空间 `.next` 写入；宿主项目其余目录、用户主目录和平台密钥不会挂载，进程环境也会按白名单重建。执行前的 artifact policy 会先拒绝子进程、动态执行、任意网络客户端、宿主绝对路径等高风险代码，策略不通过时不会启动 build 或 preview。
 
-network namespace 内只启用 loopback，不存在宿主或外网路由。preview 由平台在宿主 `127.0.0.1` 监听受控端口，再经 `/tmp/qp-preview/<runtime-id>/p.sock` 转发到隔离网络中的 Next.js；固定的同目录 `m.sock` 只向沙箱提供配置的无凭据 commerce-data host/port，以支持标准 `/api/commerce/**` 只读路由，目标不能由生成代码选择。短运行时目录规避 Linux Unix Socket 路径长度上限，只绑定当前预览的两个 socket，不暴露宿主 `/tmp`，并随预览生命周期清理。build 不创建任何桥接，preview 也不能访问 ModelPort、数据库、Memory、AKEP 或通用外网。生产环境仍应保留容器/主机防火墙作为纵深防御。非 Linux 平台默认拒绝执行生成代码；只有已经处于外部隔离环境的本地开发机，才可显式设置 `SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE=1` 作为不安全覆盖，生产环境不得开启。
+network namespace 内只启用 loopback，不存在宿主或外网路由。preview 由平台在宿主 `127.0.0.1` 监听受控端口，再经 `/tmp/qp-preview/<runtime-id>/p.sock` 转发到隔离网络中的 Next.js；固定的同目录 `m.sock` 只向沙箱提供配置的无凭据 commerce-data host/port，以支持标准 `/api/commerce/**` 只读路由，目标不能由生成代码选择。短运行时目录规避 Linux Unix Socket 路径长度上限，只绑定当前预览的两个 socket，不暴露宿主 `/tmp`，并随预览生命周期清理。build 不创建任何桥接，preview 也不能访问外部模型网关、数据库、Memory、AKEP 或通用外网。生产环境仍应保留容器/主机防火墙作为纵深防御。非 Linux 平台默认拒绝执行生成代码；只有已经处于外部隔离环境的本地开发机，才可显式设置 `SHOPGATE_ALLOW_UNSANDBOXED_GENERATED_CODE=1` 作为不安全覆盖，生产环境不得开启。
 
 生成工作区的依赖安装固定使用 `--ignore-scripts`，宿主侧不执行 `preinstall/install/postinstall/predev` 等项目代码；项目自身 `predev` 只会由沙箱内的标准 `npm run dev` 生命周期执行。需要原生构建脚本的依赖必须先进入平台审核过的共享依赖或专用构建镜像，不能通过放宽生成工作区权限临时解决。
 
@@ -237,11 +237,11 @@ PI_AGENT_TEST_DATABASE_URL='postgresql://...' npm run test:pi-agent:postgres
 
 ## 配置
 
-`config/llm.json` 是仓库级 LLM profile 事实源，固定 provider、model、Base URL、凭据环境变量名、Agent 开关和 Query Rewrite 默认策略。项目创建或下一次执行时，解析后的无密钥模型选择会同步到数据库 `Project.settings.llm`、`.data-agent/workspace.json.runtime` 和 `.data-agent/retail-run-plan.json.llm`。Shop Gate 本地只保存受限 `MODELPORT_API_KEY`；DeepSeek 上游 Key 只存在于 ModelPort。可选官方直连的 `DEEPSEEK_API_KEY` 仅作为部署/CI 进程 secret 注入，不写项目文件或本地默认配置。
+`config/llm.json` 是仓库级 LLM profile 事实源，固定 provider、model、Base URL、凭据环境变量名、Agent 开关和 Query Rewrite 默认策略。项目创建或下一次执行时，解析后的无密钥模型选择会同步到数据库 `Project.settings.llm`、`.data-agent/workspace.json.runtime` 和 `.data-agent/retail-run-plan.json.llm`。Shop Gate 本地只保存受限 `MODELPORT_API_KEY`；DeepSeek 上游 Key 只存在于外部模型服务。可选官方直连的 `DEEPSEEK_API_KEY` 仅作为部署/CI 进程 secret 注入，不写项目文件或本地默认配置。
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `MODELPORT_API_KEY` | 无 | 默认 Qwen 与日常 DeepSeek 共用的受限 ModelPort 客户端凭据 |
+| `MODELPORT_API_KEY` | 无 | 默认 Qwen 与日常 DeepSeek 共用的外部网关客户端凭据 |
 | `DEEPSEEK_API_KEY` | 无 | 可选 DeepSeek 官方直连凭据；本地默认不配置 |
 | `SHOPGATE_LLM_AGENT_ENABLED` | `1` | 项目级 PI Agent 模型执行总开关；无密钥选择会写入 `.data-agent/workspace.json.runtime` 与 Retail Run Plan |
 | `SHOPGATE_LLM_QUERY_REWRITE_ENABLED` | `1` | Query Rewrite 总开关；关闭后语义规划失败关闭，不启用关键词改写 |

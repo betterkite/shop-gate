@@ -55,4 +55,20 @@ describe('runReadinessProbes', () => {
     expect(disabledProbe).not.toHaveBeenCalled();
     expect(result.components[0]).toMatchObject({ status: 'disabled', ok: true });
   });
+
+  it('exposes the model relay as an external gateway in readiness output', async () => {
+    const result = await runReadinessProbes([
+      {
+        name: 'externalModelGateway',
+        enabled: true,
+        required: false,
+        run: vi.fn().mockResolvedValue(undefined),
+      },
+    ]);
+
+    expect(result.components[0]).toMatchObject({
+      name: 'externalModelGateway',
+      status: 'ok',
+    });
+  });
 });

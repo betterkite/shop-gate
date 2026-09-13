@@ -9,7 +9,7 @@ flowchart LR
   D --> Q[LLM-first Task / Query Rewrite]
   D --> F[Retail Domain Pack]
   F --> Q
-  Q --> MP[ModelPort / Qwen 或受控直连]
+  Q --> MP[外部模型网关 / Qwen 或受控直连]
   Q --> M[实体 Resolver / commerce 数据 :8000]
   Q --> J[(Generation Job / Outbox)]
   J --> WK[独立 Data Agent Worker]
@@ -61,7 +61,7 @@ flowchart LR
 6. 平台根据 run plan 调用 `8000` 后端获取真实数据。
 7. 数据、来源和质量报告写入工作空间。
 8. Web 在返回排队成功前持久化 schema v3 Data Agent generation envelope 与 job/outbox；独立 Worker 先取得数据库全局容量槽，再按 actor 公平顺序 claim Job。普通成员最多保留 4 个待执行请求、同时运行 2 个 Job；同一 Project 始终单写。inline 模式仍经过同一 registry，并按 Profile ID 分派 handler，同时核对组合哈希与 Consumer/Tenant/Project/Workspace/Request scope。
-9. Agent 通过 ModelPort 使用默认 Qwen，并结合 Skills、真实数据和有界知识 capsule 生成 Next.js 候选看板，以 `candidate_complete` 结束本次物理执行。
+9. Agent 通过外部模型网关使用默认 Qwen，并结合 Skills、真实数据和有界知识 capsule 生成 Next.js 候选看板，以 `candidate_complete` 结束本次物理执行。
 10. Mission Graph 为当前 candidate version 冻结 candidate receipt，平台执行自动验证、产物契约检查和视觉检查。
 11. EvidenceVerifier 核对 MissionSpec、subject manifest、必需检查和持久预览 HTTP 就绪证据；失败时进入修复并产生新的 candidate version。
 12. 只有 accepted receipt 在数据库事务中关联到 Mission 后，请求才进入 `completed`；此后才为实际进入 Agent 的 Citation 记录 AKEP Usage。
@@ -71,8 +71,8 @@ flowchart LR
 | 内部执行器 | 模型 | 接口边界 | 用途 |
 | --- | --- | --- | --- |
 | PI Agent（执行器 `pi`） | `local_qwen:qwen3.5-9b-q5km`（默认） | 本机 `http://127.0.0.1:38082/v1/chat/completions` | 分析、生成与评测 |
-| PI Agent（执行器 `pi`） | `deepseek:deepseek-v4-flash`（日常可选） | Shop Gate 调 ModelPort OpenAI-compatible `/chat/completions`；ModelPort 调 DeepSeek Anthropic `/v1/messages` | 分析与生成 |
-| PI Agent（执行器 `pi`） | `deepseek-v4-flash`（备用直连） | DeepSeek 官方 OpenAI-compatible `/chat/completions` | 绕过 ModelPort 的部署/CI 备用链路 |
+| PI Agent（执行器 `pi`） | `deepseek:deepseek-v4-flash`（日常可选） | Shop Gate 调外部网关 OpenAI-compatible `/chat/completions`；外部网关调 DeepSeek Anthropic `/v1/messages` | 分析与生成 |
+| PI Agent（执行器 `pi`） | `deepseek-v4-flash`（备用直连） | DeepSeek 官方 OpenAI-compatible `/chat/completions` | 绕过外部网关的部署/CI 备用链路 |
 
 PI Agent `0.82.1` 是 Shop Gate 的进程内开源 Agent loop，不启动 Agent CLI 子进程；它可以运行在 Web 的本地开发进程，也可以运行在生产独立 Worker 进程。Shop Gate 把既有 Provider 和类型化工具适配给 PI，并继续负责权限、上下文、预算与 durable runtime。Provider 地址和模型标识由 `config/llm.json` 的版本化 profile 锁定，客户端不能提交任意 Base URL；凭据仅从服务端环境读取。运行前由 Context Manager 控制输入预算；generation job/outbox、项目级 generation lease、物理运行状态、公开事件、replan checkpoint、工具 operation ledger、MissionSpec 物化节点和不可变 evidence receipt 进入 PostgreSQL，hidden reasoning 永不持久化。generation lease 在 run plan 落盘前串行化外层编排，数据库唯一 active Mission slot 再保证同一项目不会被两个合规入口同时创建非终态 generation。
 

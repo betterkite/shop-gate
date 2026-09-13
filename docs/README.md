@@ -4,7 +4,7 @@
 
 ## 先读哪几篇
 
-第一次进入项目，先读 [配置、模型接入与可选组件指南](configuration.md) 选择 ModelPort、DeepSeek 官方直连与 Memory 开关，再按目标进入对应专题。
+第一次进入项目，先读 [配置、模型接入与可选组件指南](configuration.md) 选择外部模型网关、DeepSeek 官方直连与 Memory 开关，再按目标进入对应专题。
 
 | 目标 | 文档 |
 | --- | --- |
@@ -58,7 +58,7 @@
 
 | 模块 | 文档 | 关注点 |
 | --- | --- | --- |
-| 配置与运行方式 | [配置、模型接入与可选组件指南](configuration.md) | 文件优先级、ModelPort/直连、Memory 开关、secret 边界与模式验收 |
+| 配置与运行方式 | [配置、模型接入与可选组件指南](configuration.md) | 文件优先级、外部网关/直连、Memory 开关、secret 边界与模式验收 |
 | 总体架构 | [架构总览](architecture.md) | 主链路、运行时、数据层、控制台和质量门 |
 | Agent 框架 | [PI Agent 采用与治理边界](pi-agent-migration.md) / [PI Agent 架构](pi-agent.md) | PI Agent loop、Provider 适配、Shop Gate durable ledger、类型化工具、Skills 与安全边界 |
 | Data Agent 与业务扩展 | [Data Agent 平台与 Domain Pack 架构](data-agent-architecture.md) | 通用任务合同、Agent Profile、Domain Pack、工具与 Mission 注入、金融迁移边界 |
@@ -72,7 +72,7 @@
 | 基础设施 | [基础设施配置](infrastructure.md) | PostgreSQL、TimescaleDB、Redis、Loki/Grafana/Alloy、SQL 初始化和降级模式 |
 | 认证与访问治理 | [用户、权限与会话管理](authentication.md) | 用户生命周期、capability 与项目角色双层授权、用量配额、数据库会话、安全审计和页面/API/WebSocket 边界 |
 | 用户记忆 | [用户记忆服务接入、使用与效果验证](user-memory-integration.md) | 启动接入、HTTP 解耦、实际效果、个性化键、归因反馈、鉴权与降级 |
-| 受治理知识 | [Agent Knowledge Platform 接入与解耦边界](knowledge-platform-integration.md) | AKEP ContextPack、Citation/Usage、OAuth、降级与 ModelPort 分工 |
+| 受治理知识 | [Agent Knowledge Platform 接入与解耦边界](knowledge-platform-integration.md) | AKEP ContextPack、Citation/Usage、OAuth、降级与外部模型服务分工 |
 | 联合上下文 | [Memory、Knowledge 与 Shop Gate 联合上下文](context-composition.md) | Consumer/Workspace 两层隔离、后续产品接入、Usage Receipt、ContextUseManifest 与结果回流 |
 | 模型 Provider | [模型 Provider 接入与使用](model-providers.md) | DeepSeek、本地 Qwen、凭据、模型选择、协议要求与排障 |
 | 零售数据 | [零售数据接入](commerce-data-ingestion.md) | UserBehavior、合成主数据、导入 CLI、窗口与连接器契约 |

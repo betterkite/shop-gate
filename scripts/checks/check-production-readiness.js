@@ -191,7 +191,7 @@ if (modelPortEnabled) {
 } else {
   requireFlag('SHOPGATE_MODELPORT_REQUIRED', false);
   secureSecret('DEEPSEEK_API_KEY', 16);
-  warnings.push('ModelPort 已关闭：生产环境将仅保留显式选择的 DeepSeek 官方直连，默认 Qwen 不可用。');
+  warnings.push('外部模型网关已关闭：生产环境将仅保留显式选择的 DeepSeek 官方直连，默认 Qwen 不可用。');
 }
 
 const knowledgeEnabled = flag('SHOPGATE_KNOWLEDGE_ENABLED', false);

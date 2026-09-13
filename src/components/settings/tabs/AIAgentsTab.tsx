@@ -47,7 +47,7 @@ function AIAgentsTab({
   const connectionForModel = (model: CLIOption["models"][number]) =>
     model.runtime === "modelport"
       ? {
-          label: "ModelPort OpenAI-compatible",
+          label: "外部 OpenAI-compatible 网关",
           endpoint: "127.0.0.1:38082/v1",
           credentialEnv: "MODELPORT_API_KEY",
         }
@@ -63,7 +63,7 @@ function AIAgentsTab({
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Multi-provider runtime</p>
           <h3 className="mt-2 text-lg font-semibold text-slate-950">PI Agent 模型接入</h3>
-          <p className="mt-1 text-sm text-slate-600">本机 Qwen 为默认模型；日常 DeepSeek 经 ModelPort，官方直连仅作为可选备用。</p>
+          <p className="mt-1 text-sm text-slate-600">本机 Qwen 为默认模型；日常 DeepSeek 可经外部模型网关，官方直连也可单独选择。</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -146,7 +146,7 @@ function AIAgentsTab({
         )}
         {!configured && (
           <div className="border-t border-amber-100 bg-amber-50 px-5 py-4 text-sm text-amber-800">
-            在 <code className="rounded bg-white/70 px-1.5 py-0.5">.env.local</code> 配置 <code className="rounded bg-white/70 px-1.5 py-0.5">MODELPORT_API_KEY</code> 后重启项目；官方直连的 <code className="rounded bg-white/70 px-1.5 py-0.5">DEEPSEEK_API_KEY</code> 保持可选且默认不配置。
+            在 <code className="rounded bg-white/70 px-1.5 py-0.5">.env.local</code> 配置外部网关客户端凭据后重启项目；官方直连的 <code className="rounded bg-white/70 px-1.5 py-0.5">DEEPSEEK_API_KEY</code> 可单独配置。
           </div>
         )}
       </div>

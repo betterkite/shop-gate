@@ -161,16 +161,16 @@ async function providerToolRoundTrip(params: {
     reasoning: { enabled: false },
     metadata: { purpose: 'long_term_integration_acceptance' },
   }));
-  assert(turn.responseModel === params.model, 'ModelPort returned an unexpected model ID.');
-  assert(turn.finishReason === 'tool_calls', 'ModelPort model did not finish with a tool call.');
-  assert(turn.toolCallId, 'ModelPort tool call ID is missing.');
-  assert(turn.toolName === 'integration_acceptance', 'ModelPort model called an unexpected tool.');
-  assert(turn.usage, 'ModelPort model did not return token usage.');
-  const toolArguments = jsonRecord(JSON.parse(turn.toolArguments), 'ModelPort tool arguments');
-  assert(toolArguments.status === 'triad-ok', 'ModelPort model returned an invalid acceptance status.');
+  assert(turn.responseModel === params.model, '外部模型网关 returned an unexpected model ID.');
+  assert(turn.finishReason === 'tool_calls', '外部模型网关 model did not finish with a tool call.');
+  assert(turn.toolCallId, '外部模型网关 tool call ID is missing.');
+  assert(turn.toolName === 'integration_acceptance', '外部模型网关 model called an unexpected tool.');
+  assert(turn.usage, '外部模型网关 model did not return token usage.');
+  const toolArguments = jsonRecord(JSON.parse(turn.toolArguments), '外部模型网关 tool arguments');
+  assert(toolArguments.status === 'triad-ok', '外部模型网关 model returned an invalid acceptance status.');
   assert(
     toolArguments.memoryApplied === personalizationExpected,
-    'ModelPort model did not preserve the bounded personalization flag.',
+    '外部模型网关 model did not preserve the bounded personalization flag.',
   );
 
   const continuation = await collectProviderTurn(params.provider.complete({
@@ -199,9 +199,9 @@ async function providerToolRoundTrip(params: {
     reasoning: { enabled: false },
     metadata: { purpose: 'long_term_integration_continuation' },
   }));
-  assert(continuation.finishReason === 'stop', 'ModelPort continuation did not finish normally.');
-  assert(continuation.text.trim(), 'ModelPort continuation returned no text.');
-  assert(continuation.usage, 'ModelPort continuation did not return token usage.');
+  assert(continuation.finishReason === 'stop', '外部模型网关 continuation did not finish normally.');
+  assert(continuation.text.trim(), '外部模型网关 continuation returned no text.');
+  assert(continuation.usage, '外部模型网关 continuation did not return token usage.');
   return {
     toolCallId: turn.toolCallId,
     toolName: turn.toolName,
@@ -223,19 +223,19 @@ async function checkQwen() {
   const catalogResponse = await fetchWithTimeout(modelCatalogUrl(llm.baseUrl), {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
-  assert(catalogResponse.ok, `ModelPort model discovery returned HTTP ${catalogResponse.status}.`);
-  const catalog = jsonRecord(await catalogResponse.json(), 'ModelPort model catalog');
-  assert(Array.isArray(catalog.data), 'ModelPort model catalog has no data array.');
+  assert(catalogResponse.ok, `外部模型网关 model discovery returned HTTP ${catalogResponse.status}.`);
+  const catalog = jsonRecord(await catalogResponse.json(), '外部模型网关 model catalog');
+  assert(Array.isArray(catalog.data), '外部模型网关 model catalog has no data array.');
   const advertised = catalog.data.some((item) => (
     item !== null && typeof item === 'object' && !Array.isArray(item)
       && (item as Record<string, unknown>).id === llm.model
   ));
-  assert(advertised, `ModelPort does not advertise the configured model ${llm.model}.`);
+  assert(advertised, `外部模型网关 does not advertise the configured model ${llm.model}.`);
 
   const rejectedResponse = await fetchWithTimeout(modelCatalogUrl(llm.baseUrl), {
     headers: { Authorization: 'Bearer shopgate-deliberately-invalid-integration-key' },
   });
-  assert(rejectedResponse.status === 401, 'ModelPort did not reject an invalid API key.');
+  assert(rejectedResponse.status === 401, '外部模型网关 did not reject an invalid API key.');
 
   const provider = createModelPortProvider(apiKey, llm.baseUrl);
   const roundTrip = await providerToolRoundTrip({ provider, model: llm.model });
@@ -287,17 +287,17 @@ async function checkQwen() {
 
 async function checkModelPortDeepSeek(apiKey: string) {
   const llm = getProjectLlmConfig(MODELPORT_DEEPSEEK_MODEL_ID);
-  assert(llm.provider === 'openai', 'ModelPort DeepSeek must use the OpenAI-compatible boundary.');
+  assert(llm.provider === 'openai', '外部模型网关 DeepSeek must use the OpenAI-compatible boundary.');
   const catalogResponse = await fetchWithTimeout(modelCatalogUrl(llm.baseUrl), {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
-  assert(catalogResponse.ok, `ModelPort DeepSeek discovery returned HTTP ${catalogResponse.status}.`);
-  const catalog = jsonRecord(await catalogResponse.json(), 'ModelPort model catalog');
-  assert(Array.isArray(catalog.data), 'ModelPort model catalog has no data array.');
+  assert(catalogResponse.ok, `外部模型网关 DeepSeek discovery returned HTTP ${catalogResponse.status}.`);
+  const catalog = jsonRecord(await catalogResponse.json(), '外部模型网关 model catalog');
+  assert(Array.isArray(catalog.data), '外部模型网关 model catalog has no data array.');
   assert(catalog.data.some((item) => (
     item !== null && typeof item === 'object' && !Array.isArray(item)
       && (item as Record<string, unknown>).id === llm.model
-  )), `ModelPort does not advertise ${llm.model}.`);
+  )), `外部模型网关 does not advertise ${llm.model}.`);
 
   const provider = createModelPortProvider(apiKey, llm.baseUrl);
   const roundTrip = await providerToolRoundTrip({ provider, model: llm.model });

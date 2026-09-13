@@ -1,6 +1,6 @@
 # 基础设施配置
 
-Shop Gate 本地开发默认使用 PostgreSQL + TimescaleDB + Redis，并提供 Loki + Grafana + Alloy 作为本地可观测性组件。PostgreSQL 承载工作空间、项目、评测、配置、generation job/outbox、运行事实和数据库权威租约；TimescaleDB 承载用户行为事件流水与商品/类目日度指标等时序数据；Redis 只承载可丢失的短期缓存，后续可扩展为 dispatcher 唤醒与进度投影，但不作为锁、任务事实或完成态权威；Loki 承载集中日志查询。可选的 Evolvable User Memory 独立部署在 `38089`，通过版本化 HTTP 契约为聊天提供用户级偏好召回，不与 Shop Gate 共用数据库。环境文件优先级、ModelPort/官方直连与关闭 Memory 的完整方式见[配置指南](configuration.md)。
+Shop Gate 本地开发默认使用 PostgreSQL + TimescaleDB + Redis，并提供 Loki + Grafana + Alloy 作为本地可观测性组件。PostgreSQL 承载工作空间、项目、评测、配置、generation job/outbox、运行事实和数据库权威租约；TimescaleDB 承载用户行为事件流水与商品/类目日度指标等时序数据；Redis 只承载可丢失的短期缓存，后续可扩展为 dispatcher 唤醒与进度投影，但不作为锁、任务事实或完成态权威；Loki 承载集中日志查询。可选的 Evolvable User Memory 独立部署在 `38089`，通过版本化 HTTP 契约为聊天提供用户级偏好召回，不与 Shop Gate 共用数据库。环境文件优先级、外部网关/官方直连与关闭 Memory 的完整方式见[配置指南](configuration.md)。
 
 ## 本地启动
 
@@ -120,7 +120,7 @@ Dubbo3 暂时不适合当前项目，因为它主要服务 Java 微服务体系�
 
 生成项目的 build 和 preview 不是直接在宿主环境执行。Linux 默认通过 `scripts/security/run-generated-project-sandbox.sh` 进入 user、mount、network 和 PID namespace，只挂载当前生成工作空间、可信 Node runtime 与共享依赖；工作空间整体只读，仅 `.next` 可写。沙箱重建最小环境变量，屏蔽项目 `.env*` 与 npm 凭据，移除 capabilities，并设置进程数、文件描述符、文件大小和 2GB Node old-space 上限。artifact policy 在启动任何生成代码前运行，策略失败时 build、preview 和视觉检查全部跳过。
 
-独立 network namespace 只启用 loopback，不挂载宿主或外网接口。预览服务在隔离网络内监听，平台通过 `/tmp/qp-preview/<runtime-id>/p.sock` 将宿主 `127.0.0.1` 预览端口定向桥接进去；同一短运行时目录中的 `m.sock` 只把沙箱内固定的 `127.0.0.1:8000` 转发到配置的无凭据内部 commerce-data host/port，用于标准只读 `/api/commerce/**` 路由。短路径避免 Linux Unix Socket 长度上限；沙箱只绑定该预览的运行时目录，不挂载宿主 `/tmp`。生成代码无法选择桥接目标，也无法连接 ModelPort、数据库、Memory、AKEP 或互联网。Unix Socket 随预览生命周期创建和清理，不作为跨项目发现入口。
+独立 network namespace 只启用 loopback，不挂载宿主或外网接口。预览服务在隔离网络内监听，平台通过 `/tmp/qp-preview/<runtime-id>/p.sock` 将宿主 `127.0.0.1` 预览端口定向桥接进去；同一短运行时目录中的 `m.sock` 只把沙箱内固定的 `127.0.0.1:8000` 转发到配置的无凭据内部 commerce-data host/port，用于标准只读 `/api/commerce/**` 路由。短路径避免 Linux Unix Socket 长度上限；沙箱只绑定该预览的运行时目录，不挂载宿主 `/tmp`。生成代码无法选择桥接目标，也无法连接外部模型网关、数据库、Memory、AKEP 或互联网。Unix Socket 随预览生命周期创建和清理，不作为跨项目发现入口。
 
 缺失依赖可在启动沙箱前按固定 package-manager 参数安装，但统一使用 `--ignore-scripts`，不会在宿主执行依赖 lifecycle。`predev` 不再由平台单独执行；若项目声明它，只会作为 `npm run dev` 的标准前置生命周期在隔离网络和文件系统中执行一次。
 

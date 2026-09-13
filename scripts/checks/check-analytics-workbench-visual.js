@@ -19,11 +19,15 @@ const inventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=$
 const inventoryHealthUrl = `${inventoryUrl}&health=${encodeURIComponent('缺货风险')}`;
 const scopedInventoryUrl = `${baseUrl}/analytics-workbench?view=inventory&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const replenishmentUrl = baseUrl + '/analytics-workbench?view=replenishment&dataset_id=' + encodeURIComponent(datasetId) + '&page=1';
+const scopedReplenishmentUrl = `${baseUrl}/analytics-workbench?view=replenishment&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const replenishmentPriorityUrl = `${replenishmentUrl}&priority=${encodeURIComponent('优先评估补货')}`;
 const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const scopedCustomerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const customerSegmentUrl = `${customerUrl}&segment=${encodeURIComponent('新近购买')}`;
+const scopedLifecycleUrl = `${baseUrl}/analytics-workbench?view=lifecycle&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
+const scopedElasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const elasticityPriceBandUrl = `${elasticityUrl}&price_band=${encodeURIComponent('50-200')}`;
 const profitUrl = `${baseUrl}/analytics-workbench?view=profit&dataset_id=${encodeURIComponent(datasetId)}`;
 const profiles = [
@@ -240,8 +244,12 @@ async function inspectProfile(browser, storageState, profile) {
 
       const scopedInventoryResponse = await gotoWithRetry(page, scopedInventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!scopedInventoryResponse?.ok()) problems.push(`${profile.id}: 商品筛选库存页请求失败`);
+      await page.locator('main').getByRole('heading', { name: '库存健康', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
       const scopedInventoryNextHref = await page.locator('a').filter({ hasText: '下一页' }).getAttribute('href').catch(() => null);
+      const scopedInventoryItemHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看商品明细' }).getAttribute('href').catch(() => null);
       if (!scopedInventoryNextHref?.includes('filter_dimension=item') || !scopedInventoryNextHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选库存翻页未保留筛选范围`);
+      if (!scopedInventoryItemHref?.includes('filter_dimension=item') || !scopedInventoryItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选库存的商品明细链接未保留筛选范围`);
 
       const inventoryHealthResponse = await gotoWithRetry(page, inventoryHealthUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!inventoryHealthResponse?.ok()) problems.push(`${profile.id}: 库存判断筛选页请求失败`);
@@ -295,6 +303,12 @@ async function inspectProfile(browser, storageState, profile) {
           };
         });
         if (!replenishmentPriorityState.selected || !replenishmentPriorityState.allRowsMatch || !replenishmentPriorityState.linksKeepPriority) problems.push(`${profile.id}: 补货判断筛选未生效或翻页未保留判断条件`);
+        const scopedReplenishmentResponse = await gotoWithRetry(page, scopedReplenishmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!scopedReplenishmentResponse?.ok()) problems.push(`${profile.id}: 商品筛选补货页请求失败`);
+        await page.locator('main').getByRole('heading', { name: '补货参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
+        const scopedReplenishmentItemHref = await page.locator('table tbody tr').first().locator('a').first().getAttribute('href').catch(() => null);
+        if (!scopedReplenishmentItemHref?.includes('filter_dimension=item') || !scopedReplenishmentItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选补货明细链接未保留筛选范围`);
         const replenishmentScreenshotPath = path.join(outputDir, 'replenishment-' + profile.id + '-' + timestamp + '.png');
         await page.screenshot({ path: replenishmentScreenshotPath, fullPage: true });
       }
@@ -336,6 +350,12 @@ async function inspectProfile(browser, storageState, profile) {
         }));
         if (!customerSegmentState.label || customerSegmentState.rows === 0) problems.push(`${profile.id}: 指定用户分群页未按分群过滤`);
         if (!customerSegmentState.nextHref.includes('segment=')) problems.push(`${profile.id}: 用户分群翻页未保留分群条件`);
+        const scopedCustomerResponse = await gotoWithRetry(page, scopedCustomerUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!scopedCustomerResponse?.ok()) problems.push(`${profile.id}: 商品筛选用户分群页请求失败`);
+        await page.locator('main').getByRole('heading', { name: '用户分群（RFM）', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
+        const scopedCustomerDetailHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看用户明细' }).getAttribute('href').catch(() => null);
+        if (!scopedCustomerDetailHref?.includes('filter_dimension=item') || !scopedCustomerDetailHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选用户明细链接未保留筛选范围`);
       }
 
       const retentionResponse = await gotoWithRetry(page, retentionUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -357,6 +377,13 @@ async function inspectProfile(browser, storageState, profile) {
         const retentionScreenshotPath = path.join(outputDir, `retention-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: retentionScreenshotPath, fullPage: true });
       }
+
+      const scopedLifecycleResponse = await gotoWithRetry(page, scopedLifecycleUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!scopedLifecycleResponse?.ok()) problems.push(`${profile.id}: 商品筛选商品阶段页请求失败`);
+      await page.locator('main').getByRole('heading', { name: '商品经营阶段', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
+      const scopedLifecycleItemHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看商品明细' }).getAttribute('href').catch(() => null);
+      if (!scopedLifecycleItemHref?.includes('filter_dimension=item') || !scopedLifecycleItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选商品阶段明细链接未保留筛选范围`);
 
       const profitResponse = await gotoWithRetry(page, profitUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!profitResponse?.ok()) {
@@ -410,6 +437,12 @@ async function inspectProfile(browser, storageState, profile) {
           };
         });
         if (!elasticityPriceBandState.selected || !elasticityPriceBandState.oneBand) problems.push(`${profile.id}: 价格带筛选未生效或仍展示其他价格带`);
+        const scopedElasticityResponse = await gotoWithRetry(page, scopedElasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        if (!scopedElasticityResponse?.ok()) problems.push(`${profile.id}: 商品筛选价格观察页请求失败`);
+        await page.locator('main').getByRole('heading', { name: '价格带对比与价格弹性参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.locator('a[href*="view=drilldown"][href*="dimension=item"]').first().waitFor({ state: 'visible', timeout: 20_000 });
+        const scopedElasticityItemHref = await page.locator('a[href*="view=drilldown"][href*="dimension=item"]').first().getAttribute('href').catch(() => null);
+        if (!scopedElasticityItemHref?.includes('filter_dimension=item') || !scopedElasticityItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选价格观察明细链接未保留筛选范围`);
         const elasticityScreenshotPath = path.join(outputDir, `elasticity-${profile.id}-${timestamp}.png`);
         await page.screenshot({ path: elasticityScreenshotPath, fullPage: true });
       }

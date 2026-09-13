@@ -320,7 +320,14 @@ async def analytics_trend(
         behavior_column = "item_id" if dimension == "item" else "category_id"
         behavior_clause = f" AND {behavior_column} = %s"
         behavior_params.append(numeric_value)
-        order_clause = f" AND o.{behavior_column} = %s"
+        if dimension == "category":
+            order_join = (
+                " JOIN commerce.dataset_item_economics i"
+                " ON i.dataset_id = o.dataset_id AND i.item_id = o.item_id"
+            )
+            order_clause = " AND i.category_id = %s"
+        else:
+            order_clause = " AND o.item_id = %s"
         order_params.append(numeric_value)
     elif dimension in {"channel", "campaign"} and value is not None:
         order_column = "channel_id" if dimension == "channel" else "campaign_id"

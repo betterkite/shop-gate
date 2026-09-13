@@ -103,3 +103,5 @@ P30 续更：趋势图日期现可进入“日趋势明细”；commerce-data �
 - benchmarks 数据已删除（P9 重建）；SKIPPED 守卫仍在
 
 **P3 门**：type-check 全绿；vitest 29F/1003P/28S（基线 29F 已归因：pi-agent-terminal 25 环境 + compiler 1 归因 + preview 1 环境 + sandbox 1 环境）；pytest 109P；backend-architecture / service-catalog / check:skills / check:docs 全绿。
+
+P30 验收续更：真实双端验收发现类目日趋势的订单查询错误引用不存在的 `o.category_id`，已改为通过 `commerce.dataset_item_economics` 关联类目并补充回归测试；commerce-data 全量测试 60 passed，类目趋势 API 返回 HTTP 200。视觉检查脚本补充目标结果行等待，降低页面切换竞态造成的误报。

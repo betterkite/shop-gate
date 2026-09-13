@@ -140,6 +140,48 @@ def test_analytics_trend_rejects_partial_filter() -> None:
         asyncio.run(analytics_trend("retail-trend", "item", None))
 
 
+def test_analytics_trend_joins_item_economics_for_category_orders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    queries: list[str] = []
+    params_seen: list[tuple[object, ...]] = []
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        queries.append(query)
+        params_seen.append(params)
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-trend",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 1),
+            }]
+        return [{
+            "stat_date": date(2025, 1, 1),
+            "pv": 1,
+            "fav": 0,
+            "cart": 0,
+            "buy": 0,
+            "orders": 1,
+            "net_sales": 10,
+        }]
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    asyncio.run(analytics_trend("retail-trend", "category", "10"))
+
+    assert calls == 3
+    assert "JOIN commerce.dataset_item_economics i" in queries[2]
+    assert "i.category_id = %s" in queries[2]
+    assert "o.category_id" not in queries[2]
+    assert params_seen[2] == ("retail-trend", date(2025, 1, 1), date(2025, 1, 1), 10)
+
+
 def test_analytics_trend_applies_selected_date_window(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -245,6 +245,7 @@ async function inspectProfile(browser, storageState, profile) {
       const scopedInventoryResponse = await gotoWithRetry(page, scopedInventoryUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!scopedInventoryResponse?.ok()) problems.push(`${profile.id}: 商品筛选库存页请求失败`);
       await page.locator('main').getByRole('heading', { name: '库存健康', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
       const scopedInventoryNextHref = await page.locator('a').filter({ hasText: '下一页' }).getAttribute('href').catch(() => null);
       const scopedInventoryItemHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看商品明细' }).getAttribute('href').catch(() => null);
       if (!scopedInventoryNextHref?.includes('filter_dimension=item') || !scopedInventoryNextHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选库存翻页未保留筛选范围`);
@@ -305,7 +306,8 @@ async function inspectProfile(browser, storageState, profile) {
         const scopedReplenishmentResponse = await gotoWithRetry(page, scopedReplenishmentUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         if (!scopedReplenishmentResponse?.ok()) problems.push(`${profile.id}: 商品筛选补货页请求失败`);
         await page.locator('main').getByRole('heading', { name: '补货参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
-        const scopedReplenishmentItemHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看商品明细' }).getAttribute('href').catch(() => null);
+        await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
+        const scopedReplenishmentItemHref = await page.locator('table tbody tr').first().locator('a').first().getAttribute('href').catch(() => null);
         if (!scopedReplenishmentItemHref?.includes('filter_dimension=item') || !scopedReplenishmentItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选补货明细链接未保留筛选范围`);
         const replenishmentScreenshotPath = path.join(outputDir, 'replenishment-' + profile.id + '-' + timestamp + '.png');
         await page.screenshot({ path: replenishmentScreenshotPath, fullPage: true });
@@ -351,6 +353,7 @@ async function inspectProfile(browser, storageState, profile) {
         const scopedCustomerResponse = await gotoWithRetry(page, scopedCustomerUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         if (!scopedCustomerResponse?.ok()) problems.push(`${profile.id}: 商品筛选用户分群页请求失败`);
         await page.locator('main').getByRole('heading', { name: '用户分群（RFM）', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
         const scopedCustomerDetailHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看用户明细' }).getAttribute('href').catch(() => null);
         if (!scopedCustomerDetailHref?.includes('filter_dimension=item') || !scopedCustomerDetailHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选用户明细链接未保留筛选范围`);
       }
@@ -378,6 +381,7 @@ async function inspectProfile(browser, storageState, profile) {
       const scopedLifecycleResponse = await gotoWithRetry(page, scopedLifecycleUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!scopedLifecycleResponse?.ok()) problems.push(`${profile.id}: 商品筛选商品阶段页请求失败`);
       await page.locator('main').getByRole('heading', { name: '商品经营阶段', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
       const scopedLifecycleItemHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看商品明细' }).getAttribute('href').catch(() => null);
       if (!scopedLifecycleItemHref?.includes('filter_dimension=item') || !scopedLifecycleItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选商品阶段明细链接未保留筛选范围`);
 
@@ -436,6 +440,7 @@ async function inspectProfile(browser, storageState, profile) {
         const scopedElasticityResponse = await gotoWithRetry(page, scopedElasticityUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         if (!scopedElasticityResponse?.ok()) problems.push(`${profile.id}: 商品筛选价格观察页请求失败`);
         await page.locator('main').getByRole('heading', { name: '价格带对比与价格弹性参考', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        await page.locator('a[href*="view=drilldown"][href*="dimension=item"]').first().waitFor({ state: 'visible', timeout: 20_000 });
         const scopedElasticityItemHref = await page.locator('a[href*="view=drilldown"][href*="dimension=item"]').first().getAttribute('href').catch(() => null);
         if (!scopedElasticityItemHref?.includes('filter_dimension=item') || !scopedElasticityItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选价格观察明细链接未保留筛选范围`);
         const elasticityScreenshotPath = path.join(outputDir, `elasticity-${profile.id}-${timestamp}.png`);

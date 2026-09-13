@@ -110,7 +110,7 @@ async function inspectProfile(browser, storageState, profile) {
         navOverflow: Boolean(nav && nav.scrollWidth > nav.clientWidth + 1),
         trend: text.includes('当前查看范围的日趋势'),
         scope: text.includes('当前查看条件：') && text.includes('1000009'),
-        metrics: text.includes('页面浏览量（PV）') && text.includes('购买转化率'),
+        metrics: text.includes('页面浏览量（PV）') && text.includes('加购行为（Cart）') && text.includes('购买行为（Buy）') && text.includes('购买转化率'),
         table: document.querySelectorAll('table').length > 0,
         keepFilterLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('回到总览（保留当前筛选）')),
         contextLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('打开这份明细结果')),
@@ -118,6 +118,7 @@ async function inspectProfile(browser, storageState, profile) {
           const href = link.getAttribute('href') || '';
           return href.includes('view=trend') && href.includes('start=') && href.includes('end=');
         }),
+        trendRowLink: Boolean(document.querySelector('a[aria-label*="加购"]')),
       };
     });
     fs.mkdirSync(outputDir, { recursive: true });
@@ -130,6 +131,7 @@ async function inspectProfile(browser, storageState, profile) {
     if (!state.table) problems.push(`${profile.id}: 缺少下钻结果表`);
     if (!state.keepFilterLink || !state.contextLink) problems.push(`${profile.id}: 缺少筛选保留或上下文链接`);
     if (!state.trendDateLink) problems.push(`${profile.id}: 趋势日期没有进入日趋势明细的链接`);
+    if (!state.trendRowLink) problems.push(`${profile.id}: 趋势指标整行没有可点击的明细入口`);
     problems.push(...failedResources.map((item) => `${profile.id}: 资源失败 ${item}`));
     problems.push(...pageErrors.map((item) => `${profile.id}: 页面错误 ${item}`));
 

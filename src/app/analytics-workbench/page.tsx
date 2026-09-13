@@ -327,34 +327,38 @@ function trendDateHref(payload: JsonRecord | null, dateValue: string): string | 
 function TrendChart({ payload, title, description }: { payload: JsonRecord | null; title: string; description: string }) {
   const rows = asArray(payload?.rows);
   const maxPv = Math.max(...rows.map((row) => number(row.pv)), 1);
+  const maxCart = Math.max(...rows.map((row) => number(row.cart)), 1);
   const maxBuy = Math.max(...rows.map((row) => number(row.buy)), 1);
   const maxOrders = Math.max(...rows.map((row) => number(row.orders)), 1);
   return <Panel title={title} description={description}>
     {rows.length === 0 ? <p className="text-sm text-muted-foreground">当前范围没有可展示的日趋势数据。</p> : <>
-      <div className="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-sky-500" />页面浏览量（PV）</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />购买行为</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-violet-500" />订单数</span></div>
+      <div className="mb-3 flex flex-wrap gap-3 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-sky-500" />页面浏览量（PV）</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-amber-500" />加购行为（Cart）</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />购买行为（Buy）</span><span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm bg-violet-500" />订单数</span></div>
       <div className="grid gap-2">{rows.map((row) => {
         const dateValue = text(row.stat_date);
         const dateHref = trendDateHref(payload, dateValue);
-        return <div key={String(row.stat_date)} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 text-xs"><span className="text-muted-foreground">{dateHref ? <Link scroll={false} href={dateHref} className="font-medium text-primary hover:underline" aria-label={`查看 ${dateValue} 的趋势`}>{dateValue}</Link> : dateValue}</span><div className="grid gap-1"><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-sky-500" style={{ width: `${Math.max(number(row.pv) > 0 ? 3 : 0, number(row.pv) / maxPv * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(number(row.buy) > 0 ? 3 : 0, number(row.buy) / maxBuy * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.max(number(row.orders) > 0 ? 3 : 0, number(row.orders) / maxOrders * 100)}%` }} /></div></div><span className="text-right leading-5 text-muted-foreground">{displayNumber(row.pv)} / {displayNumber(row.buy)} / {displayNumber(row.orders)}</span></div>;
+        const rowContent = <><span className="text-muted-foreground"><span className="font-medium text-primary">{dateValue}</span></span><div className="grid gap-1"><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-sky-500" style={{ width: `${Math.max(number(row.pv) > 0 ? 3 : 0, number(row.pv) / maxPv * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-amber-500" style={{ width: `${Math.max(number(row.cart) > 0 ? 3 : 0, number(row.cart) / maxCart * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(number(row.buy) > 0 ? 3 : 0, number(row.buy) / maxBuy * 100)}%` }} /></div><div className="h-2 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-violet-500" style={{ width: `${Math.max(number(row.orders) > 0 ? 3 : 0, number(row.orders) / maxOrders * 100)}%` }} /></div></div><span className="flex flex-wrap justify-end gap-x-2 text-right leading-5 text-muted-foreground"><span>PV {displayNumber(row.pv)}</span><span>Cart {displayNumber(row.cart)}</span><span>Buy {displayNumber(row.buy)}</span><span>订单 {displayNumber(row.orders)}</span></span></>;
+        return dateHref ? <Link key={String(row.stat_date)} scroll={false} href={dateHref} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 rounded-lg px-2 py-1 text-xs hover:bg-muted/50" aria-label={`查看 ${dateValue} 的页面浏览、加购、购买和订单明细`}>{rowContent}</Link> : <div key={String(row.stat_date)} className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-2 px-2 py-1 text-xs">{rowContent}</div>;
       })}</div>
-      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">每行依次显示页面浏览、购买行为、订单数；三种颜色按各自指标的最高日归一化，右侧保留真实数量。点击日期可查看当天明细。</p>
+      <p className="mt-3 text-[11px] leading-5 text-muted-foreground">每行显示页面浏览、加购、购买和订单数；颜色条按各自指标的最高日归一化，右侧保留真实数量，因此不要用颜色条长度直接比较不同指标。点击整行可查看当天明细。</p>
     </>}
   </Panel>;
 }
 
 function TrendScopeSummary({ payload, dimension, value }: { payload: JsonRecord | null; dimension: string; value: string }) {
   const rows = asArray(payload?.rows);
-  const totals = rows.reduce<{ pv: number; buy: number; orders: number; netSales: number }>((result, row) => ({
+  const totals = rows.reduce<{ pv: number; cart: number; buy: number; orders: number; netSales: number }>((result, row) => ({
     pv: result.pv + number(row.pv),
+    cart: result.cart + number(row.cart),
     buy: result.buy + number(row.buy),
     orders: result.orders + number(row.orders),
     netSales: result.netSales + number(row.net_sales),
-  }), { pv: 0, buy: 0, orders: 0, netSales: 0 });
+  }), { pv: 0, cart: 0, buy: 0, orders: 0, netSales: 0 });
   const label = DIMENSION_LABELS[dimension] || dimension;
   const conversion = totals.pv > 0 ? displayPercent(totals.buy / totals.pv) : '暂无行为数据';
   return <Panel title={`当前筛选摘要：${label} ${value}`} description="下面数字只统计当前筛选范围；顶部总览 KPI 仍按整个数据集统计。渠道或活动尚未采集行为归因时，PV 和购买转化率会显示为暂无行为数据。">
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Metric label="页面浏览量（PV）" value={totals.pv > 0 ? `${displayNumber(totals.pv)} 次` : '暂无行为数据'} hint="当前筛选范围的页面浏览事件" />
+      <Metric label="加购行为（Cart）" value={totals.cart > 0 ? `${displayNumber(totals.cart)} 次` : '暂无行为数据'} hint="当前筛选范围的加购事件" />
       <Metric label="购买次数（Buy）" value={totals.buy > 0 ? `${displayNumber(totals.buy)} 次` : '暂无行为数据'} hint="当前筛选范围的购买事件" />
       <Metric label="订单数" value={`${displayNumber(totals.orders)} 笔`} hint="当前筛选范围的订单记录" />
       <Metric label="购买转化率（PV→Buy）" value={conversion} hint="购买事件 ÷ 页面浏览事件" />

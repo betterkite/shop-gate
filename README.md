@@ -15,7 +15,7 @@ Shop Gate 是建立在通用 Data Agent 与开源 [PI Agent](https://github.com/
 - 商品运营：商品池、品类池、渠道口径、价格带与库存风险、观察池和商品/类目实体解析。
 - 经营情报中心：围绕观察池生成证据型经营日报，沉淀类目经营榜、异动摘要、运行历史和推送回执（推送回执待通知渠道配置）。
 - LLM-first Query Rewrite：`preview` 与正式执行都由项目选中的模型生成 schema v4 语义合同，时间范围、宽域范围和 answer-only 意图必须有原文字面证据；实体 Resolver 独立确认商品/类目。模型不可用时停止规划和预取，不以关键词结果冒充成功。
-- PI Agent 执行内核 + Shop Gate 治理层：`@earendil-works/pi-agent-core` 负责完整多轮 Agent loop，默认通过 ModelPort 使用本地 Qwen，日常 DeepSeek 经 ModelPort 的 Anthropic 上游 provider，也可为项目显式选择官方 OpenAI-compatible 直连并完全绕过 ModelPort；Shop Gate 保留上下文治理、信息增益 Observation Ledger、受信副作用工具的人工批准/编辑/拒绝、PostgreSQL generation job/事务 outbox、独立 Worker registry、数据库全局 Worker 槽位、按用户公平 claim、用户排队/运行双层结构配额、项目编排/AgentRun/Mission 分层 lease 与 fencing、共享文件系统资源锁、durable run/approval/operation ledger、预算、取消和显式结果提交。审批等待会把 AgentRun 原子切到 `waiting` 并写公开 checkpoint，决策通过后才允许 prepare/execute；Worker 丢失则关闭旧 attempt 并重新规划，不复用已批准的旧调用。Worker 启动时会持久注册进程身份与心跳，并拒绝加入全局容量配置不一致的存活集群；运行治理中心直接展示进程、槽位和队列事实。HTTP 入口只负责接收与调度，经营规划/取数由独立应用服务完成；生产 Worker 与本地 inline 模式都使用 schema v3 execution envelope，按 Profile handler 执行并核对项目、request、workspace、跨平台 scope 和组合哈希。Memory Recall 与受治理知识准备快照随任务固化，避免排队后重复检索导致 evidence 与实际输入漂移。`PiAgent*` 类型和结构化 JSON 合同由通用治理层定义，Domain Pack 只注入领域能力；内核不内置零售工具、dashboard 路径或业务 Mission。版本与边界见 [PI Agent 采用与治理边界](docs/pi-agent-migration.md)。
+- PI Agent 执行内核 + Shop Gate 治理层：`@earendil-works/pi-agent-core` 负责完整多轮 Agent loop，模型可通过外部 OpenAI-compatible 网关接入，也可为项目显式选择 DeepSeek 官方直连；外部网关不属于本项目，Shop Gate 只依赖其公开 HTTP 协议。Shop Gate 保留上下文治理、信息增益 Observation Ledger、受信副作用工具的人工批准/编辑/拒绝、PostgreSQL generation job/事务 outbox、独立 Worker registry、数据库全局 Worker 槽位、按用户公平 claim、用户排队/运行双层结构配额、项目编排/AgentRun/Mission 分层 lease 与 fencing、共享文件系统资源锁、durable run/approval/operation ledger、预算、取消和显式结果提交。审批等待会把 AgentRun 原子切到 `waiting` 并写公开 checkpoint，决策通过后才允许 prepare/execute；Worker 丢失则关闭旧 attempt 并重新规划，不复用已批准的旧调用。Worker 启动时会持久注册进程身份与心跳，并拒绝加入全局容量配置不一致的存活集群；运行治理中心直接展示进程、槽位和队列事实。HTTP 入口只负责接收与调度，经营规划/取数由独立应用服务完成；生产 Worker 与本地 inline 模式都使用 schema v3 execution envelope，按 Profile handler 执行并核对项目、request、workspace、跨平台 scope 和组合哈希。Memory Recall 与受治理知识准备快照随任务固化，避免排队后重复检索导致 evidence 与实际输入漂移。`PiAgent*` 类型和结构化 JSON 合同由通用治理层定义，Domain Pack 只注入领域能力；内核不内置零售工具、dashboard 路径或业务 Mission。版本与边界见 [PI Agent 采用与治理边界](docs/pi-agent-migration.md)。
 - Skills 能力层：仓库 `.pi/**` 是唯一权威源，通过 registry/lock、版本与 SHA-256 完整性校验；项目初始化把参考镜像配置到 workspace `.pi/skills`，Agent 执行按 source-first/package-fallback 规则只读编译有界上下文，不从 workspace 镜像发现能力，也不解析旧 Skill ID。
 - 业务与治理：业务知识中心、评测平台和运行治理中心共同覆盖能力知识、交付契约、生成质量、工作空间健康、运行 trace 和集中日志。
 - 受治理上下文接入：通过独立 HTTP 契约组合 Memory Usage Receipt 与 AKEP ContextPack，Agent 前落无正文联合清单，Mission 验收后记录 AKEP Usage，用户明确评价后再分别回传 Memory Outcome 与 AKEP Feedback；不共享数据库或源码。
@@ -30,20 +30,20 @@ npm install
 npm run ensure:env
 ```
 
-推荐模式只需在 `.env.local` 添加 ModelPort 签发的受限客户端凭据：
+使用外部模型网关时，只需在 `.env.local` 添加该服务签发的受限客户端凭据：
 
 ```dotenv
-MODELPORT_API_KEY="replace-with-scoped-modelport-client-key"
+MODELPORT_API_KEY="replace-with-scoped-external-gateway-client-key"
 ```
 
-本地 Qwen 是默认模型，日常 DeepSeek 也经 ModelPort 使用。DeepSeek 上游 Anthropic Key 只配置在 ModelPort；如果明确要绕过 ModelPort，则在 Shop Gate 注入 `DEEPSEEK_API_KEY`，并显式选择 `deepseek-v4-flash`。Memory 是独立可选组件，可用 `SHOPGATE_MEMORY_ENABLED=0` 完全关闭。
+本地 Qwen 是默认模型，日常 DeepSeek 可通过外部模型网关使用。网关上游凭据只保存在外部服务；如果明确使用官方直连，则在 Shop Gate 注入 `DEEPSEEK_API_KEY`，并显式选择 `deepseek-v4-flash`。Memory 是独立可选组件，可用 `SHOPGATE_MEMORY_ENABLED=0` 完全关闭。
 
-跨平台作用域采用 Consumer + Workspace 两层隔离：ModelPort API Key 固定绑定 Shop Gate 项目账本，Memory 使用 Shop Gate 独占 tenant，AKEP 每轮只查询 shared Space 与当前 `Project.id` 派生的 project Space；统一作用域摘要写入数据库和 workspace evidence。详见 [联合上下文与项目隔离](docs/context-composition.md)。
+跨平台作用域采用 Consumer + Workspace 两层隔离：外部模型网关客户端凭据固定绑定 Shop Gate 项目账本，Memory 使用 Shop Gate 独占 tenant，AKEP 每轮只查询 shared Space 与当前 `Project.id` 派生的 project Space；统一作用域摘要写入数据库和 workspace evidence。详见 [联合上下文与项目隔离](docs/context-composition.md)。
 
 | 运行方式 | `.env.local` 最小配置 | 额外动作 |
 | --- | --- | --- |
-| 推荐：Qwen + ModelPort DeepSeek | `MODELPORT_API_KEY=...` | ModelPort 配置 Qwen 与 DeepSeek provider |
-| 只使用 Qwen | `MODELPORT_API_KEY=...` | 客户端 Key 只授权 `local_qwen` 即可 |
+| 推荐：Qwen + 外部网关 DeepSeek | `MODELPORT_API_KEY=...` | 在外部网关配置 Qwen 与 DeepSeek provider |
+| 只使用 Qwen | `MODELPORT_API_KEY=...` | 外部网关客户端 Key 只授权 `local_qwen` 即可 |
 | DeepSeek 官方直连 | `DEEPSEEK_API_KEY=...` | 项目/全局设置选择 `deepseek-v4-flash` |
 | 不启用 Memory | `SHOPGATE_MEMORY_ENABLED=0` | 无需启动或配置 Memory 服务 |
 
@@ -115,8 +115,8 @@ npm run dev
 | 四类生成模板真实构建 | `npm run check:scaffold-templates` |
 | 模型配置边界检查 | `npm run check:ai-provider-boundary` |
 | 模型目录与凭据连通性检查 | `npm run check:models` |
-| Qwen、ModelPort DeepSeek、Memory 基础契约联调 | `npm run check:integrations` |
-| ModelPort、Memory、AKEP 30 题真实体验验收 | `npm run check:triad-experience` |
+| Qwen、外部网关 DeepSeek、Memory 基础契约联调 | `npm run check:integrations` |
+| 外部模型网关、Memory、AKEP 30 题真实体验验收 | `npm run check:triad-experience` |
 | 四组自然语言变体、共 120 题真实压力验收 | `npm run check:triad-experience:large` |
 | 50 题 Qwen + Memory + AKEP 持久闭环验收 | 先在 AKEP 运行 `pnpm seed:shopgate-acceptance-50 -- --output=<manifest>`，再运行 `npm run check:memory-knowledge-50 -- --manifest=<manifest>`；数据默认保留 |
 | 创建真实任务、生成 Workspace 并验收预览 | `npm run check:task-e2e -- --campaign=<批次>`（完整通过后自动清理测试项目） |
@@ -150,7 +150,7 @@ npm run dev
 | 阶段 | 文档 | 目标 |
 | --- | --- | --- |
 | 先找阅读路径 | [文档总览与角色路径](docs/README.md) | 按启动、开发、排障、策略、评测、skills 等目标选择阅读顺序 |
-| 选择运行拓扑 | [配置、模型接入与可选组件指南](docs/configuration.md) | 选择 ModelPort、官方直连和 Memory 开关 |
+| 选择运行拓扑 | [配置、模型接入与可选组件指南](docs/configuration.md) | 选择外部模型网关、官方直连和 Memory 开关 |
 | 先建立全局图 | [架构总览](docs/architecture.md) | 知道产品、数据、生成和质量四条主线 |
 | 再跑通本地环境 | [基础设施配置](docs/infrastructure.md) | 拉起数据库、后端、前端和可选观测组件 |
 | 理解内部组件 | [内部组件学习指南](docs/internal-components.md) | 把页面、服务、数据、Skills、验证和运维串起来 |

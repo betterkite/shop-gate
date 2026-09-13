@@ -13,7 +13,7 @@
 
 1. 从 [`.env.production.example`](../.env.production.example) 生成环境文件，替换全部占位值，并设置目录权限为 `0600`。
 2. 创建 `shopgate` 系统用户以及 `/var/lib/shopgate/projects`、`/var/backups/shopgate`，只授予该用户所需权限。
-3. 先运行生产配置预检。组件可以通过 `ENABLED=0` 明确关闭；只要启用，ModelPort、Memory 与 AKEP 就必须同时启用 required 模式、HTTPS 和各自的短期/作用域身份配置：
+3. 先运行生产配置预检。组件可以通过 `ENABLED=0` 明确关闭；只要启用，外部模型网关、Memory 与 AKEP 就必须同时启用 required 模式、HTTPS 和各自的短期/作用域身份配置：
 
    ```bash
    npm run check:production -- --env-file /etc/shopgate/shopgate.env --require-bootstrap
@@ -78,7 +78,7 @@ node .agents/skills/shopgate-production-release/scripts/check-target.mjs
 
 1. 确认 CI 的 frontend、backend、authenticated lifecycle 和 contract evaluation 全部通过。
 2. 生成当前提交的评测证据；涉及 Agent 行为的版本还必须执行 live E2E evidence gate。
-   本地命令默认使用日常 Qwen/ModelPort；GitHub Hosted runner 无法访问本机 ModelPort，因此 workflow 显式设置 `SHOPGATE_RELEASE_EVIDENCE_MODEL=deepseek-v4-flash` 并注入官方直连 Key。无论选择哪条路，benchmark 与独立 gate 都从同一显式模型参数读取，禁止“凭据与报告模型错配”。
+   本地命令默认使用日常 Qwen/外部模型网关；GitHub Hosted runner 无法访问本机网关，因此 workflow 显式设置 `SHOPGATE_RELEASE_EVIDENCE_MODEL=deepseek-v4-flash` 并注入官方直连 Key。无论选择哪条路，benchmark 与独立 gate 都从同一显式模型参数读取，禁止“凭据与报告模型错配”。
 3. `feature_only` 发布只校验最近一次定时备份可恢复、未超过 6 小时且已异地复制，不因纯代码变更重复复制全量业务数据。`schema_migration` 或获批的有界数据操作必须创建并异地复制发布前备份：
 
    ```bash

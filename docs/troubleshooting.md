@@ -141,39 +141,39 @@ Alloy: http://localhost:12345
 
 如果不需要集中日志，可保持 Loki 停止。运行治理中心会降级读取本地日志文件；`npm run doctor` 在 `auto` 模式下只给 warning，不会失败。
 
-## 默认 ModelPort Qwen 未就绪
+## 默认外部网关 Qwen 未就绪
 
-确认 ModelPort 监听 `http://127.0.0.1:38082/v1`，并在 Shop Gate `.env.local` 中配置它签发的受限客户端 Key：
+确认外部模型网关监听 `http://127.0.0.1:38082/v1`，并在 Shop Gate `.env.local` 中配置它签发的受限客户端 Key：
 
 ```dotenv
-MODELPORT_API_KEY="your-scoped-modelport-client-key"
+MODELPORT_API_KEY="your-scoped-external-gateway-client-key"
 ```
 
 默认 profile 固定为 `local_qwen:qwen3.5-9b-q5km`。可先请求 `/v1/models` 验证鉴权；`401` 表示服务已连通但客户端 Key 未被接受，`403` 表示 Key 未获准访问该 provider/model。配置修改后重启 Shop Gate。新项目和未显式指定模型的 Query Rewrite 会自动使用 Qwen。
 
-## 日常 ModelPort DeepSeek 未就绪
+## 日常外部网关 DeepSeek 未就绪
 
-确认 ModelPort 自身运行环境包含 DeepSeek 上游 Key，Shop Gate 不保存该 Key：
+确认外部模型服务自身运行环境包含 DeepSeek 上游 Key，Shop Gate 不保存该 Key：
 
 ```dotenv
 DEEPSEEK_ANTHROPIC_AUTH_TOKEN="your-deepseek-upstream-key"
 ```
 
-ModelPort `deepseek` provider 必须使用 `protocol = "anthropic"`、Base URL `https://api.deepseek.com/anthropic`，并公布 `deepseek:deepseek-v4-flash`。Shop Gate 的 `MODELPORT_API_KEY` 还必须获准访问 `deepseek` provider 和该限定模型。管理台“查询余额”成功但模型请求失败时，重点检查协议/工具兼容；余额查询失败时检查上游 Key 与 DeepSeek 账户状态。
+外部模型服务的 `deepseek` provider 必须使用 `protocol = "anthropic"`、Base URL `https://api.deepseek.com/anthropic`，并公布 `deepseek:deepseek-v4-flash`。Shop Gate 的客户端凭据还必须获准访问 `deepseek` provider 和该限定模型。管理台“查询余额”成功但模型请求失败时，重点检查协议/工具兼容；余额查询失败时检查上游 Key 与 DeepSeek 账户状态。
 
 只有显式选择 `deepseek-v4-flash` 官方直连 profile 时，Shop Gate 运行环境才需要注入 `DEEPSEEK_API_KEY`；默认本地使用不配置它。
 
 ## DeepSeek 官方直连失败
 
-先确认项目选择的是 `deepseek-v4-flash`，不是带命名空间的 `deepseek:deepseek-v4-flash`。前者直连官方，后者经过 ModelPort。再检查当前 Shop Gate 进程能否读取：
+先确认项目选择的是 `deepseek-v4-flash`，不是带命名空间的 `deepseek:deepseek-v4-flash`。前者直连官方，后者经过外部模型网关。再检查当前 Shop Gate 进程能否读取：
 
 ```bash
 test -n "${DEEPSEEK_API_KEY}" && echo configured || echo missing
 ```
 
-如果 Key 写在 `.env.local`，修改后必须重启 Shop Gate。官方直连不读取 `MODELPORT_API_KEY` 或 `DEEPSEEK_ANTHROPIC_AUTH_TOKEN`；也不会访问 `127.0.0.1:38082`。完全不运行 ModelPort 时，还要把账号/新项目默认模型显式改为官方直连，否则代码级默认 Qwen 的连接失败是预期行为。
+如果 Key 写在 `.env.local`，修改后必须重启 Shop Gate。官方直连不读取外部网关凭据或 `DEEPSEEK_ANTHROPIC_AUTH_TOKEN`；也不会访问 `127.0.0.1:38082`。完全不运行外部模型网关时，还要把账号/新项目默认模型显式改为官方直连，否则代码级默认 Qwen 的连接失败是预期行为。
 
-可直接请求 `https://api.deepseek.com/chat/completions` 区分官方鉴权问题与 Shop Gate 运行问题；该验证会产生真实 Token 费用，示例见[模型 Provider 接入](model-providers.md#deepseek-官方直连不走-modelport)。
+可直接请求 `https://api.deepseek.com/chat/completions` 区分官方鉴权问题与 Shop Gate 运行问题；该验证会产生真实 Token 费用，示例见[模型 Provider 接入](model-providers.md#deepseek-官方直连不走外部模型网关)。
 
 然后重启并检查：
 
@@ -182,7 +182,7 @@ npm run dev
 SHOPGATE_EVAL_MODEL=deepseek-v4-flash npm run check:models
 ```
 
-`check:models` 在显式选择官方直连模型时校验 `DEEPSEEK_API_KEY`；未显式选择时仍按默认 ModelPort/Qwen 路径校验 `MODELPORT_API_KEY`。
+`check:models` 在显式选择官方直连模型时校验 `DEEPSEEK_API_KEY`；未显式选择时仍按默认外部网关/Qwen 路径校验客户端凭据。
 
 ## 生成页面没有真实数据
 

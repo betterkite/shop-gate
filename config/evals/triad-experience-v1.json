@@ -144,8 +144,8 @@
     {
       "id": "K06",
       "category": "knowledge",
-      "question": "Qwen 和 DeepSeek 分别怎样经 ModelPort 接入，密钥应该由谁管理？",
-      "expected": { "title": "ModelPort 模型接入边界", "behavior": "feedback_idempotency" }
+      "question": "Qwen 和 DeepSeek 分别怎样经外部模型网关接入，密钥应该由谁管理？",
+      "expected": { "title": "外部模型网关模型接入边界", "behavior": "feedback_idempotency" }
     },
     {
       "id": "T01",

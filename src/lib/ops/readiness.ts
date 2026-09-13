@@ -25,7 +25,7 @@ export interface ReadinessComponent {
     | 'knowledge'
     | 'commerceApi'
     | 'memory'
-    | 'modelPort'
+    | 'externalModelGateway'
     | 'redis'
     | 'observability'
     | 'workspace';
@@ -164,7 +164,7 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
       );
   const commerceBaseUrl = (process.env.SHOPGATE_COMMERCE_API_URL || 'http://127.0.0.1:8000')
     .replace(/\/$/, '');
-  const modelPortBaseUrl = (process.env.SHOPGATE_MODELPORT_URL || 'http://127.0.0.1:38082')
+  const externalModelGatewayBaseUrl = (process.env.SHOPGATE_MODELPORT_URL || 'http://127.0.0.1:38082')
     .replace(/\/$/, '');
   const lokiBaseUrl = (process.env.LOKI_URL || 'http://127.0.0.1:33100').replace(/\/$/, '');
   let memoryRuntime:
@@ -226,9 +226,9 @@ export async function getWebReadiness(): Promise<ReadinessResult> {
       },
     },
     {
-      name: 'modelPort',
+      name: 'externalModelGateway',
       ...degradation.components.modelPort,
-      run: () => probeHttp(`${modelPortBaseUrl}/livez`),
+      run: () => probeHttp(`${externalModelGatewayBaseUrl}/livez`),
     },
     {
       name: 'redis',

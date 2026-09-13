@@ -38,8 +38,8 @@ export const PI_AGENT_MODEL_DEFINITIONS: PiAgentModelDefinition[] = [
   },
   {
     id: MODELPORT_DEEPSEEK_MODEL_ID,
-    name: 'DeepSeek V4 Flash (ModelPort)',
-    description: '通过本机 ModelPort 转发到 DeepSeek 官方 Anthropic 协议的日常接入',
+    name: 'DeepSeek V4 Flash（外部网关）',
+    description: '通过外部 OpenAI-compatible 网关接入 DeepSeek 的日常配置',
     supportsImages: false,
     provider: 'openai',
     runtime: 'modelport',

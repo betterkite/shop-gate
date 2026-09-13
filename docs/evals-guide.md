@@ -261,6 +261,6 @@ CI 固定保留：
 
 定时触发时如果仓库尚未配置 `DEEPSEEK_API_KEY`，configuration job 会写出 notice，并把真实 DeepSeek job 标记为 skipped；确定性评测仍由 Quality workflow 强制执行。手动触发夜间真实评测和 release evidence 仍然 fail-closed，缺少 secret 会直接失败，避免把“未运行模型”误报为真实 E2E 通过。
 
-本地 `.env.local` 不会同步到 GitHub。启用夜间真实评测时，需要在仓库 `Settings → Secrets and variables → Actions` 中新增 repository secret `DEEPSEEK_API_KEY`。默认 Qwen 通过 `127.0.0.1:38082` 访问本机 ModelPort，GitHub hosted runner 无法访问该回环地址，因此不能用本地 Qwen key 替代夜间 workflow 的远程 DeepSeek secret。
+本地 `.env.local` 不会同步到 GitHub。启用夜间真实评测时，需要在仓库 `Settings → Secrets and variables → Actions` 中新增 repository secret `DEEPSEEK_API_KEY`。默认 Qwen 通过 `127.0.0.1:38082` 访问外部模型网关，GitHub hosted runner 无法访问该回环地址，因此不能用本地 Qwen key 替代夜间 workflow 的远程 DeepSeek secret。
 
 如果某次改动涉及 skills、生成契约、验证逻辑或数据后端，应优先补跑相关 benchmark。

@@ -17,7 +17,7 @@ function InstallGuideModal({ onClose, onRefreshStatus, onCopyToast }: InstallGui
 
   const steps = [
     { title: "安装项目依赖", command: "npm install" },
-    { title: "配置 ModelPort 客户端凭据", command: "MODELPORT_API_KEY=..." },
+    { title: "配置外部模型网关客户端凭据", command: "MODELPORT_API_KEY=..." },
     { title: "重新启动 Shop Gate", command: "npm run dev" },
   ];
 
@@ -31,7 +31,7 @@ function InstallGuideModal({ onClose, onRefreshStatus, onCopyToast }: InstallGui
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 font-black text-white">P</span>
               <div>
                 <h3 className="text-lg font-semibold text-slate-950">PI Agent 修复指引</h3>
-                <p className="mt-1 text-sm text-slate-600">默认通过 ModelPort 使用 Qwen 与 DeepSeek，官方直连保持可选。</p>
+                <p className="mt-1 text-sm text-slate-600">默认通过外部模型网关使用 Qwen 与 DeepSeek，官方直连保持可选。</p>
               </div>
             </div>
             <button onClick={onClose} className="rounded-lg p-2 text-slate-500 hover:bg-white/70 hover:text-slate-900" aria-label="关闭">×</button>

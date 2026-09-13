@@ -759,12 +759,12 @@ export async function getOpsPlatformDashboard(params: {
           ? '模型 Provider 凭据已配置'
           : '执行引擎已安装，Provider 凭据未配置'
         : '本地执行引擎缺失',
-      detail: '默认通过 ModelPort 使用本地 Qwen 与托管 DeepSeek，保留可选官方直连。',
+      detail: '默认通过外部模型网关使用本地 Qwen 与 DeepSeek，保留可选官方直连。',
       actions: [
         agentRuntimeInstalled ? null : '运行 npm install 安装本地执行引擎。',
         process.env.MODELPORT_API_KEY?.trim() || process.env.DEEPSEEK_API_KEY?.trim()
           ? null
-          : '在 .env.local 中配置 MODELPORT_API_KEY。',
+          : '在 .env.local 中配置外部模型网关客户端凭据。',
       ].filter((item): item is string => Boolean(item)),
     },
     {

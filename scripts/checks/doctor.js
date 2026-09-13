@@ -303,21 +303,21 @@ async function main() {
     deepSeekApiKey ? 'ok' : 'warn',
     deepSeekApiKey ? 'deepseek-v4-flash · 官方直连 · API Key 已配置' : 'DEEPSEEK_API_KEY 未配置。',
     [
-      deepSeekApiKey ? null : '可选官方直连未配置；日常 DeepSeek 应通过 ModelPort 使用。',
+      deepSeekApiKey ? null : '可选官方直连未配置；如需使用网关模式，请配置外部模型网关客户端凭据。',
       '可选模型固定为 deepseek-v4-flash，Base URL 固定为 https://api.deepseek.com。',
     ]
   );
 
   const modelPortApiKey = readEnvValue('MODELPORT_API_KEY');
   addCheck(
-    'ModelPort Provider',
+    '外部模型网关 Provider',
     modelPortApiKey ? 'ok' : 'warn',
     modelPortApiKey
-      ? '本地 Qwen + 托管 DeepSeek · ModelPort 客户端凭据已配置'
-      : '默认模型不可用：MODELPORT_API_KEY 未配置。',
+      ? '本地 Qwen + DeepSeek · 外部模型网关客户端凭据已配置'
+      : '默认模型不可用：外部模型网关客户端凭据未配置。',
     [
-      modelPortApiKey ? null : '在 .env.local 中填写 ModelPort 客户端 API Key。',
-      '模型与 Base URL 固定为受控 ModelPort profiles · http://127.0.0.1:38082/v1。',
+      modelPortApiKey ? null : '在 .env.local 中填写外部模型网关客户端凭据。',
+      '模型与 Base URL 固定为受控外部网关 profiles · http://127.0.0.1:38082/v1。',
     ]
   );
 

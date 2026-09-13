@@ -135,11 +135,11 @@ async function verifyModel(): Promise<void> {
     headers: { Authorization: `Bearer ${apiKey}` },
     signal: AbortSignal.timeout(5_000),
   });
-  assert(response.ok, `ModelPort model discovery returned HTTP ${response.status}.`);
+  assert(response.ok, `外部模型网关 model discovery returned HTTP ${response.status}.`);
   const payload = record(await response.json());
   assert(
     Array.isArray(payload.data) && payload.data.some((item) => record(item).id === config.model),
-    `ModelPort does not advertise ${config.model}.`,
+    `外部模型网关 does not advertise ${config.model}.`,
   );
 }
 
@@ -395,7 +395,7 @@ async function runCase(input: {
       + `（${citationIds.join('、') || '无'}）。`,
     );
     if (structured.turn.finishReason === 'tool_calls' && structured.turn.usage) checks.push('modelport_tool_usage');
-    else failures.push(`ModelPort 工具协议或 Usage 异常（finish=${structured.turn.finishReason ?? 'none'}）。`);
+    else failures.push(`外部模型网关工具协议或 Usage 异常（finish=${structured.turn.finishReason ?? 'none'}）。`);
     Object.assign(modelEvidence, {
       model: structured.turn.responseModel,
       finishReason: structured.turn.finishReason,

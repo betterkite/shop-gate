@@ -196,7 +196,7 @@ Shop Gate Mission 编译器只验证这份定义，不内置行业节点或文�
 
 ### 7. 接入产品层
 
-产品创建项目时选择 Profile；运行时从持久化选择恢复组合，不从 UI 文案猜领域。Memory、知识库和 ModelPort 都必须使用 Consumer + Tenant + Project + Workspace 作用域，Domain Pack 不能共享数据库表或全局缓存键来绕过隔离。
+产品创建项目时选择 Profile；运行时从持久化选择恢复组合，不从 UI 文案猜领域。Memory、知识库和外部模型网关都必须使用 Consumer + Tenant + Project + Workspace 作用域，Domain Pack 不能共享数据库表或全局缓存键来绕过隔离。
 
 ## 当前实现状态
 

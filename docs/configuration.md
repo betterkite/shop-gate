@@ -1,17 +1,17 @@
 # 配置、模型接入与可选组件指南
 
-这篇文档是 Shop Gate 配置方式的权威入口。它回答几个最容易混淆的问题：配置应该放在哪个文件、模型是否必须经过 ModelPort、Memory 与受治理知识是否启用，以及不同组合如何验证。
+这篇文档是 Shop Gate 配置方式的权威入口。它回答几个最容易混淆的问题：配置应该放在哪个文件、模型是否必须经过外部网关、Memory 与受治理知识是否启用，以及不同组合如何验证。
 
 Shop Gate 支持这些长期运行方式：
 
-- 推荐拓扑：默认 Qwen 经 ModelPort，日常 DeepSeek 也经 ModelPort。
-- 官方直连：某个项目直接调用 DeepSeek 官方 OpenAI-compatible API，不经过 ModelPort。
-- Qwen-only：只安装 ModelPort 的本地 Qwen provider，不配置任何 DeepSeek 上游凭据。
+- 推荐拓扑：默认 Qwen 经外部模型网关，日常 DeepSeek 也经外部模型网关。
+- 官方直连：某个项目直接调用 DeepSeek 官方 OpenAI-compatible API，不经过外部网关。
+- Qwen-only：只使用外部网关提供的本地 Qwen provider，不配置任何 DeepSeek 上游凭据。
 - 不启用 Memory：保留模型、数据读取、生成和验证能力，但完全不请求 Evolvable User Memory。
 - 不启用受治理知识：保留模型、数据读取、生成和验证能力，但不请求 AKEP ContextPack。
 - 离线降级：主动关闭可选外部探测，适合局部开发和故障排查，不等同于常规的“关闭 Memory”。
 
-模型、Memory 和 AKEP 知识是三条独立链路，可以自由组合。例如“DeepSeek 官方直连 + 不启用 Memory/AKEP”与“ModelPort Qwen + Memory + AKEP”都受支持。
+模型、Memory 和 AKEP 知识是三条独立链路，可以自由组合。例如“DeepSeek 官方直连 + 不启用 Memory/AKEP”与“外部网关 Qwen + Memory + AKEP”都受支持。
 
 ## 配置文件职责与优先级
 
@@ -34,7 +34,7 @@ Shop Gate 支持这些长期运行方式：
 
 建议不要执行 `cp .env.example .env.local`。示例文件是完整字典，把它整体复制到本机覆盖层会制造大量重复值，之后很难判断哪个文件真正生效。`.env.local` 只保留本机确实需要的几行即可。
 
-布尔开关统一接受 `1/0`；部分解析器也接受 `true/false`、`yes/no`、`on/off`。文档和部署模板统一使用 `1/0`，避免不同工具解释不一致。修改服务端变量后需要重启 Shop Gate；修改 ModelPort 或 Memory 自身变量后需要重启对应服务。
+布尔开关统一接受 `1/0`；部分解析器也接受 `true/false`、`yes/no`、`on/off`。文档和部署模板统一使用 `1/0`，避免不同工具解释不一致。修改服务端变量后需要重启 Shop Gate；修改外部模型网关或 Memory 自身变量后需要重启对应服务。
 
 ## 首次启动
 
@@ -52,26 +52,26 @@ npm run dev
 
 ### 方式对照
 
-| 模式 | Shop Gate 模型 ID | Shop Gate 凭据 | ModelPort 是否必需 | 适合场景 |
+| 模式 | Shop Gate 模型 ID | Shop Gate 凭据 | 外部网关是否必需 | 使用场景 |
 | --- | --- | --- | --- | --- |
 | 本地 Qwen（默认） | `local_qwen:qwen3.5-9b-q5km` | `MODELPORT_API_KEY` | 是 | 日常默认、低成本本地推理 |
-| DeepSeek 经 ModelPort | `deepseek:deepseek-v4-flash` | `MODELPORT_API_KEY` | 是 | 日常线上 DeepSeek、集中密钥/用量/余额治理 |
+| DeepSeek 经外部网关 | `deepseek:deepseek-v4-flash` | `MODELPORT_API_KEY` | 是 | 日常线上 DeepSeek、集中密钥/用量/余额治理 |
 | DeepSeek 官方直连 | `deepseek-v4-flash` | `DEEPSEEK_API_KEY` | 否 | 绕过网关验证、独立部署或应急路径 |
 
 `local_qwen:qwen3.5-9b-q5km` 始终是代码级默认模型。项目、账号全局设置或 URL 可以显式选择其他已注册模型；浏览器不能提交任意 Base URL 或任意 Provider。
 
-### A. 推荐：Qwen 与 DeepSeek 都经过 ModelPort
+### A. 推荐：Qwen 与 DeepSeek 都经过外部模型网关
 
-Shop Gate 的 `.env.local` 只需 ModelPort 客户端 Key：
+Shop Gate 的 `.env.local` 只需外部模型网关签发的客户端 Key：
 
 ```dotenv
-MODELPORT_API_KEY="replace-with-scoped-modelport-client-key"
+MODELPORT_API_KEY="replace-with-scoped-external-gateway-client-key"
 ```
 
-ModelPort 负责保存和调用真正的上游凭据。其 DeepSeek provider 使用 Anthropic 协议：
+外部模型网关负责保存和调用真正的上游凭据。其 DeepSeek provider 使用 Anthropic 协议：
 
 ```dotenv
-# 只存在于 ModelPort，不要复制到 Shop Gate
+# 只存在于外部模型服务，不要复制到 Shop Gate
 DEEPSEEK_ANTHROPIC_AUTH_TOKEN="replace-with-deepseek-upstream-key"
 ```
 
@@ -90,7 +90,7 @@ default_model = "deepseek-v4-flash"
 - `GET /v1/models`
 - `POST /v1/chat/completions`
 
-启动 ModelPort 后先检查客户端凭据：
+启动外部模型网关后先检查客户端凭据：
 
 ```bash
 set -a
@@ -101,9 +101,9 @@ curl -fsS \
   http://127.0.0.1:38082/v1/models
 ```
 
-`401` 表示客户端 Key 无效；`403` 通常表示 Key 有效但 scope 不允许目标 provider/model；连接失败才是 ModelPort 未启动、监听地址不对或网络问题。
+`401` 表示客户端 Key 无效；`403` 通常表示 Key 有效但 scope 不允许目标 provider/model；连接失败才是外部模型网关未启动、监听地址不对或网络问题。
 
-### B. DeepSeek 官方直连，不经过 ModelPort
+### B. DeepSeek 官方直连，不经过外部模型网关
 
 在 Shop Gate 的忽略文件 `.env.local` 中配置官方 OpenAI-compatible Key：
 
@@ -111,7 +111,7 @@ curl -fsS \
 DEEPSEEK_API_KEY="replace-with-official-deepseek-api-key"
 ```
 
-不要同时配置 `DEEPSEEK_ANTHROPIC_AUTH_TOKEN`。后者是 ModelPort Anthropic provider 的上游变量，Shop Gate 官方直连 profile 不读取它。
+不要同时配置 `DEEPSEEK_ANTHROPIC_AUTH_TOKEN`。后者是外部模型服务 Anthropic provider 的上游变量，Shop Gate 官方直连 profile 不读取它。
 
 然后在以下任一入口显式选择 **DeepSeek V4 Flash (Official Direct)**，对应模型 ID 为 `deepseek-v4-flash`：
 
@@ -119,7 +119,7 @@ DEEPSEEK_API_KEY="replace-with-official-deepseek-api-key"
 - 设置页的 AI Agent 默认模型；
 - 已有项目聊天页的模型选择器。
 
-该 profile 固定连接 `https://api.deepseek.com`，不会经过 `127.0.0.1:38082`。如果机器上完全不运行 ModelPort，务必先把账号默认或新项目模型改成官方直连；否则代码级默认 Qwen 仍会尝试访问 ModelPort。这是显式选择保护，不会因为发现了一个 Key 就偷偷改变现有项目的 provider。
+该 profile 固定连接 `https://api.deepseek.com`，不会经过 `127.0.0.1:38082`。如果机器上完全不运行外部模型网关，务必先把账号默认或新项目模型改成官方直连；否则代码级默认 Qwen 仍会尝试访问外部模型网关。这是显式选择保护，不会因为发现了一个 Key 就偷偷改变现有项目的 provider。
 
 本地可以直接验证官方端点。下面的请求会产生真实 Token 费用：
 
@@ -133,11 +133,11 @@ curl -fsS https://api.deepseek.com/chat/completions \
   -d '{"model":"deepseek-v4-flash","messages":[{"role":"user","content":"只回复 ok"}],"stream":false}'
 ```
 
-生产环境应由 Secret Manager 注入 `DEEPSEEK_API_KEY`，而不是把真实值写进镜像、仓库或 `.env.production.example`。当前严格生产模板以 ModelPort/Qwen 默认拓扑为基线；若部署为完全 direct-only，发布验收必须额外确认所有默认项目和评测任务都显式选择官方直连。
+生产环境应由 Secret Manager 注入 `DEEPSEEK_API_KEY`，而不是把真实值写进镜像、仓库或 `.env.production.example`。当前严格生产模板以外部网关/Qwen 默认拓扑为基线；若部署为完全 direct-only，发布验收必须额外确认所有默认项目和评测任务都显式选择官方直连。
 
 ### C. 只使用本地 Qwen，不安装 DeepSeek
 
-这是有效的长期拓扑。ModelPort 只启用 `local_qwen` provider，Shop Gate 使用一个仅允许该 provider/model 的客户端 Key：
+这是有效的长期拓扑。外部模型网关只启用 `local_qwen` provider，Shop Gate 使用一个仅允许该 provider/model 的客户端 Key：
 
 ```dotenv
 MODELPORT_API_KEY="replace-with-qwen-only-client-key"
@@ -149,7 +149,7 @@ MODELPORT_API_KEY="replace-with-qwen-only-client-key"
 # Shop Gate 不需要
 # DEEPSEEK_API_KEY=
 
-# ModelPort 不需要
+# 外部模型服务不需要
 # DEEPSEEK_ANTHROPIC_AUTH_TOKEN=
 ```
 
@@ -262,10 +262,10 @@ SHOPGATE_DEGRADATION_MODE=offline
 
 ## 可直接复制的组合
 
-### 默认 Qwen + ModelPort DeepSeek + Memory + AKEP
+### 默认 Qwen + 外部网关 DeepSeek + Memory + AKEP
 
 ```dotenv
-MODELPORT_API_KEY="replace-with-scoped-modelport-client-key"
+MODELPORT_API_KEY="replace-with-scoped-external-gateway-client-key"
 SHOPGATE_MEMORY_ENABLED=1
 SHOPGATE_MEMORY_REQUIRED=0
 SHOPGATE_MEMORY_API_URL="http://127.0.0.1:38089"
@@ -335,9 +335,9 @@ generation dispatch 的关键配置是 `PI_AGENT_DISPATCH_LEASE_TTL_MS=120000`�
 
 | Secret | 所属服务 | 是否放入 Shop Gate |
 | --- | --- | --- |
-| `MODELPORT_API_KEY` | ModelPort 签发给 Shop Gate 的客户端凭据 | 是，`.env.local` 或 Secret Manager |
-| `DEEPSEEK_ANTHROPIC_AUTH_TOKEN` | ModelPort 的 DeepSeek 上游凭据 | 否 |
-| Qwen 上游 Key（如有） | ModelPort 的本地/远端 Qwen provider | 否 |
+| `MODELPORT_API_KEY` | 外部模型网关签发给 Shop Gate 的客户端凭据 | 是，`.env.local` 或 Secret Manager |
+| `DEEPSEEK_ANTHROPIC_AUTH_TOKEN` | 外部模型服务的 DeepSeek 上游凭据 | 否 |
+| Qwen 上游 Key（如有） | 外部模型服务的本地/远端 Qwen provider | 否 |
 | `DEEPSEEK_API_KEY` | Shop Gate 官方直连 profile | 仅启用 direct 模式时 |
 | `SHOPGATE_MEMORY_BEARER_TOKEN` | 本地单用户 Memory 调试 | 仅开发；生产禁止静态通配 token |
 | `SHOPGATE_MEMORY_TOKEN_BROKER_CLIENT_SECRET` | Shop Gate 到可信 broker | 生产 Secret Manager |
@@ -355,7 +355,7 @@ npm run check:docs
 npm run type-check
 ```
 
-推荐完整拓扑先做 ModelPort/Memory 基础契约联调，再做包含 AKEP 的 30 题体验验收：
+推荐完整拓扑先做外部模型网关/Memory 基础契约联调，再做包含 AKEP 的 30 题体验验收：
 
 ```bash
 npm run check:integrations
@@ -370,12 +370,12 @@ npm run check:triad-experience
 npm run check:production -- --env-file /secure/path/shopgate.env
 ```
 
-生产预检采用按启用状态的严格合同：ModelPort 开启时要求 HTTPS、`REQUIRED=1`、受限客户端 Key 以及 organization/project/environment 三层稳定标识；完全关闭时必须同时关闭 `REQUIRED` 并提供官方直连 Key。Memory 开启时要求 `REQUIRED=1`、`REQUIRE_PRODUCTION_READY=1`、独占 tenant、HTTPS Token Broker 和非人类授权探针；Knowledge 开启时要求 `REQUIRED=1`、project Space、HTTPS OAuth client credentials。Memory/Knowledge 均禁止静态 bearer。明确关闭某组件时，其 `REQUIRED` 和生产 readiness 标志也必须显式置 `0`，避免部署意图含混。
+生产预检采用按启用状态的严格合同：外部模型网关开启时要求 HTTPS、`REQUIRED=1`、受限客户端 Key 以及 organization/project/environment 三层稳定标识；完全关闭时必须同时关闭 `REQUIRED` 并提供官方直连 Key。Memory 开启时要求 `REQUIRED=1`、`REQUIRE_PRODUCTION_READY=1`、独占 tenant、HTTPS Token Broker 和非人类授权探针；Knowledge 开启时要求 `REQUIRED=1`、project Space、HTTPS OAuth client credentials。Memory/Knowledge 均禁止静态 bearer。明确关闭某组件时，其 `REQUIRED` 和生产 readiness 标志也必须显式置 `0`，避免部署意图含混。
 
 常见判断顺序：
 
 1. 先确认项目选择的模型 ID，避免把 `deepseek-v4-flash` 与 `deepseek:deepseek-v4-flash` 混淆。
-2. 再确认凭据归属：ModelPort client key、ModelPort upstream key、官方 direct key 三者不能互换。
+2. 再确认凭据归属：外部网关客户端凭据、外部服务上游凭据、官方 direct key 三者不能互换。
 3. 检查目标服务 `/health`、`/readyz` 或 `/v1/models`，区分连接失败、`401` 和 `403`。
 4. 确认 `.env.local` 没有被外部进程环境变量覆盖；容器编排环境优先级最高。
 5. Memory 显示 `disabled` 时先看 `ENABLED`，显示 `unavailable` 才继续查 URL、契约、token 和 production-ready。

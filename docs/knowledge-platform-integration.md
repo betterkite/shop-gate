@@ -1,18 +1,18 @@
 # Agent Knowledge Platform 接入、证据与解耦边界
 
-Shop Gate 通过 AKEP v0.1 HTTP 协议使用独立的 Agent Knowledge Platform。这个接入用于已发布、可引用、受 Space 和 purpose 约束的共享知识，不替代零售数据事实库、用户记忆、Skills 或 ModelPort。
+Shop Gate 通过 AKEP v0.1 HTTP 协议使用独立的 Agent Knowledge Platform。这个接入用于已发布、可引用、受 Space 和 purpose 约束的共享知识，不替代零售数据事实库、用户记忆、Skills 或外部模型网关。
 
 ## 组件职责
 
 ```text
 Agent Knowledge Platform -- AKEP HTTP --> Shop Gate KnowledgePort --> PI Agent
-ModelPort -- OpenAI-compatible HTTP --> Shop Gate Provider Adapter --> PI Agent
+外部模型网关 -- OpenAI-compatible HTTP --> Shop Gate Provider Adapter --> PI Agent
 commerce-data -- HTTP --> Shop Gate data prefetch --> workspace
 ```
 
 - Agent Knowledge Platform 管理知识 Candidate、审核、发布、Revision、Citation、Exposure、Usage 和 Feedback。
 - Shop Gate 管理用户/项目授权、RunPlan、Mission、Agent 上下文、工作空间、验证和最终交付。
-- ModelPort 管理 Qwen、DeepSeek 等模型的协议、路由、客户端鉴权、配额和用量。AKEP 不调用模型。
+- 外部模型网关管理 Qwen、DeepSeek 等模型的协议、路由、客户端鉴权、配额和用量。AKEP 不调用模型。
 - commerce-data/TimescaleDB 仍是行为事件、商品主数据和零售指标事实的权威来源。
 - Evolvable User Memory 只保存用户明确授权的个性化偏好。
 
@@ -42,7 +42,7 @@ review + publish <- evaluated Candidate <- helped / neutral / harmed
 
 - `helped` 是可聚合的正向效果证据；`neutral` 表示使用过但没有确认增益；`harmed` 必须进入 AKEP 复审队列。
 - Feedback 不直接修改检索分数、正文或 Published Channel，避免单次评价、恶意评价或模型自评造成知识漂移。
-- 反复成功的业务模式可由独立 contributor workload 结合 accepted Mission receipt 和脱敏业务指标生成 Candidate。Qwen/ModelPort 可以辅助形成候选草稿，但模型输出只标记为 `generatedBy`，不能自评、自审或自发布。
+- 反复成功的业务模式可由独立 contributor workload 结合 accepted Mission receipt 和脱敏业务指标生成 Candidate。Qwen/外部模型网关可以辅助形成候选草稿，但模型输出只标记为 `generatedBy`，不能自评、自审或自发布。
 - AKEP 对 Candidate 执行固定数据集评测、证据检查和 Curator Review；Publisher 通过后，新 Revision 才进入下一次 ContextPack。
 - 因此“越用越强”是可回滚、可解释的发布循环，不是生产 Agent 在线改提示词或直接写知识库。
 
@@ -52,7 +52,7 @@ review + publish <- evaluated Candidate <- helped / neutral / harmed
 
 ## 本地配置
 
-Agent Knowledge Platform 使用同尾号端口对：统一 Web 入口 `http://localhost:33005`、Core 直连 `http://localhost:38085`。Shop Gate/ModelPort 分别使用 `3000`/`38082`，端口职责互不重叠。
+Agent Knowledge Platform 使用同尾号端口对：统一 Web 入口 `http://localhost:33005`、Core 直连 `http://localhost:38085`。Shop Gate/外部模型网关分别使用 `3000`/`38082`，端口职责互不重叠。
 
 ```dotenv
 SHOPGATE_KNOWLEDGE_ENABLED=1
@@ -83,14 +83,14 @@ SHOPGATE_KNOWLEDGE_OAUTH_SCOPE="akep:query akep:read akep:feedback"
 
 - `SHOPGATE_KNOWLEDGE_REQUIRED=0`：超时、401/403、契约不兼容或空结果显式降级，核心生成任务继续，不能伪造知识。
 - `SHOPGATE_KNOWLEDGE_REQUIRED=1`：知识准备失败时任务在 Mission 创建前失败关闭。
-- `offline` degradation mode：不访问 AKEP 和 ModelPort 等外部可选依赖。
+- `offline` degradation mode：不访问 AKEP 和外部模型网关等外部可选依赖。
 - 空 ContextPack 是合法结果；只说明当前授权 Space、purpose、词法检索和预算下没有匹配项。
 
-Readiness 会分别展示 `knowledge` 与 `modelPort`，不能用顶层 `ok=true` 代替组件检查。
+Readiness 会分别展示 `knowledge` 与外部模型网关，不能用顶层 `ok=true` 代替组件检查。
 
-## ModelPort 与 Qwen
+## 外部模型网关与 Qwen
 
-默认 profile `local_qwen:qwen3.5-9b-q5km` 继续通过 ModelPort `/v1/chat/completions` 使用本地 Qwen。知识检索本身不消耗模型 Token；Qwen 只负责 Shop Gate 已有的 Query Rewrite、自定义生成和评测 lane。标准可信看板 lane 仍使用零模型 Token 的确定性工具计划。
+默认 profile `local_qwen:qwen3.5-9b-q5km` 继续通过外部模型网关 `/v1/chat/completions` 使用本地 Qwen。知识检索本身不消耗模型 Token；Qwen 只负责 Shop Gate 已有的 Query Rewrite、自定义生成和评测 lane。标准可信看板 lane 仍使用零模型 Token 的确定性工具计划。
 
 即使本地 Qwen 可高频使用，仍保留 PI Agent 的上下文、轮数、工具调用和超时上限：这些限制用于收敛、防循环和故障隔离，不是模型计费限制。
 
@@ -115,4 +115,4 @@ npm run type-check
 - `src/app/api/chat/[project_id]/act/route.ts`：规划后预取、Agent 前联合曝光、Mission 验收后 Usage。
 - `src/app/api/projects/[project_id]/knowledge/*`、`src/components/chat/GovernedKnowledgeFeedback.tsx`：业务效果归因与用户强反馈。
 - `src/lib/services/pi-agent-prompts.ts`：不可信知识 capsule 的提示边界。
-- `config/service-catalog.json`、`src/lib/ops/readiness.ts`：AKEP 与 ModelPort 运维可见性。
+- `config/service-catalog.json`、`src/lib/ops/readiness.ts`：AKEP 与外部模型网关运维可见性。

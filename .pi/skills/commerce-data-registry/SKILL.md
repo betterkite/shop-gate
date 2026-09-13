@@ -27,6 +27,6 @@ python3 scripts/select_data_route.py --input '{"operation":"funnel","dataset_id"
 
 ## 禁止事项
 
-- 不读取证券、K 线、财报、估值、回测或外部行情 provider。
+- 只读取已登记的零售数据集和经营接口，不调用未登记的外部数据源。
 - 不把示例数据、另一数据集或模型推断当作当前数据集事实。
 - 不在来源或字段缺失时静默补造数字。

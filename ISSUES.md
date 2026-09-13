@@ -39,6 +39,8 @@
 | ISSUE-P31 | 电商数据集选择与导入后分析联动 | P17 | BI 工作台提供数据集选择器，展示窗口、来源、行数和合成字段；切换数据集后所有分析视图同步读取目标 `dataset_id`；数据集导入完成后自动刷新可用数据集与当前分析，按配置异步触发看板生成；刷新/生成结果有状态、失败原因和证据记录，不重复生成、不覆盖用户正在查看的其他数据集 | in-progress（已完成选择器、自动刷新、受控合成数据集导入、最近任务历史、标准行为事件 CSV Web 上传、`dataset_id` 隔离的行为明细持久化、商品级行为接口、导入后 `analytics-bi` 配置任务，并修复 Agent 预取硬编码旧数据集的问题：工作台选择会写入当前浏览器上下文，聊天任务将该 `datasetId` 固化到 run plan 和各扩展分析请求；CSV 之外的第三方连接器、配置清单到 Agent 持久看板预览的跨服务编排仍待后续片，验收记录见 [`docs/review/p31-dataset-linkage.md`](docs/review/p31-dataset-linkage.md)） |
 | ISSUE-P32 | 导入任务到 Agent 看板的跨服务持久化编排 | P17 | 数据集导入/更新后，在明确的 `project_id` 范围内消费 `analytics-bi` 配置清单；任务具备 outbox/幂等键、失败重试和证据链；Agent 生成并验证持久预览，任务中心可打开正确数据集且不覆盖其他项目或数据集 | open（P31 已生成并验证配置清单，但当前独立工作台没有项目绑定，不能安全猜测应启动哪个 Agent 项目；下一片先补项目绑定和跨服务事件合同，再接 Agent 生成、验证和持久预览 URL） |
 | ISSUE-P33 | 前端生产依赖安全升级 | P0 | `npm audit --omit=dev --audit-level=high` 通过；Next.js、PostCSS、Sharp、js-yaml、nanoid 等生产依赖升级后，构建、类型、单测、视觉和 Electron/standalone 运行回归通过；不使用未经评估的强制破坏性升级 | open（当前审计仍报告 1 个 critical、6 个 high、4 个 moderate；`npm audit fix --dry-run` 显示可升级 Next.js `16.3.5` 等，但 Prisma 相关 deepmerge-ts 修复可能触发破坏性版本变化，需要单独建立聚焦分支处理） |
+| ISSUE-P34 | 开源发布卫生与可复现性 | P0 | 活动 Skill、公开文档和产品元数据不再包含旧领域说明、个人绝对路径或旧仓库链接；仓库具备贡献、安全和行为规范；秘密、运行产物与本机路径扫描通过；Skill registry、lock、tgz 与源文件一致；全套发布前门禁通过 | in-progress（当前分支先处理活动 Skill 电商化、公开文档和贡献者入口；新 GitHub 仓库名称/可见性待用户确认，依赖安全升级另由 ISSUE-P33 处理） |
+| ISSUE-P35 | 运行时兼容合同与旧 guard 语义收敛 | P0 | 用户可见提示、验证器、权限/配额合同和运行时兼容代码统一为零售语义；保留的历史迁移、数据库 migration 和兼容 fixture 有明确 allowlist 与用途；未引用的旧域模块、路径和 guard 删除；全量测试、构建和零售 E2E 通过 | open（公开卫生扫描仍发现运行时 prompt、验证脚本、历史权限兼容值和少量测试 fixture 使用旧领域命名；需要单独拆分并逐项核对，不能直接批量替换） |
 
 P30 最新推进：库存健康摘要的四类判断已分别关联到对应的完整商品明细，接口新增 `health` 筛选并保留全量风险分布、商品/类目范围和分页；后端单测、API 验收与桌面/移动视觉回归纳入本次提交。P30 仍保持 `in-progress`，下一项继续处理补货摘要和价格带的精确联动。
 

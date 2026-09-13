@@ -1,61 +1,38 @@
 ---
 name: query-rewrite
-description: Consume the platform-owned LLM-first quantitative query contract before planning or data retrieval. Use for securities, markets, time ranges, comparisons, fundamentals, technical analysis, events, strategies, backtests, portfolios, or follow-up requests.
+description: Consume the platform-owned LLM-first retail query contract before planning, data retrieval, answers, or dashboard generation.
 ---
 
 # Shop Gate Query Rewrite
 
-Consume `.data-agent/retail-query-rewrite.json` as the only semantic bridge between the user's wording, the run plan, and API-based data skills. Shop Gate calls the selected LLM once through a strict Tool Schema, checks every semantic evidence span against the original query, and then sends literal target names or codes to the independent symbol Resolver.
+本 Skill 消费 `.data-agent/retail-query-rewrite.json`，作为用户表达、运行计划、经营数据和 Agent 之间唯一的语义事实源。模型只负责理解自然语言；商品、类目、渠道和活动身份由独立实体解析服务确认。
 
-> `.data-agent/**` is platform-owned and read-only. Never create, edit, delete, or repair the rewrite artifact from the Agent runtime.
+字段和状态约束见[经营问题改写契约](references/query-rewrite-contract.md)。
 
-## Workflow
+## 工作流
 
-1. Read the rewrite contract supplied in the Task Packet or `.data-agent/retail-query-rewrite.json`.
-2. Inspect `execution.strategy` and `execution.llm` first:
-   - `llm_primary` requires `llm.applied=true` and `llm.status=applied`.
-   - `llm_unavailable` is a hard semantic gate. Stop before planning or data retrieval and surface the retry guidance in `issues[]`.
-   - `safety_refusal` stops the request before model, Resolver, data, Agent, or dashboard execution.
-3. For `llm_primary`, use `resolvedSymbols[]` as the ordered target list and carry `symbol`, `market`, `assetType`, and `secid` into data requests.
-4. Use `timeRange`, `analysisFocus`, `capabilityHint`, `outputIntent`, and `broadUniverse` as authoritative semantics. Do not reparse the original query with keywords or regular expressions.
-5. Respect the top-level status gate:
-   - `ready`: continue to `run-planner` and required data skills.
-   - `partial`: continue only when omitting unresolved targets cannot change comparison or portfolio semantics; otherwise clarify.
-   - `needs_clarification`: surface the issue or clarification question and stop before data retrieval.
-   - `refused`: return `safety.message` and stop.
-6. Keep `originalQuery` for user-visible wording. `rewrittenQuery` is an execution summary, never a verbatim quote.
-7. Preserve issue codes exactly: `QUERY_REWRITE_LLM_UNAVAILABLE`, `TARGET_NOT_FOUND`, `TARGET_AMBIGUOUS`, `SYMBOL_RESOLVER_UNAVAILABLE`, and `GUARANTEED_RETURN_REQUEST` have different remediation paths.
+1. 先读取 rewrite 合同的 `execution.strategy`、`execution.llm` 和状态。
+2. `llm_primary` 必须是 schema 合法且原文有证据；`llm_unavailable`、`safety_refusal` 或无效输出时失败关闭。
+3. 使用 `resolvedEntities`、`dataset_id`、`timeRange`、`analysisFocus`、`outputIntent` 和 `scope`，不要从原问题重新猜测。
+4. `ready` 才能继续 `run-planner` 和数据 Skill；`partial` 只有不影响范围时才能继续；`needs_clarification` 必须先追问；`refused` 必须停止。
+5. 保留用户原话用于展示，`rewrittenQuery` 只做执行摘要，不当作引用。
 
-## Trust boundary
+## 信任边界
 
-- Do not call a second semantic model from the Agent. The platform owns the single bounded Query Rewrite call.
-- LLM fields are accepted only after Tool Schema and literal-evidence validation.
-- The LLM never owns instrument identity. Only `resolvedSymbols[]` returned after `/api/v1/symbols/resolve` is authoritative.
-- There is no keyword-derived semantic fallback. Model unavailability produces `llm_unavailable` and prevents downstream execution.
-- The deterministic guaranteed-return gate is a safety policy, not a semantic parser.
+- 平台只调用一次受约束的语义模型，Agent 不再调用第二个模型重写同一问题。
+- 模型不能发明实体 ID；候选名称必须出现在原文字面中并通过 Resolver。
+- 时间范围、数据集、只读回答和是否生成看板的判断必须有原文证据。
+- 模型不可用时不能用关键词规则伪造成功合同。
 
-## Configuration contract
-
-- Audit executor/model identity in `.data-agent/workspace.json.runtime` and the secret-free provider profile in `.data-agent/retail-run-plan.json.llm`.
-- `provider`, `model`, `baseUrl`, `credentialEnv`, `agent`, and `queryRewrite` must be present. Only the credential environment-variable name may be persisted.
-- The default profile is local Qwen through ModelPort. ModelPort-hosted DeepSeek, optional direct DeepSeek, and other registered OpenAI-compatible models use the same Query Rewrite contract.
-- If Query Rewrite is disabled or its credential is unavailable, the request fails closed; it does not become a model-free rewrite.
-
-## Validation
+## 配置和校验
 
 ```bash
 python .pi/skills/query-rewrite/scripts/validate_query_rewrite.py \
   --input .data-agent/retail-query-rewrite.json
 ```
 
-The validator performs no network calls and writes no files. A non-zero exit means the contract must be regenerated before continuing. Read [query-rewrite-contract.md](references/query-rewrite-contract.md) for schema and state invariants.
+模型 provider、model、base URL、credential 环境变量名和 Agent 配置可以记录；密钥本身不能写入合同、日志、证据或页面。
 
-## API handoff
+## 完成标准
 
-- The platform creates the artifact through `POST /api/quant/query/rewrite`; Agent code consumes it and must not call the platform endpoint again.
-- Both `preview` and `execution` purposes use the selected LLM. Preview is not a keyword-only path.
-- Data APIs receive standard codes from `resolvedSymbols`, never raw names guessed from the question.
-- Preserve API `source`, `as_of`, `fetched_at`, `fetch`, and `data_quality` in evidence.
-- Do not retry `TARGET_NOT_FOUND` unchanged. Retry infrastructure failures only when the issue is marked retryable.
-
-Complete this skill when the rewrite status, resolved target set, period, focus, capability, output intent, and clarification state are internally consistent. Data retrieval and dashboard generation belong to subsequent skills.
+只有当状态、实体集合、数据集、时间范围、分析重点、能力、输出意图、澄清状态和安全决定一致时，本 Skill 才完成。实际取数、证据和页面分别由后续能力负责。

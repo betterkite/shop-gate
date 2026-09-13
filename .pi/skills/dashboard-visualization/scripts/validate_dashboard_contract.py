@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a Shop Gate final dashboard-data contract without mutating it."""
+"""Validate a Shop Gate retail dashboard-data contract without mutating it."""
 
 from __future__ import annotations
 
@@ -11,9 +11,20 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-DATA_KEYS = ("quote", "kline", "assets", "comparison", "holdings", "portfolio", "financials", "backtest", "announcements")
+DATA_KEYS = (
+    "kpis",
+    "daily",
+    "items",
+    "categories",
+    "channels",
+    "inventory",
+    "profit",
+    "lifecycle",
+    "retention",
+    "price_experiment",
+)
 FORBIDDEN_MARKERS = re.compile(r"MOCK_DATA|SAMPLE_DATA|STATIC_QUOTES", re.IGNORECASE)
-SECRET_KEYS = re.compile(r"token|api[_-]?key|cookie|authorization", re.IGNORECASE)
+SECRET_KEYS = re.compile(r"token|api[_-]?key|cookie|authorization|password|secret", re.IGNORECASE)
 
 
 def read_json(source: str) -> Any:
@@ -21,7 +32,7 @@ def read_json(source: str) -> Any:
         raw = sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")
         return json.loads(raw)
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"cannot read valid JSON: {exc}") from exc
+        raise ValueError(f"无法读取合法 JSON：{exc}") from exc
 
 
 def records(value: Any) -> Iterable[dict[str, Any]]:
@@ -29,25 +40,15 @@ def records(value: Any) -> Iterable[dict[str, Any]]:
         yield from (item for item in value if isinstance(item, dict))
 
 
-def normalized_symbol(value: Any) -> str | None:
-    return value.strip().upper() if isinstance(value, str) and value.strip() else None
-
-
-def collect_symbols(payload: dict[str, Any]) -> set[str]:
-    symbols: set[str] = set()
-    candidates = [payload, payload.get("quote"), payload.get("kline")]
-    candidates.extend(records(payload.get("assets")))
-    candidates.extend(records(payload.get("holdings")))
-    comparison = payload.get("comparison")
-    if isinstance(comparison, dict):
-        candidates.extend(records(comparison.get("rows")))
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            continue
-        symbol = normalized_symbol(candidate.get("symbol") or candidate.get("code"))
-        if symbol:
-            symbols.add(symbol)
-    return symbols
+def collect_entities(payload: dict[str, Any]) -> set[str]:
+    entities: set[str] = set()
+    for key in ("items", "categories", "channels"):
+        for row in records(payload.get(key)):
+            for field in ("item_id", "category_id", "channel", "id", "name"):
+                value = row.get(field)
+                if isinstance(value, str) and value.strip():
+                    entities.add(value.strip())
+    return entities
 
 
 def scan_forbidden(value: Any, path: str = "$") -> list[str]:
@@ -56,33 +57,39 @@ def scan_forbidden(value: Any, path: str = "$") -> list[str]:
         for key, child in value.items():
             child_path = f"{path}.{key}"
             if SECRET_KEYS.search(str(key)) and isinstance(child, str) and child.strip():
-                errors.append(f"secret-like value at {child_path}")
+                errors.append(f"发现疑似敏感值：{child_path}")
             errors.extend(scan_forbidden(child, child_path))
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            errors.extend(scan_forbidden(child, f"{path}[{index}]") )
+            errors.extend(scan_forbidden(child, f"{path}[{index}]"))
     elif isinstance(value, str) and FORBIDDEN_MARKERS.search(value):
-        errors.append(f"mock/static marker at {path}")
+        errors.append(f"发现示例或静态数据标记：{path}")
     return errors
 
 
-def validate(payload: Any, expected_template: str | None, expected_symbols: list[str]) -> dict[str, Any]:
+def validate(payload: Any, expected_template: str | None) -> dict[str, Any]:
     errors: list[str] = []
     if not isinstance(payload, dict):
-        return {"ok": False, "errors": ["root must be an object"]}
+        return {"ok": False, "errors": ["根节点必须是对象"]}
 
-    if not any(key in payload and payload[key] not in (None, [], {}) for key in DATA_KEYS):
-        errors.append("no supported real-data section is present")
+    if not any(payload.get(key) not in (None, [], {}) for key in DATA_KEYS):
+        errors.append("没有非空的零售数据区")
+
+    dataset_id = payload.get("dataset_id")
+    if not isinstance(dataset_id, str) or not dataset_id.strip():
+        errors.append("dataset_id 必须存在")
+    if not isinstance(payload.get("source"), str) or not payload["source"].strip():
+        errors.append("source 必须存在")
 
     visualization = payload.get("visualization")
     if not isinstance(visualization, dict):
-        errors.append("visualization must be an object")
+        errors.append("visualization 必须是对象")
         visualization = {}
     template = visualization.get("template_id") or visualization.get("templateId")
     if not isinstance(template, str) or not template.strip():
-        errors.append("visualization.template_id is required")
+        errors.append("visualization.template_id 必须存在")
     elif expected_template and template != expected_template:
-        errors.append(f"template mismatch: expected {expected_template}, got {template}")
+        errors.append(f"模板不一致：期望 {expected_template}，实际 {template}")
 
     required = visualization.get("required_components")
     rendered = visualization.get("rendered_components")
@@ -94,32 +101,26 @@ def validate(payload: Any, expected_template: str | None, expected_symbols: list
             accounted.update(item for item in missing if isinstance(item, str))
         unaccounted = sorted(required_set - accounted)
         if unaccounted:
-            errors.append(f"required components are unaccounted for: {unaccounted}")
+            errors.append(f"必备组件没有说明：{unaccounted}")
 
-    actual_symbols = collect_symbols(payload)
-    expected = {symbol for value in expected_symbols if (symbol := normalized_symbol(value))}
-    absent = sorted(expected - actual_symbols)
-    if absent:
-        errors.append(f"expected symbols are missing: {absent}")
     errors.extend(scan_forbidden(payload))
-
     return {
         "ok": not errors,
+        "dataset_id": dataset_id,
         "template_id": template,
-        "symbols": sorted(actual_symbols),
+        "entities": sorted(collect_entities(payload)),
         "errors": errors,
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", default="-", help="dashboard-data JSON path, or - for stdin")
+    parser.add_argument("--input", default="-", help="看板 JSON 路径，或使用 - 从标准输入读取")
     parser.add_argument("--expected-template")
-    parser.add_argument("--expected-symbol", action="append", default=[])
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args()
     try:
-        result = validate(read_json(args.input), args.expected_template, args.expected_symbol)
+        result = validate(read_json(args.input), args.expected_template)
     except ValueError as exc:
         result = {"ok": False, "errors": [str(exc)]}
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2 if args.pretty else None)

@@ -113,17 +113,17 @@ AKEP 的验收记录位于隔离 Space `https://knowledge.local/spaces/shopgate-
 先在 Agent Knowledge Platform 发布 50 条受治理知识并生成清单：
 
 ```bash
-cd /home/tiammomo/projects/dev/agent-knowledge-platform
+cd /path/to/agent-knowledge-platform
 pnpm seed:shopgate-acceptance-50 -- \
-  --output=/home/tiammomo/projects/dev/Shop Gate/tmp/shopgate-acceptance-50-v1-manifest.json
+  --output=/tmp/shopgate-acceptance-50-v1-manifest.json
 ```
 
 再由 Shop Gate 对清单逐条执行完整链路：
 
 ```bash
-cd /home/tiammomo/projects/dev/Shop Gate
+cd /path/to/shop-gate
 npm run check:memory-knowledge-50 -- \
-  --manifest=/home/tiammomo/projects/dev/Shop Gate/tmp/shopgate-acceptance-50-v1-manifest.json
+  --manifest=/tmp/shopgate-acceptance-50-v1-manifest.json
 ```
 
 每个 case 必须同时通过以下门禁：

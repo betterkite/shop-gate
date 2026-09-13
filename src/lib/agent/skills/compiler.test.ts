@@ -8,17 +8,13 @@ import { compilePiAgentSkills, installPiAgentSkillsForWorkspace } from './compil
 import type { PiAgentSkillCapabilityDescriptor } from './types';
 
 const TEST_CAPABILITY_SKILLS = {
-  stock_diagnosis: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
-  technical_analysis: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
-  fundamental_analysis: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
-  asset_comparison: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
-  sector_rotation: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
-  strategy_research: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-rule-review', 'data-quality', 'dashboard-visualization'],
-  backtest_review: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-rule-review', 'data-quality', 'dashboard-visualization'],
-  portfolio_risk: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
+  traffic_funnel: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
+  catalog_structure: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  price_inventory: ['query-rewrite', 'run-planner', 'image-extraction', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'commerce-master-data', 'data-quality', 'dashboard-visualization'],
+  daily_brief: ['query-rewrite', 'run-planner', 'commerce-entity-resolver', 'commerce-market-data', 'commerce-metrics', 'data-quality', 'dashboard-visualization'],
 } as const;
 
-function getFinanceSkillCapabilityDescriptor(
+function getRetailSkillCapabilityDescriptor(
   id: keyof typeof TEST_CAPABILITY_SKILLS,
 ): PiAgentSkillCapabilityDescriptor {
   return { id, status: 'ready', requiredSkillIds: TEST_CAPABILITY_SKILLS[id] };
@@ -86,8 +82,8 @@ afterEach(async () => {
 describe('compilePiAgentSkills', () => {
   it('selects phase-compatible capsules, validates hashes, and obeys the total character budget', async () => {
     const result = await compilePiAgentSkills({
-      capabilityId: 'technical_analysis',
-      capability: getFinanceSkillCapabilityDescriptor('technical_analysis'),
+      capabilityId: 'catalog_structure',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
       phase: 'data-preparation',
       excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
       maxSystemContextChars: 6_000,
@@ -113,20 +109,16 @@ describe('compilePiAgentSkills', () => {
   });
 
   it.each([
-    ['stock_diagnosis', 'single-stock-diagnosis'],
-    ['technical_analysis', 'technical-timing'],
-    ['fundamental_analysis', 'fundamental-research'],
-    ['asset_comparison', 'stock-selection'],
-    ['sector_rotation', 'sector-rotation'],
-    ['strategy_research', 'strategy-research'],
-    ['backtest_review', 'backtest-review'],
-    ['portfolio_risk', 'holding-analysis'],
+    ['traffic_funnel', 'funnel-analysis'],
+    ['catalog_structure', 'catalog-structure'],
+    ['price_inventory', 'price-inventory'],
+    ['daily_brief', 'daily-brief'],
   ] as const)(
     'keeps %s phase skills and its %s scenario atomic under the production budget',
     async (capabilityId, templateId) => {
       const result = await compilePiAgentSkills({
         capabilityId,
-        capability: getFinanceSkillCapabilityDescriptor(capabilityId),
+        capability: getRetailSkillCapabilityDescriptor(capabilityId),
         phase: 'data-preparation',
         excludedSkillIds: ['image-extraction', 'commerce-entity-resolver'],
         templateId,
@@ -143,22 +135,22 @@ describe('compilePiAgentSkills', () => {
 
   it('injects only the selected dashboard scenario and judgement reference fragments', async () => {
     const result = await compilePiAgentSkills({
-      capabilityId: 'asset_comparison',
-      capability: getFinanceSkillCapabilityDescriptor('asset_comparison'),
+      capabilityId: 'catalog_structure',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
       requiredSkillIds: ['dashboard-visualization'],
       phase: 'workspace-generation',
-      templateId: 'stock-selection',
-      variantId: 'selection-ranking-matrix',
+      templateId: 'catalog-structure',
+      variantId: 'catalog-ranking-matrix',
       maxSystemContextChars: 4_000,
     });
 
     expect(result.totalCharacters).toBeLessThan(4_000);
-    expect(result.taskContext).toContain('stock-selection：多标的对比/选股模板');
-    expect(result.taskContext).not.toContain('holding-analysis：持仓分析模板');
-    expect(result.taskContext).toContain('金融指标口径');
+    expect(result.taskContext).toContain('catalog-structure：商品与类目结构');
+    expect(result.taskContext).not.toContain('price-inventory：价格与库存健康');
+    expect(result.taskContext).toContain('指标口径');
     expect(result.taskContext).toContain('图表选择');
     expect(result.taskContext).toContain('data_file/final/dashboard-data.json');
-    expect(result.taskContext).toContain('绝不推断 public/data');
+    expect(result.taskContext).toContain('data_file/final/dashboard-data.json');
     expect(result.taskContext).not.toContain('references/scenario_templates.md');
     expect(result.skills[0].includedResources.map((resource) => resource.id)).toEqual([
       'scenario-template',
@@ -168,8 +160,8 @@ describe('compilePiAgentSkills', () => {
 
   it('activates attachment skills independently of capability and rejects incompatible tools', async () => {
     const result = await compilePiAgentSkills({
-      capabilityId: 'stock_diagnosis',
-      capability: getFinanceSkillCapabilityDescriptor('stock_diagnosis'),
+      capabilityId: 'traffic_funnel',
+      capability: getRetailSkillCapabilityDescriptor('traffic_funnel'),
       phase: 'data-preparation',
       activatedSkillIds: ['image-extraction', 'data-quality'],
       excludedSkillIds: ['commerce-entity-resolver'],
@@ -179,8 +171,8 @@ describe('compilePiAgentSkills', () => {
     expect(result.selectedSkillIds).toContain('data-quality');
 
     await expect(compilePiAgentSkills({
-      capabilityId: 'stock_diagnosis',
-      capability: getFinanceSkillCapabilityDescriptor('stock_diagnosis'),
+      capabilityId: 'traffic_funnel',
+      capability: getRetailSkillCapabilityDescriptor('traffic_funnel'),
       requiredSkillIds: ['image-extraction'],
       phase: 'data-preparation',
       availableToolNames: ['commerce_api_get'],
@@ -189,8 +181,8 @@ describe('compilePiAgentSkills', () => {
 
   it('accepts both prepared dashboard surfaces and rejects an incomplete mutation route', async () => {
     const common = {
-      capabilityId: 'stock_diagnosis' as const,
-      capability: getFinanceSkillCapabilityDescriptor('stock_diagnosis'),
+      capabilityId: 'traffic_funnel' as const,
+      capability: getRetailSkillCapabilityDescriptor('traffic_funnel'),
       requiredSkillIds: ['dashboard-visualization'],
       phase: 'workspace-generation' as const,
       maxSystemContextChars: 5_000,
@@ -220,11 +212,11 @@ describe('compilePiAgentSkills', () => {
 
   it('fails closed instead of cutting a runtime capsule mid-section', async () => {
     await expect(compilePiAgentSkills({
-      capabilityId: 'technical_analysis',
-      capability: getFinanceSkillCapabilityDescriptor('technical_analysis'),
+      capabilityId: 'catalog_structure',
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
       requiredSkillIds: ['dashboard-visualization'],
       phase: 'workspace-generation',
-      templateId: 'technical-timing',
+      templateId: 'funnel-analysis',
       maxSystemContextChars: 512,
     })).rejects.toThrow('拒绝截断');
   });
@@ -243,7 +235,7 @@ describe('compilePiAgentSkills', () => {
     })).resolves.toMatchObject({ capabilityId: 'unknown-capability' });
     await expect(compilePiAgentSkills({
       capabilityId: 'unknown-capability',
-      capability: getFinanceSkillCapabilityDescriptor('technical_analysis'),
+      capability: getRetailSkillCapabilityDescriptor('catalog_structure'),
       requiredSkillIds: ['data-quality'],
     })).rejects.toThrow('capability identity mismatch');
   });
@@ -270,7 +262,7 @@ describe('compilePiAgentSkills', () => {
     expect(installedSkill).toContain('commerce_extract_uploaded_image');
     expect(installedSkill).not.toContain('mcp__ShopGateImage__');
     await expect(fs.access(
-      path.join(workspace, '.pi', 'skills', 'image-extraction', 'references', 'portfolio-image-contract.md'),
+      path.join(workspace, '.pi', 'skills', 'image-extraction', 'references', 'catalog-image-contract.md'),
     )).resolves.toBeUndefined();
     await expect(fs.access(
       path.join(workspace, '.pi', 'skills', 'image-extraction', 'scripts', 'normalize_extraction.py'),
@@ -290,8 +282,8 @@ describe('compilePiAgentSkills', () => {
   it('keeps the reference mirror complete while runtime capsules stay phase-scoped', async () => {
     const workspace = await temporaryDirectory('pi-agent-skills-full-mirror-');
     const receipt = await installPiAgentSkillsForWorkspace(workspace, {
-      capabilityId: 'technical_analysis',
-      capability: getFinanceSkillCapabilityDescriptor('technical_analysis'),
+      capabilityId: 'price_inventory',
+      capability: getRetailSkillCapabilityDescriptor('price_inventory'),
       additionalSkillIds: ['platform-ui-product-design'],
     });
 
@@ -335,7 +327,7 @@ describe('compilePiAgentSkills', () => {
     expect(receipt.skills['image-extraction'].source).toBe('package');
     for (const relativePath of [
       'SKILL.md',
-      'references/portfolio-image-contract.md',
+      'references/catalog-image-contract.md',
       'scripts/normalize_extraction.py',
       'agents/openai.yaml',
     ]) {

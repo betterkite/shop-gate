@@ -181,12 +181,8 @@
     "no-code",
     "low-code"
   ],
-  "author": "tiammomo",
+  "author": "Shop Gate contributors",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/tiammomo/Shop Gate.git"
-  },
   "build": {
     "appId": "com.shopgate.desktop",
     "productName": "Shop Gate",

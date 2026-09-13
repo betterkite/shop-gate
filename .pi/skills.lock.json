@@ -3,52 +3,52 @@
   "packageFormat": "tgz",
   "skills": {
     "run-planner": {
-      "version": "0.6.0",
+      "version": "0.7.0",
       "packagePath": ".pi/skill-packages/run-planner.tgz",
-      "sourceSha256": "ed7ef262d1af82a70ec5bc54c7d141db461f8f3d8c8a552816fa512c1ba31861",
-      "packageSha256": "e045d6b7d2b68dd71555f7132d1184ecb0805c5bfd2f2c8e1a53feeec4a42afb",
+      "sourceSha256": "e9d9cf1a55c077c7f9ce6ebc993038aaad45a67a1bc98126251fca38ca6fb7ca",
+      "packageSha256": "aa37764f03bb388229500b2f7a68f9db43dc5bdc756d9e1336a8b1cb41da15f9",
       "fileCount": 4
     },
     "image-extraction": {
-      "version": "0.5.0",
+      "version": "0.6.0",
       "packagePath": ".pi/skill-packages/image-extraction.tgz",
-      "sourceSha256": "2f06baf56c369fa3c400fba72b6897a0622352b9ce84d2602faf229e2063321b",
-      "packageSha256": "5dac6f58863bd25a879bb228e15c062a9c4f327a99465bdc8abf48fc65d4ef29",
+      "sourceSha256": "ba0a68cce10e0dc01c1f25dc722c82c11a6fefa25bcda32ae27d4a4ff39e6461",
+      "packageSha256": "01eda03f3d6c4a179a15f9fc00f2e88cc5211ef5b6c7970a6b9d57f032f3b5e6",
       "fileCount": 4
     },
     "data-quality": {
-      "version": "0.5.1",
+      "version": "0.6.0",
       "packagePath": ".pi/skill-packages/data-quality.tgz",
-      "sourceSha256": "e1c40444ead0c899a6c2c64fe802c9d8365d5921be1e290468f2a6e730ceb5be",
-      "packageSha256": "e81490d4e4628a2dd1aea7433941ea2a1d69b291d2aba6601cb312377e0c194d",
+      "sourceSha256": "a0d629e8803a45f100b2639f663c838840756cbb242e874f15a2142c2de4fa85",
+      "packageSha256": "fb7358fa424c7c2dd5f85500e5d744d11c0a2a409f8127b2813330099aecc549",
       "fileCount": 4
     },
     "dashboard-visualization": {
-      "version": "0.9.0",
+      "version": "0.10.0",
       "packagePath": ".pi/skill-packages/dashboard-visualization.tgz",
-      "sourceSha256": "193c3bb9619ece169536b2c00d7e22a6575fd3f4a5c821b8142f351d66752a00",
-      "packageSha256": "7208f50aaabc35f77f7f4c8731146f220c1c454f71c7a970359005b853034a3e",
+      "sourceSha256": "82907e1587d0c128592b88122994b61633d136089f1d84678da5249789ffdd13",
+      "packageSha256": "8dea892465441d43c2585244d2d155881c33cd9a66743cf0c2755b355a1fab5f",
       "fileCount": 6
     },
     "platform-ui-product-design": {
-      "version": "0.3.2",
+      "version": "0.4.0",
       "packagePath": ".pi/skill-packages/platform-ui-product-design.tgz",
-      "sourceSha256": "a5cd5a64ef63004bd40a126dff6a03e3fc3a2614f3641c1f27c06b5c17e05c8a",
-      "packageSha256": "5b675d3cacb9499a737ce3fc151d39e3bcafae91ec8683661a911b4db12de766",
+      "sourceSha256": "6b27bb5484344c2a0d1b463d80a26859fb3b98b30f1ae74be464cb4a1dd620b8",
+      "packageSha256": "6c8470a3e28f97c0e0f84b52aa231bf6f457c58f3f1992e966dd0da31538d46c",
       "fileCount": 5
     },
     "query-rewrite": {
-      "version": "0.6.1",
+      "version": "0.7.0",
       "packagePath": ".pi/skill-packages/query-rewrite.tgz",
-      "sourceSha256": "442f83702c7e7bb269e4c0473f35871664c31b3a98678cd77a78bd4090ff22d1",
-      "packageSha256": "a45da0376ae6b934277730425434ac04478550307cd5bd698e0f4285ad4fcf97",
+      "sourceSha256": "0c86775e8a52ef95acef3505cd4ed8bf0adee5dabe1f0574cc1c1b813c21d0ac",
+      "packageSha256": "2859ef212cb67dd25ba50f34a09c16fe85a7a08edd072107b590f9094e34e731",
       "fileCount": 4
     },
     "commerce-market-data": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "packagePath": ".pi/skill-packages/commerce-market-data.tgz",
-      "sourceSha256": "6779d135753df7b4b28efdab55dd7a7f157f68099d9168e5e669aafd005c6c32",
-      "packageSha256": "46e2a9aea1a41e87e0297be2f80380a1981a55d77c2d960265ce3c7807d3b5a1",
+      "sourceSha256": "5551c79f6568137ad1972075f5ed64ccb9debce476678697a453735d16734123",
+      "packageSha256": "47ffa20f1ac734900755d7e2aeb387db81c1e663f0f8a6f9a9a53cee202c2494",
       "fileCount": 4
     },
     "commerce-master-data": {
@@ -59,10 +59,10 @@
       "fileCount": 4
     },
     "commerce-rule-review": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "packagePath": ".pi/skill-packages/commerce-rule-review.tgz",
-      "sourceSha256": "45b30a07e865e2c77744668294c9791e84e394dc4c7908fd6f79f9a2d7af1837",
-      "packageSha256": "9fe886ce0cd86e4db31553b0d96fbf7f9fa8d7a814cc7611762adb244fd489f6",
+      "sourceSha256": "b4092e74bf54366166e19704147801fe8e35cd22dc2f48626177394281e5990b",
+      "packageSha256": "ff95850973f52dac1cf6a24631bd26daaaca1fe2b9568415e2d790bcc275f43d",
       "fileCount": 4
     },
     "commerce-metrics": {
@@ -73,17 +73,17 @@
       "fileCount": 6
     },
     "commerce-data-registry": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "packagePath": ".pi/skill-packages/commerce-data-registry.tgz",
-      "sourceSha256": "8b7a4c7b2cb4b26f24b41d9e92b7d82dd049725a92f962afc1f95cf35cc07824",
-      "packageSha256": "24a28b9b40f9e237aaeab6dfae04d1a67ab54897ec7835ce212fe8be664d4e57",
+      "sourceSha256": "e3c6c057214119ad74fd6557bbbbb55a709af9af610550f3b52fe8009733d6b9",
+      "packageSha256": "4f95264df00b298c3a1cf8057368b722dbdb20f2552c22266d7fb6cad9466bfb",
       "fileCount": 4
     },
     "commerce-entity-resolver": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "packagePath": ".pi/skill-packages/commerce-entity-resolver.tgz",
-      "sourceSha256": "611fd91ace980f04240145c9c7bbecdef62e42ecf6521df95635507df908f666",
-      "packageSha256": "77c91ceaf8eb311b99570e9b71dfb9aa2b5ec9cdc3079ad34608506a5233b7e3",
+      "sourceSha256": "0f2f9e784fd7e5c34efad143b7741e345bba482e0a4927f9cfd927646b79c391",
+      "packageSha256": "82d62de47cabe65ae3fb0b636960c51848c1ee6da541fc03adf674e53411b96f",
       "fileCount": 4
     }
   }

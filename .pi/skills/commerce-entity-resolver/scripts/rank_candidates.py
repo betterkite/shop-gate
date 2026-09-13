@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve product/category candidates without financial-domain assumptions."""
+"""Resolve product/category candidates without unsupported business assumptions."""
 
 from __future__ import annotations
 

@@ -24,35 +24,35 @@
       "requiresTools": [],
       "objective": "把用户需求固化为平台只读 run plan，并在歧义真正影响结果时才澄清。",
       "invariants": [
-        "证券名称可唯一解析时继续执行，不因缺少代码追问。",
-        "无新标的的页面修订继承上一轮 symbols、timeRange 和 template。"
+        "零售实体可唯一解析时继续执行，不因缺少内部 ID 追问。",
+        "无新实体的页面修订继承上一轮 dataset_id、entities、timeRange 和 template。"
       ],
       "workflow": [
-        "识别 capability、symbols、timeRange、template 和验收规则。",
+        "识别 capability、dataset_id、entities、timeRange、template 和验收规则。",
         "仅在同优先级候选或关键输入无法推断时进入 needs_clarification。"
       ],
-      "doneWhen": ["run plan 的状态、能力、标的、模板和验收口径彼此一致。"],
+      "doneWhen": ["run plan 的状态、能力、实体范围、模板和验收口径彼此一致。"],
       "resources": []
     },
     "query-rewrite": {
       "priority": 130,
       "phases": ["planning", "data-preparation"],
       "requiresTools": [],
-      "objective": "消费平台 LLM-first、Resolver 独立核验且带确定性安全决策的唯一 query rewrite 语义合同，统一标的、周期、分析重点、输出方式和执行状态。",
+      "objective": "消费平台 LLM-first、实体独立核验且带确定性安全决策的唯一经营问题合同，统一数据集、实体、周期、分析重点、输出方式和执行状态。",
       "invariants": [
         "只读取 .data-agent/retail-query-rewrite.json，不在 Agent 运行时改写平台合同。",
-        "LLM 只拆语义且输出不可信；只有经过平台 Schema、原文字面片段和 symbols/resolve 核验的 resolvedSymbols 才能取数。",
+        "LLM 只拆语义且输出不可信；只有经过平台 Schema、原文字面片段和实体解析核验的 resolvedEntities 才能取数。",
         "llm_unavailable 是失败关闭状态，必须在规划和取数前停止，不得用关键词结果继续。",
         "ready 才进入完整取数；partial 和 needs_clarification 必须按 issue code 判断是否停止；refused 必须在取数前终止。",
-        "Run Plan 必须消费 analysisFocus、broadUniverse 和 capabilityHint，不得脱离合同重新猜测分析重点。",
+        "Run Plan 必须消费 analysisFocus、scope 和 capabilityHint，不得脱离合同重新猜测分析重点。",
         "项目 Manifest 与 Run Plan 必须包含不带密钥值的完整 LLM profile。",
-        "后续数据 API 只接收 resolvedSymbols 中的标准代码。"
+        "后续数据 API 只接收 resolvedEntities 中的标准零售实体。"
       ],
       "workflow": [
-        "核对 execution.strategy、LLM 状态、resolvedSymbols、timeRange、analysisFocus、capabilityHint 和 outputIntent。",
-        "将 QUERY_REWRITE_LLM_UNAVAILABLE、TARGET_NOT_FOUND、TARGET_AMBIGUOUS、SYMBOL_RESOLVER_UNAVAILABLE、GUARANTEED_RETURN_REQUEST 分别处理。"
+        "核对 execution.strategy、LLM 状态、resolvedEntities、dataset_id、timeRange、analysisFocus、capabilityHint 和 outputIntent。",
+        "将模型不可用、实体未找到、实体歧义、解析服务不可用和确定性承诺分别处理。"
       ],
-      "doneWhen": ["query rewrite 与 run plan 的标的、周期和澄清状态一致。"],
+      "doneWhen": ["query rewrite 与 run plan 的实体范围、周期和澄清状态一致。"],
       "resources": []
     },
     "commerce-data-registry": {
@@ -91,11 +91,11 @@
       "objective": "把上传图片转换为有来源、有置信边界的结构化附件证据。",
       "invariants": [
         "只处理附件清单中经过路径校验的图片。",
-        "不能识别的持仓、成本、现金、盈亏和仓位字段写 null，并进入 needs_manual_confirmation。"
+        "不能识别的商品、价格、库存和经营指标字段写 null，并进入 needs_manual_confirmation。"
       ],
       "workflow": [
         "先读取附件上下文，再对每张相关图片调用一次图片提取工具。",
-        "把图片事实、行情接口事实和推断分开呈现。"
+        "把图片事实、经营接口事实和推断分开呈现。"
       ],
       "doneWhen": ["图片相关字段有来源或明确的人工确认缺口。"],
       "resources": []
@@ -114,7 +114,7 @@
         "按 run plan 的 dataset_id、entity_ids 和 timeRange 复用查询。",
         "将原始响应整理进 final 数据，并把来源、窗口和样本量写入 evidence。"
       ],
-      "doneWhen": ["每个计划标的都有可用数据或可审计失败原因。"],
+      "doneWhen": ["每个计划实体都有可用数据或可审计失败原因。"],
       "resources": []
     },
     "commerce-master-data": {
@@ -191,14 +191,14 @@
         ["query_json", "query_text_file", "semantic_edit"],
         ["inspect_dashboard_contract", "edit_file"]
       ],
-      "objective": "把权威 run plan、final 数据和 evidence 转成可验证的 Next.js 电商经营看板。",
+      "objective": "把权威 run plan、final 数据和 evidence 转成可验证的 Next.js 零售经营看板。",
       "invariants": [
-        "严格保持 template、variant、标的集合和真实数据绑定。",
+        "严格保持 template、variant、实体集合和真实数据绑定。",
         "可信编译器直接读取冻结的 final_dashboard（data_file/final/dashboard-data.json）；语义编辑路径只通过 query_json 的 final_dashboard artifact 读取数据，绝不推断 public/data 路径或按证券代码拼接 JSON 文件名。",
         "apply_dashboard_spec 可用时，标准场景必须优先由可信编译器生成页面与样式；templateId 和 variantId 只能作为权威合同断言，不能覆盖 run plan。",
-        "首屏展示核心行情、持仓、回测或财务证据及主图/矩阵，不生成卡片宫格或营销 hero。",
+        "首屏展示核心经营指标、商品/类目明细或日趋势，不生成卡片宫格或营销 hero。",
         "动态 JSON 每层使用 JsonRecord、asRecord、asArray 和 numeric 等守卫。",
-        "未明确要求时不增加买卖点、止损、目标价、仓位或收益承诺。"
+        "未明确要求时不增加补货、调价或经营执行承诺。"
       ],
       "workflow": [
         "从 initial dashboard contract 开始；标准场景且 apply_dashboard_spec 可用时先以空对象调用一次可信编译器，成功后直接提交，不再扫描源码。",
@@ -223,7 +223,7 @@
           "path": "references/visual_judgement.md",
           "profiles": ["data-preparation", "workspace-generation", "validation-repair"],
           "selector": "named-headings",
-          "headings": ["金融指标口径", "图表选择", "自检"],
+          "headings": ["指标口径", "图表选择", "用户文案"],
           "maxChars": 2800,
           "required": true
         }

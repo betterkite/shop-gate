@@ -244,7 +244,7 @@ SHOPGATE_MEMORY_ENABLED=0
 
 此模式下：
 
-- 不需要启动 `/home/tiammomo/projects/dev/evolvable-user-memory`；
+- 不需要启动额外的用户记忆服务；
 - 不需要 Memory URL、Bearer Token 或 Token Broker；
 - 聊天不会请求 discovery/recall/outcome，个性化状态为 `disabled`；
 - 模型调用、Query Rewrite、数据读取、workspace 生成、自动验证和预览不受影响；
@@ -320,7 +320,7 @@ SHOPGATE_REDIS_CACHE_ENABLED=0
 | Memory | `SHOPGATE_MEMORY_*` | 可选召回、broker、租户和有界上下文 |
 | 受治理知识 | `SHOPGATE_KNOWLEDGE_*` | AKEP ContextPack、Space、Purpose、Citation、Usage 与 Feedback |
 | 观测 | `LOKI_*`, `GRAFANA_*`, `GRAFANA_ALLOY_*` | 集中日志和本地兜底 |
-| 评测 | `SHOPGATE_EVAL_*`, `SHOPGATE_REQUIRE_*` | 隐藏集、replay、独立 judge 与发布门禁（金融域遗留框架，待零售语料重建） |
+| 评测 | `SHOPGATE_EVAL_*`, `SHOPGATE_REQUIRE_*` | 零售隐藏集、回放、独立 judge 与发布门禁 |
 | workspace 安全 | `SHOPGATE_GENERATED_SANDBOX`, `PI_AGENT_WORKSPACE_NAMESPACE` | 生成代码隔离和多实例共享资源边界 |
 
 PI Agent 的 Token、轮次、工具调用和 lease 默认值已经按完整 workspace 任务校准。除非有运行 trace 证明瓶颈，不要通过无限调大预算掩盖模型不收敛、工具契约错误或终态提交缺失。

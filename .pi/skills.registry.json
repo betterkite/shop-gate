@@ -4,13 +4,13 @@
     "targetCoreSkillCount": 12,
     "packageFormat": "tgz",
     "packageDir": ".pi/skill-packages",
-    "description": "Shop Gate Skills 仅使用已登记的规范 ID 和当前版本合同；非量化强相关能力不使用 quant 前缀，新增能力优先并入核心 Skill。"
+    "description": "Shop Gate Skills 仅使用已登记的规范 ID 和当前版本合同；新增能力优先并入现有核心 Skill，避免重复注册。"
   },
   "coreSkills": [
     {
       "id": "run-planner",
-      "name": "运行规划",
-      "version": "0.6.0",
+      "name": "经营任务规划",
+      "version": "0.7.0",
       "status": "stable",
       "scope": "workflow",
       "boundary": "解释平台生成的通用任务、领域计划和澄清门禁，指导后续执行；不生成或改写平台控制产物。",
@@ -33,9 +33,9 @@
       "validation": [
         "不清晰任务必须停在 needs_clarification",
         "清晰任务必须进入 planned",
-        "可解析的证券名称不得仅因缺少代码而追问",
-        "最近怎么样等泛化诊断必须使用默认范围继续",
-        "无新标的的页面修订必须继承上一轮 symbols/timeRange/template",
+        "明确的零售实体不得仅因缺少内部 ID 而追问",
+        "泛化经营问题必须使用数据集默认范围继续",
+        "无新实体的页面修订必须继承上一轮 dataset/entities/timeRange/template",
         "平台附加执行说明不得参与能力或模板判断"
       ],
       "references": [
@@ -44,21 +44,21 @@
     },
     {
       "id": "query-rewrite",
-      "name": "问题改写",
-      "version": "0.6.1",
+      "name": "经营问题改写",
+      "version": "0.7.0",
       "status": "stable",
       "scope": "workflow",
-      "boundary": "作为规划前唯一语义事实源，由所选 LLM 通过严格 Schema 解析全部自然语言语义，再经原文字面证据、独立标的 Resolver 与确定性安全策略核验；模型不可用时失败关闭。",
+      "boundary": "作为规划前唯一语义事实源，由所选 LLM 通过严格 Schema 解析零售经营语义，再经原文字面证据、独立实体解析与确定性安全策略核验；模型不可用时失败关闭。",
       "inputs": [
         "用户原始问题",
         "用户选定的 ModelPort 或直连 LLM",
-        ".data-agent/workspace.json.runtime 与 Finance Run Plan 无密钥 LLM profile",
-        "后端 GET /api/v1/symbols/resolve",
+        ".data-agent/workspace.json.runtime 与零售 Run Plan 无密钥 LLM profile",
+        "平台零售实体解析服务",
         "用户选择的 capabilityId"
       ],
       "outputs": [
         ".data-agent/retail-query-rewrite.json",
-        "resolvedSymbols",
+        "resolvedEntities",
         "timeRange",
         "analysisFocus",
         "clarification issues",
@@ -66,8 +66,8 @@
         "deterministic safety decision"
       ],
       "endpoints": [
-        "POST /api/quant/query/rewrite",
-        "GET /api/v1/symbols/resolve"
+        "平台 Query Rewrite 服务",
+        "平台零售实体解析服务"
       ],
       "scripts": [
         "scripts/validate_query_rewrite.py"
@@ -79,19 +79,19 @@
         "问题改写必须先于 run plan 和数据预取",
         "preview 与 execution 都必须调用所选 LLM，不存在关键词语义改写旁路",
         "LLM 未配置、超时、失败或输出无效时必须返回 llm_unavailable 并停止下游执行",
-        "LLM 只能拆语义，不得发明或确认证券代码",
-        "resolvedSymbols 必须使用标准六位代码且不得重复",
+        "LLM 只能拆语义，不得发明或确认商品、类目或渠道 ID",
+        "resolvedEntities 必须使用稳定零售实体 ID 且不得重复",
         "前端、规划器、预取器和 Skills 必须消费同一契约",
-        "标的未找到、标的歧义和解析服务不可用必须使用不同错误码",
-        "确定性收益承诺必须返回 refused，禁止进入取数和 Agent 执行",
-        "Run Plan 不得脱离 Query Rewrite 重新猜测标的、周期或分析重点",
-        "数据预取只能消费 run_plan.symbols，不得从原始问题二次解析证券名称"
+        "实体未找到、实体歧义和解析服务不可用必须使用不同错误码",
+        "确定性结果承诺必须返回 refused，禁止进入取数和 Agent 执行",
+        "Run Plan 不得脱离 Query Rewrite 重新猜测实体、周期或分析重点",
+        "数据预取只能消费 run plan 中的 dataset_id 和 entities，不得从原始问题二次解析"
       ]
     },
     {
       "id": "commerce-data-registry",
       "name": "数据注册与信源",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "status": "stable",
       "scope": "commerce",
       "boundary": "发现零售数据集、窗口覆盖、字段质量、来源和最小经营分析端点。",
@@ -123,13 +123,13 @@
     {
       "id": "commerce-entity-resolver",
       "name": "实体解析",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "status": "stable",
       "scope": "commerce",
       "boundary": "把商品、类目、渠道和活动名称解析为稳定零售实体标识。",
       "inputs": [
         "用户问题",
-        "候选标的文本"
+        "候选实体文本"
       ],
       "outputs": [
         "resolvedEntities",
@@ -151,10 +151,10 @@
     {
       "id": "image-extraction",
       "name": "图片提取",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "status": "stable",
       "scope": "input",
-      "boundary": "读取用户上传的图片附件清单，校验图片文件，抽取或标注持仓截图中的资产、股票、成本、盈亏、现金和仓位字段。",
+      "boundary": "读取用户上传的图片附件清单，校验图片文件，抽取或标注商品、SKU、价格、库存和经营指标字段。",
       "inputs": [
         ".data-agent/attachments.json",
         "uploaded images",
@@ -165,7 +165,7 @@
         "dashboard-data.json.imageExtraction"
       ],
       "endpoints": [
-        "quant_extract_uploaded_image"
+        "commerce_extract_uploaded_image"
       ],
       "validation": [
         "图片任务必须先调用 image-extraction",
@@ -176,13 +176,13 @@
         "scripts/normalize_extraction.py"
       ],
       "references": [
-        "references/portfolio-image-contract.md"
+        "references/catalog-image-contract.md"
       ]
     },
     {
       "id": "commerce-market-data",
       "name": "经营数据取数",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "status": "stable",
       "scope": "commerce",
       "boundary": "读取并校验当前零售数据集的行为、商品、类目和日指标。",
@@ -297,7 +297,7 @@
     {
       "id": "commerce-rule-review",
       "name": "规则/策略验证",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "status": "stable",
       "scope": "commerce",
       "boundary": "验证零售漏斗、GMV、库存和商品分层规则的一致性与数据边界。",
@@ -332,7 +332,7 @@
     {
       "id": "data-quality",
       "name": "数据质量",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "status": "stable",
       "scope": "evidence",
       "boundary": "证据文件、来源、时效、缺失字段、异常值和限制说明。",
@@ -346,7 +346,8 @@
         "evidence/data_quality.json"
       ],
       "validation": [
-        "每个展示数据必须可追溯到 source"
+        "每个展示数据必须可追溯到 source",
+        "数量、用户、金额、比例和库存天数必须按正确口径检查"
       ],
       "scripts": [
         "scripts/assess_data_quality.py"
@@ -358,10 +359,10 @@
     {
       "id": "platform-ui-product-design",
       "name": "平台 UI 产品设计",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "status": "stable",
       "scope": "platform",
-      "boundary": "Shop Gate 主平台页面、组件、控制台、设置、列表、导航、状态和响应式体验设计，不负责生成工作空间金融看板。",
+      "boundary": "Shop Gate 主平台页面、组件、控制台、设置、列表、导航、状态和响应式体验设计，不负责生成工作空间经营看板。",
       "inputs": [
         "src/app 页面",
         "src/components 组件",
@@ -374,7 +375,7 @@
         "页面状态和响应式布局"
       ],
       "validation": [
-        "必须复用现有 UI/quant primitives",
+        "必须复用现有 UI primitives",
         "必须覆盖 loading/empty/error/disabled/long text 状态",
         "必须通过 lint 和 type-check"
       ],
@@ -389,10 +390,10 @@
     {
       "id": "dashboard-visualization",
       "name": "可视化看板",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "status": "stable",
       "scope": "visualization",
-      "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与金融指标判读生成 Next.js 金融分析看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",
+      "boundary": "基于已验证 final 数据、PI Agent 定向注入的模板与经营指标判读生成 Next.js 零售经营看板；验证失败时只按平台报告修复允许产物，提交后由平台负责 build、preview 和 validation。",
       "inputs": [
         "data_file/final/dashboard-data.json",
         "evidence",
@@ -410,12 +411,12 @@
       "validation": [
         "页面必须绑定真实数据",
         "生成前必须按 visual_judgement 判读时间/维度/指标字段和指标口径",
-        "首屏必须呈现真实金融内容和核心图表/矩阵",
-        "多标的任务不得降级成单股模板",
-        "用户要求累计收益曲线时必须绘制带日期轴和统一尺度的折线图",
-        "用户要求相关性矩阵时必须绘制真实矩阵/热力图",
-        "未明确要求时不得新增交易计划、买卖点、止损或目标价",
-        "迷你 sparkline 不能替代主图或对比矩阵",
+        "首屏必须呈现真实经营内容和核心图表/明细表",
+        "多商品或多类目任务不得降级成单商品模板",
+        "用户要求日趋势时必须绘制带日期轴和统一口径的折线图",
+        "用户要求维度比较时必须绘制真实比较图或矩阵表",
+        "未明确要求时不得新增补货、调价或经营执行承诺",
+        "迷你 sparkline 不能替代主图或对比表",
         "缺数据时不得散落占位符，必须呈现专业待接入/待确认空态",
         "移动端不得出现页面级横向溢出",
         "页面必须使用连续电商经营画布，禁止独立圆角卡片网格、悬浮阴影和 card 套 card",

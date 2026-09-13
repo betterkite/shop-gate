@@ -51,7 +51,7 @@ function AboutTab() {
       <div className="text-center">
         <div className="flex justify-center gap-6">
           <a
-            href="https://github.com/tiammomo/Shop Gate"
+            href="https://github.com/betterkite"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[#DE7356] transition-colors hover:text-[#c95940]"

@@ -1,4 +1,4 @@
 interface:
-  display_name: "金融图片提取"
-  short_description: "把持仓和账户截图转换为带置信边界的结构化证据与人工确认项"
-  default_prompt: "Use $image-extraction to extract structured, auditable facts from the uploaded financial images."
+  display_name: "经营图片提取"
+  short_description: "把商品、库存和经营截图转换为带边界的结构化证据与人工确认项"
+  default_prompt: "Use $image-extraction to extract structured, auditable facts from uploaded retail images."

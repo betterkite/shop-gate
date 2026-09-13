@@ -299,8 +299,9 @@ async def analytics_trend(
     if selected_start > selected_end:
         raise ValueError("趋势日期范围的开始日期不能晚于结束日期")
     if selected_start < contract_start or selected_end > contract_end:
+        window_label = f"{contract_start.isoformat()} 至 {contract_end.isoformat()}"
         raise ValueError(
-            f"趋势日期必须在数据集窗口 {contract_start.isoformat()} 至 {contract_end.isoformat()} 内"
+            f"趋势日期必须在数据集窗口 {window_label} 内"
         )
     requested_window = start is not None and end is not None
 

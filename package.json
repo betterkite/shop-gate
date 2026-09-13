@@ -118,7 +118,7 @@
     "@earendil-works/pi-agent-core": "0.82.1",
     "@earendil-works/pi-ai": "0.82.1",
     "@node-rs/argon2": "^2.0.2",
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "^7.10.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",

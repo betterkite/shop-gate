@@ -1535,6 +1535,7 @@ async def price_band_comparison(
                     "has_observed_rows": bool(row.get("has_observed", False)),
                 }
         outcome_evidence_by_experiment: dict[str, dict[str, Any]] = {}
+        outcome_statistics_by_experiment: dict[str, dict[str, Any]] = {}
         if "price_experiment_outcomes" in row_counts:
             outcome_rows = await fetch_all(
                 """
@@ -1576,6 +1577,82 @@ async def price_band_comparison(
                     "synthetic": bool(row.get("all_synthetic", False)),
                     "has_observed_rows": bool(row.get("has_observed", False)),
                 }
+            outcome_stat_rows = await fetch_all(
+                """
+                SELECT experiment_id, variant,
+                       COUNT(*) AS outcome_users,
+                       COUNT(*) FILTER (WHERE purchased = 1) AS outcome_purchasers,
+                       COALESCE(SUM(units), 0) AS outcome_units
+                FROM commerce.dataset_price_experiment_outcomes
+                WHERE dataset_id = %s
+                GROUP BY experiment_id, variant
+                ORDER BY experiment_id, variant
+                """,
+                (dataset_id,),
+            )
+            outcome_stat_groups: dict[str, dict[str, dict[str, int]]] = {}
+            for row in outcome_stat_rows:
+                experiment_id = str(row["experiment_id"])
+                variant = str(row["variant"])
+                outcome_stat_groups.setdefault(experiment_id, {})[variant] = {
+                    "users": int(row["outcome_users"] or 0),
+                    "purchasers": int(row["outcome_purchasers"] or 0),
+                    "units": int(row["outcome_units"] or 0),
+                }
+            for experiment_id, variants in outcome_stat_groups.items():
+                evidence_status = outcome_evidence_by_experiment.get(
+                    experiment_id, {}
+                ).get("status", "incomplete")
+                control = variants.get("control")
+                treatment = variants.get("treatment")
+                if evidence_status == "complete" and control and treatment:
+                    control_users = control["users"]
+                    treatment_users = treatment["users"]
+                    control_purchasers = control["purchasers"]
+                    treatment_purchasers = treatment["purchasers"]
+                    control_rate = (
+                        control_purchasers / control_users if control_users else 0.0
+                    )
+                    treatment_rate = (
+                        treatment_purchasers / treatment_users if treatment_users else 0.0
+                    )
+                    outcome_statistics_by_experiment[experiment_id] = {
+                        "status": "complete",
+                        "control_users": control_users,
+                        "treatment_users": treatment_users,
+                        "control_purchasers": control_purchasers,
+                        "treatment_purchasers": treatment_purchasers,
+                        "control_units": control["units"],
+                        "treatment_units": treatment["units"],
+                        "control_conversion_rate": round(control_rate, 6),
+                        "treatment_conversion_rate": round(treatment_rate, 6),
+                        **_two_proportion_evidence(
+                            control_purchasers,
+                            control_users,
+                            treatment_purchasers,
+                            treatment_users,
+                        ),
+                    }
+                else:
+                    outcome_statistics_by_experiment[experiment_id] = {
+                        "status": evidence_status,
+                        "control_users": None,
+                        "treatment_users": None,
+                        "control_purchasers": None,
+                        "treatment_purchasers": None,
+                        "control_units": None,
+                        "treatment_units": None,
+                        "control_conversion_rate": None,
+                        "treatment_conversion_rate": None,
+                        "absolute_conversion_lift": None,
+                        "absolute_conversion_lift_ci_low": None,
+                        "absolute_conversion_lift_ci_high": None,
+                        "confidence_level": None,
+                        "p_value": None,
+                        "z_score": None,
+                        "sample_status": "not_ready",
+                        "significance_status": "not_ready",
+                    }
         for result in experiment_results:
             result["assignment_evidence"] = assignment_evidence_by_experiment.get(
                 result["experiment_id"],
@@ -1606,6 +1683,28 @@ async def price_band_comparison(
                     "outcome_to": None,
                     "synthetic": None,
                     "has_observed_rows": False,
+                },
+            )
+            result["outcome_statistics"] = outcome_statistics_by_experiment.get(
+                result["experiment_id"],
+                {
+                    "status": result["outcome_evidence"]["status"],
+                    "control_users": None,
+                    "treatment_users": None,
+                    "control_purchasers": None,
+                    "treatment_purchasers": None,
+                    "control_units": None,
+                    "treatment_units": None,
+                    "control_conversion_rate": None,
+                    "treatment_conversion_rate": None,
+                    "absolute_conversion_lift": None,
+                    "absolute_conversion_lift_ci_low": None,
+                    "absolute_conversion_lift_ci_high": None,
+                    "confidence_level": None,
+                    "p_value": None,
+                    "z_score": None,
+                    "sample_status": "not_ready",
+                    "significance_status": "not_ready",
                 },
             )
             assignment_status = result["assignment_evidence"]["status"]
@@ -1648,6 +1747,30 @@ async def price_band_comparison(
             "每组购买人数或购买率",
             "分组方式与实验时间范围",
         ]
+    if len(experiment_results) > 1:
+        multiple_testing = {
+            "status": "not_adjusted",
+            "experiment_count": len(experiment_results),
+            "adjusted": False,
+            "explanation": (
+                "当前多个实验的 p 值按实验分别计算，尚未进行多重检验校正；"
+                "不要只根据单个 p 值做统一结论。"
+            ),
+        }
+    elif len(experiment_results) == 1:
+        multiple_testing = {
+            "status": "single_experiment",
+            "experiment_count": 1,
+            "adjusted": False,
+            "explanation": "当前只有一个可比较实验，未触发多重检验校正。",
+        }
+    else:
+        multiple_testing = {
+            "status": "not_applicable",
+            "experiment_count": 0,
+            "adjusted": False,
+            "explanation": "当前没有可比较的对照组和处理组实验。",
+        }
     page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
@@ -1674,6 +1797,7 @@ async def price_band_comparison(
         eligible_experiment_count=len(experiment_results),
         experiment_explanation=experiment_explanation,
         experiment_required_for_estimation=experiment_required_for_estimation,
+        multiple_testing=multiple_testing,
         price_band_comparison=bands,
     )
 

@@ -734,6 +734,8 @@ function llmUnavailableMessage(
 
 const WHOLE_CATALOG_SCOPE_PATTERN =
   /数据窗口内|窗口内|全库|全量|整体|大盘|总体|全店|商品池|全部类目|所有商品|各类目|各价格带/;
+const WHOLE_CATALOG_RANKING_PATTERN =
+  /(?:库销比|库存风险|滞销).{0,20}(?:最差|最高|最低|最大|严重|排行|排名).{0,12}(?:前?\d+|前?十|top\s*\d+)/i;
 const VAGUE_DISCOVERY_PATTERN =
   /(?:有哪些|有什么).{0,12}(?:商品|类目).{0,12}(?:值得关注|推荐|重点)/;
 
@@ -755,7 +757,13 @@ function shouldInferBroadUniverse(params: {
     params.focusId === 'catalog' ||
     params.focusId === 'price_inventory' ||
     params.focusId === 'daily_brief'
-  ) && WHOLE_CATALOG_SCOPE_PATTERN.test(params.query);
+  ) && (
+    WHOLE_CATALOG_SCOPE_PATTERN.test(params.query) ||
+    // A metric-ranked Top-N request defines its own comparison universe:
+    // rank the full available product pool, then return the requested rows.
+    // Keep this allowlist narrow so vague recommendations still clarify.
+    WHOLE_CATALOG_RANKING_PATTERN.test(params.query)
+  );
 }
 
 export async function rewriteRetailQuery(

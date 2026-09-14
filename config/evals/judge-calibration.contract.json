@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "shopgate-judge-calibration-contract-v1",
+  "datasetKind": "contract_fixture",
+  "samples": [
+    {
+      "caseId": "contract-pass",
+      "human": { "verdict": "passed", "score": 95 },
+      "judge": { "verdict": "passed", "score": 91, "independentFromGenerator": true }
+    },
+    {
+      "caseId": "contract-warning",
+      "human": { "verdict": "warning", "score": 72 },
+      "judge": { "verdict": "warning", "score": 75, "independentFromGenerator": true }
+    },
+    {
+      "caseId": "contract-fail",
+      "human": { "verdict": "failed", "score": 30 },
+      "judge": { "verdict": "failed", "score": 35, "independentFromGenerator": true }
+    }
+  ]
+}

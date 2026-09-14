@@ -92,6 +92,12 @@ function main() {
     fail('没有任何零售基准运行证据（tmp/task-e2e-retail-*-latest.json）。请先运行基准。');
   }
   const latest = readJson(reports[0].filePath);
+  if (latest?.datasetId !== dataset.id) {
+    fail(`最近运行证据的数据集为 ${latest?.datasetId ?? 'unknown'}，不是公开数据集 ${dataset.id}。`);
+  }
+  if (latest?.dataset?.visibility && latest.dataset.visibility !== 'public') {
+    fail(`最近运行证据属于非公开 dataset（${latest.dataset.visibility}），不能作为公开零售证据。`);
+  }
   const summary = latest?.summary ?? {};
   const ready = Number(summary.ready ?? 0);
   const total = Number(summary.recorded ?? summary.selected ?? 0);

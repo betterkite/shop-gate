@@ -204,7 +204,19 @@ function normalizeCustomEvalSet(value: JsonRecord): CommerceEvalSetDefinition {
 
 async function readRawEvalCases(): Promise<JsonRecord[]> {
   const parsed = await readJson(CASES_PATH).catch(() => []);
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'cases' in parsed) {
+    return readRecordArray((parsed as JsonRecord).cases);
+  }
   return readRecordArray(parsed);
+}
+
+async function writeRawEvalCases(cases: JsonRecord[]): Promise<void> {
+  const parsed = await readJson(CASES_PATH).catch(() => null);
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'cases' in parsed) {
+    await writeJson(CASES_PATH, { ...(parsed as JsonRecord), cases });
+    return;
+  }
+  await writeJson(CASES_PATH, cases);
 }
 
 async function readCustomEvalSetsRaw(): Promise<JsonRecord[]> {
@@ -279,7 +291,7 @@ export async function createCommerceEvalCase(input: CreateCommerceEvalCaseInput)
   if (input.expectClarification) record.expectClarification = true;
   if (input.visualCheck) record.visualCheck = true;
 
-  await writeJson(CASES_PATH, [...rawCases, record]);
+  await writeRawEvalCases([...rawCases, record]);
   return normalizeCase(record);
 }
 

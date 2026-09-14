@@ -9,7 +9,7 @@
 | `001-commerce-timeseries.sql` | TimescaleDB / commerce schema | 创建 TimescaleDB 扩展、`commerce` schema、真实用户行为事件流（天池 UserBehavior 抽样）与商品/类目日聚合表 |
 | `002-commerce-catalog.sql` | 商品主数据 | 合成 SKU 档案（价格/库存/品牌/店铺）与类目表；`category_id`/`item_id` 继承真实行为流，合成字段带标注（PRD §5.2） |
 | `003-commerce-platform.sql` | 平台基础组件 | 数据导入任务、同步水位、数据质量扫描和通用平台任务表（已按零售 schema 落地） |
-| `004-commerce-analytics-contract.sql` | 经营分析数据契约 | 追加式扩展数据集契约，以及用户、会话、渠道、活动、订单、商品经济、库存快照和价格实验观察表；所有数据集按 `dataset_id` 隔离 |
+| `004-commerce-analytics-contract.sql` | 经营分析数据契约 | 追加式扩展数据集契约，以及用户、会话、渠道、活动、订单、商品经济、库存快照、价格实验观察和用户级分组证据表；所有数据集按 `dataset_id` 隔离 |
 | `005-commerce-analytics-orchestration.sql` | 经营分析跨服务编排 | 为导入/看板任务增加 `project_id` 与幂等键，并提供可重试的分析编排事件 outbox |
 
 主业务表由 Prisma 维护，不在这里手写：

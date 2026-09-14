@@ -29,5 +29,7 @@ describe('retail BI scaffold language', () => {
     expect(template).toContain('变化范围（95%）');
     expect(template).toContain('样本显示有差异');
     expect(template).toContain('p 值');
+    expect(template).toContain('分组证据');
+    expect(template).toContain('未确认随机分组');
   });
 });

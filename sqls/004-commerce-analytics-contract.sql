@@ -166,6 +166,24 @@ CREATE INDEX IF NOT EXISTS dataset_price_experiment_item_idx
 COMMENT ON TABLE commerce.dataset_price_experiment_observations IS
   '价格实验观察：明确保存对照/处理组、价格、曝光人数和购买人数；合成实验只能用于演示，不等同于真实因果证据。';
 
+CREATE TABLE IF NOT EXISTS commerce.dataset_price_experiment_assignments (
+  dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
+  experiment_id TEXT NOT NULL,
+  user_id BIGINT NOT NULL,
+  variant TEXT NOT NULL CHECK (variant IN ('control', 'treatment')),
+  assigned_at TIMESTAMPTZ NOT NULL,
+  allocation_method TEXT NOT NULL,
+  source TEXT NOT NULL,
+  synthetic BOOLEAN NOT NULL DEFAULT true,
+  PRIMARY KEY (dataset_id, experiment_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS dataset_price_experiment_assignment_variant_idx
+  ON commerce.dataset_price_experiment_assignments (dataset_id, experiment_id, variant);
+
+COMMENT ON TABLE commerce.dataset_price_experiment_assignments IS
+  '价格实验用户级分组证据。记录用户只被分配到一个变体、分配方法和来源；合成记录不能替代真实随机分组证明。';
+
 CREATE TABLE IF NOT EXISTS commerce.dataset_inventory_snapshots (
   dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
   snapshot_date DATE NOT NULL,

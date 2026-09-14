@@ -531,6 +531,21 @@ function defaultLlmExecution(status: RetailQueryRewriteLlmStatus): RetailQueryRe
   };
 }
 
+const GENERIC_SCOPE_TARGET_TERMS = new Set([
+  '商品',
+  '商品池',
+  '类目',
+  '全库',
+  '全量',
+  '整体',
+  '大盘',
+  '全店',
+  '所有商品',
+  '全部类目',
+  '当前数据集',
+  '数据窗口',
+]);
+
 function safeLlmTargetCandidates(query: string, candidates: unknown, maxTargets: number): string[] {
   if (!Array.isArray(candidates)) return [];
   const normalizedQuery = normalizeEntityText(query);
@@ -541,6 +556,7 @@ function safeLlmTargetCandidates(query: string, candidates: unknown, maxTargets:
     .map((candidate) => candidate.normalize('NFKC').trim().replace(/\s+/g, ''))
     .filter((candidate) => candidate.length > 0 && candidate.length <= 24)
     .filter((candidate) => /[\p{Script=Han}A-Za-z\d:]/u.test(candidate))
+    .filter((candidate) => !GENERIC_SCOPE_TARGET_TERMS.has(candidate))
     .filter((candidate) => {
       if (EXPLICIT_REF_PATTERN.test(candidate)) {
         return explicitRefs.includes(candidate);
@@ -590,7 +606,13 @@ function mergeLlmSemantics(params: {
     params.llm.targetCandidates,
     params.maxTargets,
   );
-  if (params.llm.targetCandidates.length > 0 && safeTargets.length === 0) return null;
+  const hasUnsafeTargetCandidate = params.llm.targetCandidates.some((candidate) => {
+    const normalized = typeof candidate === 'string'
+      ? candidate.normalize('NFKC').trim().replace(/\s+/g, '')
+      : '';
+    return normalized.length > 0 && !GENERIC_SCOPE_TARGET_TERMS.has(normalized);
+  });
+  if (hasUnsafeTargetCandidate && safeTargets.length === 0) return null;
   const focusId = params.llm.analysisFocusId;
   if (!(focusId in FOCUS_LABELS)) return null;
   if (

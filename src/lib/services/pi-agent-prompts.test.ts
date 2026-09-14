@@ -54,6 +54,12 @@ async function funnelRewrite(instruction: string) {
   });
 }
 
+const homepageShortcutCases = [
+  { capabilityId: 'traffic_funnel' as const, analysisFocusId: 'funnel' as const, label: '流量转化' },
+  { capabilityId: 'catalog_structure' as const, analysisFocusId: 'catalog' as const, label: '类目结构' },
+  { capabilityId: 'price_inventory' as const, analysisFocusId: 'price_inventory' as const, label: '价格与库存' },
+];
+
 afterEach(async () => {
   await Promise.all(
     temporaryProjects.splice(0).map((projectPath) =>
@@ -63,6 +69,50 @@ afterEach(async () => {
 });
 
 describe('PI Agent Shop Gate prompts', () => {
+  it('lets every homepage analysis shortcut enter planning with an explicit whole-catalog scope', async () => {
+    const prompts = [
+      '按当前数据集全库、最近 9 天，从浏览、收藏、加购到购买的转化情况怎样？哪个环节流失最多，集中在哪些类目？生成经营看板。',
+      '按当前数据集全库、最近 9 天，成交总额（GMV）最高的 5 个类目是哪些？给出各类目的购买转化率和平均每次购买金额对比，生成经营看板。',
+      '按当前数据集全库、最近 9 天，库存相对销量偏高的 10 个商品是哪些？它们的页面浏览量和购买转化率如何？生成经营看板。',
+    ];
+
+    for (const [index, shortcut] of prompts.entries()) {
+      const projectPath = await createProject();
+      const definition = homepageShortcutCases[index];
+      const queryRewrite = await rewriteRetailQuery(shortcut, {
+        requestedCapabilityId: definition.capabilityId,
+        semanticRewriter: async () => ({
+          ok: true as const,
+          provider: 'test',
+          model: 'test-model',
+          data: {
+            targetCandidates: [],
+            timeRange: null,
+            analysisFocusId: definition.analysisFocusId,
+            outputIntent: 'dashboard' as const,
+            answerOnlyEvidence: null,
+            broadUniverse: false,
+            broadUniverseEvidence: null,
+            confidence: 0.45,
+          },
+        }),
+      });
+      const runPlan = await writeInitialRunPlan({
+        projectPath,
+        requestId: `homepage-shortcut-${index}`,
+        capabilityId: definition.capabilityId,
+        capabilitySource: 'auto',
+        instruction: shortcut,
+        queryRewrite,
+      });
+
+      expect(runPlan.status, definition.label).toBe('planned');
+      expect(runPlan.queryRewrite?.broadUniverse, definition.label).toBe(true);
+      expect(runPlan.clarification?.required, definition.label).not.toBe(true);
+      expect(runPlan.timeRange, definition.label).toBe('数据窗口内最近 9 天');
+    }
+  });
+
   it('locks platform-prefetched artifacts and names only native PI Agent tools', async () => {
     const projectPath = await createProject();
     const instruction = '生成轻薄羽绒服最近120天的流量转化看板。';

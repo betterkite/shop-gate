@@ -113,6 +113,14 @@
 
 本地真实落库验收：`retail-demo-p28-assignment-v1` 生成 `80` 条用户分组记录（对照 `39`、处理 `41`），质量扫描 `severity=ok / issue_count=0`；价格实验接口返回 `status=declared_randomized`，但因数据仍为 `synthetic=true`，页面继续按演示分组显示，不把 `p` 值或购买率差异写成真实因果结论。跟进 Issue：[#44](https://github.com/betterkite/shop-gate/issues/44)。
 
+## 真实实验输入校验切片（P28 后续，2026-09-14）
+
+新增 `validate-price-experiment-csv` 只读命令，要求用户分组文件和实验观察文件使用固定表头，
+并在写库前检查对照/处理组、用户唯一分组、带时区的分配时间、曝光/购买/件数边界、用户级
+分配单元和观察行唯一性。命令输出 `source_kind=observed`、`synthetic=false` 和
+`causal_claim=not_verified`，不会连接数据库或修改已有数据集；有效输入只表示数据满足结构
+契约，不代表已经证明随机化或因果关系。跟进 Issue：[#46](https://github.com/betterkite/shop-gate/issues/46)。
+
 ## 价格弹性切片复验（2026-09-12）
 
 - 后端为同一商品的多价格成交观察计算对数回归参考值；没有至少两个有效价格点时返回 `insufficient_data_for_elasticity`，不输出空想的系数。

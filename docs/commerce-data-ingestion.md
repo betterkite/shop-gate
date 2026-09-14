@@ -104,6 +104,44 @@ uv run --project services/commerce-data \
 
 网页另外提供“导入已有数据集（CSV）”入口。CSV 必须包含 `user_id`、`item_id`、`category_id`、`behavior_type`、`timestamp` 五列；Web 任务会保留行为事件来源，并按 `dataset_id` 隔离写入扩展分析表。价格、成本、渠道、订单和库存是行为 CSV 不包含的扩展字段，系统会使用 `seed` 确定性补齐并在契约中标记为合成。当前单文件限制为 50 MB、最多 500,000 行；CSV 之外的格式和第三方来源仍使用离线连接器。
 
+### 3.3 真实价格实验文件的只读校验（P28）
+
+真实价格实验需要同时提供用户分组记录和按商品/日期汇总的观察记录。当前阶段先提供
+**只读校验**，校验通过后才进入后续写库和统计分析阶段；校验命令不会连接数据库，也不会
+修改已有数据集。
+
+```bash
+uv run --project services/commerce-data \
+  shopgate-commerce-import validate-price-experiment-csv \
+  --assignments data/import/price-experiment-assignments.csv \
+  --observations data/import/price-experiment-observations.csv \
+  --source my-store-price-experiment
+```
+
+用户分组文件必须严格使用以下表头：
+
+```text
+experiment_id,user_id,variant,assigned_at,allocation_method
+```
+
+观察文件必须严格使用以下表头：
+
+```text
+experiment_id,observation_date,item_id,variant,selling_price,exposed_users,purchasers,units,assignment_unit,allocation_method
+```
+
+校验规则包括：
+
+- 每个实验都必须同时有 `control`（对照组）和 `treatment`（处理组）；
+- 同一个实验中，一个用户只能出现一次分组记录；
+- `assigned_at` 必须包含时区，观察日期必须是 `YYYY-MM-DD`；
+- `purchasers`（购买人数）不能大于 `exposed_users`（曝光人数），`units`（购买件数）不能小于购买人数；
+- `assignment_unit` 必须是 `user`，这样观察数据才能和用户级分组证据对应；
+- 每个实验的观察行键（实验、日期、商品、变体）不能重复。
+
+报告中的 `source_kind=observed` 只说明输入来自外部观察文件，`causal_claim=not_verified` 表示
+系统仍未据此证明随机化或因果关系。校验成功不等于可以直接宣称价格带来的因果效果。
+
 对应接口为 `POST /api/v1/commerce/datasets/import/csv?dataset_id=...&seed=...&filename=...`，请求体直接发送 UTF-8 CSV（`Content-Type: text/csv`），返回的任务 ID 与合成数据生成任务共用状态查询和质量扫描。
 
 契约可以通过 API 查看：

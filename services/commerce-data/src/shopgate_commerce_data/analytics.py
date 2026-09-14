@@ -1378,6 +1378,7 @@ async def price_band_comparison(
         or "price_experiment_observations" in synthetic_fields
     )
     experiment_results: list[dict[str, Any]] = []
+    assignment_evidence_by_experiment: dict[str, dict[str, Any]] = {}
     if experiment_declared:
         experiment_rows = await fetch_all(
             """
@@ -1470,6 +1471,84 @@ async def price_band_comparison(
                     "assignment_unit": experiment["assignment_unit"],
                     "synthetic": experiment["synthetic"],
                 }
+            )
+        if "price_experiment_assignments" in row_counts:
+            assignment_rows = await fetch_all(
+                """
+                SELECT experiment_id,
+                       COUNT(*) AS assignment_rows,
+                       COUNT(DISTINCT user_id) AS assigned_users,
+                       COUNT(*) FILTER (WHERE variant = 'control') AS control_assigned_users,
+                       COUNT(*) FILTER (WHERE variant = 'treatment') AS treatment_assigned_users,
+                       MIN(assigned_at) AS assigned_from,
+                       MAX(assigned_at) AS assigned_to,
+                       STRING_AGG(DISTINCT allocation_method, ', ' ORDER BY allocation_method)
+                         AS allocation_methods,
+                       BOOL_AND(synthetic) AS all_synthetic,
+                       BOOL_OR(NOT synthetic) AS has_observed
+                FROM commerce.dataset_price_experiment_assignments
+                WHERE dataset_id = %s
+                GROUP BY experiment_id
+                """,
+                (dataset_id,),
+            )
+            for row in assignment_rows:
+                experiment_id = str(row["experiment_id"])
+                assignment_count = int(row["assignment_rows"] or 0)
+                assigned_users = int(row["assigned_users"] or 0)
+                control_users = int(row["control_assigned_users"] or 0)
+                treatment_users = int(row["treatment_assigned_users"] or 0)
+                duplicate_count = max(assignment_count - assigned_users, 0)
+                allocation_methods = str(row.get("allocation_methods") or "")
+                declared_randomized = any(
+                    token in allocation_methods.lower()
+                    for token in ("random", "hash", "随机")
+                )
+                complete = (
+                    control_users > 0
+                    and treatment_users > 0
+                    and duplicate_count == 0
+                )
+                balance = (
+                    min(control_users, treatment_users) / assigned_users
+                    if assigned_users
+                    else 0.0
+                )
+                assignment_evidence_by_experiment[experiment_id] = {
+                    "status": (
+                        "declared_randomized"
+                        if complete and declared_randomized
+                        else "not_verified"
+                        if complete
+                        else "incomplete"
+                    ),
+                    "assignment_rows": assignment_count,
+                    "assigned_users": assigned_users,
+                    "control_assigned_users": control_users,
+                    "treatment_assigned_users": treatment_users,
+                    "balance_ratio": round(balance, 6),
+                    "duplicate_assignment_count": duplicate_count,
+                    "assigned_from": _iso(row.get("assigned_from")),
+                    "assigned_to": _iso(row.get("assigned_to")),
+                    "allocation_methods": allocation_methods,
+                    "synthetic": bool(row.get("all_synthetic", False)),
+                    "has_observed_rows": bool(row.get("has_observed", False)),
+                }
+        for result in experiment_results:
+            result["assignment_evidence"] = assignment_evidence_by_experiment.get(
+                result["experiment_id"],
+                {
+                    "status": "not_available",
+                    "assignment_rows": 0,
+                    "assigned_users": 0,
+                    "control_assigned_users": 0,
+                    "treatment_assigned_users": 0,
+                    "balance_ratio": None,
+                    "duplicate_assignment_count": 0,
+                    "allocation_methods": None,
+                    "synthetic": None,
+                    "has_observed_rows": False,
+                },
             )
     if experiment_results:
         experiment_status = "synthetic_experiment_reference" if any(

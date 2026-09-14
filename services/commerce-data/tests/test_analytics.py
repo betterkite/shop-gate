@@ -891,8 +891,14 @@ def test_price_band_comparison_reports_experiment_reference_when_groups_are_expl
                 "window_start": date(2025, 1, 1),
                 "window_end": date(2025, 1, 31),
                 "generation_seed": 28,
-                "row_counts": {"price_experiment_observations": 4},
-                "synthetic_fields": ["price_experiment_observations"],
+                "row_counts": {
+                    "price_experiment_observations": 4,
+                    "price_experiment_assignments": 2,
+                },
+                "synthetic_fields": [
+                    "price_experiment_observations",
+                    "price_experiment_assignments",
+                ],
                 "limitations": [],
                 "generation_rule": "test",
             }]
@@ -900,45 +906,62 @@ def test_price_band_comparison_reports_experiment_reference_when_groups_are_expl
             return []
         if calls == 3:
             return []
-        return [
-            {
+        if calls == 4:
+            return [
+                {
+                    "experiment_id": "exp-1",
+                    "observation_date": date(2025, 1, 1),
+                    "item_id": 1001,
+                    "category_id": 10,
+                    "variant": "control",
+                    "selling_price": 100,
+                    "exposed_users": 100,
+                    "purchasers": 10,
+                    "units": 11,
+                    "assignment_unit": "user",
+                    "allocation_method": "synthetic_randomized_user_assignment",
+                    "synthetic": True,
+                },
+                {
+                    "experiment_id": "exp-1",
+                    "observation_date": date(2025, 1, 1),
+                    "item_id": 1001,
+                    "category_id": 10,
+                    "variant": "treatment",
+                    "selling_price": 90,
+                    "exposed_users": 100,
+                    "purchasers": 14,
+                    "units": 15,
+                    "assignment_unit": "user",
+                    "allocation_method": "synthetic_randomized_user_assignment",
+                    "synthetic": True,
+                },
+            ]
+        if calls == 5:
+            return [{
                 "experiment_id": "exp-1",
-                "observation_date": date(2025, 1, 1),
-                "item_id": 1001,
-                "category_id": 10,
-                "variant": "control",
-                "selling_price": 100,
-                "exposed_users": 100,
-                "purchasers": 10,
-                "units": 11,
-                "assignment_unit": "user",
-                "allocation_method": "synthetic_randomized_user_assignment",
-                "synthetic": True,
-            },
-            {
-                "experiment_id": "exp-1",
-                "observation_date": date(2025, 1, 1),
-                "item_id": 1001,
-                "category_id": 10,
-                "variant": "treatment",
-                "selling_price": 90,
-                "exposed_users": 100,
-                "purchasers": 14,
-                "units": 15,
-                "assignment_unit": "user",
-                "allocation_method": "synthetic_randomized_user_assignment",
-                "synthetic": True,
-            },
-        ]
+                "assignment_rows": 100,
+                "assigned_users": 100,
+                "control_assigned_users": 50,
+                "treatment_assigned_users": 50,
+                "assigned_from": date(2025, 1, 1),
+                "assigned_to": date(2025, 1, 1),
+                "allocation_methods": "synthetic_randomized_user_assignment",
+                "all_synthetic": True,
+                "has_observed": False,
+            }]
+        return []
 
     monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
 
     result = asyncio.run(price_band_comparison("retail-p28-experiment"))
 
-    assert calls == 4
+    assert calls == 5
     assert result["experiment_status"] == "synthetic_experiment_reference"
     assert result["eligible_experiment_count"] == 1
     assert result["experiment_results"][0]["absolute_conversion_lift"] == 0.04
+    assert result["experiment_results"][0]["assignment_evidence"]["status"] == "declared_randomized"
+    assert result["experiment_results"][0]["assignment_evidence"]["balance_ratio"] == 0.5
     assert "合成记录不能替代真实线上实验" in result["experiment_explanation"]
 
 

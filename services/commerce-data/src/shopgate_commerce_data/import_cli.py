@@ -503,6 +503,18 @@ def replace_synthetic_analytics_dataset(
                 """,
                 price_experiment_observations,
             )
+        price_experiment_assignments = dataset.get("price_experiment_assignments", [])
+        if price_experiment_assignments:
+            cursor.executemany(
+                """
+                INSERT INTO commerce.dataset_price_experiment_assignments
+                  (dataset_id, experiment_id, user_id, variant, assigned_at,
+                   allocation_method, source, synthetic)
+                VALUES (%(dataset_id)s, %(experiment_id)s, %(user_id)s, %(variant)s,
+                        %(assigned_at)s, %(allocation_method)s, %(source)s, %(synthetic)s)
+                """,
+                price_experiment_assignments,
+            )
         cursor.executemany(
             """
             INSERT INTO commerce.dataset_inventory_snapshots
@@ -532,6 +544,7 @@ def scan_synthetic_analytics_dataset(
         "orders": "dataset_orders",
         "inventory_snapshots": "dataset_inventory_snapshots",
         "price_experiment_observations": "dataset_price_experiment_observations",
+        "price_experiment_assignments": "dataset_price_experiment_assignments",
     }
     issues: list[str] = []
     metrics: dict[str, Any] = {}
@@ -562,7 +575,10 @@ def scan_synthetic_analytics_dataset(
             (name, table) for name, table in table_counts.items() if name in expected_counts
         )
         for name, table in marked_tables:
-            allow_observed = name == "behavior_events" and contract["source_kind"] != "synthetic"
+            allow_observed = (
+                name in {"behavior_events", "price_experiment_assignments"}
+                and contract["source_kind"] != "synthetic"
+            )
             cursor.execute(
                 f"""
                 SELECT COUNT(*) AS count
@@ -610,6 +626,28 @@ def scan_synthetic_analytics_dataset(
                 FROM commerce.dataset_item_economics
                 WHERE dataset_id = %s
                   AND (cost_price > list_price OR discount_rate < 0 OR discount_rate > 1)
+            """,
+            "duplicate_experiment_assignments": """
+                SELECT COALESCE(SUM(assignment_rows - assigned_users), 0) AS count
+                FROM (
+                  SELECT experiment_id, COUNT(*) AS assignment_rows,
+                         COUNT(DISTINCT user_id) AS assigned_users
+                  FROM commerce.dataset_price_experiment_assignments
+                  WHERE dataset_id = %s
+                  GROUP BY experiment_id
+                ) duplicates
+            """,
+            "experiment_assignments_without_both_variants": """
+                SELECT COUNT(*) AS count
+                FROM (
+                  SELECT experiment_id,
+                         COUNT(*) FILTER (WHERE variant = 'control') AS control_users,
+                         COUNT(*) FILTER (WHERE variant = 'treatment') AS treatment_users
+                  FROM commerce.dataset_price_experiment_assignments
+                  WHERE dataset_id = %s
+                  GROUP BY experiment_id
+                ) variants
+                WHERE control_users = 0 OR treatment_users = 0
             """,
         }
         for name, query in checks.items():

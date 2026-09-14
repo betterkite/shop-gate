@@ -188,6 +188,15 @@ def test_analytics_dataset_is_isolated_and_traceable() -> None:
         dataset["price_experiment_observations"]
     )
     assert contract["row_counts"]["price_experiment_observations"] > 0
+    assert contract["row_counts"]["price_experiment_assignments"] == len(
+        dataset["price_experiment_assignments"]
+    )
+    assert contract["row_counts"]["price_experiment_assignments"] == 50
+    assert {row["variant"] for row in dataset["price_experiment_assignments"]} == {
+        "control",
+        "treatment",
+    }
+    assert all(row["synthetic"] for row in dataset["price_experiment_assignments"])
     assert all(
         row["variant"] in {"control", "treatment"}
         for row in dataset["price_experiment_observations"]

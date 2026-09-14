@@ -296,6 +296,39 @@ def synthetic_price_experiment_observations(
     return rows
 
 
+def synthetic_price_experiment_assignments(
+    user_ids: list[int],
+    first_day: date,
+    seed: int,
+    dataset_id: str,
+    source: str,
+) -> list[dict[str, Any]]:
+    """生成可复核的用户级价格实验分组记录。
+
+    这些记录只证明演示数据有一份确定性分组清单；它们不代表真实线上用户，
+    也不能单独证明实验分流在业务系统中确实按随机规则执行。
+    """
+
+    experiment_id = f"{dataset_id}-price-experiment-v1"
+    assigned_at = datetime(first_day.year, first_day.month, first_day.day, tzinfo=UTC)
+    rows: list[dict[str, Any]] = []
+    for user_id in sorted(user_ids):
+        rng = _rng(seed, dataset_id, "price-experiment-assignment", user_id)
+        rows.append(
+            {
+                "dataset_id": dataset_id,
+                "experiment_id": experiment_id,
+                "user_id": int(user_id),
+                "variant": "treatment" if rng.random() >= 0.5 else "control",
+                "assigned_at": assigned_at,
+                "allocation_method": "synthetic_randomized_user_assignment",
+                "source": source,
+                "synthetic": True,
+            }
+        )
+    return rows
+
+
 def synthetic_analytics_dataset(
     users: int = 1_000,
     items: int = DEFAULT_ITEM_POOL_SIZE,
@@ -406,6 +439,13 @@ def synthetic_analytics_dataset(
         item_economics,
         first_day.date(),
         days,
+        seed,
+        dataset_id,
+        source,
+    )
+    price_experiment_assignments = synthetic_price_experiment_assignments(
+        [int(profile["user_id"]) for profile in profiles],
+        first_day.date(),
         seed,
         dataset_id,
         source,
@@ -541,6 +581,7 @@ def synthetic_analytics_dataset(
             "orders": len(orders),
             "inventory_snapshots": len(inventories),
             "price_experiment_observations": len(price_experiment_observations),
+            "price_experiment_assignments": len(price_experiment_assignments),
         },
         "synthetic_fields": [
             "user_profiles",
@@ -554,6 +595,7 @@ def synthetic_analytics_dataset(
             "fulfillment_status",
             "inventory_snapshots",
             "price_experiment_observations",
+            "price_experiment_assignments",
         ],
         "limitations": [
             "仅用于演示数据分析，不代表真实用户、订单、库存或财务事实",
@@ -561,6 +603,7 @@ def synthetic_analytics_dataset(
             "渠道和活动归因是确定性模拟，不是广告平台回传或实验结果",
             "库存快照没有真实仓库流水，不能单独作为补货结论",
             "价格实验观察是合成随机分组模拟，只有对照/处理组字段齐全；不能替代真实线上实验或因果证据",
+            "用户级实验分组是合成分配清单，不能证明真实线上分流或随机性",
         ],
         "generation_rule": (
             "以显式 seed、dataset_id 和实体 ID 独立播种；行为按周内需求和头腰尾商品分布生成，"
@@ -587,6 +630,7 @@ def synthetic_analytics_dataset(
             "orders": orders,
             "inventories": inventories,
         "price_experiment_observations": price_experiment_observations,
+        "price_experiment_assignments": price_experiment_assignments,
     }
 
 
@@ -855,7 +899,8 @@ def analytics_dataset_from_behavior_events(
         ],
         "sessions": sessions,
             "item_economics": item_economics,
-            "orders": orders,
-            "inventories": inventories,
+        "orders": orders,
+        "inventories": inventories,
         "price_experiment_observations": price_experiment_observations,
+        "price_experiment_assignments": [],
     }

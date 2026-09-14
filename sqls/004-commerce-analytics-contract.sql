@@ -184,6 +184,26 @@ CREATE INDEX IF NOT EXISTS dataset_price_experiment_assignment_variant_idx
 COMMENT ON TABLE commerce.dataset_price_experiment_assignments IS
   '价格实验用户级分组证据。记录用户只被分配到一个变体、分配方法和来源；合成记录不能替代真实随机分组证明。';
 
+CREATE TABLE IF NOT EXISTS commerce.dataset_price_experiment_outcomes (
+  dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
+  experiment_id TEXT NOT NULL,
+  user_id BIGINT NOT NULL,
+  outcome_date DATE NOT NULL,
+  variant TEXT NOT NULL CHECK (variant IN ('control', 'treatment')),
+  purchased INT NOT NULL CHECK (purchased IN (0, 1)),
+  units INT NOT NULL CHECK (units >= 0),
+  source TEXT NOT NULL,
+  synthetic BOOLEAN NOT NULL DEFAULT true,
+  PRIMARY KEY (dataset_id, experiment_id, user_id),
+  CHECK ((purchased = 0 AND units = 0) OR (purchased = 1 AND units >= 1))
+);
+
+CREATE INDEX IF NOT EXISTS dataset_price_experiment_outcome_variant_idx
+  ON commerce.dataset_price_experiment_outcomes (dataset_id, experiment_id, variant);
+
+COMMENT ON TABLE commerce.dataset_price_experiment_outcomes IS
+  '价格实验用户级结果证据。只有每个分组用户的结果完整且来源可核对时，才可进入正式统计分析复核；不自动证明因果关系。';
+
 CREATE TABLE IF NOT EXISTS commerce.dataset_inventory_snapshots (
   dataset_id TEXT NOT NULL REFERENCES commerce.dataset_contracts (dataset_id) ON DELETE CASCADE,
   snapshot_date DATE NOT NULL,

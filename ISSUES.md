@@ -125,3 +125,5 @@ P28 后续 Issue #44：新增 `dataset_price_experiment_assignments` 用户级�
 P28 后续 Issue #46：新增 `validate-price-experiment-csv` 只读输入校验，固定真实实验的用户分组和观察文件表头，并检查分组覆盖、用户唯一性、日期、指标边界和用户级分配单元；本阶段不写库、不宣称因果结论。后续再处理真实实验文件写库、数据集契约更新和正式统计分析。
 
 P28 后续 Issue #48：新增 `import-price-experiment-csv`，在只读校验通过后幂等写入指定数据集，检查商品和日期窗口，更新 `source_kind`、实验行数与限制说明，并自动执行质量扫描；真实实验使用 `synthetic=false`，合成数据集导入后标记为 `mixed`。后续再处理更完整的实验平台接入、分层检验、多重检验和正式因果模型。
+
+P28 后续 Issue #50：新增用户级实验结果表和可选 outcomes CSV，校验结果覆盖、用户唯一性、分组一致性和指标边界；质量扫描兼容混合数据集，价格实验接口输出 `outcome_evidence` 与 `causal_readiness`，只表达是否具备用户级统计复核条件，不自动宣称因果结论。后续再处理正式因果模型、分层检验和多重检验。

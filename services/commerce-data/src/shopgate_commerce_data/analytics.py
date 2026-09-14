@@ -1534,6 +1534,48 @@ async def price_band_comparison(
                     "synthetic": bool(row.get("all_synthetic", False)),
                     "has_observed_rows": bool(row.get("has_observed", False)),
                 }
+        outcome_evidence_by_experiment: dict[str, dict[str, Any]] = {}
+        if "price_experiment_outcomes" in row_counts:
+            outcome_rows = await fetch_all(
+                """
+                SELECT experiment_id,
+                       COUNT(*) AS outcome_rows,
+                       COUNT(DISTINCT user_id) AS outcome_users,
+                       COUNT(*) FILTER (WHERE purchased = 1) AS outcome_purchasers,
+                       COALESCE(SUM(units), 0) AS outcome_units,
+                       MIN(outcome_date) AS outcome_from,
+                       MAX(outcome_date) AS outcome_to,
+                       BOOL_AND(synthetic) AS all_synthetic,
+                       BOOL_OR(NOT synthetic) AS has_observed
+                FROM commerce.dataset_price_experiment_outcomes
+                WHERE dataset_id = %s
+                GROUP BY experiment_id
+                """,
+                (dataset_id,),
+            )
+            for row in outcome_rows:
+                experiment_id = str(row["experiment_id"])
+                outcome_count = int(row["outcome_rows"] or 0)
+                outcome_users = int(row["outcome_users"] or 0)
+                assigned_users = int(
+                    assignment_evidence_by_experiment.get(experiment_id, {}).get(
+                        "assigned_users", 0
+                    )
+                )
+                coverage = outcome_users / assigned_users if assigned_users else 0.0
+                outcome_evidence_by_experiment[experiment_id] = {
+                    "status": "complete" if assigned_users and coverage >= 1 else "incomplete",
+                    "outcome_rows": outcome_count,
+                    "outcome_users": outcome_users,
+                    "assigned_users": assigned_users,
+                    "coverage_ratio": round(coverage, 6),
+                    "outcome_purchasers": int(row["outcome_purchasers"] or 0),
+                    "outcome_units": int(row["outcome_units"] or 0),
+                    "outcome_from": _iso(row.get("outcome_from")),
+                    "outcome_to": _iso(row.get("outcome_to")),
+                    "synthetic": bool(row.get("all_synthetic", False)),
+                    "has_observed_rows": bool(row.get("has_observed", False)),
+                }
         for result in experiment_results:
             result["assignment_evidence"] = assignment_evidence_by_experiment.get(
                 result["experiment_id"],
@@ -1549,6 +1591,36 @@ async def price_band_comparison(
                     "synthetic": None,
                     "has_observed_rows": False,
                 },
+            )
+            result["outcome_evidence"] = outcome_evidence_by_experiment.get(
+                result["experiment_id"],
+                {
+                    "status": "not_provided",
+                    "outcome_rows": 0,
+                    "outcome_users": 0,
+                    "assigned_users": result["assignment_evidence"].get("assigned_users", 0),
+                    "coverage_ratio": 0.0,
+                    "outcome_purchasers": 0,
+                    "outcome_units": 0,
+                    "outcome_from": None,
+                    "outcome_to": None,
+                    "synthetic": None,
+                    "has_observed_rows": False,
+                },
+            )
+            assignment_status = result["assignment_evidence"]["status"]
+            outcome_status = result["outcome_evidence"]["status"]
+            result["causal_readiness"] = (
+                "ready_for_user_level_review"
+                if (
+                    not result["synthetic"]
+                    and assignment_status == "declared_randomized"
+                    and outcome_status == "complete"
+                    and result["outcome_evidence"]["has_observed_rows"]
+                )
+                else "aggregate_reference_only"
+                if outcome_status == "not_provided"
+                else "incomplete_user_outcomes"
             )
     if experiment_results:
         experiment_status = "synthetic_experiment_reference" if any(

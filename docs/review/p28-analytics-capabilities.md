@@ -131,6 +131,15 @@
 价格实验接口返回真实实验 `synthetic=false`，但同一数据集仍有合成实验时整体状态继续保守显示，
 不得把文件导入或显著性结果直接解释为因果结论。跟进 Issue：[#48](https://github.com/betterkite/shop-gate/issues/48)。
 
+## 用户级实验结果证据切片（P28 后续，2026-09-14）
+
+新增 `dataset_price_experiment_outcomes` 和可选 outcomes CSV。导入时校验结果用户必须来自
+assignment、分组必须一致、每个实验用户只能有一条结果、日期在契约窗口内且购买/件数边界合法；
+质量扫描只对确实声明了 outcomes 的实验检查覆盖率，不会因为同一混合数据集中的合成实验没有
+用户结果而阻断真实实验。价格实验接口新增 `outcome_evidence` 和 `causal_readiness`：完整真实
+用户结果且分组状态已声明时显示 `ready_for_user_level_review`，否则保持 `aggregate_reference_only`
+或 `incomplete_user_outcomes`。该状态表示证据链可复核，不表示已经证明因果效果。跟进 Issue：[#50](https://github.com/betterkite/shop-gate/issues/50)。
+
 ## 价格弹性切片复验（2026-09-12）
 
 - 后端为同一商品的多价格成交观察计算对数回归参考值；没有至少两个有效价格点时返回 `insufficient_data_for_elasticity`，不输出空想的系数。

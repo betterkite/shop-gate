@@ -1102,6 +1102,16 @@ def test_price_band_comparison_reports_experiment_reference_when_groups_are_expl
     assert result["experiment_results"][0]["assignment_evidence"]["status"] == "declared_randomized"
     assert result["experiment_results"][0]["assignment_evidence"]["balance_ratio"] == 0.5
     assert result["experiment_results"][0]["outcome_statistics"]["status"] == "not_provided"
+    assert result["analysis_definition"]["status"] == "available"
+    assert result["analysis_definition"]["covariate_adjustment"] == "none"
+    assert (
+        result["experiment_results"][0]["analysis_definition"]["status"]
+        == "not_ready"
+    )
+    assert (
+        result["experiment_results"][0]["analysis_definition"]["outcome_window"]
+        == {"from": None, "to": None}
+    )
     assert result["multiple_testing"]["status"] == "single_experiment"
     assert "合成记录不能替代真实线上实验" in result["experiment_explanation"]
 
@@ -1256,6 +1266,14 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
     assert result["multiple_testing"]["method"] == "benjamini_hochberg_fdr"
     first = result["experiment_results"][0]
     assert first["causal_readiness"] == "ready_for_user_level_review"
+    assert first["analysis_definition"]["status"] == "ready_for_user_level_review"
+    assert first["analysis_definition"]["unit"] == "user"
+    assert first["analysis_definition"]["effect_direction"] == "treatment_minus_control"
+    assert first["analysis_definition"]["covariate_adjustment_label"] == "未做协变量调整"
+    assert first["analysis_definition"]["outcome_window"] == {
+        "from": "2025-01-01",
+        "to": "2025-01-01",
+    }
     outcome_statistics = first["outcome_statistics"]
     assert outcome_statistics["status"] == "complete"
     assert outcome_statistics["control_users"] == 2

@@ -158,6 +158,12 @@ assignment、分组必须一致、每个实验用户只能有一条结果、日�
 
 两组均有分配且记录完整时返回 `descriptive`；只有一组时返回 `insufficient_variant_coverage`，分配记录本身不完整时返回 `incomplete`，存在无法关联画像的用户时返回 `partial_profile_coverage` 并保留 `unknown` 分层；没有分组记录返回 `not_provided`，未请求时返回 `not_requested`。跟进 Issue：[#58](https://github.com/betterkite/shop-gate/issues/58)。
 
+## 实验分析口径契约（P28 后续，2026-09-14）
+
+价格实验结果现在同时返回 `analysis_definition`，固定说明分析单位为用户、对照组为 `control`、处理组为 `treatment`、结果指标为结果窗口内是否购买，以及效果度量为“购买率差异（处理组 - 对照组）”。结果窗口直接来自用户级 outcomes 的起止日期；缺少完整 outcomes 时保留空窗口，不用实验观察日期猜测结果窗口。
+
+该口径还明确返回“未做协变量调整”。`ready_for_user_level_review` 只表示真实用户分组和结果已满足当前复核条件；合成或证据不完整的结果分别保持 `descriptive_only` 或 `not_ready`。这一步统一的是可复核定义，不实现倾向得分、回归调整、异质性效应或正式因果模型。跟进 Issue：[#60](https://github.com/betterkite/shop-gate/issues/60)。
+
 ## 价格弹性切片复验（2026-09-12）
 
 - 后端为同一商品的多价格成交观察计算对数回归参考值；没有至少两个有效价格点时返回 `insufficient_data_for_elasticity`，不输出空想的系数。

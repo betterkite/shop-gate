@@ -67,6 +67,7 @@ export interface RetailActPreparationInput {
   capabilityId?: string | null;
   capabilitySelectionSource?: string | null;
   datasetId?: string | null;
+  outputMode?: "act" | "chat" | null;
   processedImageCount: number;
   previousRunPlan: RetailRunPlan | null;
   quotaActorUserId: string | null;
@@ -100,6 +101,7 @@ export async function prepareRetailActGeneration(
     capabilityId,
     capabilitySelectionSource,
     datasetId,
+    outputMode,
     processedImageCount,
     previousRunPlan,
     quotaActorUserId,
@@ -213,6 +215,7 @@ export async function prepareRetailActGeneration(
           previousPlan: previousRunPlan,
           llmModel: selectedModel,
           datasetId,
+          outputMode,
         });
         const answerOnlyIntent = runPlan.queryRewrite?.outputIntent === "answer";
 
@@ -304,6 +307,8 @@ export async function prepareRetailActGeneration(
           },
           output: {
             status: runPlan.status,
+            routeStatus: runPlan.routeStatus,
+            routeReason: runPlan.routeReason,
             templateId: runPlan.visualization?.templateId,
             entities: runPlan.entities,
             dataRequirements: runPlan.dataRequirements,
@@ -444,6 +449,83 @@ export async function prepareRetailActGeneration(
             assistantMessageId: assistantMessage.id,
             conversationId: conversationId ?? null,
             clarification: runPlan.clarification,
+          });
+        }
+
+        if (runPlan.routeStatus === "template_not_supported") {
+          const missing = [
+            ...(runPlan.visualization?.missingMetrics ?? []).map((metric) => `指标 ${metric}`),
+            ...(runPlan.visualization?.missingDimensions ?? []).map((dimension) => `维度 ${dimension}`),
+          ];
+          const unsupportedContent = [
+            "当前问题明确需要看板，但现有模板没有覆盖完整的指标或维度。",
+            missing.length > 0 ? `未覆盖内容：${missing.join("、")}。` : runPlan.routeReason ?? "模板覆盖范围不足。",
+            "本次没有生成不相关的通用看板；可以改为“只做问答”，或提出当前模板支持的分析范围。",
+          ].join("\n\n");
+          await updateRetailGenerationStep({
+            projectPath,
+            projectId: project_id,
+            requestId,
+            stepId: "planning",
+            status: "warning",
+            summary: "模板能力不覆盖本次看板需求，已阻断生成。",
+            runStatus: "failed",
+            metadata: {
+              routeStatus: runPlan.routeStatus,
+              missingMetrics: runPlan.visualization?.missingMetrics,
+              missingDimensions: runPlan.visualization?.missingDimensions,
+            },
+          });
+          const assistantMessage = await createMessage({
+            projectId: project_id,
+            role: "assistant",
+            messageType: "chat",
+            content: unsupportedContent,
+            conversationId: conversationId ?? undefined,
+            cliSource: cliPreference,
+            metadata: {
+              type: "template_coverage_blocked",
+              routeStatus: runPlan.routeStatus,
+              routeReason: runPlan.routeReason,
+              runPlanPath: ".data-agent/retail-run-plan.json",
+              isMissionFinal: true,
+              progressStatus: "template_not_supported",
+            },
+            requestId,
+          });
+          await markUserRequestAsCompleted(project_id, requestId);
+          await publishWorkspaceProgress({
+            stage: 5,
+            runPlan,
+            failureReason: "当前看板模板不覆盖问题需求，已阻断生成。",
+          });
+          streamManager.publish(project_id, {
+            type: "message",
+            data: serializeMessage(assistantMessage, { requestId }),
+          });
+          streamManager.publish(project_id, {
+            type: "status",
+            data: {
+              status: "template_not_supported",
+              message: "当前看板模板不覆盖问题需求，已阻断生成。",
+              requestId,
+              metadata: {
+                routeStatus: runPlan.routeStatus,
+                missingMetrics: runPlan.visualization?.missingMetrics,
+                missingDimensions: runPlan.visualization?.missingDimensions,
+              },
+            },
+          });
+          return NextResponse.json({
+            success: true,
+            status: "template_not_supported",
+            message: unsupportedContent,
+            requestId,
+            userMessageId,
+            assistantMessageId: assistantMessage.id,
+            conversationId: conversationId ?? null,
+            routeStatus: runPlan.routeStatus,
+            routeReason: runPlan.routeReason,
           });
         }
 

@@ -81,6 +81,12 @@ export function createWorkspaceProgressPublisher(params: {
           ...(options.stage < 5 ? { isMissionIntermediate: true } : {}),
           ...(options.stage === 5 ? { isMissionFinal: true } : {}),
           ...(turnMetrics ? { turnMetrics } : {}),
+          ...(options.runPlan?.routeStatus
+            ? {
+                routeStatus: options.runPlan.routeStatus,
+                routeReason: options.runPlan.routeReason,
+              }
+            : {}),
           ...(successfulFinal && !options.answerOnly
             ? {
                 isPiAgentFinal: true,

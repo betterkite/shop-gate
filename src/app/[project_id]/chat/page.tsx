@@ -518,6 +518,7 @@ export default function ChatPage() {
         requestId,
         selectedModel,
         datasetId: readActiveRetailDatasetId(),
+        outputMode: mode,
       };
 
       const r = await fetch(`${API_BASE}/api/chat/${projectId}/act`, {
@@ -545,7 +546,7 @@ export default function ChatPage() {
       const userMessageId =
         typeof result?.userMessageId === 'string' ? result.userMessageId : '';
 
-      createRequest(resolvedRequestId, userMessageId, initialPrompt, 'act');
+      createRequest(resolvedRequestId, userMessageId, initialPrompt, mode);
       setPrompt('');
 
       const newUrl = new URL(window.location.href);
@@ -557,7 +558,7 @@ export default function ChatPage() {
     } finally {
       setIsRunning(false);
     }
-  }, [initialPromptSent, conversationId, projectId, selectedModel, createRequest]);
+  }, [initialPromptSent, conversationId, projectId, selectedModel, mode, createRequest]);
 
   // Guarded trigger that can be called from multiple places safely
   const triggerInitialPromptIfNeeded = useCallback(() => {
@@ -2343,6 +2344,7 @@ const persistProjectPreferences = useCallback(
         requestId,
         selectedModel,
         datasetId: readActiveRetailDatasetId(),
+        outputMode: effectiveMode,
       };
 
       console.log('📸 Sending request to act API:', {
@@ -2452,6 +2454,7 @@ const persistProjectPreferences = useCallback(
       requestAccepted =
         result?.status !== 'intent_clarification_required' &&
         result?.status !== 'intent_refused' &&
+        result?.status !== 'template_not_supported' &&
         result?.status !== 'cancelled';
 
       console.log('📸 Act API response received:', {

@@ -558,6 +558,7 @@ export default function HomePage() {
           selectedModel,
           capabilityId: selectedCapability,
           capabilitySelectionSource: "manual",
+          outputMode,
         }),
       });
       const actPayload = await actResponse.json().catch(() => null);

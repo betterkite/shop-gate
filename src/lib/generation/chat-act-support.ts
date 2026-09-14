@@ -60,6 +60,7 @@ export function canUsePrefetchedDashboard(params: {
   // 全库口径（无实体）或显式实体范围都允许——模板渲染只依赖最终数据文件。
   return (
     params.runPlan.status === "planned" &&
+    params.runPlan.routeStatus === "dashboard" &&
     Boolean(params.runPlan.visualization?.templateId) &&
     params.runPlan.visualization?.required === true
   );

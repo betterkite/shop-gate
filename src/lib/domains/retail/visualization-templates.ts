@@ -1,5 +1,16 @@
 import type { RetailCapabilityId } from './capabilities';
 
+export type RetailTemplateOutputMode = 'dashboard' | 'answer';
+
+export interface RetailTemplateCoverage {
+  /** 用户问题中可以被这个模板直接呈现的指标标识。 */
+  metrics: readonly string[];
+  /** 用户问题中可以被这个模板直接拆解的维度标识。 */
+  dimensions: readonly string[];
+  /** 模板允许的输出形态；当前模板只声明 dashboard，问答不依赖模板。 */
+  outputModes: readonly RetailTemplateOutputMode[];
+}
+
 export interface RetailVisualizationTemplate {
   templateId: string;
   variantId: string;
@@ -17,6 +28,7 @@ export interface RetailVisualizationTemplate {
   variantGuidance: readonly string[];
   dataRequirements: readonly string[];
   dataSignals: readonly string[];
+  coverage: RetailTemplateCoverage;
   painPoints: readonly string[];
   finalDataContract: readonly string[];
 }
@@ -51,6 +63,11 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     ],
     dataRequirements: ['datasets.funnel', 'datasets.funnelDaily'],
     dataSignals: ['stage_events', 'conversion_from_previous', 'daily_series'],
+    coverage: {
+      metrics: ['page_views', 'favorites', 'carts', 'purchases', 'buy_conversion', 'daily_series'],
+      dimensions: ['date', 'category', 'item'],
+      outputModes: ['dashboard'],
+    },
     painPoints: ['行为次数可能包含同一用户的重复操作，容易被误读为用户数'],
     finalDataContract: ['window', 'plannedEntities', 'datasets.funnel', 'datasets.funnelDaily'],
   },
@@ -80,6 +97,11 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     ],
     dataRequirements: ['datasets.categories'],
     dataSignals: ['gmv', 'buy_conversion', 'avg_price', 'concentration', 'traffic_conversion_gap'],
+    coverage: {
+      metrics: ['gmv', 'buy_conversion', 'avg_price', 'concentration', 'traffic_conversion_gap', 'sold'],
+      dimensions: ['category', 'item', 'date'],
+      outputModes: ['dashboard'],
+    },
     painPoints: ['合成金额不能被表述为真实交易数据'],
     finalDataContract: ['window', 'plannedEntities', 'datasets.categories'],
   },
@@ -112,6 +134,11 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     ],
     dataRequirements: ['datasets.biOverview', 'datasets.inventoryRisk', 'datasets.channels', 'datasets.itemPool'],
     dataSignals: ['kpis', 'daily', 'channels', 'categories', 'price', 'stock', 'sell_through_ratio', 'sold', 'views', 'buy_conversion', 'actions'],
+    coverage: {
+      metrics: ['gmv', 'page_views', 'purchases', 'buy_conversion', 'price', 'stock', 'sell_through_ratio', 'daily_series', 'actions'],
+      dimensions: ['date', 'item', 'category', 'channel', 'price_band'],
+      outputModes: ['dashboard'],
+    },
     painPoints: ['库销比排行容易被误读为操作指令'],
     finalDataContract: ['window', 'plannedEntities', 'datasets.inventoryRisk'],
   },
@@ -132,6 +159,11 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     variantGuidance: ['扩展分析接口返回的用户、渠道、成本和库存字段必须保留合成边界。', '商品阶段只解释窗口内购买活跃度，不得表述为真实上下架生命周期。', '价格弹性数据不足时展示缺口，不生成伪造系数。', '价格实验模拟只展示对照组与处理组购买率差异，不得写成真实因果结论或直接调价建议。', '补货参考必须展示供货周期、目标覆盖天数和计算公式，不得写成立即采购指令。'],
     dataRequirements: ['datasets.biOverview', 'datasets.analyticsOverview', 'datasets.analyticsLifecycle', 'datasets.analyticsRetention', 'datasets.analyticsProfit', 'datasets.analyticsInventory', 'datasets.analyticsReplenishment'],
     dataSignals: ['kpis', 'daily', 'lifecycle', 'retention', 'channels', 'profit', 'inventory', 'price_experiment', 'actions', 'limitations'],
+    coverage: {
+      metrics: ['gmv', 'page_views', 'purchases', 'buy_conversion', 'lifecycle', 'retention', 'profit', 'inventory', 'replenishment', 'price_experiment', 'daily_series', 'actions'],
+      dimensions: ['date', 'item', 'category', 'channel', 'user', 'price_band'],
+      outputModes: ['dashboard'],
+    },
     painPoints: ['扩展经营分析数据集为演示数据，不能替代真实财务和供应链结论'],
     finalDataContract: ['window', 'plannedEntities', 'datasets.biOverview', 'datasets.analyticsOverview', 'datasets.analyticsLifecycle', 'datasets.analyticsRetention', 'datasets.analyticsProfit', 'datasets.analyticsInventory', 'datasets.analyticsReplenishment'],
   },
@@ -160,6 +192,11 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     ],
     dataRequirements: ['datasets.summary', 'datasets.categories'],
     dataSignals: ['totals', 'day_over_day', 'avg_price', 'buy_conversion', 'category_movement'],
+    coverage: {
+      metrics: ['gmv', 'purchases', 'buy_conversion', 'avg_price', 'day_over_day', 'category_movement'],
+      dimensions: ['date', 'category', 'item'],
+      outputModes: ['dashboard'],
+    },
     painPoints: ['9 天窗口不支持长期趋势推断'],
     finalDataContract: ['window', 'plannedEntities', 'datasets.summary', 'datasets.categories'],
   },

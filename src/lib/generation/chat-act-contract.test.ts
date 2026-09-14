@@ -18,11 +18,13 @@ describe('chat act request contract', () => {
       capabilityId: 'price_inventory',
       capabilitySelectionSource: 'manual',
       datasetId: 'retail-demo-p31',
+      outputMode: 'act',
     })).toMatchObject({
       requestId: 'request-1',
       capabilityId: 'price_inventory',
       capabilitySelectionSource: 'manual',
       datasetId: 'retail-demo-p31',
+      outputMode: 'act',
       images: [{ path: 'assets/holding.png' }],
       isInitialPrompt: true,
     });

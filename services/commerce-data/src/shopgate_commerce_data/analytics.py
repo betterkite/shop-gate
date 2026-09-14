@@ -2005,6 +2005,38 @@ async def price_band_comparison(
                 if outcome_status == "not_provided"
                 else "incomplete_user_outcomes"
             )
+            analysis_definition_status = (
+                "not_ready"
+                if outcome_status != "complete"
+                else "ready_for_user_level_review"
+                if result["causal_readiness"] == "ready_for_user_level_review"
+                else "descriptive_only"
+            )
+            result["analysis_definition"] = {
+                "status": analysis_definition_status,
+                "population": "有实验分组记录的用户",
+                "unit": "user",
+                "control_variant": "control",
+                "treatment_variant": "treatment",
+                "outcome": "结果窗口内是否购买（purchased=1）",
+                "outcome_window": {
+                    "from": result["outcome_evidence"]["outcome_from"],
+                    "to": result["outcome_evidence"]["outcome_to"],
+                },
+                "effect_measure": "absolute_purchase_rate_difference",
+                "effect_direction": "treatment_minus_control",
+                "effect_measure_label": "购买率差异（处理组 - 对照组）",
+                "covariate_adjustment": "none",
+                "covariate_adjustment_label": "未做协变量调整",
+                "explanation": (
+                    "当前定义可以复核用户级结果，但仍需结合实验设计和业务约束；"
+                    "未做协变量调整，不代表已经证明因果效果。"
+                    if analysis_definition_status == "ready_for_user_level_review"
+                    else "当前只能作为描述性参考，不能把结果解释为正式因果效果。"
+                    if analysis_definition_status == "descriptive_only"
+                    else "缺少完整用户结果，暂时不能按该口径复核实验效果。"
+                ),
+            }
     if experiment_results:
         experiment_status = "synthetic_experiment_reference" if any(
             result["synthetic"] for result in experiment_results
@@ -2124,6 +2156,27 @@ async def price_band_comparison(
             else "当前没有用户分组记录，无法检查两组人群构成。"
         ),
     }
+    analysis_definition = {
+        "status": "available" if experiment_results else "not_available",
+        "unit": "user",
+        "outcome": "结果窗口内是否购买（purchased=1）",
+        "effect_measure": "absolute_purchase_rate_difference",
+        "effect_direction": "treatment_minus_control",
+        "effect_measure_label": "购买率差异（处理组 - 对照组）",
+        "covariate_adjustment": "none",
+        "covariate_adjustment_label": "未做协变量调整",
+        "supported_statuses": [
+            "ready_for_user_level_review",
+            "descriptive_only",
+            "not_ready",
+        ],
+        "explanation": (
+            "这是用户级实验结果的固定分析口径；当前未做协变量调整，"
+            "不等于已经证明因果效果。"
+            if experiment_results
+            else "当前没有可比较的实验结果，暂不提供用户级分析口径。"
+        ),
+    }
     page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
@@ -2155,6 +2208,7 @@ async def price_band_comparison(
         stratify_by=stratify_by,
         assignment_balance=assignment_balance,
         balance_by=balance_by,
+        analysis_definition=analysis_definition,
         price_band_comparison=bands,
     )
 

@@ -4,6 +4,14 @@ import type { RetailRunPlan } from './workspace';
 
 type JsonRecord = Record<string, unknown>;
 
+const DIMENSION_LABELS: Record<string, string> = {
+  item: '商品',
+  category: '类目',
+  channel: '渠道',
+  campaign: '活动',
+  user: '用户',
+};
+
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as JsonRecord
@@ -52,8 +60,12 @@ export async function appendRetailAnswerContext(params: {
     const windowText = window?.start && window?.end
       ? `；时间范围 ${String(window.start)} ~ ${String(window.end)}`
       : '';
-    const scopeText = dimension && value ? `；当前查看 ${dimension}=${value}` : '；当前查看全店数据';
-    const contextBlock = `\n\n数据范围：数据集 ${datasetId}${scopeText}${windowText}。\n打开这份明细结果：[查看当前分析](${link})`;
+    const dimensionText = dimension ? DIMENSION_LABELS[dimension] ?? '分析范围' : null;
+    const focus = asRecord(params.runPlan.queryRewrite?.analysisFocus);
+    const focusText = stringValue(focus?.label);
+    const focusBlock = focusText ? `；分析内容 ${focusText}` : '';
+    const scopeText = dimension && value ? `；当前查看${dimensionText ?? '分析范围'} ${value}` : '；当前查看全店数据';
+    const contextBlock = `\n\n数据范围：数据集 ${datasetId}${focusBlock}${scopeText}${windowText}。\n打开这份明细结果：[查看当前分析](${link})`;
     return summary.includes(link) ? summary : `${summary}${contextBlock}`;
   } catch {
     return summary;

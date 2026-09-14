@@ -163,6 +163,56 @@ describe('retail query rewrite LLM path', () => {
     expect(result.execution.llm.guardedFields).toContain('broadUniverse');
   });
 
+  it('treats the homepage inventory shortcut as a whole-catalog run', async () => {
+    const result = await rewriteRetailQuery(
+      '按当前数据集全库、最近 9 天，库存相对销量偏高的 10 个商品是哪些？它们的页面浏览量和购买转化率如何？生成经营看板。',
+      {
+        requestedCapabilityId: 'price_inventory',
+        semanticRewriter: async () => ({
+          ok: true as const,
+          data: {
+            ...baseSemantics,
+            analysisFocusId: 'price_inventory' as const,
+            broadUniverse: false,
+            broadUniverseEvidence: null,
+          },
+          provider: 'test',
+          model: 'test-model',
+        }),
+      },
+    );
+
+    expect(result.status).toBe('ready');
+    expect(result.broadUniverse).toBe(true);
+    expect(result.rewrittenQuery).toContain('全库口径');
+    expect(result.execution.llm.guardedFields).toContain('broadUniverse');
+  });
+
+  it('ignores generic scope words returned as target candidates', async () => {
+    const result = await rewriteRetailQuery(
+      '按当前数据集全库、最近 9 天，成交总额（GMV）最高的 5 个类目是哪些？生成经营看板。',
+      {
+        requestedCapabilityId: 'catalog_structure',
+        semanticRewriter: async () => ({
+          ok: true as const,
+          data: {
+            ...baseSemantics,
+            targetCandidates: ['商品', '类目'],
+            analysisFocusId: 'catalog' as const,
+            broadUniverse: false,
+            broadUniverseEvidence: null,
+          },
+          provider: 'test',
+          model: 'test-model',
+        }),
+      },
+    );
+
+    expect(result.status).toBe('ready');
+    expect(result.targetCandidates).toEqual([]);
+    expect(result.broadUniverse).toBe(true);
+  });
+
   it('does not turn vague product discovery into a whole-catalog run', async () => {
     const result = await rewriteRetailQuery('窗口内有哪些商品值得关注？', {
       requestedCapabilityId: 'price_inventory',

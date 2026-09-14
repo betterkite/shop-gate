@@ -26,11 +26,11 @@ P17 已完成页面结构、指标中文化和基础看板层级，但数据分�
 
 ## 验收标准
 
-- [ ] 后端 funnel 返回用户去重字段，旧客户端字段保持兼容。
-- [ ] 漏斗看板能同时解释事件流失和用户触达率。
-- [ ] 类目看板能显示高流量低转化类目；无命中时显示明确空态。
-- [ ] 日报异动榜的排序字段和表头明确为成交总额环比，且行动建议引用异动类目。
-- [ ] 后端 ruff/pytest、type-check、lint、模板校验、单测、文档/模块检查和 retail e2e 全部通过。
+- [x] 后端 funnel 返回用户去重字段，旧客户端字段保持兼容。
+- [x] 漏斗看板能同时解释事件流失和用户触达率。
+- [x] 类目看板能显示高流量低转化类目；无命中时显示明确空态。
+- [x] 日报异动榜的排序字段和表头明确为成交总额环比，且行动建议引用异动类目。
+- [x] 后端 ruff/pytest、type-check、lint、模板校验、单测、文档/模块检查和 retail e2e 全部通过。
 
 ## 本轮复核记录（2026-09-10）
 
@@ -38,3 +38,11 @@ P17 已完成页面结构、指标中文化和基础看板层级，但数据分�
 - `/api/v1/commerce/categories/top` 已返回 `gmv_day_over_day`、`pv_day_over_day`、`buy_day_over_day` 和 `buy_conversion_day_over_day`；日报预取改为窗口末日快照，避免累计窗口与单日混比。
 - 生成日报预览在 1440px、390px 下均返回 200，包含“趋势与异常”“成交总额环比”“建议动作”“独立访客（UV）”，页面宽度无溢出。
 - type-check、lint、后端 ruff/pytest（14 项）、vitest（183 文件 / 1017 项）、脚手架校验、docs/skills/module-boundaries/generated-artifacts/AI-boundary/validation 和 retail e2e 均通过。
+
+## 本轮修复与运行态验收（2026-09-14）
+
+- 发现 Agent 修复耗尽后，平台恢复逻辑无条件写入基础看板，经营日报因此被降级为“数据集覆盖”页面，导致日报专属图表校验失败。
+- 恢复逻辑已改为按 `.data-agent/retail-run-plan.json` 的能力模板恢复；日报模板补充可见的“数据质量说明”。
+- 日报指标带有 6 个指标，桌面端已改为 6 列，避免客单价单独落行产生大片空白；移动端仍使用 2 列布局。
+- 目标单测：`src/lib/utils/scaffold.test.ts` 与 `src/lib/commerce/visual-validation.test.ts` 共 20 项通过。
+- DeepSeek 运行态组合验收：R01 类目结构、R02 行为漏斗、R04 经营日报共 3/3 `READY`；每个临时验收项目均已清理。

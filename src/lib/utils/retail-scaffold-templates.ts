@@ -618,7 +618,7 @@ export function retailDailyBriefPageTemplate(): string {
           {syntheticBadge()}
         </div>
       </section>
-      <section className="insight-strip">
+      <section className="insight-strip daily-kpi-strip">
         <article className="metric-tile"><span>成交总额（GMV）</span><strong>{displayMoney(totals?.gmv)}</strong></article>
         <article className="metric-tile"><span>购买事件</span><strong>{displayNumber(totals?.buy, 0)}</strong></article>
         <article className="metric-tile"><span>页面浏览量（PV）</span><strong>{displayNumber(totals?.pv, 0)}</strong></article>
@@ -665,6 +665,7 @@ export function retailDailyBriefPageTemplate(): string {
         <p className="footnote">异动榜按窗口末日成交总额环比绝对值排序；前一日无成交的类目不计算环比。日报只描述窗口内当日观察，不做长期趋势推断；金额按商品价格估算。</p>
       </section>
       <footer className="data-quality-footer">
+        <span>数据质量说明：本页只展示当前数据窗口的当日观察；缺少前一日数据时不计算环比。</span>
         <span>数据更新时间：{windowLabel(data.window)}（数据截至窗口末日）。</span>
         <span>行为数据：{String(meta?.behavior_source ?? "") === "synthetic" ? "演示行为数据" : "真实用户行为数据（" + String(meta?.behavior_source ?? "") + "）"}</span>
         <span>商品价格、库存、渠道、成本和毛利：演示或估算数据</span>
@@ -777,6 +778,10 @@ html, body {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-shell[data-visual-language="retail-workbench"] .daily-kpi-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .dashboard-shell[data-visual-language="retail-workbench"] .metric-tile,

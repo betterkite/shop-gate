@@ -62,7 +62,7 @@ describe('restoreRetailDashboardTemplate', () => {
         name: 'retail-daily-brief',
         page: retailDailyBriefPageTemplate(),
         css: retailBaseDashboardCssTemplate(),
-        required: ['经营日报（当日观察）', '成交总额（GMV）', '分日流量与转化'],
+        required: ['经营日报（当日观察）', '成交总额（GMV）', '分日流量与转化', '数据质量说明', 'daily-kpi-strip'],
       },
     ];
 
@@ -158,6 +158,34 @@ describe('restoreRetailDashboardTemplate', () => {
     expect(nextConfig).not.toContain('root: workspaceRoot');
     expect(buildScript).toContain("defaultBundlerArgs = hasBundlerFlag ? [] : ['--webpack']");
     expect(devScript).toContain("defaultBundlerArgs = hasBundlerFlag ? [] : ['--webpack']");
+  });
+
+  it('restores the capability-specific dashboard after an exhausted repair', async () => {
+    const projectPath = await createProject();
+    await Promise.all([
+      fs.writeFile(
+        path.join(projectPath, '.data-agent', 'retail-run-plan.json'),
+        JSON.stringify({
+          capabilityId: 'daily_brief',
+          visualization: { templateId: 'daily-brief' },
+        }),
+      ),
+      fs.writeFile(
+        path.join(projectPath, 'app', 'page.tsx'),
+        'export default function Page(){ return <main>broken dashboard</main> }\n',
+      ),
+      fs.writeFile(path.join(projectPath, 'app', 'globals.css'), 'body{}\n'),
+    ]);
+
+    await restoreRetailDashboardTemplate(projectPath);
+
+    await expect(fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8')).resolves.toEqual(
+      expect.stringContaining('经营日报（当日观察）'),
+    );
+    await expect(fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8')).resolves.toEqual(
+      expect.stringContaining('数据质量说明'),
+    );
+    await expect(fs.readFile(path.join(projectPath, 'app', 'page.tsx'), 'utf8')).resolves.not.toContain('broken dashboard');
   });
 
   it('keeps an existing page and stylesheet during non-destructive scaffolding', async () => {

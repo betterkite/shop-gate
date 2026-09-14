@@ -962,7 +962,158 @@ def test_price_band_comparison_reports_experiment_reference_when_groups_are_expl
     assert result["experiment_results"][0]["absolute_conversion_lift"] == 0.04
     assert result["experiment_results"][0]["assignment_evidence"]["status"] == "declared_randomized"
     assert result["experiment_results"][0]["assignment_evidence"]["balance_ratio"] == 0.5
+    assert result["experiment_results"][0]["outcome_statistics"]["status"] == "not_provided"
+    assert result["multiple_testing"]["status"] == "single_experiment"
     assert "合成记录不能替代真实线上实验" in result["experiment_explanation"]
+
+
+def test_price_band_comparison_reports_user_level_outcome_statistics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p28-real-outcomes",
+                "version": 1,
+                "source_kind": "mixed",
+                "source_name": "experiment_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": None,
+                "row_counts": {
+                    "price_experiment_observations": 4,
+                    "price_experiment_assignments": 4,
+                    "price_experiment_outcomes": 8,
+                },
+                "synthetic_fields": [],
+                "limitations": [],
+                "generation_rule": "observed test fixture",
+            }]
+        if calls in {2, 3}:
+            return []
+        if calls == 4:
+            rows: list[dict[str, object]] = []
+            for experiment_id, treatment_price in (("exp-1", 90), ("exp-2", 80)):
+                rows.extend([
+                    {
+                        "experiment_id": experiment_id,
+                        "observation_date": date(2025, 1, 1),
+                        "item_id": 1001,
+                        "category_id": 10,
+                        "variant": "control",
+                        "selling_price": 100,
+                        "exposed_users": 100,
+                        "purchasers": 10,
+                        "units": 11,
+                        "assignment_unit": "user",
+                        "allocation_method": "hash_user_id",
+                        "synthetic": False,
+                    },
+                    {
+                        "experiment_id": experiment_id,
+                        "observation_date": date(2025, 1, 1),
+                        "item_id": 1001,
+                        "category_id": 10,
+                        "variant": "treatment",
+                        "selling_price": treatment_price,
+                        "exposed_users": 100,
+                        "purchasers": 14,
+                        "units": 15,
+                        "assignment_unit": "user",
+                        "allocation_method": "hash_user_id",
+                        "synthetic": False,
+                    },
+                ])
+            return rows
+        if calls == 5:
+            return [
+                {
+                    "experiment_id": "exp-1",
+                    "assignment_rows": 4,
+                    "assigned_users": 4,
+                    "control_assigned_users": 2,
+                    "treatment_assigned_users": 2,
+                    "assigned_from": date(2025, 1, 1),
+                    "assigned_to": date(2025, 1, 1),
+                    "allocation_methods": "hash_user_id",
+                    "all_synthetic": False,
+                    "has_observed": True,
+                },
+                {
+                    "experiment_id": "exp-2",
+                    "assignment_rows": 4,
+                    "assigned_users": 4,
+                    "control_assigned_users": 2,
+                    "treatment_assigned_users": 2,
+                    "assigned_from": date(2025, 1, 1),
+                    "assigned_to": date(2025, 1, 1),
+                    "allocation_methods": "hash_user_id",
+                    "all_synthetic": False,
+                    "has_observed": True,
+                },
+            ]
+        if calls == 6:
+            return [
+                {
+                    "experiment_id": experiment_id,
+                    "outcome_rows": 4,
+                    "outcome_users": 4,
+                    "outcome_purchasers": 3,
+                    "outcome_units": 4,
+                    "outcome_from": date(2025, 1, 1),
+                    "outcome_to": date(2025, 1, 1),
+                    "all_synthetic": False,
+                    "has_observed": True,
+                }
+                for experiment_id in ("exp-1", "exp-2")
+            ]
+        if calls == 7:
+            return [
+                {
+                    "experiment_id": experiment_id,
+                    "variant": variant,
+                    "outcome_users": 2,
+                    "outcome_purchasers": 1 if variant == "control" else 2,
+                    "outcome_units": 1 if variant == "control" else 3,
+                }
+                for experiment_id in ("exp-1", "exp-2")
+                for variant in ("control", "treatment")
+            ]
+        return []
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(price_band_comparison("retail-p28-real-outcomes"))
+
+    assert calls == 7
+    assert result["multiple_testing"]["status"] == "not_adjusted"
+    assert result["multiple_testing"]["experiment_count"] == 2
+    first = result["experiment_results"][0]
+    assert first["causal_readiness"] == "ready_for_user_level_review"
+    outcome_statistics = first["outcome_statistics"]
+    assert outcome_statistics["status"] == "complete"
+    assert outcome_statistics["control_users"] == 2
+    assert outcome_statistics["treatment_users"] == 2
+    assert outcome_statistics["control_purchasers"] == 1
+    assert outcome_statistics["treatment_purchasers"] == 2
+    assert outcome_statistics["control_units"] == 1
+    assert outcome_statistics["treatment_units"] == 3
+    assert outcome_statistics["control_conversion_rate"] == 0.5
+    assert outcome_statistics["treatment_conversion_rate"] == 1.0
+    assert outcome_statistics["absolute_conversion_lift"] == 0.5
+    assert outcome_statistics["absolute_conversion_lift_ci_low"] < 0.5
+    assert outcome_statistics["absolute_conversion_lift_ci_high"] > 0.5
+    assert outcome_statistics["p_value"] is not None
+    assert outcome_statistics["sample_status"] == "small_sample"
+    assert outcome_statistics["significance_status"] == "small_sample"
 
 
 def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_prices(

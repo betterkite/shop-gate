@@ -6,6 +6,7 @@ from datetime import date
 import pytest
 
 from shopgate_commerce_data.analytics import (
+    _benjamini_hochberg,
     _two_proportion_evidence,
     analytics_dataset_meta,
     analytics_drilldown,
@@ -20,6 +21,12 @@ from shopgate_commerce_data.analytics import (
     retention_metrics,
     rfm_segments,
 )
+
+
+def test_benjamini_hochberg_preserves_order_and_missing_values() -> None:
+    adjusted = _benjamini_hochberg([0.04, None, 0.01, 0.2])
+
+    assert adjusted == [0.06, None, 0.03, 0.2]
 
 
 def test_two_proportion_evidence_reports_interval_and_sample_status() -> None:
@@ -1094,8 +1101,10 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
     result = asyncio.run(price_band_comparison("retail-p28-real-outcomes"))
 
     assert calls == 7
-    assert result["multiple_testing"]["status"] == "not_adjusted"
+    assert result["multiple_testing"]["status"] == "adjusted"
     assert result["multiple_testing"]["experiment_count"] == 2
+    assert result["multiple_testing"]["tested_experiment_count"] == 2
+    assert result["multiple_testing"]["method"] == "benjamini_hochberg_fdr"
     first = result["experiment_results"][0]
     assert first["causal_readiness"] == "ready_for_user_level_review"
     outcome_statistics = first["outcome_statistics"]
@@ -1112,8 +1121,10 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
     assert outcome_statistics["absolute_conversion_lift_ci_low"] < 0.5
     assert outcome_statistics["absolute_conversion_lift_ci_high"] > 0.5
     assert outcome_statistics["p_value"] is not None
+    assert outcome_statistics["adjusted_p_value"] is not None
     assert outcome_statistics["sample_status"] == "small_sample"
     assert outcome_statistics["significance_status"] == "small_sample"
+    assert outcome_statistics["multiple_testing_significance_status"] == "small_sample"
 
 
 def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_prices(

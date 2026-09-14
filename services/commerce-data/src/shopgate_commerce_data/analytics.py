@@ -90,6 +90,26 @@ def _two_proportion_evidence(
     }
 
 
+def _benjamini_hochberg(
+    p_values: list[float | None],
+) -> list[float | None]:
+    """Adjust comparable p-values with the Benjamini-Hochberg FDR procedure."""
+
+    indexed = sorted(
+        ((index, value) for index, value in enumerate(p_values) if value is not None),
+        key=lambda pair: pair[1],
+    )
+    adjusted: list[float | None] = [None] * len(p_values)
+    if not indexed:
+        return adjusted
+    total = len(indexed)
+    running_min = 1.0
+    for rank, (index, value) in reversed(list(enumerate(indexed, start=1))):
+        running_min = min(running_min, float(value) * total / rank)
+        adjusted[index] = round(min(running_min, 1.0), 8)
+    return adjusted
+
+
 def _iso(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
@@ -1632,6 +1652,8 @@ async def price_band_comparison(
                             treatment_purchasers,
                             treatment_users,
                         ),
+                        "adjusted_p_value": None,
+                        "multiple_testing_significance_status": "not_evaluated",
                     }
                 else:
                     outcome_statistics_by_experiment[experiment_id] = {
@@ -1652,6 +1674,8 @@ async def price_band_comparison(
                         "z_score": None,
                         "sample_status": "not_ready",
                         "significance_status": "not_ready",
+                        "adjusted_p_value": None,
+                        "multiple_testing_significance_status": "not_ready",
                     }
         for result in experiment_results:
             result["assignment_evidence"] = assignment_evidence_by_experiment.get(
@@ -1705,6 +1729,8 @@ async def price_band_comparison(
                     "z_score": None,
                     "sample_status": "not_ready",
                     "significance_status": "not_ready",
+                    "adjusted_p_value": None,
+                    "multiple_testing_significance_status": "not_ready",
                 },
             )
             assignment_status = result["assignment_evidence"]["status"]
@@ -1747,27 +1773,72 @@ async def price_band_comparison(
             "每组购买人数或购买率",
             "分组方式与实验时间范围",
         ]
-    if len(experiment_results) > 1:
+    p_values = [
+        result["outcome_statistics"].get("p_value")
+        for result in experiment_results
+    ]
+    comparable_p_value_count = sum(value is not None for value in p_values)
+    if len(experiment_results) > 1 and comparable_p_value_count > 1:
+        adjusted_p_values = _benjamini_hochberg(p_values)
+        for result, adjusted_p_value in zip(
+            experiment_results, adjusted_p_values, strict=True
+        ):
+            statistics = result["outcome_statistics"]
+            statistics["adjusted_p_value"] = adjusted_p_value
+            if adjusted_p_value is None:
+                statistics["multiple_testing_significance_status"] = "not_ready"
+            elif statistics["sample_status"] != "adequate":
+                statistics["multiple_testing_significance_status"] = "small_sample"
+            elif adjusted_p_value < 0.05:
+                statistics["multiple_testing_significance_status"] = (
+                    "significant_after_fdr"
+                )
+            else:
+                statistics["multiple_testing_significance_status"] = (
+                    "not_significant_after_fdr"
+                )
         multiple_testing = {
-            "status": "not_adjusted",
+            "status": "adjusted",
+            "method": "benjamini_hochberg_fdr",
+            "alpha": 0.05,
             "experiment_count": len(experiment_results),
+            "tested_experiment_count": comparable_p_value_count,
+            "adjusted": True,
+            "explanation": (
+                "当前多个完整实验的 p 值已使用 Benjamini-Hochberg 方法进行 FDR 校正；"
+                "校正结果仍不是因果结论。"
+            ),
+        }
+    elif len(experiment_results) > 1:
+        multiple_testing = {
+            "status": "not_ready",
+            "method": None,
+            "alpha": 0.05,
+            "experiment_count": len(experiment_results),
+            "tested_experiment_count": comparable_p_value_count,
             "adjusted": False,
             "explanation": (
-                "当前多个实验的 p 值按实验分别计算，尚未进行多重检验校正；"
-                "不要只根据单个 p 值做统一结论。"
+                "当前多个实验中没有足够的完整用户级 p 值可做多重检验校正；"
+                "请先补齐 outcomes。"
             ),
         }
     elif len(experiment_results) == 1:
         multiple_testing = {
             "status": "single_experiment",
+            "method": None,
+            "alpha": 0.05,
             "experiment_count": 1,
+            "tested_experiment_count": comparable_p_value_count,
             "adjusted": False,
             "explanation": "当前只有一个可比较实验，未触发多重检验校正。",
         }
     else:
         multiple_testing = {
             "status": "not_applicable",
+            "method": None,
+            "alpha": 0.05,
             "experiment_count": 0,
+            "tested_experiment_count": 0,
             "adjusted": False,
             "explanation": "当前没有可比较的对照组和处理组实验。",
         }

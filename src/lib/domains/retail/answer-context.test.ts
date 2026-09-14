@@ -19,9 +19,9 @@ async function createWorkspace(finalData: Record<string, unknown>): Promise<stri
   return workspaceRoot;
 }
 
-function answerPlan(scope?: { dimension: 'item'; value: string }): RetailRunPlan {
+function answerPlan(scope?: { dimension: 'item' | 'category'; value: string }): RetailRunPlan {
   return {
-    queryRewrite: { outputIntent: 'answer' },
+    queryRewrite: { outputIntent: 'answer', analysisFocus: { label: '流量与购买转化' } },
     datasetId: 'retail-demo-answer-context-v1',
     context: scope ? {
       datasetId: 'retail-demo-answer-context-v1',
@@ -57,9 +57,30 @@ describe('appendRetailAnswerContext', () => {
     });
 
     expect(result).toContain('数据集 retail-demo-answer-context-v1');
-    expect(result).toContain('当前查看 item=1000009');
+    expect(result).toContain('分析内容 流量与购买转化');
+    expect(result).toContain('当前查看商品 1000009');
+    expect(result).not.toContain('当前查看 item=1000009');
     expect(result).toContain('2025-12-01 ~ 2025-12-03');
     expect(result).toContain('[查看当前分析](/analytics-workbench?view=drilldown');
+  });
+
+  it('uses a readable label for category scope', async () => {
+    const workspaceRoot = await createWorkspace({
+      datasetId: 'retail-demo-answer-context-v1',
+      datasets: { funnel: { filter: { dimension: 'category', value: '10011' } } },
+    });
+
+    const result = await appendRetailAnswerContext({
+      summary: '类目购买转化率为 5.17%。',
+      workspaceRoot,
+      runPlan: {
+        ...answerPlan({ dimension: 'category', value: '10011' }),
+        queryRewrite: { outputIntent: 'answer' },
+      } as unknown as RetailRunPlan,
+    });
+
+    expect(result).toContain('当前查看类目 10011');
+    expect(result).not.toContain('当前查看 category=10011');
   });
 
   it('does not duplicate a link already included by the model', async () => {

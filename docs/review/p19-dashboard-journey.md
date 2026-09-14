@@ -26,8 +26,11 @@
 - [x] 后端 `buy_conversion_rate` 单测、ruff、pytest 通过。
 - [x] type-check、相关 Vitest、脚手架模板检查通过。
 - [x] 模板源码包含 Top 10、页面浏览量（PV）和购买转化率（Buy / PV），无成果入口到 `/operations-briefing` 的误链。
-- [ ] 提供有效 DeepSeek 凭据后，重新执行该用户问题，生成 `dashboard-data.json`、验证报告和可预览 URL；当前无效凭据只允许验收到明确的认证失败提示，不能宣称看板已生成。
+- [x] 使用有效 DeepSeek 直连凭据重新执行该用户问题：Query Rewrite 成功识别“库销比最差 10 个商品”为全库 Top-N 范围，生成 `dashboard-data.json`、验证报告和可预览 URL；验证状态为 `READY`，预览 HTTP 200。隔离 E2E 项目已在验收后自动清理。
 
-## 已知外部阻塞
+## 验收记录（2026-09-14）
 
-本地 `.env.local` 中的 DeepSeek API 请求返回 HTTP 401，凭据需要用户更新后才能完成真实模型验收。代码与数据合同验收不依赖凭据；真实端到端看板验收需在凭据有效后重跑。
+- 公开 R15 价格/库存场景：`READY`，生成/验证/数据证据/看板页面 5 项检查全部通过，预览 HTTP 200。
+- 用户原问句隔离场景：`READY`，模型为 `deepseek-v4-flash`，生成/验证/数据证据/看板页面 5 项检查全部通过，预览 HTTP 200。
+- 原失败原因是 Query Rewrite 将未写出“全库/窗口内”的 Top-N 库销比排行误判为 `comparison_scope` 缺失；现已增加受限的“库存指标 + 排名方向 + Top-N 数量”全库识别，并保留模糊推荐问题的澄清行为。
+- 临时 E2E 项目、失败调试项目和外部测试输入均已清理；不把测试凭据或运行产物提交到仓库。

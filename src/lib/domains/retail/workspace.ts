@@ -69,6 +69,8 @@ export interface RetailRunPlan {
   /** 面向用户的输出路由；与 generation status 分开，便于审计为何生成或阻断看板。 */
   routeStatus?: RetailRouteStatus;
   routeReason?: string;
+  /** 看板模板不覆盖时保留原路由事实，并记录已降级为问答。 */
+  fallbackFrom?: 'template_not_supported';
   capabilityId: string;
   composition: DataAgentCompositionLock;
   llm: ProjectLlmConfig;
@@ -809,24 +811,6 @@ export async function writeInitialRunPlan(params: {
       ...(retailSettings.validationRules ?? []),
     ])
   );
-  const answerOnly = queryRewrite.outputIntent === 'answer';
-  const answerOnlyExcludedArtifacts = new Set([
-    DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
-    DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
-    DATA_AGENT_VALIDATION_RELATIVE_PATH,
-    'app/page.tsx',
-  ]);
-  const effectiveExpectedArtifacts = answerOnly
-    ? expectedArtifacts.filter((artifact) => !answerOnlyExcludedArtifacts.has(artifact))
-    : expectedArtifacts;
-  const effectiveValidationRules = answerOnly
-    ? [
-        '必须先解析商品/类目实体（或明确说明是全库口径），再获取真实行为或经营数据。',
-        '必须生成数据信源渠道和质量证据文件，并说明抽样窗口。',
-        '回答必须区分真实行为数据、计算结果和字段缺失限制。',
-        '只做问答时不得写入看板源码、启动构建、视觉验证或持久预览。',
-      ]
-    : validationRules;
   const visualizationTemplate = serializeRetailVisualizationTemplate(capability.id, {
     instruction: planningInstruction,
     // Planning 阶段只固定显式实体引用；名称候选只是澄清提示，不是已解析实体。
@@ -842,6 +826,32 @@ export async function writeInitialRunPlan(params: {
     template: visualizationTemplate,
     clarificationRequired: clarification.required,
   });
+  const templateFallbackToAnswer =
+    !refused &&
+    !clarification.required &&
+    templateMatch.routeStatus === 'template_not_supported';
+  if (templateFallbackToAnswer) {
+    // 阻断的是不匹配的看板产物，不阻断用户问题；后续仍由 Agent 取数并生成问答。
+    queryRewrite = applyRetailOutputIntent(queryRewrite, 'answer');
+  }
+  const answerOnly = queryRewrite.outputIntent === 'answer';
+  const answerOnlyExcludedArtifacts = new Set([
+    DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
+    DATA_AGENT_VISUAL_VALIDATION_RELATIVE_PATH,
+    DATA_AGENT_VALIDATION_RELATIVE_PATH,
+    'app/page.tsx',
+  ]);
+  const effectiveExpectedArtifacts = answerOnly
+    ? expectedArtifacts.filter((artifact) => !answerOnlyExcludedArtifacts.has(artifact))
+    : expectedArtifacts;
+  const effectiveValidationRules = answerOnly
+    ? [
+        '必须先解析商品/类目实体（或明确说明是全库口径），再获取真实行为或经营数据。',
+        '必须生成数据信源渠道和质量证据文件，并说明抽样窗口。',
+        '回答必须区分真实行为数据、合成经营字段和数据窗口边界。',
+        '只做问答时不得写入看板源码、启动构建、视觉验证或持久预览。',
+      ]
+    : validationRules;
   const routeStatus: RetailRouteStatus | undefined = refused
     ? undefined
     : templateMatch.routeStatus;
@@ -856,6 +866,7 @@ export async function writeInitialRunPlan(params: {
         : 'planned',
     ...(routeStatus ? { routeStatus } : {}),
     ...(routeStatus && templateMatch.reason ? { routeReason: templateMatch.reason } : {}),
+    ...(templateFallbackToAnswer ? { fallbackFrom: 'template_not_supported' as const } : {}),
     capabilityId: capability.id,
     composition: createRetailDataAgentRegistry().resolveCapability(
       RETAIL_AGENT_PROFILE_ID,
@@ -938,7 +949,7 @@ export async function writeInitialRunPlan(params: {
           message: queryRewrite.safety.message,
         }
       : undefined,
-    expectedArtifacts: clarification.required || refused || templateMatch.routeStatus === 'template_not_supported'
+    expectedArtifacts: clarification.required || refused
       ? ['.data-agent/retail-run-plan.json', '.data-agent/events.jsonl']
       : effectiveExpectedArtifacts,
     validationRules: effectiveValidationRules,
@@ -1005,10 +1016,10 @@ export async function writeInitialRunPlan(params: {
   await appendRetailWorkspaceEvent(params.projectPath, {
     event_type: refused
       ? 'intent_refused'
-      : clarification.required
-        ? 'intent_clarification_required'
-        : templateMatch.routeStatus === 'template_not_supported'
-          ? 'template_coverage_blocked'
+        : clarification.required
+          ? 'intent_clarification_required'
+          : templateMatch.routeStatus === 'template_not_supported'
+          ? 'template_coverage_fallback'
         : 'run_planned',
     stage: 'planning',
     status: clarification.required || refused || templateMatch.routeStatus === 'template_not_supported' ? 'warning' : 'success',
@@ -1019,7 +1030,7 @@ export async function writeInitialRunPlan(params: {
       : clarification.required
         ? `任务缺少关键输入，需要先向用户澄清：${clarification.questions.join('；')}`
         : templateMatch.routeStatus === 'template_not_supported'
-          ? templateMatch.reason
+          ? `${templateMatch.reason} 已自动转为问答，继续取数回答原问题。`
         : queryRewrite.outputIntent === 'answer'
           ? `已生成${capability.name}分析计划，下一步将按计划取数并返回分析回答，不生成看板。`
           : `已生成${capability.name}计划，下一步将按计划解析类目/商品实体、获取真实数据并生成可视化产物。`,

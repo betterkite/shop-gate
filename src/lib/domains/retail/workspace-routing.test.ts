@@ -62,7 +62,7 @@ describe('retail run plan output routing', () => {
     expect(plan.visualization.required).toBe(false);
   });
 
-  it('blocks an unsupported dashboard before execution', async () => {
+  it('downgrades an unsupported dashboard request to an answer route', async () => {
     const projectPath = await createProject();
     const query = '分析 item:1 的价格弹性，生成经营看板。';
     const plan = await writeInitialRunPlan({
@@ -77,12 +77,12 @@ describe('retail run plan output routing', () => {
 
     expect(plan.status).toBe('planned');
     expect(plan.routeStatus).toBe('template_not_supported');
+    expect(plan.fallbackFrom).toBe('template_not_supported');
+    expect(plan.queryRewrite?.outputIntent).toBe('answer');
     expect(plan.visualization.required).toBe(false);
     expect(plan.visualization.missingMetrics).toContain('price_elasticity');
-    expect(plan.expectedArtifacts).toEqual([
-      '.data-agent/retail-run-plan.json',
-      '.data-agent/events.jsonl',
-    ]);
+    expect(plan.expectedArtifacts).toContain('data_file/final/dashboard-data.json');
+    expect(plan.expectedArtifacts).not.toContain('app/page.tsx');
   });
 
   it('keeps a covered dashboard request executable', async () => {

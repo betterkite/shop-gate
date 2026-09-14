@@ -86,6 +86,35 @@ describe('workspace response protocol', () => {
     expect(content).toContain('| 时间范围 | 最近 30 天 | 明确 |');
   });
 
+  it('explains that an uncovered dashboard request continues as an answer', () => {
+    const basePlan = plan();
+    const content = buildWorkspaceProgressMessage({
+      stage: 1,
+      runPlan: plan({
+        routeStatus: 'template_not_supported',
+        fallbackFrom: 'template_not_supported',
+        visualization: { ...basePlan.visualization, required: false },
+        routeReason: '当前模板未覆盖 GMV 集中度维度。',
+      }),
+    });
+
+    expect(content).toContain('看板模板不覆盖，已转为问答');
+    expect(content).toContain('已转为问答：当前模板未覆盖 GMV 集中度维度');
+    expect(content).not.toContain('已阻断生成');
+
+    const analysisContent = buildWorkspaceProgressMessage({
+      stage: 3,
+      runPlan: plan({
+        routeStatus: 'template_not_supported',
+        fallbackFrom: 'template_not_supported',
+        visualization: { ...basePlan.visualization, required: false },
+      }),
+    });
+
+    expect(analysisContent).toContain('已转为问答并继续取数');
+    expect(analysisContent).not.toContain('已停止后续取数和生成');
+  });
+
   it('strips legacy operational prompt suffixes from the visible original question', () => {
     const content = buildWorkspaceProgressMessage({
       stage: 1,

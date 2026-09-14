@@ -43,6 +43,12 @@ function datasetSignature(contracts: JsonRecord[]): string {
   })));
 }
 
+export function buildDatasetActivationUrl(currentHref: string, datasetId: string): string {
+  const url = new URL(currentHref, 'http://shopgate.local');
+  url.searchParams.set('dataset_id', datasetId);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 export const ACTIVE_RETAIL_DATASET_STORAGE_KEY = 'shopgate.active-retail-dataset-id';
 
 export function DatasetSelector({
@@ -77,6 +83,13 @@ export function DatasetSelector({
   const hasProjectBinding = Boolean(projectId);
   const selected = contracts.find((contract) => text(contract.dataset_id) === selectedDatasetId);
 
+  const activateImportedDataset = (datasetId: string) => {
+    signatureRef.current = '';
+    setSyncMessage(`数据集 ${datasetId} 已导入，正在切换当前分析…`);
+    router.replace(buildDatasetActivationUrl(window.location.href, datasetId), { scroll: false });
+    router.refresh();
+  };
+
   const handleImport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setImporting(true);
@@ -108,9 +121,8 @@ export function DatasetSelector({
         const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}?${statusQuery.toString()}`, { cache: 'no-store' });
         const status = await statusResponse.json().catch(() => ({}));
         if (status.status === 'completed') {
-          setImportMessage(`数据集 ${payload.dataset_id} 已导入并通过质量扫描；已加入选择器。`);
-          signatureRef.current = '';
-          router.refresh();
+          setImportMessage(`数据集 ${payload.dataset_id} 已导入并通过质量扫描；当前分析已切换到该数据集。`);
+          activateImportedDataset(payload.dataset_id);
           return;
         }
         if (status.status === 'failed') {
@@ -167,9 +179,8 @@ export function DatasetSelector({
         const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}?${statusQuery.toString()}`, { cache: 'no-store' });
         const status = await statusResponse.json().catch(() => ({}));
         if (status.status === 'completed') {
-          setCsvImportMessage(`数据集 ${datasetId} 已导入；行为事件保留来源，补充字段已标记为合成。`);
-          signatureRef.current = '';
-          router.refresh();
+          setCsvImportMessage(`数据集 ${datasetId} 已导入；行为事件保留来源，补充字段已标记为合成，当前分析已切换到该数据集。`);
+          activateImportedDataset(datasetId);
           return;
         }
         if (status.status === 'failed') {

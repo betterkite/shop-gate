@@ -113,3 +113,7 @@ P30 续更：渠道/活动和毛利渠道结果新增“按渠道/活动查看�
 **P3 门**：type-check 全绿；vitest 29F/1003P/28S（基线 29F 已归因：pi-agent-terminal 25 环境 + compiler 1 归因 + preview 1 环境 + sandbox 1 环境）；pytest 109P；backend-architecture / service-catalog / check:skills / check:docs 全绿。
 
 P30 验收续更：真实双端验收发现类目日趋势的订单查询错误引用不存在的 `o.category_id`，已改为通过 `commerce.dataset_item_economics` 关联类目并补充回归测试；commerce-data 全量测试 60 passed，类目趋势 API 返回 HTTP 200。视觉检查脚本补充目标结果行等待，降低页面切换竞态造成的误报。
+
+P30 状态校正：PR #41 已合并，渠道/活动图表级范围联动、明细入口和父级范围边界已通过本地与 GitHub 验收；GitHub Issue #15 已关闭。P30 后续不再作为当前实施项。
+
+P31 续更：数据集合成导入和标准行为事件 CSV 导入在质量扫描完成后，会自动把当前工作台 URL 切换到新 `dataset_id`，同时保留当前视图、下钻维度和值、筛选范围、项目绑定和日期窗口；新增 URL 构造单测，防止导入完成后仍停留在旧数据集。第三方连接器仍需独立数据契约，不在本片扩大范围。

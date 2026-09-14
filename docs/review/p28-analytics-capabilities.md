@@ -144,7 +144,7 @@ assignment、分组必须一致、每个实验用户只能有一条结果、日�
 
 在 `outcome_evidence.status=complete` 时，价格实验结果会增加 `outcome_statistics`，展示对照组和处理组的用户数、购买用户数、购买件数、购买率、购买率差异、95% 置信区间和两比例近似检验的 p 值。该切片用于逐项核对样本统计，不会因为 p 值较小就自动宣称价格带来了因果效果；仍需结合 `causal_readiness`、分组记录、实验设计和业务约束复核。
 
-当结果不完整或没有 outcomes 时，`outcome_statistics.status` 会保留 `incomplete` 或 `not_provided`，统计数值不填充为推测值。一个响应包含多个可比较实验时，`multiple_testing.status=not_adjusted`，并明确说明 p 值仍按实验分别计算、尚未进行多重检验校正。该校正和正式因果模型不属于本切片。跟进 Issue：[#52](https://github.com/betterkite/shop-gate/issues/52)。
+当结果不完整或没有 outcomes 时，`outcome_statistics.status` 会保留 `incomplete` 或 `not_provided`，统计数值不填充为推测值。Issue #54 将多个完整实验的 p 值使用 Benjamini-Hochberg 方法进行 FDR 校正，响应中的 `multiple_testing` 会返回 `method`、`alpha`、有效实验数和 `status=adjusted`；完整 p 值不足时返回 `not_ready`，不伪造校正值。FDR 校正只处理多重比较的统计边界，不证明随机分组、价格因果效果或业务收益。跟进 Issue：[#52](https://github.com/betterkite/shop-gate/issues/52)、[#54](https://github.com/betterkite/shop-gate/issues/54)。
 
 ## 价格弹性切片复验（2026-09-12）
 

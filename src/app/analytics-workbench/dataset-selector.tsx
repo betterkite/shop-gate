@@ -53,6 +53,7 @@ export function DatasetSelector({
   value,
   filterDimension,
   filterValue,
+  projectId,
   apiBaseUrl,
 }: {
   contracts: JsonRecord[];
@@ -62,6 +63,7 @@ export function DatasetSelector({
   value?: string;
   filterDimension?: string;
   filterValue?: string;
+  projectId?: string;
   apiBaseUrl: string;
 }) {
   const router = useRouter();
@@ -72,6 +74,7 @@ export function DatasetSelector({
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvImportMessage, setCsvImportMessage] = useState('');
   const [jobs, setJobs] = useState<JsonRecord[]>([]);
+  const hasProjectBinding = Boolean(projectId);
   const selected = contracts.find((contract) => text(contract.dataset_id) === selectedDatasetId);
 
   const handleImport = async (event: FormEvent<HTMLFormElement>) => {
@@ -81,6 +84,8 @@ export function DatasetSelector({
     const form = new FormData(event.currentTarget);
     const payload = {
       dataset_id: String(form.get('dataset_id') || '').trim(),
+      project_id: String(form.get('project_id') || '').trim(),
+      idempotency_key: `dataset-import:${crypto.randomUUID()}`,
       users: Number(form.get('users') || 1_000),
       items: Number(form.get('items') || 1_000),
       days: Number(form.get('days') || 30),
@@ -99,7 +104,8 @@ export function DatasetSelector({
       }
       for (let attempt = 0; attempt < 120; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 1_000));
-        const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}`, { cache: 'no-store' });
+        const statusQuery = new URLSearchParams({ project_id: payload.project_id });
+        const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}?${statusQuery.toString()}`, { cache: 'no-store' });
         const status = await statusResponse.json().catch(() => ({}));
         if (status.status === 'completed') {
           setImportMessage(`数据集 ${payload.dataset_id} 已导入并通过质量扫描；已加入选择器。`);
@@ -139,7 +145,13 @@ export function DatasetSelector({
       return;
     }
     try {
-      const query = new URLSearchParams({ dataset_id: datasetId, seed: String(seed), filename: file.name });
+      const query = new URLSearchParams({
+        dataset_id: datasetId,
+        project_id: String(form.get('project_id') || '').trim(),
+        idempotency_key: `dataset-import:${crypto.randomUUID()}`,
+        seed: String(seed),
+        filename: file.name,
+      });
       const response = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/csv?${query.toString()}`, {
         method: 'POST',
         headers: { 'content-type': 'text/csv' },
@@ -151,7 +163,8 @@ export function DatasetSelector({
       }
       for (let attempt = 0; attempt < 120; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 1_000));
-        const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}`, { cache: 'no-store' });
+        const statusQuery = new URLSearchParams({ project_id: query.get('project_id') || '' });
+        const statusResponse = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import/${encodeURIComponent(created.job_id)}?${statusQuery.toString()}`, { cache: 'no-store' });
         const status = await statusResponse.json().catch(() => ({}));
         if (status.status === 'completed') {
           setCsvImportMessage(`数据集 ${datasetId} 已导入；行为事件保留来源，补充字段已标记为合成。`);
@@ -208,8 +221,14 @@ export function DatasetSelector({
   useEffect(() => {
     let active = true;
     const loadJobs = async () => {
+      if (!projectId) {
+        setJobs([]);
+        setSyncMessage('请先绑定 Agent 项目，才能查看该项目的任务历史');
+        return;
+      }
       try {
-        const response = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import?limit=8`, { cache: 'no-store' });
+        const query = new URLSearchParams({ project_id: projectId, limit: '8' });
+        const response = await fetch(`${apiBaseUrl}/api/v1/commerce/datasets/import?${query.toString()}`, { cache: 'no-store' });
         if (!response.ok || !active) return;
         setJobs(asArray(await response.json()));
       } catch {
@@ -222,7 +241,7 @@ export function DatasetSelector({
       active = false;
       window.clearInterval(interval);
     };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, projectId]);
 
   return (
     <section className="mb-5 rounded-2xl border border-border/70 bg-card/90 p-4 shadow-sm" aria-label="经营分析数据集">
@@ -242,6 +261,11 @@ export function DatasetSelector({
             }) : <option value={selectedDatasetId}>{selectedDatasetId} · 数据集列表暂不可用</option>}
           </select>
         </label>
+        <label className="min-w-0 flex-1 lg:max-w-xs">
+          <span className="text-sm font-semibold">关联 Agent 项目</span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">只影响导入任务和看板编排；查看已有数据集不需要填写。</span>
+          <input name="project_id" defaultValue={projectId || ''} placeholder="例如 project-1789124114450-xcc81cho" pattern="[A-Za-z0-9][A-Za-z0-9._:-]{0,199}" className="mt-2 w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+        </label>
         <button type="submit" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50" disabled={!contracts.length}>切换并刷新分析</button>
       </form>
       {selected ? (
@@ -259,14 +283,16 @@ export function DatasetSelector({
         <summary className="cursor-pointer text-sm font-semibold">生成合成经营分析数据集</summary>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">这里生成隔离的合成演示数据，并自动执行质量扫描；它适合演示和验收，不代表真实业务事实。</p>
         <form onSubmit={handleImport} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <input type="hidden" name="project_id" value={projectId || ''} />
           <label className="lg:col-span-2"><span className="text-xs font-medium">数据集编号</span><input name="dataset_id" defaultValue="retail-demo-new" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,119}" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
           <label><span className="text-xs font-medium">用户数</span><input name="users" type="number" min="1" max="5000" defaultValue="1000" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
           <label><span className="text-xs font-medium">商品数</span><input name="items" type="number" min="1" max="5000" defaultValue="1000" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
           <label><span className="text-xs font-medium">天数</span><input name="days" type="number" min="1" max="180" defaultValue="30" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
           <label><span className="text-xs font-medium">窗口结束日</span><input name="end_day" type="date" defaultValue="2025-12-03" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
           <label><span className="text-xs font-medium">随机种子</span><input name="seed" type="number" defaultValue="20251203" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
-          <div className="flex items-end lg:col-span-2"><button type="submit" disabled={importing} className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{importing ? '正在导入…' : '开始导入并扫描'}</button></div>
+          <div className="flex items-end lg:col-span-2"><button type="submit" disabled={importing || !hasProjectBinding} className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{importing ? '正在导入…' : '开始导入并扫描'}</button></div>
         </form>
+        {!hasProjectBinding ? <p className="mt-2 text-xs leading-5 text-amber-700">请先在上方填写并提交“关联 Agent 项目”，再启动导入；系统不会猜测目标项目。</p> : null}
         {importMessage ? <p className="mt-2 text-xs leading-5 text-muted-foreground" role="status">{importMessage}</p> : null}
       </details>
       <details className="mt-3 border-t border-border/60 pt-3">
@@ -276,11 +302,13 @@ export function DatasetSelector({
           <p className="mt-1">支持的行为事件 CSV 需要包含以下 5 列：<code>user_id</code>、<code>item_id</code>、<code>category_id</code>、<code>behavior_type</code>、<code>timestamp</code>；行为类型为 <code>pv</code>、<code>fav</code>、<code>cart</code>、<code>buy</code>，时间为 Unix 秒。</p>
           <p className="mt-1">价格、成本、渠道、订单和库存补充字段会明确标记为合成口径，不会把它们误报成真实交易数据。单个文件不超过 50 MB。</p>
           <form onSubmit={handleCsvImport} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <input type="hidden" name="project_id" value={projectId || ''} />
             <label className="lg:col-span-2"><span className="text-xs font-medium">数据集编号</span><input name="dataset_id" defaultValue="retail-uploaded-csv" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,119}" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
             <label><span className="text-xs font-medium">补充字段随机种子</span><input name="seed" type="number" defaultValue="20251203" className="mt-1 w-full rounded-lg border border-border/70 bg-background px-2.5 py-2 text-sm" /></label>
             <label className="sm:col-span-2"><span className="text-xs font-medium">行为事件 CSV</span><input name="file" type="file" accept=".csv,text/csv" required className="mt-1 block w-full rounded-lg border border-border/70 bg-background px-2.5 py-1.5 text-sm file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs" /></label>
-            <div className="flex items-end lg:col-span-2"><button type="submit" disabled={csvImporting} className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{csvImporting ? '正在导入…' : '上传并导入 CSV'}</button></div>
+            <div className="flex items-end lg:col-span-2"><button type="submit" disabled={csvImporting || !hasProjectBinding} className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">{csvImporting ? '正在导入…' : '上传并导入 CSV'}</button></div>
           </form>
+          {!hasProjectBinding ? <p className="mt-2 text-xs leading-5 text-amber-700">请先在上方填写并提交“关联 Agent 项目”，再导入 CSV。</p> : null}
           {csvImportMessage ? <p className="mt-2 text-xs leading-5 text-muted-foreground" role="status">{csvImportMessage}</p> : null}
         </div>
       </details>

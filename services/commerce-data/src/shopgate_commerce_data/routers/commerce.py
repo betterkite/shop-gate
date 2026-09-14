@@ -19,6 +19,8 @@ from shopgate_commerce_data import analytics, analytics_jobs, retail
 class AnalyticsDatasetImportRequest(BaseModel):
     """受控的合成经营分析数据集生成参数。"""
 
+    project_id: str = Field(min_length=1, max_length=200)
+    idempotency_key: str = Field(min_length=1, max_length=200)
     dataset_id: str = Field(min_length=1, max_length=120)
     users: int = Field(default=1_000, ge=1, le=5_000)
     items: int = Field(default=1_000, ge=1, le=5_000)
@@ -68,6 +70,8 @@ def create_commerce_router() -> APIRouter:
     async def import_csv_dataset(
         request: Request,
         dataset_id: Annotated[str, Query(min_length=1, max_length=120)],
+        project_id: Annotated[str, Query(min_length=1, max_length=200)],
+        idempotency_key: Annotated[str, Query(min_length=1, max_length=200)],
         seed: Annotated[int, Query()] = 20251203,
         filename: Annotated[str, Query(max_length=200)] = "upload.csv",
     ) -> dict[str, Any]:
@@ -76,28 +80,54 @@ def create_commerce_router() -> APIRouter:
         content = await request.body()
         try:
             return await analytics_jobs.enqueue_csv_dataset_import(
-                dataset_id, seed, filename, content
+                dataset_id, seed, filename, content, project_id, idempotency_key
             )
         except analytics_jobs.AnalyticsDatasetImportError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
     @router.get("/datasets/import")
     async def dataset_import_jobs(
+        project_id: Annotated[str, Query(min_length=1, max_length=200)],
         dataset_id: Annotated[str | None, Query(max_length=120)] = None,
         limit: Annotated[int, Query(ge=1, le=50)] = 10,
     ) -> list[dict[str, Any]]:
         """返回最近的数据集导入任务，供工作台展示审计状态。"""
 
-        return await analytics_jobs.list_dataset_import_jobs(dataset_id, limit)
+        return await analytics_jobs.list_dataset_import_jobs(project_id, dataset_id, limit)
 
     @router.get("/datasets/import/{job_id}")
-    async def dataset_import_job(job_id: str) -> dict[str, Any]:
+    async def dataset_import_job(
+        job_id: str,
+        project_id: Annotated[str, Query(min_length=1, max_length=200)],
+    ) -> dict[str, Any]:
         """返回数据集生成任务状态，供 BI 工作台轮询。"""
 
-        job = await analytics_jobs.get_dataset_import_job(job_id)
+        job = await analytics_jobs.get_dataset_import_job(job_id, project_id)
         if not job:
-            raise HTTPException(status_code=404, detail="数据集导入任务不存在。")
+            raise HTTPException(status_code=404, detail="该项目下不存在这个数据集导入任务。")
         return job
+
+    @router.get("/orchestration/events")
+    async def orchestration_events(
+        project_id: Annotated[str, Query(min_length=1, max_length=200)],
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        include_consumed: Annotated[bool, Query()] = False,
+    ) -> list[dict[str, Any]]:
+        """读取项目范围内待消费的导入/看板事件，供 Agent 编排器重试消费。"""
+
+        return await analytics_jobs.list_orchestration_events(project_id, limit, include_consumed)
+
+    @router.post("/orchestration/events/{event_id}/ack")
+    async def acknowledge_orchestration_event(
+        event_id: str,
+        project_id: Annotated[str, Query(min_length=1, max_length=200)],
+    ) -> dict[str, Any]:
+        """确认 Agent 已处理某个项目事件；重复确认保持幂等。"""
+
+        event = await analytics_jobs.ack_orchestration_event(project_id, event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="该项目下不存在这个编排事件。")
+        return event
 
     @router.get("/resolve")
     async def resolve(

@@ -218,7 +218,8 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 | `commerce.market_data_ingestion_jobs` | 数据导入任务，记录 provider、范围、状态、进度、错误和统计 |
 | `commerce.market_data_sync_state` | 数据源同步水位，记录 first/last ts、行数、最近成功和错误 |
 | `commerce.data_quality_scans` | 数据质量扫描摘要和 issue |
-| `commerce.platform_jobs` | 通用平台任务表，后续承载独立 worker |
+| `commerce.platform_jobs` | 通用平台任务表；经营分析任务额外记录 `project_id` 和 `idempotency_key` |
+| `commerce.analytics_orchestration_events` | 导入/看板编排 durable outbox；按项目、任务和顺序记录请求、清单就绪、完成/失败事件，`consumed_at` 记录消费者确认 |
 
 导入通过 `shopgate-commerce-import` CLI 驱动（`import-userbehavior`、`generate-synthetic-behavior`、`generate-synthetic-master`、`aggregate-daily`，见 [commerce-data 数据接入](commerce-data-ingestion.md)），provider 书签写入 `market_data_ingestion_jobs` / `market_data_sync_state`。任务失败或停止不删除已入库事实数据。
 
@@ -229,7 +230,8 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 | 表 | 责任 | 页面 |
 | --- | --- | --- |
 | `commerce.data_quality_scans` | 数据质量扫描摘要和 issue | 运行治理 |
-| `commerce.platform_jobs` | 通用平台任务表，后续承载独立 worker | 运行治理/平台任务 |
+| `commerce.platform_jobs` | 通用平台任务表，经营分析任务按项目和幂等键隔离 | 运行治理/平台任务 |
+| `commerce.analytics_orchestration_events` | 分析跨服务事件 outbox 和消费确认 | Agent 编排/运行治理 |
 
 ## 当前核心经营指标
 

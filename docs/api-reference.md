@@ -179,9 +179,11 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 | `/api/v1/commerce/meta` | `GET` | 数据集口径：窗口、规模与真实/合成来源计数；传 `dataset_id` 时返回指定扩展数据集 |
 | `/api/v1/commerce/datasets` | `GET` | 扩展经营分析数据集契约；可用 `dataset_id` 过滤，返回版本、生成规则、合成字段和限制 |
 | `/api/v1/commerce/datasets/import` | `POST` | 受控生成隔离的合成经营分析数据集，异步执行质量扫描并返回任务 ID |
-| `/api/v1/commerce/datasets/import/csv` | `POST` | 上传标准五列行为事件 CSV，保留行为来源并异步补齐合成经营分析字段；`dataset_id`、`seed`、`filename` 使用查询参数 |
-| `/api/v1/commerce/datasets/import/{job_id}` | `GET` | 查询数据集导入或自动生成看板配置任务的状态、进度、结果和失败原因 |
-| `/api/v1/commerce/datasets/import` | `GET` | 列出最近的数据集生成任务，支持按 `dataset_id` 和 `limit` 过滤 |
+| `/api/v1/commerce/datasets/import/csv` | `POST` | 上传标准五列行为事件 CSV，保留行为来源并异步补齐合成经营分析字段；`dataset_id`、`project_id`、`idempotency_key`、`seed`、`filename` 使用查询参数 |
+| `/api/v1/commerce/datasets/import/{job_id}` | `GET` | 查询指定 `project_id` 下的数据集导入或自动生成看板配置任务的状态、进度、结果和失败原因 |
+| `/api/v1/commerce/datasets/import` | `GET` | 列出指定 `project_id` 下最近的数据集生成任务，支持按 `dataset_id` 和 `limit` 过滤 |
+| `/api/v1/commerce/orchestration/events` | `GET` | 读取指定 `project_id` 的未确认跨服务事件；默认只返回未消费事件，可用 `include_consumed=true` 查看历史 |
+| `/api/v1/commerce/orchestration/events/{event_id}/ack` | `POST` | 在指定 `project_id` 下确认 Agent 已处理事件；重复确认保持幂等 |
 | `/api/v1/commerce/resolve` | `GET` | 实体解析：`item:<id>`/`cat:<id>` 显式形式 + 类目名/商品标题模糊匹配，`limit` ≤50 |
 | `/api/v1/commerce/capabilities` | `GET` | 零售能力发现信息（domain_pack=`retail.core`，含 synthetic_fields 清单） |
 | `/api/v1/commerce/funnel` | `GET` | 浏览到购买的转化过程（pv/fav/cart/buy），支持 `start`/`end`/`category_id`；`funnel` 是兼容接口路径 |
@@ -211,6 +213,8 @@ LLM 负责从原文解析商品/类目实体、时间范围、分析重点和输
 - `/summary?date=2017-12-03`：GMV ¥1,198,069.97、曝光 110,710、购买 2,452、转化 2.21%、客单价 ¥488.61
 
 窗口约定：日期参数缺省时后端默认 `end=今天`、`start=end 往前 8 天`；实际取数应由调用方显式传入数据窗口（生成管线的预取窗口动态取自 `/meta`）。`start` 晚于 `end` 返回 400。
+
+P32 任务合同：合成导入 JSON 必须带 `project_id`、`idempotency_key` 和 `dataset_id`；CSV 导入把前两项作为查询参数。相同项目、任务类型和幂等键只会创建一条任务，重复请求返回原任务并标记 `idempotent_replay=true`。导入请求、看板配置请求、看板清单就绪和导入完成/失败都会写入 `commerce.analytics_orchestration_events`；消费者按项目读取事件，成功处理后调用 `ack`，未确认事件可以继续重试。`project_id` 是主应用项目的外部 ID，commerce-data 不通过浏览器当前页面、最近项目或默认值猜测它。
 
 ## 常见排查路径
 

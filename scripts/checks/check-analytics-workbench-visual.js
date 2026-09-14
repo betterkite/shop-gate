@@ -25,6 +25,7 @@ const customerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${
 const scopedCustomerUrl = `${baseUrl}/analytics-workbench?view=customers&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const customerSegmentUrl = `${customerUrl}&segment=${encodeURIComponent('新近购买')}`;
 const scopedChannelsUrl = `${baseUrl}/analytics-workbench?view=channels&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
+const channelsUrl = `${baseUrl}/analytics-workbench?view=channels&dataset_id=${encodeURIComponent(datasetId)}`;
 const scopedProfitUrl = `${baseUrl}/analytics-workbench?view=profit&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const scopedLifecycleUrl = `${baseUrl}/analytics-workbench?view=lifecycle&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
 const lifecycleStageUrl = `${baseUrl}/analytics-workbench?view=lifecycle&dataset_id=${encodeURIComponent(datasetId)}&stage=${encodeURIComponent('稳定期')}&page=1`;
@@ -427,6 +428,19 @@ async function inspectProfile(browser, storageState, profile) {
           detailHref: [...document.querySelectorAll('a')].some((link) => link.getAttribute('href')?.includes('view=drilldown') && link.getAttribute('href')?.includes('dimension=channel')),
         }));
         if (!profitState.detailLink || !profitState.detailHref) problems.push(`${profile.id}: 毛利分析缺少渠道明细链接`);
+      }
+
+      const channelsResponse = await gotoWithRetry(page, channelsUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!channelsResponse?.ok()) {
+        problems.push(`${profile.id}: 全部渠道和活动页请求失败`);
+      } else {
+        await page.locator('main').getByRole('heading', { name: '渠道与活动归因', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+        const channelScopeState = await page.evaluate(() => ({
+          channelOverviewLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('按渠道查看总览') && link.getAttribute('href')?.includes('view=overview') && link.getAttribute('href')?.includes('filter_dimension=channel')),
+          campaignOverviewLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('按活动查看总览') && link.getAttribute('href')?.includes('view=overview') && link.getAttribute('href')?.includes('filter_dimension=campaign')),
+          detailLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('查看渠道明细') && link.getAttribute('href')?.includes('view=drilldown') && link.getAttribute('href')?.includes('dimension=channel')),
+        }));
+        if (!channelScopeState.channelOverviewLink || !channelScopeState.campaignOverviewLink || !channelScopeState.detailLink) problems.push(`${profile.id}: 渠道/活动表缺少范围联动或明细入口`);
       }
 
       const scopedChannelsResponse = await gotoWithRetry(page, scopedChannelsUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });

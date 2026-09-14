@@ -10,6 +10,7 @@
 | `002-commerce-catalog.sql` | 商品主数据 | 合成 SKU 档案（价格/库存/品牌/店铺）与类目表；`category_id`/`item_id` 继承真实行为流，合成字段带标注（PRD §5.2） |
 | `003-commerce-platform.sql` | 平台基础组件 | 数据导入任务、同步水位、数据质量扫描和通用平台任务表（已按零售 schema 落地） |
 | `004-commerce-analytics-contract.sql` | 经营分析数据契约 | 追加式扩展数据集契约，以及用户、会话、渠道、活动、订单、商品经济、库存快照和价格实验观察表；所有数据集按 `dataset_id` 隔离 |
+| `005-commerce-analytics-orchestration.sql` | 经营分析跨服务编排 | 为导入/看板任务增加 `project_id` 与幂等键，并提供可重试的分析编排事件 outbox |
 
 主业务表由 Prisma 维护，不在这里手写：
 
@@ -41,5 +42,6 @@ npm run db:doctor
 - 行为事件流与聚合表放在 `commerce` schema。
 - 真实数据（行为流、类目/商品 ID）与合成数据（价格/库存/品牌/店铺）必须在表注释和字段标注中可区分（PRD §5.3 红线）。
 - 扩展分析数据必须携带 `dataset_id`、`source`、`synthetic`；`dataset_contracts` 必须记录版本、窗口、生成规则和限制。
+- P32 编排任务必须同时携带 `project_id` 和 `idempotency_key`；事件消费者只读取自己项目的未确认事件，并通过 `consumed_at` 确认处理，不能从浏览器当前页面或最近项目猜测目标项目。
 - 平台主业务表继续先改 `prisma/schema.prisma`，再通过 Prisma 生成数据库结构。
 - 后续若引入 Redis、对象存储或列式分析，只把 PostgreSQL/TimescaleDB 相关 SQL 放在这里。

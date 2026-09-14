@@ -33,10 +33,12 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /ready`：数据库与 Redis 就绪检查。
 - `GET /api/v1/commerce/meta`：数据窗口、来源和规模；传 `dataset_id` 时读取指定扩展数据集。
 - `GET /api/v1/commerce/datasets`：扩展经营分析数据集的版本、来源、合成字段和限制。
-- `POST /api/v1/commerce/datasets/import`：异步生成隔离的合成经营分析数据集并执行质量扫描；请求返回任务 ID。
-- `POST /api/v1/commerce/datasets/import/csv`：上传标准五列行为事件 CSV，保留行为来源，并为价格、成本、渠道、订单和库存补充字段标记合成口径。
-- `GET /api/v1/commerce/datasets/import/{job_id}`：查询数据集导入或自动生成看板配置任务状态、进度、结果和失败原因。
-- `GET /api/v1/commerce/datasets/import`：列出最近的数据集生成任务，支持 `dataset_id` 和 `limit` 过滤。
+- `POST /api/v1/commerce/datasets/import`：异步生成隔离的合成经营分析数据集并执行质量扫描；请求必须带 `project_id` 和 `idempotency_key`，返回任务 ID。
+- `POST /api/v1/commerce/datasets/import/csv`：上传标准五列行为事件 CSV，保留行为来源，并为价格、成本、渠道、订单和库存补充字段标记合成口径；查询参数必须带 `project_id` 和 `idempotency_key`。
+- `GET /api/v1/commerce/datasets/import/{job_id}`：在指定 `project_id` 下查询数据集导入或自动生成看板配置任务状态、进度、结果和失败原因。
+- `GET /api/v1/commerce/datasets/import`：列出指定 `project_id` 下的数据集生成任务，支持 `dataset_id` 和 `limit` 过滤。
+- `GET /api/v1/commerce/orchestration/events`：读取指定项目的未确认导入/看板编排事件；成功消费后通过 `/ack` 确认。
+- `POST /api/v1/commerce/orchestration/events/{event_id}/ack`：确认指定项目的编排事件，重复确认保持幂等。
 - `GET /api/v1/commerce/analytics/item-behavior`：按数据集返回商品级 PV、收藏、加购、购买和购买转化。
 - `GET /api/v1/commerce/resolve`：商品/类目实体解析。
 - `GET /api/v1/commerce/capabilities`：零售能力发现。

@@ -98,7 +98,7 @@ export const RETAIL_VISUALIZATION_TEMPLATES: readonly RetailVisualizationTemplat
     dataRequirements: ['datasets.categories'],
     dataSignals: ['gmv', 'buy_conversion', 'avg_price', 'concentration', 'traffic_conversion_gap'],
     coverage: {
-      metrics: ['gmv', 'buy_conversion', 'avg_price', 'concentration', 'traffic_conversion_gap', 'sold'],
+      metrics: ['gmv', 'page_views', 'purchases', 'buy_conversion', 'avg_price', 'concentration', 'traffic_conversion_gap', 'sold'],
       dimensions: ['category', 'item', 'date'],
       outputModes: ['dashboard'],
     },

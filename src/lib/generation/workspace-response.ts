@@ -85,7 +85,15 @@ function recognitionTable(runPlan: RetailRunPlan): string {
   const analysisView = runPlan.visualization.variantName ??
     runPlan.visualization.name ??
     capability.name;
-  const output = runPlan.visualization.required ? '交互式零售经营看板' : '结构化分析';
+  const output = runPlan.routeStatus === 'template_not_supported' && runPlan.fallbackFrom === 'template_not_supported'
+    ? '看板模板不覆盖，已转为问答'
+    : runPlan.routeStatus === 'template_not_supported'
+      ? '看板需求暂不匹配（已阻断）'
+    : runPlan.routeStatus === 'answer' || runPlan.queryRewrite?.outputIntent === 'answer'
+      ? '只做分析问答'
+      : runPlan.visualization.required
+        ? '交互式零售经营看板'
+        : '待确认输出形式';
 
   const rows = [
     ['业务场景', capability.name, '明确'],
@@ -131,6 +139,12 @@ export function buildWorkspaceProgressMessage(options: WorkspaceProgressOptions)
         '',
         options.runPlan.status === 'needs_clarification'
           ? '初步识别发现关键输入仍不唯一，先完成必要澄清，再进入数据核验。'
+          : options.runPlan.routeStatus === 'template_not_supported'
+            ? options.runPlan.fallbackFrom === 'template_not_supported'
+              ? `当前模板未覆盖本次看板需求，已转为问答：${boundedText(options.runPlan.routeReason, 240)}`
+              : `当前模板未覆盖本次看板需求，已阻断生成：${boundedText(options.runPlan.routeReason, 240)}`
+            : options.runPlan.routeStatus === 'answer'
+              ? '当前请求适合先回答问题，不生成看板。'
           : '已完成初步语义识别，开始核验真实数据和任务合同。',
       ].join('\n');
     }
@@ -144,8 +158,12 @@ export function buildWorkspaceProgressMessage(options: WorkspaceProgressOptions)
       return [
         `**【进度 3/5】${WORKSPACE_PROGRESS_STAGE_LABELS[2]}**`,
         '',
-        options.runPlan?.queryRewrite?.outputIntent === 'answer'
-          ? '开始基于任务合同、已获取数据与可用 Skills 整理分析回答；本次不生成看板。'
+        options.runPlan?.routeStatus === 'template_not_supported' && options.runPlan.fallbackFrom === 'template_not_supported'
+          ? '模板能力不覆盖本次看板需求，已转为问答并继续取数。'
+          : options.runPlan?.routeStatus === 'answer' || options.runPlan?.queryRewrite?.outputIntent === 'answer'
+            ? '开始基于任务合同、已获取数据与可用 Skills 整理分析回答；本次不生成看板。'
+            : options.runPlan?.routeStatus === 'template_not_supported'
+              ? '模板能力不覆盖本次看板需求，已停止后续取数和生成。'
           : '开始基于任务合同、已获取数据与可用 Skills 生成工作区；缺失字段会继续补齐或明确标注。',
         ...(options.skillIds?.length
           ? ['', `当前 Skills：${listSummary(options.skillIds, '按任务合同选择', 6)}。`]

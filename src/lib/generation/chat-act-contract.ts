@@ -34,6 +34,8 @@ export const chatActRequestSchema = z.object({
   capabilityId: boundedOptionalText(128),
   capabilitySelectionSource: z.enum(['manual', 'default', 'inferred']).optional(),
   datasetId: retailDatasetIdSchema,
+  /** UI 已明确选择的输出形态，服务端据此做最终路由而不是猜测。 */
+  outputMode: z.enum(['act', 'chat']).optional(),
 }).strict().refine((value) => (
   value.instruction.trim().length > 0 ||
   (value.displayInstruction?.trim().length ?? 0) > 0 ||

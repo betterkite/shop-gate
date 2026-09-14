@@ -67,6 +67,7 @@ export interface RetailActPreparationInput {
   capabilityId?: string | null;
   capabilitySelectionSource?: string | null;
   datasetId?: string | null;
+  outputMode?: "act" | "chat" | null;
   processedImageCount: number;
   previousRunPlan: RetailRunPlan | null;
   quotaActorUserId: string | null;
@@ -100,6 +101,7 @@ export async function prepareRetailActGeneration(
     capabilityId,
     capabilitySelectionSource,
     datasetId,
+    outputMode,
     processedImageCount,
     previousRunPlan,
     quotaActorUserId,
@@ -213,6 +215,7 @@ export async function prepareRetailActGeneration(
           previousPlan: previousRunPlan,
           llmModel: selectedModel,
           datasetId,
+          outputMode,
         });
         const answerOnlyIntent = runPlan.queryRewrite?.outputIntent === "answer";
 
@@ -304,6 +307,8 @@ export async function prepareRetailActGeneration(
           },
           output: {
             status: runPlan.status,
+            routeStatus: runPlan.routeStatus,
+            routeReason: runPlan.routeReason,
             templateId: runPlan.visualization?.templateId,
             entities: runPlan.entities,
             dataRequirements: runPlan.dataRequirements,

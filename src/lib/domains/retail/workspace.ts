@@ -16,6 +16,13 @@ import {
 } from '@/lib/domains/retail/data-agent-projection';
 import { serializeRetailVisualizationTemplate } from '@/lib/domains/retail/visualization-templates';
 import {
+  applyRetailOutputIntent,
+  inferRetailOutputIntent,
+  matchRetailTemplateCoverage,
+  type RetailRequestOutputMode,
+  type RetailRouteStatus,
+} from '@/lib/domains/retail/template-routing';
+import {
   getProjectLlmConfig,
   type ProjectLlmConfig,
 } from '@/lib/config/llm';
@@ -59,6 +66,11 @@ export interface RetailRunPlan {
   schemaVersion: 1;
   runId: string;
   status: RunPlanStatus;
+  /** 面向用户的输出路由；与 generation status 分开，便于审计为何生成或阻断看板。 */
+  routeStatus?: RetailRouteStatus;
+  routeReason?: string;
+  /** 看板模板不覆盖时保留原路由事实，并记录已降级为问答。 */
+  fallbackFrom?: 'template_not_supported';
   capabilityId: string;
   composition: DataAgentCompositionLock;
   llm: ProjectLlmConfig;
@@ -107,6 +119,15 @@ export interface RetailRunPlan {
     painPoints?: string[];
     optionalPanels?: string[];
     dataSignals?: string[];
+    coverage?: {
+      metrics: string[];
+      dimensions: string[];
+      outputModes: string[];
+    };
+    requestedMetrics?: string[];
+    requestedDimensions?: string[];
+    missingMetrics?: string[];
+    missingDimensions?: string[];
     finalDataContract?: string[];
   };
   clarification?: RetailIntentClarification;
@@ -650,6 +671,7 @@ export async function writeInitialRunPlan(params: {
   queryRewrite?: RetailQueryRewriteResult;
   llmModel?: string | null;
   datasetId?: string | null;
+  outputMode?: RetailRequestOutputMode | null;
 }) {
   await ensureRetailWorkspace(params.projectPath);
   const profileSelection = await readDataAgentProfile(params.projectPath);
@@ -662,6 +684,12 @@ export async function writeInitialRunPlan(params: {
     requestedModel: params.llmModel,
     projectId: params.projectId,
   });
+  const outputIntent = inferRetailOutputIntent({
+    query: planningInstruction,
+    rewriteIntent: queryRewrite.outputIntent,
+    requestedOutputMode: params.outputMode,
+  });
+  queryRewrite = applyRetailOutputIntent(queryRewrite, outputIntent);
   const explicitEntities = Array.from(new Set(
     queryRewrite.resolvedEntities.map((item) =>
       item.kind === 'item' ? `item:${item.id}` : `cat:${item.id}`,
@@ -783,6 +811,29 @@ export async function writeInitialRunPlan(params: {
       ...(retailSettings.validationRules ?? []),
     ])
   );
+  const visualizationTemplate = serializeRetailVisualizationTemplate(capability.id, {
+    instruction: planningInstruction,
+    // Planning 阶段只固定显式实体引用；名称候选只是澄清提示，不是已解析实体。
+    entityCount: entities.length > 0 ? entities.length : undefined,
+    requestedVariantId:
+      inheritPreviousPlan && !hasExplicitVariantReselection(planningInstruction)
+        ? params.previousPlan?.visualization?.variantId
+        : null,
+  });
+  const templateMatch = matchRetailTemplateCoverage({
+    query: planningInstruction,
+    outputIntent,
+    template: visualizationTemplate,
+    clarificationRequired: clarification.required,
+  });
+  const templateFallbackToAnswer =
+    !refused &&
+    !clarification.required &&
+    templateMatch.routeStatus === 'template_not_supported';
+  if (templateFallbackToAnswer) {
+    // 阻断的是不匹配的看板产物，不阻断用户问题；后续仍由 Agent 取数并生成问答。
+    queryRewrite = applyRetailOutputIntent(queryRewrite, 'answer');
+  }
   const answerOnly = queryRewrite.outputIntent === 'answer';
   const answerOnlyExcludedArtifacts = new Set([
     DATA_AGENT_ARTIFACT_CONTRACTS_RELATIVE_PATH,
@@ -797,19 +848,13 @@ export async function writeInitialRunPlan(params: {
     ? [
         '必须先解析商品/类目实体（或明确说明是全库口径），再获取真实行为或经营数据。',
         '必须生成数据信源渠道和质量证据文件，并说明抽样窗口。',
-        '回答必须区分真实行为数据、计算结果和字段缺失限制。',
+        '回答必须区分真实行为数据、合成经营字段和数据窗口边界。',
         '只做问答时不得写入看板源码、启动构建、视觉验证或持久预览。',
       ]
     : validationRules;
-  const visualizationTemplate = serializeRetailVisualizationTemplate(capability.id, {
-    instruction: planningInstruction,
-    // Planning 阶段只固定显式实体引用；名称候选只是澄清提示，不是已解析实体。
-    entityCount: entities.length > 0 ? entities.length : undefined,
-    requestedVariantId:
-      inheritPreviousPlan && !hasExplicitVariantReselection(planningInstruction)
-        ? params.previousPlan?.visualization?.variantId
-        : null,
-  });
+  const routeStatus: RetailRouteStatus | undefined = refused
+    ? undefined
+    : templateMatch.routeStatus;
 
   const plan: RetailRunPlan = {
     schemaVersion: 1,
@@ -819,6 +864,9 @@ export async function writeInitialRunPlan(params: {
       : clarification.required
         ? 'needs_clarification'
         : 'planned',
+    ...(routeStatus ? { routeStatus } : {}),
+    ...(routeStatus && templateMatch.reason ? { routeReason: templateMatch.reason } : {}),
+    ...(templateFallbackToAnswer ? { fallbackFrom: 'template_not_supported' as const } : {}),
     capabilityId: capability.id,
     composition: createRetailDataAgentRegistry().resolveCapability(
       RETAIL_AGENT_PROFILE_ID,
@@ -867,7 +915,7 @@ export async function writeInitialRunPlan(params: {
       required:
         !refused &&
         !clarification.required &&
-        queryRewrite.outputIntent === 'dashboard',
+        templateMatch.routeStatus === 'dashboard',
       templateId: visualizationTemplate.templateId,
       name: visualizationTemplate.name,
       scenario: visualizationTemplate.scenario,
@@ -883,6 +931,15 @@ export async function writeInitialRunPlan(params: {
       painPoints: [...visualizationTemplate.painPoints],
       optionalPanels: [...visualizationTemplate.optionalComponents],
       dataSignals: [...visualizationTemplate.dataSignals],
+      coverage: {
+        metrics: [...visualizationTemplate.coverage.metrics],
+        dimensions: [...visualizationTemplate.coverage.dimensions],
+        outputModes: [...visualizationTemplate.coverage.outputModes],
+      },
+      requestedMetrics: [...templateMatch.requestedMetrics],
+      requestedDimensions: [...templateMatch.requestedDimensions],
+      missingMetrics: [...templateMatch.missingMetrics],
+      missingDimensions: [...templateMatch.missingDimensions],
       finalDataContract: [...visualizationTemplate.finalDataContract],
     },
     clarification: !refused && clarification.required ? clarification : undefined,
@@ -959,17 +1016,21 @@ export async function writeInitialRunPlan(params: {
   await appendRetailWorkspaceEvent(params.projectPath, {
     event_type: refused
       ? 'intent_refused'
-      : clarification.required
-        ? 'intent_clarification_required'
+        : clarification.required
+          ? 'intent_clarification_required'
+          : templateMatch.routeStatus === 'template_not_supported'
+          ? 'template_coverage_fallback'
         : 'run_planned',
     stage: 'planning',
-    status: clarification.required || refused ? 'warning' : 'success',
+    status: clarification.required || refused || templateMatch.routeStatus === 'template_not_supported' ? 'warning' : 'success',
     run_id: params.requestId,
     artifact_path: '.data-agent/retail-run-plan.json',
     summary: refused
       ? queryRewrite.safety.message ?? '任务已被安全策略拒绝。'
       : clarification.required
         ? `任务缺少关键输入，需要先向用户澄清：${clarification.questions.join('；')}`
+        : templateMatch.routeStatus === 'template_not_supported'
+          ? `${templateMatch.reason} 已自动转为问答，继续取数回答原问题。`
         : queryRewrite.outputIntent === 'answer'
           ? `已生成${capability.name}分析计划，下一步将按计划取数并返回分析回答，不生成看板。`
           : `已生成${capability.name}计划，下一步将按计划解析类目/商品实体、获取真实数据并生成可视化产物。`,

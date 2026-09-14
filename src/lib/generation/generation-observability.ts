@@ -358,6 +358,7 @@ function workspaceEventTitle(event: RetailWorkspaceEvent & JsonRecord) {
   const eventType = stringValue(event.event_type);
   if (eventType === 'run_planned') return '生成计划';
   if (eventType === 'intent_clarification_required') return '意图需要澄清';
+  if (eventType === 'template_coverage_fallback') return '模板覆盖不足，已转为问答';
   if (eventType === 'data_prefetch_started') return '数据预取开始';
   if (eventType === 'data_prefetched') return '数据预取完成';
   if (eventType === 'data_quality_checked') return '数据质量检查';

@@ -566,6 +566,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       capabilityId,
       capabilitySelectionSource,
       datasetId: body.datasetId,
+      outputMode: body.outputMode,
       processedImageCount: processedImages.length,
       previousRunPlan,
       quotaActorUserId: actorUserId,

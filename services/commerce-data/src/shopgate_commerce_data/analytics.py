@@ -22,6 +22,11 @@ ANALYTICS_LIMITATIONS = [
 
 ANALYTICS_SCOPE_DIMENSIONS = {"item", "category", "channel", "campaign"}
 ITEM_SCOPE_DIMENSIONS = {"item", "category"}
+USER_PROFILE_STRATIFICATION_FIELDS = {
+    "member_level": "p.member_level",
+    "city_tier": "p.city_tier",
+    "age_band": "p.age_band",
+}
 
 
 def _number(value: Any) -> float:
@@ -1234,11 +1239,14 @@ async def price_band_comparison(
     dimension: str | None = None,
     value: str | None = None,
     price_band: str | None = None,
+    stratify_by: str | None = None,
 ) -> dict[str, Any]:
     """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
 
     if price_band is not None and price_band not in PRICE_BANDS:
         raise ValueError(f"价格带必须是：{'、'.join(PRICE_BANDS)}")
+    if stratify_by is not None and stratify_by not in USER_PROFILE_STRATIFICATION_FIELDS:
+        raise ValueError("分层字段必须是 member_level、city_tier 或 age_band")
     price_band_clause = ""
     price_band_params: tuple[int, ...] = ()
     if price_band == "0-50":
@@ -1399,6 +1407,8 @@ async def price_band_comparison(
     )
     experiment_results: list[dict[str, Any]] = []
     assignment_evidence_by_experiment: dict[str, dict[str, Any]] = {}
+    stratified_statistics_by_experiment: dict[str, dict[str, Any]] = {}
+    stratification_status = "not_requested" if stratify_by is None else "not_available"
     if experiment_declared:
         experiment_rows = await fetch_all(
             """
@@ -1677,6 +1687,117 @@ async def price_band_comparison(
                         "adjusted_p_value": None,
                         "multiple_testing_significance_status": "not_ready",
                     }
+        if stratify_by is not None and "price_experiment_outcomes" in row_counts:
+            stratified_rows = await fetch_all(
+                f"""
+                SELECT o.experiment_id,
+                       COALESCE({USER_PROFILE_STRATIFICATION_FIELDS[stratify_by]}::text,
+                                'unknown') AS stratum,
+                       o.variant,
+                       COUNT(*) AS outcome_users,
+                       COUNT(*) FILTER (WHERE o.purchased = 1) AS outcome_purchasers,
+                       COALESCE(SUM(o.units), 0) AS outcome_units
+                FROM commerce.dataset_price_experiment_outcomes o
+                LEFT JOIN commerce.dataset_user_profiles p
+                  ON p.dataset_id = o.dataset_id AND p.user_id = o.user_id
+                WHERE o.dataset_id = %s
+                GROUP BY o.experiment_id, stratum, o.variant
+                ORDER BY o.experiment_id, stratum, o.variant
+                """,
+                (dataset_id,),
+            )
+            stratification_status = "not_provided" if not stratified_rows else "available"
+            stratified_groups: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
+            for row in stratified_rows:
+                experiment_id = str(row["experiment_id"])
+                stratum = str(row["stratum"] or "unknown")
+                variant = str(row["variant"])
+                stratified_groups.setdefault(experiment_id, {}).setdefault(
+                    stratum, {}
+                )[variant] = {
+                    "users": int(row["outcome_users"] or 0),
+                    "purchasers": int(row["outcome_purchasers"] or 0),
+                    "units": int(row["outcome_units"] or 0),
+                }
+            for experiment_id, strata in stratified_groups.items():
+                evidence_status = outcome_evidence_by_experiment.get(
+                    experiment_id, {}
+                ).get("status", "incomplete")
+                stratum_rows: list[dict[str, Any]] = []
+                for stratum, variants in strata.items():
+                    control = variants.get("control")
+                    treatment = variants.get("treatment")
+                    if evidence_status != "complete":
+                        stratum_rows.append(
+                            {
+                                "stratum": stratum,
+                                "status": evidence_status,
+                                "control_users": None,
+                                "treatment_users": None,
+                                "control_purchasers": None,
+                                "treatment_purchasers": None,
+                                "control_units": None,
+                                "treatment_units": None,
+                                "control_conversion_rate": None,
+                                "treatment_conversion_rate": None,
+                                "absolute_conversion_difference": None,
+                            }
+                        )
+                        continue
+                    if not control or not treatment:
+                        stratum_rows.append(
+                            {
+                                "stratum": stratum,
+                                "status": "insufficient_variant_coverage",
+                                "control_users": control["users"] if control else None,
+                                "treatment_users": treatment["users"] if treatment else None,
+                                "control_purchasers": (
+                                    control["purchasers"] if control else None
+                                ),
+                                "treatment_purchasers": (
+                                    treatment["purchasers"] if treatment else None
+                                ),
+                                "control_units": control["units"] if control else None,
+                                "treatment_units": treatment["units"] if treatment else None,
+                                "control_conversion_rate": None,
+                                "treatment_conversion_rate": None,
+                                "absolute_conversion_difference": None,
+                            }
+                        )
+                        continue
+                    control_rate = control["purchasers"] / control["users"]
+                    treatment_rate = treatment["purchasers"] / treatment["users"]
+                    stratum_rows.append(
+                        {
+                            "stratum": stratum,
+                            "status": "descriptive",
+                            "control_users": control["users"],
+                            "treatment_users": treatment["users"],
+                            "control_purchasers": control["purchasers"],
+                            "treatment_purchasers": treatment["purchasers"],
+                            "control_units": control["units"],
+                            "treatment_units": treatment["units"],
+                            "control_conversion_rate": round(control_rate, 6),
+                            "treatment_conversion_rate": round(treatment_rate, 6),
+                            "absolute_conversion_difference": round(
+                                treatment_rate - control_rate, 6
+                            ),
+                        }
+                    )
+                stratified_statistics_by_experiment[experiment_id] = {
+                    "status": (
+                        evidence_status
+                        if evidence_status != "complete"
+                        else "complete"
+                        if any(
+                            row["status"] == "descriptive"
+                            for row in stratum_rows
+                        )
+                        else "insufficient_variant_coverage"
+                    ),
+                    "dimension": stratify_by,
+                    "strata": stratum_rows,
+                }
         for result in experiment_results:
             result["assignment_evidence"] = assignment_evidence_by_experiment.get(
                 result["experiment_id"],
@@ -1731,6 +1852,21 @@ async def price_band_comparison(
                     "significance_status": "not_ready",
                     "adjusted_p_value": None,
                     "multiple_testing_significance_status": "not_ready",
+                },
+            )
+            result["stratified_statistics"] = stratified_statistics_by_experiment.get(
+                result["experiment_id"],
+                {
+                    "status": (
+                        result["outcome_evidence"]["status"]
+                        if result["outcome_evidence"]["status"] in {
+                            "not_provided",
+                            "incomplete",
+                        }
+                        else stratification_status
+                    ),
+                    "dimension": stratify_by,
+                    "strata": [],
                 },
             )
             assignment_status = result["assignment_evidence"]["status"]
@@ -1842,6 +1978,18 @@ async def price_band_comparison(
             "adjusted": False,
             "explanation": "当前没有可比较的对照组和处理组实验。",
         }
+    stratification = {
+        "status": stratification_status,
+        "dimension": stratify_by,
+        "supported_dimensions": sorted(USER_PROFILE_STRATIFICATION_FIELDS),
+        "explanation": (
+            "分层结果是用户画像维度下的描述性统计，不代表分层因果效果。"
+            if stratification_status == "available"
+            else "当前未请求分层统计。"
+            if stratification_status == "not_requested"
+            else "当前没有完整用户结果或用户画像，无法生成分层统计。"
+        ),
+    }
     page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
@@ -1869,6 +2017,8 @@ async def price_band_comparison(
         experiment_explanation=experiment_explanation,
         experiment_required_for_estimation=experiment_required_for_estimation,
         multiple_testing=multiple_testing,
+        stratification=stratification,
+        stratify_by=stratify_by,
         price_band_comparison=bands,
     )
 

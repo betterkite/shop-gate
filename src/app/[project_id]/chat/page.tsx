@@ -517,8 +517,7 @@ export default function ChatPage() {
         conversationId: conversationId || undefined,
         requestId,
         selectedModel,
-        datasetId: readActiveRetailDatasetId(),
-        outputMode: mode,
+        datasetId: readActiveRetailDatasetId(), outputMode: mode,
       };
 
       const r = await fetch(`${API_BASE}/api/chat/${projectId}/act`, {

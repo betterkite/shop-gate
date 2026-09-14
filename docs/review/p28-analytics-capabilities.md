@@ -152,6 +152,12 @@ assignment、分组必须一致、每个实验用户只能有一条结果、日�
 
 缺失画像统一进入 `unknown` 分层，不根据其他字段猜测属性；某分层缺少对照组或处理组时标记 `insufficient_variant_coverage`。未请求分层返回 `not_requested`，没有用户结果返回 `not_provided`，正式分层因果模型、协变量调整和交互效应检验不属于本切片。跟进 Issue：[#56](https://github.com/betterkite/shop-gate/issues/56)。
 
+## 用户分配平衡检查（P28 后续，2026-09-14）
+
+价格实验接口支持可选 `balance_by`：`member_level`（会员等级）、`city_tier`（城市层级）和 `age_band`（年龄段）。请求后会将 `dataset_price_experiment_assignments` 与用户画像关联，返回每个实验和画像分层的对照/处理用户数、各自组内占比、占比绝对差异及 `unknown` 画像人数。该检查只描述两组被分配人群的构成，不证明分配确实随机，也不替代正式协变量调整或因果模型。
+
+两组均有分配且记录完整时返回 `descriptive`；只有一组时返回 `insufficient_variant_coverage`，分配记录本身不完整时返回 `incomplete`，存在无法关联画像的用户时返回 `partial_profile_coverage` 并保留 `unknown` 分层；没有分组记录返回 `not_provided`，未请求时返回 `not_requested`。跟进 Issue：[#58](https://github.com/betterkite/shop-gate/issues/58)。
+
 ## 价格弹性切片复验（2026-09-12）
 
 - 后端为同一商品的多价格成交观察计算对数回归参考值；没有至少两个有效价格点时返回 `insufficient_data_for_elasticity`，不输出空想的系数。

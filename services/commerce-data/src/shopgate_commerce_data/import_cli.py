@@ -59,6 +59,14 @@ PRICE_EXPERIMENT_OBSERVATION_COLUMNS = (
     "assignment_unit",
     "allocation_method",
 )
+PRICE_EXPERIMENT_OUTCOME_COLUMNS = (
+    "experiment_id",
+    "user_id",
+    "outcome_date",
+    "variant",
+    "purchased",
+    "units",
+)
 EXPERIMENT_VARIANTS = {"control", "treatment"}
 
 
@@ -190,6 +198,30 @@ def _parse_observation_row(values: list[str], _line_number: int) -> dict[str, An
     }
 
 
+def _parse_outcome_row(values: list[str], _line_number: int) -> dict[str, Any]:
+    variant = _required_text(values[3], "variant")
+    if variant not in EXPERIMENT_VARIANTS:
+        raise ValueError("variant 只能是 control 或 treatment")
+    try:
+        outcome_date = date.fromisoformat(values[2].strip())
+    except ValueError as error:
+        raise ValueError("outcome_date 必须是 YYYY-MM-DD") from error
+    purchased = _nonnegative_int(values[4], "purchased")
+    if purchased not in {0, 1}:
+        raise ValueError("purchased 只能是 0 或 1")
+    units = _nonnegative_int(values[5], "units")
+    if (purchased == 0 and units != 0) or (purchased == 1 and units < 1):
+        raise ValueError("purchased=0 时 units 必须为 0，purchased=1 时 units 至少为 1")
+    return {
+        "experiment_id": _required_text(values[0], "experiment_id"),
+        "user_id": _positive_int(values[1], "user_id"),
+        "outcome_date": outcome_date,
+        "variant": variant,
+        "purchased": purchased,
+        "units": units,
+    }
+
+
 def read_price_experiment_assignments_csv(
     csv_path: Path,
 ) -> tuple[list[dict[str, Any]], list[str]]:
@@ -210,10 +242,21 @@ def read_price_experiment_observations_csv(
     )
 
 
+def read_price_experiment_outcomes_csv(
+    csv_path: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """读取用户级实验结果文件，返回解析行和可展示的校验错误。"""
+
+    return _read_contract_csv(
+        csv_path, PRICE_EXPERIMENT_OUTCOME_COLUMNS, _parse_outcome_row
+    )
+
+
 def validate_price_experiment_csv_files(
     assignments_path: Path,
     observations_path: Path,
     *,
+    outcomes_path: Path | None = None,
     source: str = "observed_price_experiment_csv",
 ) -> dict[str, Any]:
     """校验真实实验输入契约；该函数只读文件，不连接数据库、不写业务表。"""
@@ -223,13 +266,20 @@ def validate_price_experiment_csv_files(
         observations_path
     )
     errors.extend(observation_errors)
+    outcomes: list[dict[str, Any]] = []
+    if outcomes_path is not None:
+        outcomes, outcome_errors = read_price_experiment_outcomes_csv(outcomes_path)
+        errors.extend(outcome_errors)
     warnings: list[str] = []
     assignment_by_experiment: dict[str, list[dict[str, Any]]] = {}
     observation_by_experiment: dict[str, list[dict[str, Any]]] = {}
+    outcome_by_experiment: dict[str, list[dict[str, Any]]] = {}
     for row in assignments:
         assignment_by_experiment.setdefault(row["experiment_id"], []).append(row)
     for row in observations:
         observation_by_experiment.setdefault(row["experiment_id"], []).append(row)
+    for row in outcomes:
+        outcome_by_experiment.setdefault(row["experiment_id"], []).append(row)
 
     assignment_keys: set[tuple[str, int]] = set()
     for row in assignments:
@@ -253,6 +303,26 @@ def validate_price_experiment_csv_files(
                 f"{row['experiment_id']}/{row['observation_date']}/{row['item_id']}/{row['variant']}"
             )
         observation_keys.add(key)
+    outcome_keys: set[tuple[str, int]] = set()
+    assignment_by_key = {
+        (row["experiment_id"], row["user_id"]): row["variant"] for row in assignments
+    }
+    for row in outcomes:
+        key = (row["experiment_id"], row["user_id"])
+        if key in outcome_keys:
+            errors.append(
+                f"实验 {row['experiment_id']} 中 user_id={row['user_id']} 的结果重复"
+            )
+        outcome_keys.add(key)
+        assigned_variant = assignment_by_key.get(key)
+        if assigned_variant is None:
+            errors.append(
+                f"实验 {row['experiment_id']} 的结果用户 user_id={row['user_id']} 没有分组记录"
+            )
+        elif assigned_variant != row["variant"]:
+            errors.append(
+                f"实验 {row['experiment_id']} 的 user_id={row['user_id']} 结果分组与分配不一致"
+            )
 
     assignment_experiments = set(assignment_by_experiment)
     observation_experiments = set(observation_by_experiment)
@@ -263,6 +333,13 @@ def validate_price_experiment_csv_files(
             errors.append(f"实验缺少观察数据：{missing_observations}")
         if missing_assignments:
             errors.append(f"实验缺少用户分组数据：{missing_assignments}")
+    if outcomes_path is not None and assignment_experiments != set(outcome_by_experiment):
+        missing_outcomes = sorted(assignment_experiments - set(outcome_by_experiment))
+        extra_outcomes = sorted(set(outcome_by_experiment) - assignment_experiments)
+        if missing_outcomes:
+            errors.append(f"实验缺少用户结果数据：{missing_outcomes}")
+        if extra_outcomes:
+            errors.append(f"用户结果包含未分配的实验：{extra_outcomes}")
 
     experiments: list[dict[str, Any]] = []
     for experiment_id in sorted(assignment_experiments | observation_experiments):
@@ -274,6 +351,18 @@ def validate_price_experiment_csv_files(
             errors.append(f"实验 {experiment_id} 的用户分组必须同时包含 control 和 treatment")
         if observation_variants != EXPERIMENT_VARIANTS:
             errors.append(f"实验 {experiment_id} 的观察数据必须同时包含 control 和 treatment")
+        experiment_outcomes = outcome_by_experiment.get(experiment_id, [])
+        if outcomes_path is not None:
+            assignment_users = {
+                row["user_id"] for row in experiment_assignments
+            }
+            outcome_users = {row["user_id"] for row in experiment_outcomes}
+            missing_users = sorted(assignment_users - outcome_users)
+            if missing_users:
+                errors.append(
+                    f"实验 {experiment_id} 缺少用户结果：{missing_users[:20]}"
+                    + ("（其余省略）" if len(missing_users) > 20 else "")
+                )
         allocation_methods = {
             row["allocation_method"]
             for row in experiment_assignments + experiment_observations
@@ -300,6 +389,8 @@ def validate_price_experiment_csv_files(
                     {row["observation_date"] for row in experiment_observations}
                 ),
                 "observed_items": len({row["item_id"] for row in experiment_observations}),
+                "outcome_rows": len(experiment_outcomes),
+                "outcome_users": len({row["user_id"] for row in experiment_outcomes}),
             }
         )
 
@@ -312,6 +403,12 @@ def validate_price_experiment_csv_files(
         "causal_claim": "not_verified",
         "assignment_rows": len(assignments),
         "observation_rows": len(observations),
+        "outcome_rows": len(outcomes),
+        "outcome_status": (
+            "complete" if outcomes_path is not None and not errors else
+            "invalid" if outcomes_path is not None else
+            "not_provided"
+        ),
         "experiment_count": len(experiments),
         "experiments": experiments,
         "warnings": sorted(set(warnings)),
@@ -325,6 +422,7 @@ def import_observed_price_experiment_csv(
     assignments_path: Path,
     observations_path: Path,
     *,
+    outcomes_path: Path | None = None,
     source: str = "observed_price_experiment_csv",
 ) -> dict[str, Any]:
     """把通过校验的真实实验记录幂等写入已有数据集。
@@ -335,6 +433,7 @@ def import_observed_price_experiment_csv(
     report = validate_price_experiment_csv_files(
         assignments_path,
         observations_path,
+        outcomes_path=outcomes_path,
         source=source,
     )
     if not report["valid"]:
@@ -357,9 +456,15 @@ def import_observed_price_experiment_csv(
         assignments, assignment_errors = read_price_experiment_assignments_csv(
             assignments_path
         )
-        if observation_errors or assignment_errors:
+        outcomes: list[dict[str, Any]] = []
+        outcome_errors: list[str] = []
+        if outcomes_path is not None:
+            outcomes, outcome_errors = read_price_experiment_outcomes_csv(outcomes_path)
+        if observation_errors or assignment_errors or outcome_errors:
             report["valid"] = False
-            report["errors"] = sorted(set(observation_errors + assignment_errors))
+            report["errors"] = sorted(
+                set(observation_errors + assignment_errors + outcome_errors)
+            )
             return report
         window_start = contract["window_start"]
         window_end = contract["window_end"]
@@ -398,6 +503,22 @@ def import_observed_price_experiment_csv(
             str(row["experiment_id"])
             for row in report["experiments"]
         })
+        if outcomes_path is None:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS outcome_rows
+                FROM commerce.dataset_price_experiment_outcomes
+                WHERE dataset_id = %s AND experiment_id = ANY(%s)
+                """,
+                (dataset_id, experiment_ids),
+            )
+            existing_outcomes = int(cursor.fetchone()["outcome_rows"] or 0)
+            if existing_outcomes:
+                report["valid"] = False
+                report["errors"] = [
+                    "目标数据集已有用户级结果；重新导入该实验时必须同时提供 outcomes CSV"
+                ]
+                return report
         cursor.execute(
             """
             DELETE FROM commerce.dataset_price_experiment_assignments
@@ -405,6 +526,14 @@ def import_observed_price_experiment_csv(
             """,
             (dataset_id, experiment_ids),
         )
+        if outcomes_path is not None:
+            cursor.execute(
+                """
+                DELETE FROM commerce.dataset_price_experiment_outcomes
+                WHERE dataset_id = %s AND experiment_id = ANY(%s)
+                """,
+                (dataset_id, experiment_ids),
+            )
         cursor.execute(
             """
             DELETE FROM commerce.dataset_price_experiment_observations
@@ -432,6 +561,28 @@ def import_observed_price_experiment_csv(
                 for row in assignments
             ],
         )
+        if outcomes_path is not None:
+            cursor.executemany(
+                """
+                INSERT INTO commerce.dataset_price_experiment_outcomes
+                  (dataset_id, experiment_id, user_id, outcome_date, variant,
+                   purchased, units, source, synthetic)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, false)
+                """,
+                [
+                    (
+                        dataset_id,
+                        row["experiment_id"],
+                        row["user_id"],
+                        row["outcome_date"],
+                        row["variant"],
+                        row["purchased"],
+                        row["units"],
+                        source,
+                    )
+                    for row in outcomes
+                ],
+            )
         cursor.executemany(
             """
             INSERT INTO commerce.dataset_price_experiment_observations
@@ -465,14 +616,18 @@ def import_observed_price_experiment_csv(
               (SELECT COUNT(*) FROM commerce.dataset_price_experiment_assignments
                WHERE dataset_id = %s) AS assignment_rows,
               (SELECT COUNT(*) FROM commerce.dataset_price_experiment_observations
-               WHERE dataset_id = %s) AS observation_rows
+               WHERE dataset_id = %s) AS observation_rows,
+              (SELECT COUNT(*) FROM commerce.dataset_price_experiment_outcomes
+               WHERE dataset_id = %s) AS outcome_rows
             """,
-            (dataset_id, dataset_id),
+            (dataset_id, dataset_id, dataset_id),
         )
         counts = cursor.fetchone()
         row_counts = dict(contract["row_counts"] or {})
         row_counts["price_experiment_assignments"] = int(counts["assignment_rows"])
         row_counts["price_experiment_observations"] = int(counts["observation_rows"])
+        if outcomes_path is not None:
+            row_counts["price_experiment_outcomes"] = int(counts["outcome_rows"])
         current_source_kind = str(contract["source_kind"])
         next_source_kind = (
             "mixed" if current_source_kind in {"synthetic", "mixed"} else "observed"
@@ -1019,6 +1174,7 @@ def scan_synthetic_analytics_dataset(
         "inventory_snapshots": "dataset_inventory_snapshots",
         "price_experiment_observations": "dataset_price_experiment_observations",
         "price_experiment_assignments": "dataset_price_experiment_assignments",
+        "price_experiment_outcomes": "dataset_price_experiment_outcomes",
     }
     issues: list[str] = []
     metrics: dict[str, Any] = {}
@@ -1055,6 +1211,7 @@ def scan_synthetic_analytics_dataset(
                     "behavior_events",
                     "price_experiment_observations",
                     "price_experiment_assignments",
+                    "price_experiment_outcomes",
                 }
                 and contract["source_kind"] != "synthetic"
             )
@@ -1128,6 +1285,46 @@ def scan_synthetic_analytics_dataset(
                   GROUP BY experiment_id
                 ) variants
                 WHERE control_users = 0 OR treatment_users = 0
+            """,
+            "orphan_experiment_outcomes": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_price_experiment_outcomes o
+                LEFT JOIN commerce.dataset_price_experiment_assignments a
+                  ON a.dataset_id = o.dataset_id
+                 AND a.experiment_id = o.experiment_id
+                 AND a.user_id = o.user_id
+                WHERE o.dataset_id = %s AND a.user_id IS NULL
+            """,
+            "outcome_variant_mismatches": """
+                SELECT COUNT(*) AS count
+                FROM commerce.dataset_price_experiment_outcomes o
+                JOIN commerce.dataset_price_experiment_assignments a
+                  ON a.dataset_id = o.dataset_id
+                 AND a.experiment_id = o.experiment_id
+                 AND a.user_id = o.user_id
+                WHERE o.dataset_id = %s AND o.variant <> a.variant
+            """,
+            "experiments_with_incomplete_outcomes": """
+                SELECT COUNT(*) AS count
+                FROM (
+                  SELECT a.experiment_id,
+                         COUNT(DISTINCT a.user_id) AS assigned_users,
+                         COUNT(DISTINCT o.user_id) AS outcome_users
+                  FROM commerce.dataset_price_experiment_assignments a
+                  LEFT JOIN commerce.dataset_price_experiment_outcomes o
+                    ON o.dataset_id = a.dataset_id
+                   AND o.experiment_id = a.experiment_id
+                   AND o.user_id = a.user_id
+                  WHERE a.dataset_id = %s
+                    AND EXISTS (
+                      SELECT 1
+                      FROM commerce.dataset_price_experiment_outcomes declared
+                      WHERE declared.dataset_id = a.dataset_id
+                        AND declared.experiment_id = a.experiment_id
+                    )
+                  GROUP BY a.experiment_id
+                ) coverage
+                WHERE assigned_users <> outcome_users
             """,
         }
         for name, query in checks.items():
@@ -1264,6 +1461,11 @@ def main() -> None:
         ),
     )
     experiment_parser.add_argument(
+        "--outcomes",
+        type=Path,
+        help="可选用户结果 CSV：experiment_id,user_id,outcome_date,variant,purchased,units",
+    )
+    experiment_parser.add_argument(
         "--source",
         default="observed_price_experiment_csv",
         help="报告中记录的外部来源名称",
@@ -1276,6 +1478,7 @@ def main() -> None:
     import_experiment_parser.add_argument("--dataset-id", required=True)
     import_experiment_parser.add_argument("--assignments", required=True, type=Path)
     import_experiment_parser.add_argument("--observations", required=True, type=Path)
+    import_experiment_parser.add_argument("--outcomes", type=Path)
     import_experiment_parser.add_argument(
         "--source",
         required=True,
@@ -1287,6 +1490,7 @@ def main() -> None:
         result = validate_price_experiment_csv_files(
             args.assignments,
             args.observations,
+            outcomes_path=args.outcomes,
             source=args.source,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
@@ -1395,6 +1599,7 @@ def main() -> None:
                 args.dataset_id,
                 args.assignments,
                 args.observations,
+                outcomes_path=args.outcomes,
                 source=args.source,
             )
             print(json.dumps(result, ensure_ascii=False, indent=2, default=str))

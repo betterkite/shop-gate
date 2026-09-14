@@ -124,6 +124,7 @@ PI Agent durable JSON 通过 deny-by-default 策略校验，禁止 reasoning、�
 | `dataset_inventory_snapshots` | 商品日库存、入库、销售、预留、结存 | 无真实仓库流水，不能单独下补货结论 |
 | `dataset_price_experiment_observations` | 价格实验的对照/处理组、价格、曝光人数、购买人数和分组方式 | 合成实验只能展示购买率差异参考；没有真实分组证据时不能解释为因果结论 |
 | `dataset_price_experiment_assignments` | 实验用户、对照/处理组、分配时间、分配方法和来源 | 用于核对分组记录是否完整；合成分组不能证明真实线上随机分流 |
+| `dataset_price_experiment_outcomes` | 每个实验用户的购买结果、购买件数、结果日期、分组和来源 | 只有用户结果覆盖完整且分组证据可核对时，才进入正式统计分析复核；不自动证明因果关系 |
 
 这些表都带 `dataset_id`、`source`、`synthetic`。导入命令和重跑语义见 [commerce-data 接入说明](commerce-data-ingestion.md) 的扩展数据集章节。
 

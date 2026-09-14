@@ -160,6 +160,17 @@ uv run --project services/commerce-data \
 混合数据集仍可能同时包含合成实验，因此接口和页面必须继续显示“演示/真实来源”边界，不能只看
 整体数据集状态下结论。
 
+如果需要核对每个实验用户的结果，可额外提供 outcomes CSV，表头必须为：
+
+```text
+experiment_id,user_id,outcome_date,variant,purchased,units
+```
+
+并在校验和导入命令中增加 `--outcomes data/import/price-experiment-outcomes.csv`。系统会要求每个
+结果用户已有唯一分组、分组一致、结果日期在窗口内，且 `purchased=0` 时 `units=0`、
+`purchased=1` 时 `units` 至少为 1。没有 outcomes 时仍兼容旧导入，但价格实验只能标记为
+“汇总样本参考”；outcomes 覆盖完整后接口才会返回“可进入用户级统计复核”，这仍不是自动的因果结论。
+
 对应接口为 `POST /api/v1/commerce/datasets/import/csv?dataset_id=...&seed=...&filename=...`，请求体直接发送 UTF-8 CSV（`Content-Type: text/csv`），返回的任务 ID 与合成数据生成任务共用状态查询和质量扫描。
 
 契约可以通过 API 查看：

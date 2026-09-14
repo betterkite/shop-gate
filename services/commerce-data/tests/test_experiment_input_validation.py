@@ -40,6 +40,17 @@ def _write_valid_files(tmp_path: Path) -> tuple[Path, Path]:
     return assignments, observations
 
 
+def _write_valid_outcomes(tmp_path: Path) -> Path:
+    outcomes = tmp_path / "outcomes.csv"
+    outcomes.write_text(
+        "experiment_id,user_id,outcome_date,variant,purchased,units\n"
+        "exp-1,101,2026-09-01,control,0,0\n"
+        "exp-1,102,2026-09-01,treatment,1,1\n",
+        encoding="utf8",
+    )
+    return outcomes
+
+
 def test_valid_price_experiment_files_produce_observed_report(tmp_path: Path) -> None:
     assignments, observations = _write_valid_files(tmp_path)
 
@@ -61,6 +72,8 @@ def test_valid_price_experiment_files_produce_observed_report(tmp_path: Path) ->
             "observation_rows": 2,
             "observation_days": 1,
             "observed_items": 1,
+            "outcome_rows": 0,
+            "outcome_users": 0,
         }
     ]
 
@@ -86,6 +99,43 @@ def test_invalid_price_experiment_files_report_contract_errors(tmp_path: Path) -
     assert any("被重复分组" in error for error in result["errors"])
     assert any("purchasers 不能大于 exposed_users" in error for error in result["errors"])
     assert any("assignment_unit 必须是 user" in error for error in result["errors"])
+
+
+def test_complete_user_outcomes_are_checked_against_assignments(tmp_path: Path) -> None:
+    assignments, observations = _write_valid_files(tmp_path)
+    outcomes = _write_valid_outcomes(tmp_path)
+
+    result = validate_price_experiment_csv_files(
+        assignments,
+        observations,
+        outcomes_path=outcomes,
+    )
+
+    assert result["valid"] is True
+    assert result["outcome_status"] == "complete"
+    assert result["outcome_rows"] == 2
+    assert result["experiments"][0]["outcome_users"] == 2
+
+
+def test_user_outcome_with_unknown_user_is_rejected(tmp_path: Path) -> None:
+    assignments, observations = _write_valid_files(tmp_path)
+    outcomes = _write_valid_outcomes(tmp_path)
+    outcomes.write_text(
+        "experiment_id,user_id,outcome_date,variant,purchased,units\n"
+        "exp-1,999,2026-09-01,control,0,0\n"
+        "exp-1,102,2026-09-01,treatment,1,1\n",
+        encoding="utf8",
+    )
+
+    result = validate_price_experiment_csv_files(
+        assignments,
+        observations,
+        outcomes_path=outcomes,
+    )
+
+    assert result["valid"] is False
+    assert any("没有分组记录" in error for error in result["errors"])
+    assert any("缺少用户结果" in error for error in result["errors"])
 
 
 def test_missing_variant_and_header_are_rejected(tmp_path: Path) -> None:
@@ -156,7 +206,7 @@ class _FakeCursor:
         self._fetchone_calls += 1
         if self._fetchone_calls == 1:
             return self.contract
-        return {"assignment_rows": 2, "observation_rows": 2}
+        return {"assignment_rows": 2, "observation_rows": 2, "outcome_rows": 0}
 
     def fetchall(self):
         return [{"item_id": item_id} for item_id in self.existing_items]

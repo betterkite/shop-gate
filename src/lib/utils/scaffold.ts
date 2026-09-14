@@ -399,11 +399,10 @@ export async function ensureRetailDashboardTemplate(projectPath: string) {
  */
 export async function restoreRetailDashboardTemplate(projectPath: string) {
   await scaffoldBasicNextApp(projectPath, path.basename(projectPath));
-  await fs.writeFile(
-    path.join(projectPath, 'app', 'page.tsx'),
-    retailBaseDashboardPageTemplate(),
-    'utf8'
-  );
+  // Keep recovery aligned with the run plan. Falling back to the base page here
+  // hides a valid capability-specific dashboard and can make the subsequent
+  // chart validation fail even though final data and evidence are intact.
+  await writeRetailDashboardTemplate(projectPath);
   await fs.writeFile(
     path.join(projectPath, 'app', 'globals.css'),
     retailBaseDashboardCssTemplate(),

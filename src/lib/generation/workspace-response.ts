@@ -158,12 +158,12 @@ export function buildWorkspaceProgressMessage(options: WorkspaceProgressOptions)
       return [
         `**【进度 3/5】${WORKSPACE_PROGRESS_STAGE_LABELS[2]}**`,
         '',
-        options.runPlan?.routeStatus === 'answer' || options.runPlan?.queryRewrite?.outputIntent === 'answer'
-          ? '开始基于任务合同、已获取数据与可用 Skills 整理分析回答；本次不生成看板。'
-          : options.runPlan?.routeStatus === 'template_not_supported'
-            ? options.runPlan.fallbackFrom === 'template_not_supported'
-              ? '模板能力不覆盖本次看板需求，已转为问答并继续取数。'
-              : '模板能力不覆盖本次看板需求，已停止后续取数和生成。'
+        options.runPlan?.routeStatus === 'template_not_supported' && options.runPlan.fallbackFrom === 'template_not_supported'
+          ? '模板能力不覆盖本次看板需求，已转为问答并继续取数。'
+          : options.runPlan?.routeStatus === 'answer' || options.runPlan?.queryRewrite?.outputIntent === 'answer'
+            ? '开始基于任务合同、已获取数据与可用 Skills 整理分析回答；本次不生成看板。'
+            : options.runPlan?.routeStatus === 'template_not_supported'
+              ? '模板能力不覆盖本次看板需求，已停止后续取数和生成。'
           : '开始基于任务合同、已获取数据与可用 Skills 生成工作区；缺失字段会继续补齐或明确标注。',
         ...(options.skillIds?.length
           ? ['', `当前 Skills：${listSummary(options.skillIds, '按任务合同选择', 6)}。`]

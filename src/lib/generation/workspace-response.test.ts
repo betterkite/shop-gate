@@ -107,6 +107,7 @@ describe('workspace response protocol', () => {
       runPlan: plan({
         routeStatus: 'template_not_supported',
         fallbackFrom: 'template_not_supported',
+        queryRewrite: { outputIntent: 'answer' } as RetailRunPlan['queryRewrite'],
         visualization: { ...basePlan.visualization, required: false },
       }),
     });

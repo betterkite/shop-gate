@@ -20,7 +20,7 @@ Shop Gate 支持这些长期运行方式：
 | `.env.example` | 是 | 完整变量目录、安全开发默认值、字段说明 | 真实密钥、个人路径、线上地址 |
 | `.env` | 否 | 由启动器维护的本地基础设施默认值，如端口、数据库和观测地址 | 上游 Provider 密钥 |
 | `.env.local` | 否 | 本机凭据、机器级覆盖、个人开发开关 | 需要团队共享的唯一规范 |
-| `.env.production.example` | 是 | 严格生产模板和占位值 | 可直接部署的真实 secret |
+| `config/production-env.example` | 是 | 严格生产模板和占位值 | 可直接部署的真实 secret |
 | `config/llm.json` | 是 | 允许使用的模型 profile、固定 Base URL、凭据变量名、Query Rewrite 策略 | 任何真实凭据、用户传入的任意 URL |
 | 进程或部署 Secret | 否 | CI/生产凭据和最高优先级覆盖 | 可公开的默认配置 |
 
@@ -133,7 +133,7 @@ curl -fsS https://api.deepseek.com/chat/completions \
   -d '{"model":"deepseek-v4-flash","messages":[{"role":"user","content":"只回复 ok"}],"stream":false}'
 ```
 
-生产环境应由 Secret Manager 注入 `DEEPSEEK_API_KEY`，而不是把真实值写进镜像、仓库或 `.env.production.example`。当前严格生产模板以外部网关/Qwen 默认拓扑为基线；若部署为完全 direct-only，发布验收必须额外确认所有默认项目和评测任务都显式选择官方直连。
+生产环境应由 Secret Manager 注入 `DEEPSEEK_API_KEY`，而不是把真实值写进镜像、仓库或 `config/production-env.example`。当前严格生产模板以外部网关/Qwen 默认拓扑为基线；若部署为完全 direct-only，发布验收必须额外确认所有默认项目和评测任务都显式选择官方直连。
 
 ### C. 只使用本地 Qwen，不安装 DeepSeek
 

@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import random
 import sys
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +40,283 @@ from shopgate_commerce_data.synthetic import (
 
 EVENT_COLUMNS = ("user_id", "item_id", "category_id", "behavior_type", "timestamp")
 VALID_BEHAVIORS = {"pv", "fav", "cart", "buy"}
+PRICE_EXPERIMENT_ASSIGNMENT_COLUMNS = (
+    "experiment_id",
+    "user_id",
+    "variant",
+    "assigned_at",
+    "allocation_method",
+)
+PRICE_EXPERIMENT_OBSERVATION_COLUMNS = (
+    "experiment_id",
+    "observation_date",
+    "item_id",
+    "variant",
+    "selling_price",
+    "exposed_users",
+    "purchasers",
+    "units",
+    "assignment_unit",
+    "allocation_method",
+)
+EXPERIMENT_VARIANTS = {"control", "treatment"}
+
+
+def _read_contract_csv(
+    csv_path: Path,
+    expected_columns: tuple[str, ...],
+    row_parser,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """读取固定列 CSV；只负责结构和类型解析，不写入数据库。"""
+
+    rows: list[dict[str, Any]] = []
+    errors: list[str] = []
+    if not csv_path.is_file():
+        return rows, [f"文件不存在：{csv_path}"]
+    try:
+        handle = csv_path.open("r", encoding="utf-8-sig", newline="")
+    except OSError as error:
+        return rows, [f"无法读取文件 {csv_path}：{error}"]
+    with handle:
+        reader = csv.reader(handle)
+        header = next(reader, None)
+        if header is None:
+            return rows, [f"CSV 为空：{csv_path}"]
+        if tuple(column.strip() for column in header) != expected_columns:
+            return rows, [
+                f"{csv_path} 表头必须严格为 {list(expected_columns)}，实际为 {header}"
+            ]
+        for line_number, values in enumerate(reader, start=2):
+            if not values or all(not value.strip() for value in values):
+                continue
+            if len(values) != len(expected_columns):
+                errors.append(
+                    f"{csv_path} 第 {line_number} 行列数为 {len(values)}，"
+                    f"应为 {len(expected_columns)}"
+                )
+                continue
+            try:
+                rows.append(row_parser(values, line_number))
+            except ValueError as error:
+                errors.append(f"{csv_path} 第 {line_number} 行：{error}")
+    return rows, errors
+
+
+def _required_text(value: str, field: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{field} 不能为空")
+    return cleaned
+
+
+def _positive_int(value: str, field: str) -> int:
+    try:
+        parsed = int(value.strip())
+    except ValueError as error:
+        raise ValueError(f"{field} 必须是整数") from error
+    if parsed <= 0:
+        raise ValueError(f"{field} 必须大于 0")
+    return parsed
+
+
+def _nonnegative_int(value: str, field: str) -> int:
+    try:
+        parsed = int(value.strip())
+    except ValueError as error:
+        raise ValueError(f"{field} 必须是整数") from error
+    if parsed < 0:
+        raise ValueError(f"{field} 不能小于 0")
+    return parsed
+
+
+def _nonnegative_decimal(value: str, field: str) -> Decimal:
+    try:
+        parsed = Decimal(value.strip())
+    except InvalidOperation as error:
+        raise ValueError(f"{field} 必须是数字") from error
+    if not parsed.is_finite() or parsed < 0:
+        raise ValueError(f"{field} 不能小于 0 且必须是有限数字")
+    return parsed
+
+
+def _parse_assignment_row(values: list[str], _line_number: int) -> dict[str, Any]:
+    variant = _required_text(values[2], "variant")
+    if variant not in EXPERIMENT_VARIANTS:
+        raise ValueError("variant 只能是 control 或 treatment")
+    try:
+        assigned_at = datetime.fromisoformat(values[3].strip().replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError("assigned_at 必须是 ISO 8601 日期时间") from error
+    if assigned_at.tzinfo is None:
+        raise ValueError("assigned_at 必须包含时区")
+    return {
+        "experiment_id": _required_text(values[0], "experiment_id"),
+        "user_id": _positive_int(values[1], "user_id"),
+        "variant": variant,
+        "assigned_at": assigned_at,
+        "allocation_method": _required_text(values[4], "allocation_method"),
+    }
+
+
+def _parse_observation_row(values: list[str], _line_number: int) -> dict[str, Any]:
+    variant = _required_text(values[3], "variant")
+    if variant not in EXPERIMENT_VARIANTS:
+        raise ValueError("variant 只能是 control 或 treatment")
+    try:
+        observation_date = date.fromisoformat(values[1].strip())
+    except ValueError as error:
+        raise ValueError("observation_date 必须是 YYYY-MM-DD") from error
+    assignment_unit = _required_text(values[8], "assignment_unit")
+    if assignment_unit != "user":
+        raise ValueError("assignment_unit 必须是 user，才能与用户分组证据对应")
+    exposed_users = _nonnegative_int(values[5], "exposed_users")
+    purchasers = _nonnegative_int(values[6], "purchasers")
+    units = _nonnegative_int(values[7], "units")
+    if purchasers > exposed_users:
+        raise ValueError("purchasers 不能大于 exposed_users")
+    if units < purchasers:
+        raise ValueError("units 不能小于 purchasers")
+    return {
+        "experiment_id": _required_text(values[0], "experiment_id"),
+        "observation_date": observation_date,
+        "item_id": _positive_int(values[2], "item_id"),
+        "variant": variant,
+        "selling_price": _nonnegative_decimal(values[4], "selling_price"),
+        "exposed_users": exposed_users,
+        "purchasers": purchasers,
+        "units": units,
+        "assignment_unit": assignment_unit,
+        "allocation_method": _required_text(values[9], "allocation_method"),
+    }
+
+
+def read_price_experiment_assignments_csv(
+    csv_path: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """读取用户分组文件，返回解析行和可展示的校验错误。"""
+
+    return _read_contract_csv(
+        csv_path, PRICE_EXPERIMENT_ASSIGNMENT_COLUMNS, _parse_assignment_row
+    )
+
+
+def read_price_experiment_observations_csv(
+    csv_path: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """读取价格实验汇总观察文件，返回解析行和可展示的校验错误。"""
+
+    return _read_contract_csv(
+        csv_path, PRICE_EXPERIMENT_OBSERVATION_COLUMNS, _parse_observation_row
+    )
+
+
+def validate_price_experiment_csv_files(
+    assignments_path: Path,
+    observations_path: Path,
+    *,
+    source: str = "observed_price_experiment_csv",
+) -> dict[str, Any]:
+    """校验真实实验输入契约；该函数只读文件，不连接数据库、不写业务表。"""
+
+    assignments, errors = read_price_experiment_assignments_csv(assignments_path)
+    observations, observation_errors = read_price_experiment_observations_csv(
+        observations_path
+    )
+    errors.extend(observation_errors)
+    warnings: list[str] = []
+    assignment_by_experiment: dict[str, list[dict[str, Any]]] = {}
+    observation_by_experiment: dict[str, list[dict[str, Any]]] = {}
+    for row in assignments:
+        assignment_by_experiment.setdefault(row["experiment_id"], []).append(row)
+    for row in observations:
+        observation_by_experiment.setdefault(row["experiment_id"], []).append(row)
+
+    assignment_keys: set[tuple[str, int]] = set()
+    for row in assignments:
+        key = (row["experiment_id"], row["user_id"])
+        if key in assignment_keys:
+            errors.append(
+                f"实验 {row['experiment_id']} 中 user_id={row['user_id']} 被重复分组"
+            )
+        assignment_keys.add(key)
+    observation_keys: set[tuple[str, date, int, str]] = set()
+    for row in observations:
+        key = (
+            row["experiment_id"],
+            row["observation_date"],
+            row["item_id"],
+            row["variant"],
+        )
+        if key in observation_keys:
+            errors.append(
+                "实验观察行重复："
+                f"{row['experiment_id']}/{row['observation_date']}/{row['item_id']}/{row['variant']}"
+            )
+        observation_keys.add(key)
+
+    assignment_experiments = set(assignment_by_experiment)
+    observation_experiments = set(observation_by_experiment)
+    if assignment_experiments != observation_experiments:
+        missing_observations = sorted(assignment_experiments - observation_experiments)
+        missing_assignments = sorted(observation_experiments - assignment_experiments)
+        if missing_observations:
+            errors.append(f"实验缺少观察数据：{missing_observations}")
+        if missing_assignments:
+            errors.append(f"实验缺少用户分组数据：{missing_assignments}")
+
+    experiments: list[dict[str, Any]] = []
+    for experiment_id in sorted(assignment_experiments | observation_experiments):
+        experiment_assignments = assignment_by_experiment.get(experiment_id, [])
+        experiment_observations = observation_by_experiment.get(experiment_id, [])
+        assignment_variants = {row["variant"] for row in experiment_assignments}
+        observation_variants = {row["variant"] for row in experiment_observations}
+        if assignment_variants != EXPERIMENT_VARIANTS:
+            errors.append(f"实验 {experiment_id} 的用户分组必须同时包含 control 和 treatment")
+        if observation_variants != EXPERIMENT_VARIANTS:
+            errors.append(f"实验 {experiment_id} 的观察数据必须同时包含 control 和 treatment")
+        allocation_methods = {
+            row["allocation_method"]
+            for row in experiment_assignments + experiment_observations
+        }
+        if len(allocation_methods) > 1:
+            warnings.append(
+                f"实验 {experiment_id} 同时出现多个 allocation_method：{sorted(allocation_methods)}"
+            )
+        experiments.append(
+            {
+                "experiment_id": experiment_id,
+                "assignment_rows": len(experiment_assignments),
+                "assigned_users": len(
+                    {(row["experiment_id"], row["user_id"]) for row in experiment_assignments}
+                ),
+                "control_assigned_users": sum(
+                    row["variant"] == "control" for row in experiment_assignments
+                ),
+                "treatment_assigned_users": sum(
+                    row["variant"] == "treatment" for row in experiment_assignments
+                ),
+                "observation_rows": len(experiment_observations),
+                "observation_days": len(
+                    {row["observation_date"] for row in experiment_observations}
+                ),
+                "observed_items": len({row["item_id"] for row in experiment_observations}),
+            }
+        )
+
+    return {
+        "valid": not errors and bool(experiments),
+        "contract_version": "p28-price-experiment-input-v1",
+        "source_kind": "observed",
+        "source": source,
+        "synthetic": False,
+        "causal_claim": "not_verified",
+        "assignment_rows": len(assignments),
+        "observation_rows": len(observations),
+        "experiment_count": len(experiments),
+        "experiments": experiments,
+        "warnings": sorted(set(warnings)),
+        "errors": sorted(set(errors)),
+    }
 
 
 def shift_target_end(anchor_end: str, time_shift: str):
@@ -764,7 +1043,43 @@ def main() -> None:
     )
     quality_parser.add_argument("--dataset-id", default=DEFAULT_ANALYTICS_DATASET_ID)
 
+    experiment_parser = subparsers.add_parser(
+        "validate-price-experiment-csv",
+        help="只读校验真实价格实验的用户分组 CSV 与观察 CSV",
+    )
+    experiment_parser.add_argument(
+        "--assignments",
+        required=True,
+        type=Path,
+        help="用户分组 CSV：experiment_id,user_id,variant,assigned_at,allocation_method",
+    )
+    experiment_parser.add_argument(
+        "--observations",
+        required=True,
+        type=Path,
+        help=(
+            "实验观察 CSV：experiment_id,observation_date,item_id,variant,"
+            "selling_price,exposed_users,purchasers,units,assignment_unit,allocation_method"
+        ),
+    )
+    experiment_parser.add_argument(
+        "--source",
+        default="observed_price_experiment_csv",
+        help="报告中记录的外部来源名称",
+    )
+
     args = parser.parse_args()
+    if args.command == "validate-price-experiment-csv":
+        result = validate_price_experiment_csv_files(
+            args.assignments,
+            args.observations,
+            source=args.source,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        if not result["valid"]:
+            raise SystemExit(1)
+        return
+
     connection = _connect()
     try:
         if args.command == "import-userbehavior":

@@ -41,7 +41,7 @@
 | ISSUE-P33 | 前端生产依赖安全升级 | P0 | `npm audit --omit=dev --audit-level=high` 通过；Next.js、PostCSS、Sharp、js-yaml、nanoid 等生产依赖升级后，构建、类型、单测、视觉和 Electron/standalone 运行回归通过；不使用未经评估的强制破坏性升级 | done（升级 Next.js `16.3.5`、PostCSS `8.5.28`、Sharp `0.35.4`、js-yaml `4.3.2`、Vitest `4.1.11`、Electron `44.3.0`、Electron Builder `26.15.3`；以兼容性 override 修复 Prisma `deepmerge-ts`、浏览器映射、Electron/ESLint 链和 Tailwind 选择器解析器；未执行 `npm audit fix --force`，未降级 Prisma；全量 npm audit 为 0 vulnerabilities，类型检查、Lint、全量单测 1039 passed、生产构建通过；证据见 [`docs/review/p33-dependency-security.md`](docs/review/p33-dependency-security.md)） |
 | ISSUE-P34 | 开源发布卫生与可复现性 | P0 | 活动 Skill、公开文档和产品元数据不再包含旧领域说明、个人绝对路径或旧仓库链接；仓库具备贡献、安全和行为规范；秘密、运行产物与本机路径扫描通过；Skill registry、lock、tgz 与源文件一致；全套发布前门禁通过 | done（公开仓库已创建：[`betterkite/shop-gate`](https://github.com/betterkite/shop-gate)；代码已通过 [PR #1](https://github.com/betterkite/shop-gate/pull/1) 合并到 `main`；公开仓库当前只保留 `main` 作为发布基线；仓库可见性为 public，License 版权主体为 `betterkite`；本地 `release:check:full` 与 GitHub Actions 均已通过） |
 | ISSUE-P35 | 运行时兼容合同与旧 guard 语义收敛 | P0 | 用户可见提示、验证器、权限/配额合同和运行时兼容代码统一为零售语义；保留的历史迁移、数据库 migration 和兼容 fixture 有明确 allowlist 与用途；未引用的旧域模块、路径和 guard 删除；全量测试、构建和零售 E2E 通过 | done（已完成运行时/评测台/沙箱/工具结果/文档/测试夹具零售化，删除未引用旧路由与合同 fixture；保留项已在 [`docs/review/p35-runtime-retailization.md`](docs/review/p35-runtime-retailization.md) 说明。主动旧语义、秘密、本机路径和运行产物扫描通过；`npm run release:check:full` 通过：依赖 0 vulnerabilities、187 个前端测试文件 1038 passed/25 skipped、后端 59 passed、类型检查、构建、Skills、评测与 doctor 全部通过） |
-| [ISSUE-P36](https://github.com/betterkite/shop-gate/issues/19) | 公开真实 E2E benchmark runner 与隐藏集边界 | P0/P9 | `benchmark:commerce:e2e` 真实执行 `check-task-e2e` 并生成可审计报告；`--repeat`、模型和数据集可见性参数不被静默忽略；nightly/release-evidence 能启动完整前后端链路；hidden/shadow 集合只从受控外部输入读取，不混入公开仓库 | in-progress（已在 P36 专用分支恢复真实 runner、物理 repeat、模型覆盖、结构化 gate 和 hidden/shadow 外部注入/脱敏；同步修正评测平台旧 `benchmarks/shopgate` 路径。待全量门禁、RepoSteward submit 和 PR 验收） |
+| [ISSUE-P36](https://github.com/betterkite/shop-gate/issues/19) | 公开真实 E2E benchmark runner 与隐藏集边界 | P0/P9 | `benchmark:commerce:e2e` 真实执行 `check-task-e2e` 并生成可审计报告；`--repeat`、模型和数据集可见性参数不被静默忽略；nightly/release-evidence 能启动完整前后端链路；hidden/shadow 集合只从受控外部输入读取，不混入公开仓库 | done（PR #40 已合并；RepoSteward follow-up 已确认合并提交、头部分支和 GitHub checks 均通过；公开 contract benchmark、结构化 CI gate、参数拒绝和 hidden/shadow 外部输入边界已验收） |
 
 P30 最新推进：库存健康摘要的四类判断已分别关联到对应的完整商品明细，接口新增 `health` 筛选并保留全量风险分布、商品/类目范围和分页；后端单测、API 验收与桌面/移动视觉回归纳入本次提交。P30 仍保持 `in-progress`，下一项继续处理补货摘要和价格带的精确联动。
 
@@ -67,6 +67,7 @@ P30 续更：商品/类目筛选进入各分析页后统一显示当前范围说
 
 P30 续更：BI 标签切换现在保留当前商品阶段和日趋势日期窗口，并继续携带已有商品/类目范围；新增桌面/移动视觉回归，防止跨视图查看时筛选条件被静默清除。
 P30 续更：Agent 只读回答的上下文说明改用“商品/类目/渠道/活动”等中文范围名称，并在存在时补充分析内容，避免向用户直接展示 `item=...` 等内部表达；新增商品与类目范围回归测试。
+P30 续更：渠道/活动和毛利渠道结果新增“按渠道/活动查看总览”与“查看明细”双入口；无父级筛选时，选择图表项会把 `filter_dimension`/`filter_value` 带回总览并刷新可计算的关联模块；已有商品或类目父级范围时保留父级范围提示，不伪造组合筛选。视觉门新增全渠道页的渠道范围、活动范围和明细入口检查，桌面/移动检查通过。
 
 ## P0 结果与残留台账（2025-09-06，随阶段推进收敛）
 

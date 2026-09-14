@@ -882,6 +882,11 @@ def test_price_band_comparison_rejects_unknown_stratification() -> None:
         asyncio.run(price_band_comparison("retail-price-band", stratify_by="channel"))
 
 
+def test_price_band_comparison_rejects_unknown_standardization() -> None:
+    with pytest.raises(ValueError, match="标准化字段必须是"):
+        asyncio.run(price_band_comparison("retail-price-band", adjust_by="channel"))
+
+
 def test_price_band_comparison_reports_assignment_balance_by_profile_dimension(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1249,17 +1254,32 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
                 for experiment_id in ("exp-1", "exp-2")
                 for variant in ("control", "treatment")
             ]
+        if calls == 9:
+            return [
+                {
+                    "experiment_id": experiment_id,
+                    "stratum": "loyal",
+                    "variant": variant,
+                    "outcome_users": 2,
+                    "outcome_purchasers": 1 if variant == "control" else 2,
+                    "outcome_units": 1 if variant == "control" else 3,
+                }
+                for experiment_id in ("exp-1", "exp-2")
+                for variant in ("control", "treatment")
+            ]
         return []
 
     monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
 
     result = asyncio.run(
         price_band_comparison(
-            "retail-p28-real-outcomes", stratify_by="member_level"
+            "retail-p28-real-outcomes",
+            stratify_by="member_level",
+            adjust_by="member_level",
         )
     )
 
-    assert calls == 8
+    assert calls == 9
     assert result["multiple_testing"]["status"] == "adjusted"
     assert result["multiple_testing"]["experiment_count"] == 2
     assert result["multiple_testing"]["tested_experiment_count"] == 2
@@ -1308,6 +1328,23 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
         "treatment_conversion_rate": 1.0,
         "absolute_conversion_difference": 0.5,
     }]
+    assert result["standardization"] == {
+        "status": "available",
+        "dimension": "member_level",
+        "method": "pooled_stratum_standardization",
+        "supported_dimensions": ["age_band", "city_tier", "member_level"],
+        "explanation": (
+            "分层标准化使用两组用户合并后的画像分布作为权重；"
+            "结果是描述性参考，不是正式因果调整。"
+        ),
+    }
+    standardized = first["standardized_statistics"]
+    assert standardized["status"] == "descriptive_standardized"
+    assert standardized["standardization_population_users"] == 4
+    assert standardized["control_standardized_conversion_rate"] == 0.5
+    assert standardized["treatment_standardized_conversion_rate"] == 1.0
+    assert standardized["absolute_standardized_conversion_difference"] == 0.5
+    assert standardized["strata"][0]["population_weight"] == 1.0
 
 
 def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_prices(

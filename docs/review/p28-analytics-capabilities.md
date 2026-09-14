@@ -164,6 +164,12 @@ assignment、分组必须一致、每个实验用户只能有一条结果、日�
 
 该口径还明确返回“未做协变量调整”。`ready_for_user_level_review` 只表示真实用户分组和结果已满足当前复核条件；合成或证据不完整的结果分别保持 `descriptive_only` 或 `not_ready`。这一步统一的是可复核定义，不实现倾向得分、回归调整、异质性效应或正式因果模型。跟进 Issue：[#60](https://github.com/betterkite/shop-gate/issues/60)。
 
+## 分层标准化购买率参考（P28 后续，2026-09-14）
+
+价格实验接口支持可选 `adjust_by`：`member_level`（会员等级）、`city_tier`（城市层级）和 `age_band`（年龄段）。当用户结果完整时，接口使用对照组和处理组合并后的画像分布作为权重，返回各分层权重、两组原始购买率、标准化后的两组购买率及“处理组 - 对照组”的标准化差异；缺失画像保留为 `unknown`。
+
+结果标记为 `descriptive_standardized` 时表示可以复核分层标准化参考；存在未知画像时标记 `partial_profile_coverage`，仍保留未知分层；缺少一组、用户结果不完整或没有 outcomes 时分别保留数据缺口状态，不填充调整值。该方法不输出新的因果置信区间或显著性结论，不替代倾向得分、回归调整、双重稳健估计或正式因果模型。跟进 Issue：[#62](https://github.com/betterkite/shop-gate/issues/62)。
+
 ## 价格弹性切片复验（2026-09-12）
 
 - 后端为同一商品的多价格成交观察计算对数回归参考值；没有至少两个有效价格点时返回 `insufficient_data_for_elasticity`，不输出空想的系数。

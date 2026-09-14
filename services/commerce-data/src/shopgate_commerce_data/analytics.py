@@ -1241,6 +1241,7 @@ async def price_band_comparison(
     price_band: str | None = None,
     stratify_by: str | None = None,
     balance_by: str | None = None,
+    adjust_by: str | None = None,
 ) -> dict[str, Any]:
     """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
 
@@ -1250,6 +1251,8 @@ async def price_band_comparison(
         raise ValueError("分层字段必须是 member_level、city_tier 或 age_band")
     if balance_by is not None and balance_by not in USER_PROFILE_STRATIFICATION_FIELDS:
         raise ValueError("平衡检查字段必须是 member_level、city_tier 或 age_band")
+    if adjust_by is not None and adjust_by not in USER_PROFILE_STRATIFICATION_FIELDS:
+        raise ValueError("标准化字段必须是 member_level、city_tier 或 age_band")
     price_band_clause = ""
     price_band_params: tuple[int, ...] = ()
     if price_band == "0-50":
@@ -1412,8 +1415,10 @@ async def price_band_comparison(
     assignment_evidence_by_experiment: dict[str, dict[str, Any]] = {}
     assignment_balance_by_experiment: dict[str, dict[str, Any]] = {}
     stratified_statistics_by_experiment: dict[str, dict[str, Any]] = {}
+    standardized_statistics_by_experiment: dict[str, dict[str, Any]] = {}
     stratification_status = "not_requested" if stratify_by is None else "not_available"
     assignment_balance_status = "not_requested" if balance_by is None else "not_provided"
+    standardization_status = "not_requested" if adjust_by is None else "not_provided"
     if experiment_declared:
         experiment_rows = await fetch_all(
             """
@@ -1900,6 +1905,142 @@ async def price_band_comparison(
                     "dimension": stratify_by,
                     "strata": stratum_rows,
                 }
+        if adjust_by is not None and "price_experiment_outcomes" in row_counts:
+            standardized_rows = await fetch_all(
+                f"""
+                SELECT o.experiment_id,
+                       COALESCE({USER_PROFILE_STRATIFICATION_FIELDS[adjust_by]}::text,
+                                'unknown') AS stratum,
+                       o.variant,
+                       COUNT(*) AS outcome_users,
+                       COUNT(*) FILTER (WHERE o.purchased = 1) AS outcome_purchasers,
+                       COALESCE(SUM(o.units), 0) AS outcome_units
+                FROM commerce.dataset_price_experiment_outcomes o
+                LEFT JOIN commerce.dataset_user_profiles p
+                  ON p.dataset_id = o.dataset_id AND p.user_id = o.user_id
+                WHERE o.dataset_id = %s
+                GROUP BY o.experiment_id, stratum, o.variant
+                ORDER BY o.experiment_id, stratum, o.variant
+                """,
+                (dataset_id,),
+            )
+            standardization_status = "available" if standardized_rows else "not_provided"
+            standardized_groups: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
+            for row in standardized_rows:
+                experiment_id = str(row["experiment_id"])
+                stratum = str(row["stratum"] or "unknown")
+                variant = str(row["variant"])
+                standardized_groups.setdefault(experiment_id, {}).setdefault(
+                    stratum, {}
+                )[variant] = {
+                    "users": int(row["outcome_users"] or 0),
+                    "purchasers": int(row["outcome_purchasers"] or 0),
+                    "units": int(row["outcome_units"] or 0),
+                }
+            for experiment_id, strata in standardized_groups.items():
+                evidence_status = outcome_evidence_by_experiment.get(
+                    experiment_id, {}
+                ).get("status", "incomplete")
+                total_users = sum(
+                    int(variant_data.get("users", 0))
+                    for variants in strata.values()
+                    for variant_data in variants.values()
+                )
+                missing_variant_stratum = any(
+                    not variants.get("control") or not variants.get("treatment")
+                    for variants in strata.values()
+                )
+                unknown_users = sum(
+                    int(variant_data.get("users", 0))
+                    for variant_data in strata.get("unknown", {}).values()
+                )
+                stratum_rows: list[dict[str, Any]] = []
+                adjusted_control_rate = 0.0
+                adjusted_treatment_rate = 0.0
+                for stratum, variants in strata.items():
+                    control = variants.get("control")
+                    treatment = variants.get("treatment")
+                    stratum_users = sum(
+                        int(variant_data.get("users", 0))
+                        for variant_data in variants.values()
+                    )
+                    weight = stratum_users / total_users if total_users else None
+                    control_rate = (
+                        control["purchasers"] / control["users"]
+                        if control and control["users"]
+                        else None
+                    )
+                    treatment_rate = (
+                        treatment["purchasers"] / treatment["users"]
+                        if treatment and treatment["users"]
+                        else None
+                    )
+                    if (
+                        weight is not None
+                        and control_rate is not None
+                        and treatment_rate is not None
+                    ):
+                        adjusted_control_rate += weight * control_rate
+                        adjusted_treatment_rate += weight * treatment_rate
+                    stratum_rows.append(
+                        {
+                            "stratum": stratum,
+                            "population_weight": (
+                                round(weight, 6) if weight is not None else None
+                            ),
+                            "control_users": control["users"] if control else None,
+                            "treatment_users": treatment["users"] if treatment else None,
+                            "control_purchasers": (
+                                control["purchasers"] if control else None
+                            ),
+                            "treatment_purchasers": (
+                                treatment["purchasers"] if treatment else None
+                            ),
+                            "control_conversion_rate": (
+                                round(control_rate, 6) if control_rate is not None else None
+                            ),
+                            "treatment_conversion_rate": (
+                                round(treatment_rate, 6)
+                                if treatment_rate is not None
+                                else None
+                            ),
+                        }
+                    )
+                if evidence_status != "complete":
+                    status = evidence_status
+                elif missing_variant_stratum or not total_users:
+                    status = "insufficient_variant_coverage"
+                elif unknown_users:
+                    status = "partial_profile_coverage"
+                else:
+                    status = "descriptive_standardized"
+                has_adjusted_values = status in {
+                    "descriptive_standardized",
+                    "partial_profile_coverage",
+                }
+                standardized_statistics_by_experiment[experiment_id] = {
+                    "status": status,
+                    "dimension": adjust_by,
+                    "method": "pooled_stratum_standardization",
+                    "standardization_population_users": total_users,
+                    "unknown_user_count": unknown_users,
+                    "control_standardized_conversion_rate": (
+                        round(adjusted_control_rate, 6) if has_adjusted_values else None
+                    ),
+                    "treatment_standardized_conversion_rate": (
+                        round(adjusted_treatment_rate, 6) if has_adjusted_values else None
+                    ),
+                    "absolute_standardized_conversion_difference": (
+                        round(adjusted_treatment_rate - adjusted_control_rate, 6)
+                        if has_adjusted_values
+                        else None
+                    ),
+                    "strata": stratum_rows,
+                    "explanation": (
+                        "使用对照组和处理组合并后的分层用户分布作为权重；"
+                        "这是描述性标准化参考，不是正式因果调整。"
+                    ),
+                }
         for result in experiment_results:
             result["assignment_evidence"] = assignment_evidence_by_experiment.get(
                 result["experiment_id"],
@@ -1988,6 +2129,34 @@ async def price_band_comparison(
                         "当前没有用户分组记录，无法检查两组人群构成。"
                         if assignment_balance_status == "not_provided"
                         else "当前未请求用户分配平衡检查。"
+                    ),
+                },
+            )
+            result["standardized_statistics"] = standardized_statistics_by_experiment.get(
+                result["experiment_id"],
+                {
+                    "status": (
+                        result["outcome_evidence"]["status"]
+                        if result["outcome_evidence"]["status"] in {
+                            "not_provided",
+                            "incomplete",
+                        }
+                        else "insufficient_variant_coverage"
+                        if standardization_status == "available"
+                        else standardization_status
+                    ),
+                    "dimension": adjust_by,
+                    "method": "pooled_stratum_standardization",
+                    "standardization_population_users": None,
+                    "unknown_user_count": None,
+                    "control_standardized_conversion_rate": None,
+                    "treatment_standardized_conversion_rate": None,
+                    "absolute_standardized_conversion_difference": None,
+                    "strata": [],
+                    "explanation": (
+                        "当前没有完整用户结果，无法进行分层标准化。"
+                        if result["outcome_evidence"]["status"] != "complete"
+                        else "当前未请求分层标准化。"
                     ),
                 },
             )
@@ -2177,6 +2346,20 @@ async def price_band_comparison(
             else "当前没有可比较的实验结果，暂不提供用户级分析口径。"
         ),
     }
+    standardization = {
+        "status": standardization_status,
+        "dimension": adjust_by,
+        "method": "pooled_stratum_standardization",
+        "supported_dimensions": sorted(USER_PROFILE_STRATIFICATION_FIELDS),
+        "explanation": (
+            "分层标准化使用两组用户合并后的画像分布作为权重；"
+            "结果是描述性参考，不是正式因果调整。"
+            if standardization_status == "available"
+            else "当前未请求分层标准化。"
+            if standardization_status == "not_requested"
+            else "当前没有完整用户结果，无法进行分层标准化。"
+        ),
+    }
     page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
@@ -2209,6 +2392,8 @@ async def price_band_comparison(
         assignment_balance=assignment_balance,
         balance_by=balance_by,
         analysis_definition=analysis_definition,
+        standardization=standardization,
+        adjust_by=adjust_by,
         price_band_comparison=bands,
     )
 

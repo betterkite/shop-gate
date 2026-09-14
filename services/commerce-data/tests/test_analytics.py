@@ -882,6 +882,133 @@ def test_price_band_comparison_rejects_unknown_stratification() -> None:
         asyncio.run(price_band_comparison("retail-price-band", stratify_by="channel"))
 
 
+def test_price_band_comparison_reports_assignment_balance_by_profile_dimension(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def fake_fetch_all(
+        query: str,
+        params: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return [{
+                "dataset_id": "retail-p28-balance",
+                "version": 1,
+                "source_kind": "mixed",
+                "source_name": "balance_fixture",
+                "schema_version": "commerce-analytics-v1",
+                "window_start": date(2025, 1, 1),
+                "window_end": date(2025, 1, 31),
+                "generation_seed": None,
+                "row_counts": {
+                    "price_experiment_observations": 2,
+                    "price_experiment_assignments": 6,
+                },
+                "synthetic_fields": [],
+                "limitations": [],
+                "generation_rule": "observed test fixture",
+            }]
+        if calls in {2, 3}:
+            return []
+        if calls == 4:
+            return [
+                {
+                    "experiment_id": "exp-1",
+                    "observation_date": date(2025, 1, 1),
+                    "item_id": 1001,
+                    "category_id": 10,
+                    "variant": "control",
+                    "selling_price": 100,
+                    "exposed_users": 2,
+                    "purchasers": 1,
+                    "units": 1,
+                    "assignment_unit": "user",
+                    "allocation_method": "hash_user_id",
+                    "synthetic": False,
+                },
+                {
+                    "experiment_id": "exp-1",
+                    "observation_date": date(2025, 1, 1),
+                    "item_id": 1001,
+                    "category_id": 10,
+                    "variant": "treatment",
+                    "selling_price": 90,
+                    "exposed_users": 2,
+                    "purchasers": 1,
+                    "units": 1,
+                    "assignment_unit": "user",
+                    "allocation_method": "hash_user_id",
+                    "synthetic": False,
+                },
+            ]
+        if calls == 5:
+            return [{
+                "experiment_id": "exp-1",
+                "assignment_rows": 6,
+                "assigned_users": 6,
+                "control_assigned_users": 3,
+                "treatment_assigned_users": 3,
+                "assigned_from": date(2025, 1, 1),
+                "assigned_to": date(2025, 1, 1),
+                "allocation_methods": "hash_user_id",
+                "all_synthetic": False,
+                "has_observed": True,
+            }]
+        if calls == 6:
+            return [
+                {
+                    "experiment_id": "exp-1",
+                    "stratum": "standard",
+                    "variant": "control",
+                    "assigned_users": 2,
+                },
+                {
+                    "experiment_id": "exp-1",
+                    "stratum": "standard",
+                    "variant": "treatment",
+                    "assigned_users": 1,
+                },
+                {
+                    "experiment_id": "exp-1",
+                    "stratum": "premium",
+                    "variant": "control",
+                    "assigned_users": 1,
+                },
+                {
+                    "experiment_id": "exp-1",
+                    "stratum": "premium",
+                    "variant": "treatment",
+                    "assigned_users": 2,
+                },
+            ]
+        return []
+
+    monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
+
+    result = asyncio.run(
+        price_band_comparison("retail-p28-balance", balance_by="member_level")
+    )
+
+    assert calls == 6
+    assert result["assignment_balance"] == {
+        "status": "available",
+        "dimension": "member_level",
+        "supported_dimensions": ["age_band", "city_tier", "member_level"],
+        "explanation": (
+            "平衡检查只描述对照组和处理组的用户画像构成，不证明随机化，也不替代正式因果分析。"
+        ),
+    }
+    balance = result["experiment_results"][0]["assignment_balance"]
+    assert balance["status"] == "descriptive"
+    assert balance["control_users"] == 3
+    assert balance["treatment_users"] == 3
+    assert balance["unknown_user_count"] == 0
+    assert balance["strata"][0]["absolute_share_difference"] == 0.333333
+
+
 def test_price_band_comparison_reports_experiment_reference_when_groups_are_explicit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

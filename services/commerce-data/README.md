@@ -55,7 +55,7 @@ uv run shopgate-commerce-import aggregate-daily
 - `GET /api/v1/commerce/analytics/inventory`：库存结存、日销量、可售天数和库存健康标签；支持按库存正常、库存积压、缺货风险或有库存但无销量筛选。
 - `GET /api/v1/commerce/analytics/replenishment`：按供货周期和目标覆盖天数给出补货参考；支持按四类补货判断筛选。
 - `GET /api/v1/commerce/analytics/lifecycle`：按窗口内购买活跃度判断商品经营阶段；支持 `stage` 阶段筛选、`page` 分页和 `limit` 每页数量。
-- `GET /api/v1/commerce/analytics/price-elasticity`：价格带对比；支持按价格带筛选，有同一商品多个成交价格观察时返回价格与购买量关系参考；如果数据集登记了对照/处理组实验观察，还会返回两组购买率差异，否则明确返回实验数据缺口。
+- `GET /api/v1/commerce/analytics/price-elasticity`：价格带对比；支持按价格带筛选，有同一商品多个成交价格观察时返回价格与购买量关系参考；如果数据集登记了对照/处理组实验观察，还会返回两组购买率差异，否则明确返回实验数据缺口。可选 `stratify_by` 查看用户结果分层，可选 `balance_by` 检查用户分配的人群构成；两者都是描述性结果，不代表因果结论。
 - `GET /api/v1/commerce/analytics/drilldown`：按用户、渠道、活动、类目或商品继续查看上下文，并返回下一步问题建议；渠道/活动明细可保留商品或类目父级范围。
 
 API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准。

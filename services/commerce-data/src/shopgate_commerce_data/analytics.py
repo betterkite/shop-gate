@@ -1240,6 +1240,7 @@ async def price_band_comparison(
     value: str | None = None,
     price_band: str | None = None,
     stratify_by: str | None = None,
+    balance_by: str | None = None,
 ) -> dict[str, Any]:
     """提供价格带对比，并在有多价格观察时计算可解释的需求弹性。"""
 
@@ -1247,6 +1248,8 @@ async def price_band_comparison(
         raise ValueError(f"价格带必须是：{'、'.join(PRICE_BANDS)}")
     if stratify_by is not None and stratify_by not in USER_PROFILE_STRATIFICATION_FIELDS:
         raise ValueError("分层字段必须是 member_level、city_tier 或 age_band")
+    if balance_by is not None and balance_by not in USER_PROFILE_STRATIFICATION_FIELDS:
+        raise ValueError("平衡检查字段必须是 member_level、city_tier 或 age_band")
     price_band_clause = ""
     price_band_params: tuple[int, ...] = ()
     if price_band == "0-50":
@@ -1407,8 +1410,10 @@ async def price_band_comparison(
     )
     experiment_results: list[dict[str, Any]] = []
     assignment_evidence_by_experiment: dict[str, dict[str, Any]] = {}
+    assignment_balance_by_experiment: dict[str, dict[str, Any]] = {}
     stratified_statistics_by_experiment: dict[str, dict[str, Any]] = {}
     stratification_status = "not_requested" if stratify_by is None else "not_available"
+    assignment_balance_status = "not_requested" if balance_by is None else "not_provided"
     if experiment_declared:
         experiment_rows = await fetch_all(
             """
@@ -1564,6 +1569,103 @@ async def price_band_comparison(
                     "synthetic": bool(row.get("all_synthetic", False)),
                     "has_observed_rows": bool(row.get("has_observed", False)),
                 }
+            if balance_by is not None:
+                balance_rows = await fetch_all(
+                    f"""
+                    SELECT a.experiment_id,
+                           COALESCE({USER_PROFILE_STRATIFICATION_FIELDS[balance_by]}::text,
+                                    'unknown') AS stratum,
+                           a.variant,
+                           COUNT(DISTINCT a.user_id) AS assigned_users
+                    FROM commerce.dataset_price_experiment_assignments a
+                    LEFT JOIN commerce.dataset_user_profiles p
+                      ON p.dataset_id = a.dataset_id AND p.user_id = a.user_id
+                    WHERE a.dataset_id = %s
+                    GROUP BY a.experiment_id, stratum, a.variant
+                    ORDER BY a.experiment_id, stratum, a.variant
+                    """,
+                    (dataset_id,),
+                )
+                balance_groups: dict[str, dict[str, dict[str, int]]] = {}
+                for row in balance_rows:
+                    experiment_id = str(row["experiment_id"])
+                    stratum = str(row["stratum"] or "unknown")
+                    variant = str(row["variant"])
+                    balance_groups.setdefault(experiment_id, {}).setdefault(
+                        stratum, {}
+                    )[variant] = int(row["assigned_users"] or 0)
+                assignment_balance_status = "available" if balance_groups else "not_provided"
+                for experiment_id, strata in balance_groups.items():
+                    evidence = assignment_evidence_by_experiment.get(experiment_id, {})
+                    control_total = int(evidence.get("control_assigned_users", 0))
+                    treatment_total = int(evidence.get("treatment_assigned_users", 0))
+                    stratum_rows: list[dict[str, Any]] = []
+                    unknown_users = 0
+                    for stratum, variants in strata.items():
+                        control_users = int(variants.get("control", 0))
+                        treatment_users = int(variants.get("treatment", 0))
+                        if stratum == "unknown":
+                            unknown_users = control_users + treatment_users
+                        control_share = control_users / control_total if control_total else None
+                        treatment_share = (
+                            treatment_users / treatment_total if treatment_total else None
+                        )
+                        share_difference = (
+                            abs(treatment_share - control_share)
+                            if control_share is not None and treatment_share is not None
+                            else None
+                        )
+                        stratum_rows.append(
+                            {
+                                "stratum": stratum,
+                                "control_users": control_users,
+                                "treatment_users": treatment_users,
+                                "control_share": (
+                                    round(control_share, 6)
+                                    if control_share is not None
+                                    else None
+                                ),
+                                "treatment_share": (
+                                    round(treatment_share, 6)
+                                    if treatment_share is not None
+                                    else None
+                                ),
+                                "absolute_share_difference": (
+                                    round(share_difference, 6)
+                                    if share_difference is not None
+                                    else None
+                                ),
+                            }
+                        )
+                    evidence_status = str(evidence.get("status", "incomplete"))
+                    missing_variant_stratum = any(
+                        not variants.get("control") or not variants.get("treatment")
+                        for variants in strata.values()
+                    )
+                    if control_total == 0 or treatment_total == 0:
+                        status = "insufficient_variant_coverage"
+                    elif evidence_status == "incomplete":
+                        status = "incomplete"
+                    elif missing_variant_stratum:
+                        status = "insufficient_variant_coverage"
+                    elif unknown_users:
+                        status = "partial_profile_coverage"
+                    else:
+                        status = "descriptive"
+                    assignment_balance_by_experiment[experiment_id] = {
+                        "status": status,
+                        "dimension": balance_by,
+                        "control_users": control_total,
+                        "treatment_users": treatment_total,
+                        "unknown_user_count": unknown_users,
+                        "strata": stratum_rows,
+                        "explanation": (
+                            "这是按用户画像比较对照组和处理组构成的描述性检查；"
+                            "未知画像已单独列出，不代表随机化或因果关系。"
+                        ),
+                    }
+        elif balance_by is not None:
+            assignment_balance_status = "not_provided"
         outcome_evidence_by_experiment: dict[str, dict[str, Any]] = {}
         outcome_statistics_by_experiment: dict[str, dict[str, Any]] = {}
         if "price_experiment_outcomes" in row_counts:
@@ -1869,6 +1971,26 @@ async def price_band_comparison(
                     "strata": [],
                 },
             )
+            result["assignment_balance"] = assignment_balance_by_experiment.get(
+                result["experiment_id"],
+                {
+                    "status": (
+                        "not_provided"
+                        if assignment_balance_status == "not_provided"
+                        else assignment_balance_status
+                    ),
+                    "dimension": balance_by,
+                    "control_users": None,
+                    "treatment_users": None,
+                    "unknown_user_count": None,
+                    "strata": [],
+                    "explanation": (
+                        "当前没有用户分组记录，无法检查两组人群构成。"
+                        if assignment_balance_status == "not_provided"
+                        else "当前未请求用户分配平衡检查。"
+                    ),
+                },
+            )
             assignment_status = result["assignment_evidence"]["status"]
             outcome_status = result["outcome_evidence"]["status"]
             result["causal_readiness"] = (
@@ -1990,6 +2112,18 @@ async def price_band_comparison(
             else "当前没有完整用户结果或用户画像，无法生成分层统计。"
         ),
     }
+    assignment_balance = {
+        "status": assignment_balance_status,
+        "dimension": balance_by,
+        "supported_dimensions": sorted(USER_PROFILE_STRATIFICATION_FIELDS),
+        "explanation": (
+            "平衡检查只描述对照组和处理组的用户画像构成，不证明随机化，也不替代正式因果分析。"
+            if assignment_balance_status == "available"
+            else "当前未请求用户分配平衡检查。"
+            if assignment_balance_status == "not_requested"
+            else "当前没有用户分组记录，无法检查两组人群构成。"
+        ),
+    }
     page_count = max((len(all_item_elasticities) + limit - 1) // limit, 1)
     page = min(max(page, 1), page_count)
     start = (page - 1) * limit
@@ -2019,6 +2153,8 @@ async def price_band_comparison(
         multiple_testing=multiple_testing,
         stratification=stratification,
         stratify_by=stratify_by,
+        assignment_balance=assignment_balance,
+        balance_by=balance_by,
         price_band_comparison=bands,
     )
 

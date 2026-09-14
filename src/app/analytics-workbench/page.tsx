@@ -163,6 +163,22 @@ function lifecycleHref(datasetId: string, page: number, stage = '', dimension?: 
   return `/analytics-workbench?${query.toString()}`;
 }
 
+function trendHref(
+  datasetId: string,
+  dimension?: string,
+  value?: string,
+  start?: string,
+  end?: string,
+): string {
+  const query = new URLSearchParams({ view: 'trend', dataset_id: datasetId });
+  addFilterQuery(query, dimension, value);
+  if (start && end) {
+    query.set('start', start);
+    query.set('end', end);
+  }
+  return `/analytics-workbench?${query.toString()}`;
+}
+
 function inventoryHref(
   datasetId: string,
   page: number,
@@ -580,8 +596,12 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
         ? inventoryHref(datasetId, 1, itemScopeDimension, scopeValue, inventoryHealth)
         : key === 'replenishment'
           ? replenishmentHref(datasetId, 1, itemScopeDimension, scopeValue, replenishmentPriority)
-        : key === 'elasticity'
+      : key === 'elasticity'
           ? elasticityHref(datasetId, 1, itemScopeDimension, scopeValue, priceBand)
+        : key === 'lifecycle'
+          ? lifecycleHref(datasetId, 1, lifecycleStage, itemScopeDimension, scopeValue)
+        : key === 'trend'
+          ? trendHref(datasetId, scopeDimension, scopeValue, trendStart, trendEnd)
         : hrefFor(key, datasetId, scopeDimension, scopeValue),
     label,
     active: view === key,

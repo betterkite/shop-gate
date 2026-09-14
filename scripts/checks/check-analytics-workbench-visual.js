@@ -27,6 +27,7 @@ const customerSegmentUrl = `${customerUrl}&segment=${encodeURIComponent('新近�
 const scopedChannelsUrl = `${baseUrl}/analytics-workbench?view=channels&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const scopedProfitUrl = `${baseUrl}/analytics-workbench?view=profit&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009`;
 const scopedLifecycleUrl = `${baseUrl}/analytics-workbench?view=lifecycle&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
+const lifecycleStageUrl = `${baseUrl}/analytics-workbench?view=lifecycle&dataset_id=${encodeURIComponent(datasetId)}&stage=${encodeURIComponent('稳定期')}&page=1`;
 const retentionUrl = `${baseUrl}/analytics-workbench?view=retention&dataset_id=${encodeURIComponent(datasetId)}`;
 const elasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&page=1`;
 const scopedElasticityUrl = `${baseUrl}/analytics-workbench?view=elasticity&dataset_id=${encodeURIComponent(datasetId)}&filter_dimension=item&filter_value=1000009&page=1`;
@@ -201,13 +202,16 @@ async function inspectProfile(browser, storageState, profile) {
       await page.locator('main').getByRole('heading', { name: '日趋势明细', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
       const trendState = await page.evaluate(() => {
         const text = document.body.innerText;
+        const trendTabHref = [...document.querySelectorAll('nav[aria-label="经营分析 BI视图"] a')]
+          .find((link) => link.textContent?.trim() === '日趋势')?.getAttribute('href') || '';
         return {
           selectedWindow: text.includes('当前只查看 2025-11-04 至 2025-11-04'),
-          oneDay: [...document.querySelectorAll('a')].filter((link) => link.getAttribute('href')?.includes('view=trend') && link.getAttribute('href')?.includes('start=2025-11-04') && link.getAttribute('href')?.includes('end=2025-11-04')).length === 1,
+          oneDay: [...document.querySelectorAll('a')].filter((link) => link.getAttribute('href')?.includes('view=trend') && link.getAttribute('href')?.includes('start=2025-11-04') && link.getAttribute('href')?.includes('end=2025-11-04')).length >= 2,
           backLink: [...document.querySelectorAll('a')].some((link) => link.textContent?.includes('返回上一级')),
+          trendTabKeepsWindow: trendTabHref.includes('start=2025-11-04') && trendTabHref.includes('end=2025-11-04'),
         };
       });
-      if (!trendState.selectedWindow || !trendState.oneDay || !trendState.backLink) problems.push(`${profile.id}: 日趋势明细未按选择日期展示或缺少返回入口`);
+      if (!trendState.selectedWindow || !trendState.oneDay || !trendState.backLink || !trendState.trendTabKeepsWindow) problems.push(`${profile.id}: 日趋势明细未按选择日期展示或缺少返回入口，或视图切换丢失日期范围`);
     }
 
     const scopedChannelResponse = await gotoWithRetry(page, scopedChannelDrilldownUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -399,6 +403,19 @@ async function inspectProfile(browser, storageState, profile) {
       await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 20_000 });
       const scopedLifecycleItemHref = await page.locator('table tbody tr').first().locator('a').filter({ hasText: '查看商品明细' }).getAttribute('href').catch(() => null);
       if (!scopedLifecycleItemHref?.includes('filter_dimension=item') || !scopedLifecycleItemHref.includes('filter_value=1000009')) problems.push(`${profile.id}: 商品筛选商品阶段明细链接未保留筛选范围`);
+
+      const lifecycleStageResponse = await gotoWithRetry(page, lifecycleStageUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      if (!lifecycleStageResponse?.ok()) problems.push(`${profile.id}: 指定商品阶段页请求失败`);
+      await page.locator('main').getByRole('heading', { name: '商品经营阶段', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      const lifecycleStageState = await page.evaluate(() => {
+        const lifecycleTabHref = [...document.querySelectorAll('nav[aria-label="经营分析 BI视图"] a')]
+          .find((link) => link.textContent?.trim() === '商品阶段')?.getAttribute('href') || '';
+        return {
+          selected: document.body.innerText.includes('当前查看：稳定期'),
+          tabKeepsStage: lifecycleTabHref.includes('stage=%E7%A8%B3%E5%AE%9A%E6%9C%9F'),
+        };
+      });
+      if (!lifecycleStageState.selected || !lifecycleStageState.tabKeepsStage) problems.push(`${profile.id}: 商品阶段视图切换丢失当前阶段筛选`);
 
       const profitResponse = await gotoWithRetry(page, profitUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       if (!profitResponse?.ok()) {

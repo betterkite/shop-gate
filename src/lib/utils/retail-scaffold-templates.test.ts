@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { retailPriceInventoryPageTemplate } from './retail-scaffold-templates';
+import { retailAnalyticsBiPageTemplate, retailPriceInventoryPageTemplate } from './retail-scaffold-templates';
 
 describe('retail BI scaffold language', () => {
   it('keeps trend labels aligned with the rendered PV/cart/buy series', () => {
@@ -21,5 +21,13 @@ describe('retail BI scaffold language', () => {
     expect(template).not.toContain('<th>诊断</th>');
     expect(template).not.toContain('PV/UV/购买');
     expect(template).not.toContain('蓝=页面浏览量（PV）');
+  });
+
+  it('explains the price experiment evidence in the generated BI page', () => {
+    const template = retailAnalyticsBiPageTemplate();
+
+    expect(template).toContain('变化范围（95%）');
+    expect(template).toContain('样本显示有差异');
+    expect(template).toContain('p 值');
   });
 });

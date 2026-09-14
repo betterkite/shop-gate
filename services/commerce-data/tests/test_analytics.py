@@ -6,6 +6,7 @@ from datetime import date
 import pytest
 
 from shopgate_commerce_data.analytics import (
+    _two_proportion_evidence,
     analytics_dataset_meta,
     analytics_drilldown,
     analytics_overview,
@@ -19,6 +20,25 @@ from shopgate_commerce_data.analytics import (
     retention_metrics,
     rfm_segments,
 )
+
+
+def test_two_proportion_evidence_reports_interval_and_sample_status() -> None:
+    evidence = _two_proportion_evidence(100, 1_000, 140, 1_000)
+
+    assert evidence["absolute_conversion_lift"] == 0.04
+    assert evidence["confidence_level"] == 0.95
+    assert evidence["absolute_conversion_lift_ci_low"] < 0.04
+    assert evidence["absolute_conversion_lift_ci_high"] > 0.04
+    assert evidence["p_value"] is not None
+    assert evidence["sample_status"] == "adequate"
+    assert evidence["significance_status"] == "significant"
+
+
+def test_two_proportion_evidence_does_not_overstate_small_samples() -> None:
+    evidence = _two_proportion_evidence(10, 20, 18, 20)
+
+    assert evidence["sample_status"] == "small_sample"
+    assert evidence["significance_status"] == "small_sample"
 
 
 def test_analytics_overview_applies_entity_scope_to_order_metrics(

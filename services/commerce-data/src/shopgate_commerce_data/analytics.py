@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from math import ceil
+from math import ceil, erfc, sqrt
 from typing import Any
 from urllib.parse import quote
 
@@ -26,6 +26,68 @@ ITEM_SCOPE_DIMENSIONS = {"item", "category"}
 
 def _number(value: Any) -> float:
     return float(value or 0)
+
+
+def _two_proportion_evidence(
+    control_purchasers: int,
+    control_exposed_users: int,
+    treatment_purchasers: int,
+    treatment_exposed_users: int,
+) -> dict[str, Any]:
+    """Return an auditable approximation for a two-group conversion comparison.
+
+    This is deliberately limited to a two-proportion z-test and a Wald interval.
+    It describes the observed difference; it does not establish random assignment
+    or turn synthetic observations into a causal claim.
+    """
+
+    control_n = max(int(control_exposed_users), 0)
+    treatment_n = max(int(treatment_exposed_users), 0)
+    control_x = min(max(int(control_purchasers), 0), control_n)
+    treatment_x = min(max(int(treatment_purchasers), 0), treatment_n)
+    control_rate = control_x / control_n if control_n else 0.0
+    treatment_rate = treatment_x / treatment_n if treatment_n else 0.0
+    lift = treatment_rate - control_rate
+    minimum_sample = min(control_n, treatment_n)
+    sample_status = "adequate" if minimum_sample >= 30 else "small_sample"
+
+    pooled_n = control_n + treatment_n
+    pooled_rate = (control_x + treatment_x) / pooled_n if pooled_n else 0.0
+    pooled_variance = pooled_rate * (1 - pooled_rate) * (
+        (1 / control_n if control_n else 0.0)
+        + (1 / treatment_n if treatment_n else 0.0)
+    )
+    standard_error = sqrt(pooled_variance) if pooled_variance > 0 else 0.0
+    z_score = lift / standard_error if standard_error > 0 else None
+    p_value = erfc(abs(z_score) / sqrt(2)) if z_score is not None else None
+
+    interval_variance = (
+        (control_rate * (1 - control_rate) / control_n if control_n else 0.0)
+        + (treatment_rate * (1 - treatment_rate) / treatment_n if treatment_n else 0.0)
+    )
+    interval_error = 1.96 * sqrt(interval_variance)
+    ci_low = lift - interval_error
+    ci_high = lift + interval_error
+    statistically_significant = (
+        sample_status == "adequate" and p_value is not None and p_value < 0.05
+    )
+    significance_status = (
+        "significant"
+        if statistically_significant
+        else "small_sample"
+        if sample_status == "small_sample"
+        else "not_significant"
+    )
+    return {
+        "absolute_conversion_lift": round(lift, 6),
+        "absolute_conversion_lift_ci_low": round(ci_low, 6),
+        "absolute_conversion_lift_ci_high": round(ci_high, 6),
+        "confidence_level": 0.95,
+        "p_value": round(p_value, 8) if p_value is not None else None,
+        "z_score": round(z_score, 6) if z_score is not None else None,
+        "sample_status": sample_status,
+        "significance_status": significance_status,
+    }
 
 
 def _iso(value: Any) -> Any:
@@ -1379,6 +1441,12 @@ async def price_band_comparison(
                 else 0.0
             )
             relative_lift = (treatment_rate - control_rate) / control_rate if control_rate else None
+            statistical_evidence = _two_proportion_evidence(
+                control["purchasers"],
+                control["exposed_users"],
+                treatment["purchasers"],
+                treatment["exposed_users"],
+            )
             experiment_results.append(
                 {
                     "experiment_id": experiment["experiment_id"],
@@ -1394,7 +1462,7 @@ async def price_band_comparison(
                     "treatment_purchasers": treatment["purchasers"],
                     "control_conversion_rate": round(control_rate, 6),
                     "treatment_conversion_rate": round(treatment_rate, 6),
-                    "absolute_conversion_lift": round(treatment_rate - control_rate, 6),
+                    **statistical_evidence,
                     "relative_conversion_lift": (
                         round(relative_lift, 6) if relative_lift is not None else None
                     ),

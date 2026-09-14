@@ -144,7 +144,13 @@ assignment、分组必须一致、每个实验用户只能有一条结果、日�
 
 在 `outcome_evidence.status=complete` 时，价格实验结果会增加 `outcome_statistics`，展示对照组和处理组的用户数、购买用户数、购买件数、购买率、购买率差异、95% 置信区间和两比例近似检验的 p 值。该切片用于逐项核对样本统计，不会因为 p 值较小就自动宣称价格带来了因果效果；仍需结合 `causal_readiness`、分组记录、实验设计和业务约束复核。
 
-当结果不完整或没有 outcomes 时，`outcome_statistics.status` 会保留 `incomplete` 或 `not_provided`，统计数值不填充为推测值。Issue #54 将多个完整实验的 p 值使用 Benjamini-Hochberg 方法进行 FDR 校正，响应中的 `multiple_testing` 会返回 `method`、`alpha`、有效实验数和 `status=adjusted`；完整 p 值不足时返回 `not_ready`，不伪造校正值。FDR 校正只处理多重比较的统计边界，不证明随机分组、价格因果效果或业务收益。跟进 Issue：[#52](https://github.com/betterkite/shop-gate/issues/52)、[#54](https://github.com/betterkite/shop-gate/issues/54)。
+当结果不完整或没有 outcomes 时，`outcome_statistics.status` 会保留 `incomplete` 或 `not_provided`，统计数值不填充为推测值。Issue #54 已将多个完整实验的 p 值使用 Benjamini-Hochberg 方法进行 FDR 校正，响应中的 `multiple_testing` 会返回 `method`、`alpha`、有效实验数和 `status=adjusted`；完整 p 值不足时返回 `not_ready`，不伪造校正值。FDR 校正只处理多重比较的统计边界，不证明随机分组、价格因果效果或业务收益。跟进 Issue：[#52](https://github.com/betterkite/shop-gate/issues/52)、[#54](https://github.com/betterkite/shop-gate/issues/54)。
+
+## 用户级实验分层描述统计（P28 后续，2026-09-14）
+
+价格实验接口支持可选 `stratify_by`：`member_level`（会员等级）、`city_tier`（城市层级）和 `age_band`（年龄段）。当用户结果完整且画像可关联时，每个实验会返回各分层的对照/处理用户数、购买用户数、购买件数、购买率和购买率差值；该结果的 `status=descriptive`，只用于描述样本，不是分层因果结论。
+
+缺失画像统一进入 `unknown` 分层，不根据其他字段猜测属性；某分层缺少对照组或处理组时标记 `insufficient_variant_coverage`。未请求分层返回 `not_requested`，没有用户结果返回 `not_provided`，正式分层因果模型、协变量调整和交互效应检验不属于本切片。跟进 Issue：[#56](https://github.com/betterkite/shop-gate/issues/56)。
 
 ## 价格弹性切片复验（2026-09-12）
 

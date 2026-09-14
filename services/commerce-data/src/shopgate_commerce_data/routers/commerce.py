@@ -478,10 +478,11 @@ def create_commerce_router() -> APIRouter:
         dimension: Annotated[str | None, Query(max_length=20)] = None,
         value: Annotated[str | None, Query(max_length=120)] = None,
         price_band: Annotated[str | None, Query(max_length=20)] = None,
+        stratify_by: Annotated[str | None, Query(max_length=20)] = None,
     ) -> dict[str, Any]:
         try:
             return await analytics.price_band_comparison(
-                dataset_id, limit, page, dimension, value, price_band
+                dataset_id, limit, page, dimension, value, price_band, stratify_by
             )
         except ValueError as error:
             raise HTTPException(status_code=404, detail=str(error)) from error

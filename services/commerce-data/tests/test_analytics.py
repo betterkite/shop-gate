@@ -877,6 +877,11 @@ def test_price_band_comparison_rejects_unknown_price_band() -> None:
         asyncio.run(price_band_comparison("retail-price-band", price_band="未知价格带"))
 
 
+def test_price_band_comparison_rejects_unknown_stratification() -> None:
+    with pytest.raises(ValueError, match="分层字段必须是"):
+        asyncio.run(price_band_comparison("retail-price-band", stratify_by="channel"))
+
+
 def test_price_band_comparison_reports_experiment_reference_when_groups_are_explicit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1094,13 +1099,30 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
                 for experiment_id in ("exp-1", "exp-2")
                 for variant in ("control", "treatment")
             ]
+        if calls == 8:
+            return [
+                {
+                    "experiment_id": experiment_id,
+                    "stratum": "loyal",
+                    "variant": variant,
+                    "outcome_users": 2,
+                    "outcome_purchasers": 1 if variant == "control" else 2,
+                    "outcome_units": 1 if variant == "control" else 3,
+                }
+                for experiment_id in ("exp-1", "exp-2")
+                for variant in ("control", "treatment")
+            ]
         return []
 
     monkeypatch.setattr("shopgate_commerce_data.analytics.fetch_all", fake_fetch_all)
 
-    result = asyncio.run(price_band_comparison("retail-p28-real-outcomes"))
+    result = asyncio.run(
+        price_band_comparison(
+            "retail-p28-real-outcomes", stratify_by="member_level"
+        )
+    )
 
-    assert calls == 7
+    assert calls == 8
     assert result["multiple_testing"]["status"] == "adjusted"
     assert result["multiple_testing"]["experiment_count"] == 2
     assert result["multiple_testing"]["tested_experiment_count"] == 2
@@ -1125,6 +1147,22 @@ def test_price_band_comparison_reports_user_level_outcome_statistics(
     assert outcome_statistics["sample_status"] == "small_sample"
     assert outcome_statistics["significance_status"] == "small_sample"
     assert outcome_statistics["multiple_testing_significance_status"] == "small_sample"
+    assert result["stratification"]["status"] == "available"
+    assert result["stratification"]["dimension"] == "member_level"
+    assert first["stratified_statistics"]["status"] == "complete"
+    assert first["stratified_statistics"]["strata"] == [{
+        "stratum": "loyal",
+        "status": "descriptive",
+        "control_users": 2,
+        "treatment_users": 2,
+        "control_purchasers": 1,
+        "treatment_purchasers": 2,
+        "control_units": 1,
+        "treatment_units": 3,
+        "control_conversion_rate": 0.5,
+        "treatment_conversion_rate": 1.0,
+        "absolute_conversion_difference": 0.5,
+    }]
 
 
 def test_price_band_comparison_keeps_explicit_data_gap_when_no_item_has_two_prices(

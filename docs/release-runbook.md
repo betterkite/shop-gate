@@ -11,7 +11,7 @@
 
 ## 首次部署
 
-1. 从 [`.env.production.example`](../.env.production.example) 生成环境文件，替换全部占位值，并设置目录权限为 `0600`。
+1. 从 [`config/production-env.example`](../config/production-env.example) 生成环境文件，替换全部占位值，并设置目录权限为 `0600`。
 2. 创建 `shopgate` 系统用户以及 `/var/lib/shopgate/projects`、`/var/backups/shopgate`，只授予该用户所需权限。
 3. 先运行生产配置预检。组件可以通过 `ENABLED=0` 明确关闭；只要启用，外部模型网关、Memory 与 AKEP 就必须同时启用 required 模式、HTTPS 和各自的短期/作用域身份配置：
 

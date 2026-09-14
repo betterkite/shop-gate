@@ -48,7 +48,7 @@ npm run check:eval-mutations
 
 ## 数据集、隐藏集与可重放快照
 
-零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。公开仓库可直接运行 `npm run check:retail-e2e` 校验数据集契约；需要证明真实链路已运行时，再运行 `npm run check:retail-e2e -- --require-evidence` 校验证据。`npm run check:task-e2e -- --dataset=task-e2e-retail-v1` 负责运行零售 task-E2E campaign。公开仓库不携带隐藏基准、生产回放快照或私有 prompt。
+零售基准数据集登记位于 `config/evals/task-e2e-retail-v1.json`（30 个零售 case，覆盖 catalog_structure / traffic_funnel / price_inventory / daily_brief 四个能力）。公开仓库可直接运行 `npm run check:retail-e2e` 校验数据集契约；需要证明真实链路已运行时，再运行 `npm run check:retail-e2e -- --require-evidence` 校验证据。`npm run check:task-e2e -- --dataset=task-e2e-retail-v1` 负责直接运行一次零售 task-E2E campaign；`npm run benchmark:commerce:e2e` 是 CI 和发布使用的编排入口，会真实启动该 campaign，并把每个物理 repeat 汇总到 `tmp/shopgate-benchmark-reports/`。公开仓库不携带隐藏基准、生产回放快照或私有 prompt。
 
 隐藏集和生产回放不得以明文路径提交到仓库，只能通过以下环境变量注入：
 
@@ -68,6 +68,8 @@ npm run eval:ci:hidden
 npm run benchmark:commerce:shadow
 npm run eval:ci:shadow
 ```
+
+`eval:ci*` 不会自行补造运行证据，而是核验 benchmark 已生成的结构化报告。报告会记录数据集可见性、实际模型、物理重复次数、首轮通过率、整体通过率、稳定通过率、Wilson 置信下界和分数标准差；不满足阈值或报告过期会 fail closed。非公开报告不包含 question、外部文件路径、项目身份或原始失败文本。
 
 生产事件应先经过脱敏准备器。它会删除用户、项目、请求和会话身份，替换手机号、邮箱、证件、长账户号与 IP，并用部署私钥生成源 prompt HMAC，避免可枚举的裸 SHA-256：
 

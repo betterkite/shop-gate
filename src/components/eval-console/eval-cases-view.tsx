@@ -190,7 +190,7 @@ function CreateCaseSheet({
         <SheetHeader className="border-b border-border/40 bg-background/95 px-5 py-4 backdrop-blur-xl">
           <SheetTitle className="text-base">新增测试用例</SheetTitle>
           <SheetDescription className="text-xs">
-            创建后会写入 benchmarks/shopgate/cases.json，并立即出现在评测平台。
+            创建后会写入 config/evals/task-e2e-retail-v1.json，并立即出现在评测平台。
           </SheetDescription>
         </SheetHeader>
 

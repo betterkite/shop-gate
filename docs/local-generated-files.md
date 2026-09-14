@@ -70,7 +70,7 @@ rm -rf .next/dev/lock .next/dev/cache/webpack
 | `services/commerce-data/pyproject.toml`、`services/commerce-data/uv.lock` | Python 后端依赖和服务入口 |
 | `.pi/skills/`、`.pi/skills.registry.json`、`.pi/skills.lock.json`、`.pi/skills.changelog.json` | 仓库 Skill 权威源，受版本与 SHA-256 完整性校验；不作为 workspace 运行时发现目录 |
 | `.pi/skill-packages/` | 规范发布包，用于校验、回滚、source 缺失时的执行 fallback，以及创建 workspace 参考镜像 |
-| `benchmarks/shopgate/cases.json` | 固定评测用例集 |
+| `config/evals/task-e2e-retail-v1.json` | 固定零售评测用例集 |
 | `docs/` | 架构、契约、治理和排障文档 |
 
 ## 后续建议

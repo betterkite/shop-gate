@@ -16,6 +16,8 @@ import {
 } from './constants';
 import {
   CASES_PATH,
+  DATASET_REGISTRY_PATH,
+  JUDGE_CALIBRATION_PATH,
   LOG_DIR,
   QUEUE_DIR,
   QUEUE_PATH,
@@ -24,6 +26,7 @@ import {
   REPORTS_DIR,
   ROOT,
   SCHEDULE_PATH,
+  SNAPSHOT_MANIFEST_PATH,
 } from './paths';
 import type {
   EvalCheckStatus,
@@ -673,7 +676,7 @@ export async function getCommerceEvalRuns(limit = 30): Promise<CommerceEvalRun[]
   const dbRuns = await listEvalRunsFromDatabase(limit).catch(() => []);
   const files = await fs
     .readdir(REPORTS_DIR)
-    .then((items) => items.filter((item) => /^report-\d+\.json$/.test(item)))
+    .then((items) => items.filter((item) => /^report-\d+\.json$/.test(item) || /^commerce-(?:contract|e2e)-[a-z0-9_-]+-latest\.json$/u.test(item)))
     .catch(() => []);
 
   const runs = await Promise.all(
@@ -944,7 +947,7 @@ export async function checkCommerceEvalSchedule(): Promise<{ queued: boolean; sc
 }
 
 export async function getCommerceEvalRun(runId: string): Promise<CommerceEvalRun | null> {
-  if (!/^report-\d+$/.test(runId)) {
+  if (!/^(?:report-\d+|commerce-(?:contract|e2e)-[a-z0-9_-]+-latest)$/.test(runId)) {
     return null;
   }
   const cases = await getCommerceEvalCases();
@@ -989,12 +992,9 @@ export async function getCommerceEvalDashboardData(): Promise<CommerceEvalDashbo
       return latest ? readJson(latest.filePath).then((value) => ({ value, filePath: latest.filePath })) : null;
     })
     .catch(() => null);
-  const datasetRegistry = await readJson(path.join(ROOT, 'benchmarks', 'shopgate', 'datasets.json')).catch(() => null);
-  const snapshotManifest = await readJson(path.join(ROOT, 'benchmarks', 'shopgate', 'snapshot-manifest.json')).catch(() => null);
-  const calibrationPath = path.resolve(
-    process.env.SHOPGATE_EVAL_JUDGE_CALIBRATION_PATH ||
-      'benchmarks/shopgate/judge-calibration.contract.json',
-  );
+  const datasetRegistry = await readJson(DATASET_REGISTRY_PATH).catch(() => null);
+  const snapshotManifest = await readJson(SNAPSHOT_MANIFEST_PATH).catch(() => null);
+  const calibrationPath = path.resolve(process.env.SHOPGATE_EVAL_JUDGE_CALIBRATION_PATH || JUDGE_CALIBRATION_PATH);
   const calibrationDataset = await readJson(calibrationPath).catch(() => null);
   const calibration = isRecord(calibrationDataset) && Array.isArray(calibrationDataset.samples)
     ? evaluateEvalJudgeCalibration({

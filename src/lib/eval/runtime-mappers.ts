@@ -799,9 +799,10 @@ export function normalizeRun(filePath: string, statMtimeMs: number, report: Json
   const results = readRecordArray(report.results).map((result) =>
     normalizeResult(result, casesById, coverage.caseTags)
   );
-  const total = numberValue(report.total, results.length);
-  const passedCount = numberValue(report.passedCount, results.filter((result) => result.passed).length);
-  const failedCount = numberValue(report.failedCount, Math.max(0, total - passedCount));
+  const summary = isRecord(report.summary) ? report.summary : {};
+  const total = numberValue(report.total, numberValue(summary.total, results.length));
+  const passedCount = numberValue(report.passedCount, numberValue(summary.passedCount, results.filter((result) => result.passed).length));
+  const failedCount = numberValue(report.failedCount, numberValue(summary.failedCount, Math.max(0, total - passedCount)));
   const metadata = normalizeMetadata(report, results);
 
   return {

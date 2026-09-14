@@ -98,15 +98,16 @@ function assertScenarioCaseShape(name, testCase, problems) {
 
 function loadCommerceE2eSuite(options = {}) {
   const root = path.resolve(options.root || process.cwd());
-  const suitePath = path.resolve(root, options.suitePath || 'benchmarks/shopgate/e2e-suite.json');
-  const casesPath = path.resolve(root, options.casesPath || 'benchmarks/shopgate/cases.json');
+  const suitePath = path.resolve(root, options.suitePath || 'config/evals/e2e-suite.json');
+  const casesPath = path.resolve(root, options.casesPath || 'config/evals/task-e2e-retail-v1.json');
   const suite = options.suite || JSON.parse(fs.readFileSync(suitePath, 'utf8'));
-  const cases = options.cases || JSON.parse(fs.readFileSync(casesPath, 'utf8'));
+  const rawCases = options.cases || JSON.parse(fs.readFileSync(casesPath, 'utf8'));
+  const cases = Array.isArray(rawCases) ? rawCases : rawCases?.cases;
   const requireReleaseCoverage = options.requireReleaseCoverage === true;
   const problems = [];
 
   if (!Array.isArray(cases)) {
-    throw new Error('benchmarks/shopgate/cases.json 必须是数组。');
+    throw new Error('config/evals/task-e2e-retail-v1.json 必须包含 cases 数组。');
   }
   const caseById = new Map();
   for (const testCase of cases) {

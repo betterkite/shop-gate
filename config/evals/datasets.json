@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "snapshotManifest": "config/evals/snapshot-manifest.json",
+  "datasets": [
+    {
+      "id": "shopgate-task-e2e-retail-v1",
+      "version": "1",
+      "visibility": "public",
+      "split": "regression",
+      "path": "config/evals/task-e2e-retail-v1.json",
+      "required": true
+    },
+    {
+      "id": "shopgate-hidden-eval-external",
+      "version": "1",
+      "visibility": "hidden",
+      "split": "holdout",
+      "pathEnv": "SHOPGATE_HIDDEN_EVAL_CASES_PATH",
+      "required": false
+    },
+    {
+      "id": "shopgate-production-replay-external",
+      "version": "1",
+      "visibility": "production_replay",
+      "split": "shadow",
+      "pathEnv": "SHOPGATE_PRODUCTION_REPLAY_CASES_PATH",
+      "required": false
+    }
+  ]
+}

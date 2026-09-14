@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -18,6 +18,9 @@ interface TaskDataset {
   id: string;
   description: string;
   cases: TaskCase[];
+  visibility: 'public' | 'hidden' | 'production_replay';
+  promptsRedacted: boolean;
+  sourceKind: 'repository' | 'external';
 }
 
 interface ApiResult {
@@ -71,7 +74,13 @@ const projectRoot = path.resolve(root, process.env.PROJECTS_DIR || './data/proje
 
 function option(name: string): string | null {
   const prefix = `--${name}=`;
-  return argv.find((value) => value.startsWith(prefix))?.slice(prefix.length).trim() || null;
+  const equals = argv.find((value) => value.startsWith(prefix));
+  if (equals) return equals.slice(prefix.length).trim() || null;
+  const index = argv.indexOf(`--${name}`);
+  if (index >= 0 && argv[index + 1] && !argv[index + 1].startsWith('--')) {
+    return argv[index + 1].trim() || null;
+  }
+  return null;
 }
 
 function flag(name: string): boolean {
@@ -134,13 +143,102 @@ function taskTitle(campaign: string, item: TaskCase): string {
 }
 
 async function readDataset(): Promise<TaskDataset> {
-  const datasetName = option('dataset') ?? 'task-e2e-retail-v1';
-  const target = path.join(root, 'config', 'evals', `${datasetName}.json`);
-  const dataset = JSON.parse(await fs.readFile(target, 'utf8')) as TaskDataset;
+  const visibility = option('dataset-visibility') ?? 'public';
+  assert(['public', 'hidden', 'production_replay'].includes(visibility),
+    `Unsupported dataset visibility: ${visibility}.`);
+  const casesFile = option('cases-file');
+  let target: string;
+  let sourceKind: TaskDataset['sourceKind'];
+  if (casesFile) {
+    assert(visibility !== 'public', 'Public task E2E cannot read --cases-file.');
+    assert(path.isAbsolute(casesFile), '--cases-file must be an absolute path.');
+    target = path.resolve(casesFile);
+    const relative = path.relative(root, target);
+    assert(relative.startsWith('..') && !path.isAbsolute(relative),
+      '--cases-file must point outside the repository.');
+    sourceKind = 'external';
+  } else if (visibility !== 'public') {
+    const envName = visibility === 'hidden'
+      ? 'SHOPGATE_HIDDEN_EVAL_CASES_PATH'
+      : 'SHOPGATE_PRODUCTION_REPLAY_CASES_PATH';
+    const configured = process.env[envName]?.trim();
+    assert(configured, `${envName} must be configured for a non-public dataset.`);
+    assert(path.isAbsolute(configured), `${envName} must be an absolute path.`);
+    target = path.resolve(configured);
+    const relative = path.relative(root, target);
+    assert(relative.startsWith('..') && !path.isAbsolute(relative),
+      `${envName} must point outside the repository.`);
+    sourceKind = 'external';
+  } else {
+    const datasetName = option('dataset') ?? 'task-e2e-retail-v1';
+    assert(datasetName === 'task-e2e-retail-v1',
+      `Public task E2E only supports task-e2e-retail-v1, got ${datasetName}.`);
+    target = path.join(root, 'config', 'evals', `${datasetName}.json`);
+    sourceKind = 'repository';
+  }
+  const stat = await fs.stat(target).catch(() => null);
+  assert(stat?.isFile(), `Task E2E dataset file is missing or not a regular file: ${sourceKind === 'external' ? 'external input' : target}.`);
+  const dataset = JSON.parse(await fs.readFile(target, 'utf8')) as Partial<TaskDataset>;
   assert(dataset.schemaVersion === 1, 'Unsupported task E2E dataset schema.');
-  assert(dataset.cases.length === 30, `Task E2E dataset must contain exactly 30 cases, got ${dataset.cases.length}.`);
-  assert(new Set(dataset.cases.map((item) => item.id)).size === 30, 'Task E2E case IDs are not unique.');
-  return dataset;
+  assert(Array.isArray(dataset.cases), 'Task E2E dataset cases must be an array.');
+  const expectedCount = 1000;
+  assert(visibility !== 'public'
+    ? dataset.cases.length > 0 && dataset.cases.length <= expectedCount
+    : dataset.cases.length === 30,
+  visibility === 'public'
+    ? `Task E2E dataset must contain exactly 30 cases, got ${dataset.cases.length}.`
+    : `External task E2E dataset must contain 1-${expectedCount} cases, got ${dataset.cases.length}.`);
+  const ids = dataset.cases.map((item) => item.id);
+  assert(new Set(ids).size === dataset.cases.length, 'Task E2E case IDs are not unique.');
+  for (const item of dataset.cases) {
+    assert(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/u.test(item.id), `Invalid task E2E case id: ${item.id}.`);
+    for (const key of ['capabilityId', 'model', 'question'] as const) {
+      assert(typeof item[key] === 'string' && item[key].trim(), `Task E2E case ${item.id} is missing ${key}.`);
+    }
+  }
+  const modelOverride = option('model');
+  if (modelOverride) {
+    assert(/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,99}$/u.test(modelOverride), '--model contains unsafe characters.');
+  }
+  return {
+    schemaVersion: dataset.schemaVersion,
+    id: typeof dataset.id === 'string' && dataset.id.trim() ? dataset.id : 'external-eval-dataset',
+    description: typeof dataset.description === 'string' ? dataset.description : '',
+    cases: dataset.cases.map((item) => modelOverride ? { ...item, model: modelOverride } : item),
+    visibility: visibility as TaskDataset['visibility'],
+    promptsRedacted: visibility !== 'public' || flag('redact-report'),
+    sourceKind,
+  };
+}
+
+function promptHash(value: string): string {
+  return `sha256:${createHash('sha256').update(value.normalize('NFKC').trim()).digest('hex')}`;
+}
+
+function redactedCaseId(value: string): string {
+  return promptHash(value);
+}
+
+function reportCaseResult(result: CaseResult, redact: boolean): JsonRecord {
+  if (!redact) return result as unknown as JsonRecord;
+  return {
+    id: redactedCaseId(result.id),
+    model: result.model,
+    capabilityId: result.capabilityId,
+    state: result.state,
+    passed: result.passed,
+    created: false,
+    startedAt: result.startedAt,
+    completedAt: result.completedAt,
+    elapsedMs: result.elapsedMs,
+    artifactChecks: result.artifactChecks,
+    previewHttpStatus: result.previewHttpStatus,
+    failures: result.failures.length ? ['redacted'] : [],
+  };
+}
+
+function logCaseId(dataset: TaskDataset, caseId: string): string {
+  return dataset.promptsRedacted ? redactedCaseId(caseId) : caseId;
 }
 
 async function api(
@@ -479,7 +577,7 @@ async function cleanupCampaignProjects(
 async function main(): Promise<void> {
   const dataset = await readDataset();
   const campaign = campaignId();
-  const limit = integerOption('limit', 30, 1, 30);
+  const limit = integerOption('limit', dataset.cases.length, 1, dataset.cases.length);
   const concurrency = integerOption('concurrency', 2, 1, 4);
   const timeoutMs = integerOption('timeout-ms',
     Number.parseInt(process.env.SHOPGATE_TASK_E2E_TIMEOUT_MS ?? '1200000', 10),
@@ -489,14 +587,15 @@ async function main(): Promise<void> {
   const pollMs = integerOption('poll-ms', 5_000, 1_000, 30_000);
   const retryFailedAttempt = optionalIntegerOption('retry-failed', 2, 99);
   const forceCleanup = flag('cleanup');
-  const retainProjects = flag('retain-projects');
+  const retainProjects = flag('retain-projects') || flag('keep-projects');
   assert(!(forceCleanup && retainProjects), '--cleanup and --retain-projects cannot be used together.');
   const only = new Set((option('only') ?? '').split(',').map((value) => value.trim()).filter(Boolean));
   const selected = dataset.cases
     .filter((item) => only.size === 0 || only.has(item.id))
     .slice(0, limit);
   assert(selected.length > 0, 'No task E2E cases were selected.');
-  const reportPath = path.join(root, 'tmp', `task-e2e-${campaign}-latest.json`);
+  const reportPrefix = dataset.promptsRedacted ? `task-e2e-external-${dataset.visibility}-` : 'task-e2e-';
+  const reportPath = path.join(root, 'tmp', `${reportPrefix}${campaign}-latest.json`);
   const results = new Map<string, CaseResult>();
   const writeReport = async (
     drawerCount: number | null = null,
@@ -523,7 +622,13 @@ async function main(): Promise<void> {
         taskDrawerCount: drawerCount,
         cleanup,
       },
-      results: ordered,
+      dataset: {
+        id: dataset.id,
+        visibility: dataset.visibility,
+        promptsRedacted: dataset.promptsRedacted,
+        sourceKind: dataset.sourceKind,
+      },
+      results: ordered.map((result) => reportCaseResult(result, dataset.promptsRedacted)),
     };
     await fs.mkdir(path.dirname(reportPath), { recursive: true });
     const temporary = `${reportPath}.${process.pid}.${randomUUID()}.tmp`;
@@ -560,12 +665,12 @@ async function main(): Promise<void> {
             onAccepted: async (accepted) => {
               results.set(item.id, accepted);
               await writeReport();
-              process.stderr.write(`[task-e2e] ${item.id} ACCEPTED ${accepted.projectId}\n`);
+              process.stderr.write(`[task-e2e] ${logCaseId(dataset, item.id)} ACCEPTED\n`);
             },
           });
           results.set(item.id, result);
           await writeReport();
-          process.stderr.write(`[task-e2e] ${item.id} ${result.passed ? 'READY' : 'FAIL'} ${Math.round(result.elapsedMs / 1000)}s\n`);
+          process.stderr.write(`[task-e2e] ${logCaseId(dataset, item.id)} ${result.passed ? 'READY' : 'FAIL'} ${Math.round(result.elapsedMs / 1000)}s\n`);
         } catch (error) {
           const failed: CaseResult = {
             id: item.id,
@@ -589,7 +694,7 @@ async function main(): Promise<void> {
           };
           results.set(item.id, failed);
           await writeReport();
-          process.stderr.write(`[task-e2e] ${item.id} FAIL ${failed.failures[0]}\n`);
+          process.stderr.write(`[task-e2e] ${logCaseId(dataset, item.id)} FAIL ${dataset.promptsRedacted ? 'redacted' : failed.failures[0]}\n`);
         }
       }
     };
@@ -628,6 +733,7 @@ async function main(): Promise<void> {
       passRate: passed / ordered.length,
       taskDrawerCount: drawerCount,
       cleanup,
+      datasetVisibility: dataset.visibility,
       reportPath,
     }, null, 2)}\n`);
     if (passed !== ordered.length) process.exitCode = 1;

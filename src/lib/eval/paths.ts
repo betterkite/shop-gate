@@ -1,8 +1,12 @@
 import path from 'path';
 
 export const ROOT = process.cwd();
-export const CASES_PATH = path.join(ROOT, 'benchmarks', 'shopgate', 'cases.json');
-export const EVAL_SETS_PATH = path.join(ROOT, 'benchmarks', 'shopgate', 'eval-sets.json');
+export const EVAL_CONFIG_DIR = path.join(ROOT, 'config', 'evals');
+export const CASES_PATH = path.join(EVAL_CONFIG_DIR, 'task-e2e-retail-v1.json');
+export const EVAL_SETS_PATH = path.join(EVAL_CONFIG_DIR, 'eval-sets.json');
+export const DATASET_REGISTRY_PATH = path.join(EVAL_CONFIG_DIR, 'datasets.json');
+export const SNAPSHOT_MANIFEST_PATH = path.join(EVAL_CONFIG_DIR, 'snapshot-manifest.json');
+export const JUDGE_CALIBRATION_PATH = path.join(EVAL_CONFIG_DIR, 'judge-calibration.contract.json');
 export const REPORTS_DIR = path.join(ROOT, 'tmp', 'shopgate-benchmark-reports');
 export const QUEUE_DIR = path.join(ROOT, 'tmp', 'shopgate-eval-queue');
 export const QUEUE_PATH = path.join(QUEUE_DIR, 'queue.json');

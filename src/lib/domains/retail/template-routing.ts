@@ -20,7 +20,6 @@ export interface RetailTemplateMatchResult {
   missingDimensions: string[];
   reason: string;
 }
-
 const EXPLICIT_ANSWER_PATTERN = /只(?:做|进行)?问答|只回答|不要(?:生成)?(?:经营)?看板|不(?:需要|要)(?:生成)?(?:看板|图表|可视化)/i;
 const EXPLICIT_DASHBOARD_PATTERN = /生成(?:经营)?看板|看板|可视化|图表|BI|漏斗图/i;
 const COMPLEX_ANALYSIS_PATTERN = /趋势|分日|按日|环比|异动|结构|分布|拆解|漏斗|对比|比较|集中度|日报|诊断|下钻|矩阵|留存|生命周期|商品阶段|用户分群/i;
@@ -175,4 +174,3 @@ export function applyRetailOutputIntent(
     },
   };
 }
-

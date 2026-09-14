@@ -121,6 +121,16 @@
 `causal_claim=not_verified`，不会连接数据库或修改已有数据集；有效输入只表示数据满足结构
 契约，不代表已经证明随机化或因果关系。跟进 Issue：[#46](https://github.com/betterkite/shop-gate/issues/46)。
 
+## 真实实验文件落库切片（P28 后续，2026-09-14）
+
+新增 `import-price-experiment-csv`，在 Issue #46 的只读校验通过后，将用户分组和实验观察
+写入指定 `dataset_id`。导入只替换同名 `experiment_id`，检查商品 ID 和契约日期窗口，使用
+`synthetic=false` 保存外部来源，并更新数据集的 `source_kind`、行数和限制说明。合成数据集
+导入真实实验后标记为 `mixed`，质量扫描允许真实实验行使用外部 source，同时继续检查合成行的
+来源标记。重复导入已通过验收，行数保持稳定，质量扫描 `severity=ok / issue_count=0`；
+价格实验接口返回真实实验 `synthetic=false`，但同一数据集仍有合成实验时整体状态继续保守显示，
+不得把文件导入或显著性结果直接解释为因果结论。跟进 Issue：[#48](https://github.com/betterkite/shop-gate/issues/48)。
+
 ## 价格弹性切片复验（2026-09-12）
 
 - 后端为同一商品的多价格成交观察计算对数回归参考值；没有至少两个有效价格点时返回 `insufficient_data_for_elasticity`，不输出空想的系数。

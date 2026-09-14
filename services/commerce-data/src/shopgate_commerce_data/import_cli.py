@@ -319,6 +319,201 @@ def validate_price_experiment_csv_files(
     }
 
 
+def import_observed_price_experiment_csv(
+    connection: psycopg.Connection[dict[str, Any]],
+    dataset_id: str,
+    assignments_path: Path,
+    observations_path: Path,
+    *,
+    source: str = "observed_price_experiment_csv",
+) -> dict[str, Any]:
+    """把通过校验的真实实验记录幂等写入已有数据集。
+
+    该函数不提交事务；调用方需在质量扫描通过后统一 commit，任一错误都可由关闭连接回滚。
+    """
+
+    report = validate_price_experiment_csv_files(
+        assignments_path,
+        observations_path,
+        source=source,
+    )
+    if not report["valid"]:
+        return report
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT * FROM commerce.dataset_contracts WHERE dataset_id = %s FOR UPDATE",
+            (dataset_id,),
+        )
+        contract = cursor.fetchone()
+        if contract is None:
+            report["valid"] = False
+            report["errors"] = [f"目标数据集不存在：{dataset_id}"]
+            return report
+
+        observations, observation_errors = read_price_experiment_observations_csv(
+            observations_path
+        )
+        assignments, assignment_errors = read_price_experiment_assignments_csv(
+            assignments_path
+        )
+        if observation_errors or assignment_errors:
+            report["valid"] = False
+            report["errors"] = sorted(set(observation_errors + assignment_errors))
+            return report
+        window_start = contract["window_start"]
+        window_end = contract["window_end"]
+        outside_window = sorted({
+            str(row["observation_date"])
+            for row in observations
+            if row["observation_date"] < window_start or row["observation_date"] > window_end
+        })
+        if outside_window:
+            report["valid"] = False
+            report["errors"] = [
+                f"观察日期超出目标数据集窗口 {window_start} 至 {window_end}：{outside_window}"
+            ]
+            return report
+
+        item_ids = sorted({int(row["item_id"]) for row in observations})
+        cursor.execute(
+            """
+            SELECT item_id
+            FROM commerce.dataset_item_economics
+            WHERE dataset_id = %s AND item_id = ANY(%s)
+            """,
+            (dataset_id, item_ids),
+        )
+        existing_item_ids = {int(row["item_id"]) for row in cursor.fetchall()}
+        missing_item_ids = sorted(set(item_ids) - existing_item_ids)
+        if missing_item_ids:
+            report["valid"] = False
+            report["errors"] = [
+                f"目标数据集缺少商品 ID：{missing_item_ids[:20]}"
+                + ("（其余省略）" if len(missing_item_ids) > 20 else "")
+            ]
+            return report
+
+        experiment_ids = sorted({
+            str(row["experiment_id"])
+            for row in report["experiments"]
+        })
+        cursor.execute(
+            """
+            DELETE FROM commerce.dataset_price_experiment_assignments
+            WHERE dataset_id = %s AND experiment_id = ANY(%s)
+            """,
+            (dataset_id, experiment_ids),
+        )
+        cursor.execute(
+            """
+            DELETE FROM commerce.dataset_price_experiment_observations
+            WHERE dataset_id = %s AND experiment_id = ANY(%s)
+            """,
+            (dataset_id, experiment_ids),
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_price_experiment_assignments
+              (dataset_id, experiment_id, user_id, variant, assigned_at,
+               allocation_method, source, synthetic)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, false)
+            """,
+            [
+                (
+                    dataset_id,
+                    row["experiment_id"],
+                    row["user_id"],
+                    row["variant"],
+                    row["assigned_at"],
+                    row["allocation_method"],
+                    source,
+                )
+                for row in assignments
+            ],
+        )
+        cursor.executemany(
+            """
+            INSERT INTO commerce.dataset_price_experiment_observations
+              (dataset_id, experiment_id, observation_date, item_id, variant,
+               selling_price, exposed_users, purchasers, units, assignment_unit,
+               allocation_method, source, synthetic)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, false)
+            """,
+            [
+                (
+                    dataset_id,
+                    row["experiment_id"],
+                    row["observation_date"],
+                    row["item_id"],
+                    row["variant"],
+                    row["selling_price"],
+                    row["exposed_users"],
+                    row["purchasers"],
+                    row["units"],
+                    row["assignment_unit"],
+                    row["allocation_method"],
+                    source,
+                )
+                for row in observations
+            ],
+        )
+
+        cursor.execute(
+            """
+            SELECT
+              (SELECT COUNT(*) FROM commerce.dataset_price_experiment_assignments
+               WHERE dataset_id = %s) AS assignment_rows,
+              (SELECT COUNT(*) FROM commerce.dataset_price_experiment_observations
+               WHERE dataset_id = %s) AS observation_rows
+            """,
+            (dataset_id, dataset_id),
+        )
+        counts = cursor.fetchone()
+        row_counts = dict(contract["row_counts"] or {})
+        row_counts["price_experiment_assignments"] = int(counts["assignment_rows"])
+        row_counts["price_experiment_observations"] = int(counts["observation_rows"])
+        current_source_kind = str(contract["source_kind"])
+        next_source_kind = (
+            "mixed" if current_source_kind in {"synthetic", "mixed"} else "observed"
+        )
+        limitations = list(contract["limitations"] or [])
+        imported_limitation = (
+            f"已导入真实实验文件来源 {source}；分组记录仍需结合实验平台规则核对，"
+            "不能仅凭文件结构证明随机化或因果关系"
+        )
+        if imported_limitation not in limitations:
+            limitations.append(imported_limitation)
+        generation_rule = str(contract["generation_rule"])
+        provenance_note = f"真实实验来源 {source} 已按 Issue #48 导入并覆盖同名 experiment_id。"
+        if provenance_note not in generation_rule:
+            generation_rule = f"{generation_rule} {provenance_note}"
+        cursor.execute(
+            """
+            UPDATE commerce.dataset_contracts
+            SET source_kind = %s,
+                row_counts = %s,
+                limitations = %s,
+                generation_rule = %s
+            WHERE dataset_id = %s
+            """,
+            (
+                next_source_kind,
+                Jsonb(row_counts),
+                Jsonb(limitations),
+                generation_rule,
+                dataset_id,
+            ),
+        )
+
+    report["dataset_id"] = dataset_id
+    report["imported"] = True
+    report["replaced_experiment_ids"] = experiment_ids
+    report["dataset_source_kind"] = next_source_kind
+    report["dataset_row_counts"] = row_counts
+    return report
+
+
 def shift_target_end(anchor_end: str, time_shift: str):
     """计算平移目标窗口末日。
 
@@ -855,7 +1050,12 @@ def scan_synthetic_analytics_dataset(
         )
         for name, table in marked_tables:
             allow_observed = (
-                name in {"behavior_events", "price_experiment_assignments"}
+                name
+                in {
+                    "behavior_events",
+                    "price_experiment_observations",
+                    "price_experiment_assignments",
+                }
                 and contract["source_kind"] != "synthetic"
             )
             cursor.execute(
@@ -863,7 +1063,8 @@ def scan_synthetic_analytics_dataset(
                 SELECT COUNT(*) AS count
                 FROM commerce.{table}
                 WHERE dataset_id = %s
-                  AND (source <> %s OR (synthetic IS NOT TRUE AND %s = false))
+                  AND ((synthetic IS TRUE AND source <> %s)
+                       OR (synthetic IS NOT TRUE AND %s = false))
                 """,
                 (dataset_id, contract["source_name"], allow_observed),
             )
@@ -1068,6 +1269,19 @@ def main() -> None:
         help="报告中记录的外部来源名称",
     )
 
+    import_experiment_parser = subparsers.add_parser(
+        "import-price-experiment-csv",
+        help="将已通过校验的真实价格实验 CSV 幂等写入指定数据集",
+    )
+    import_experiment_parser.add_argument("--dataset-id", required=True)
+    import_experiment_parser.add_argument("--assignments", required=True, type=Path)
+    import_experiment_parser.add_argument("--observations", required=True, type=Path)
+    import_experiment_parser.add_argument(
+        "--source",
+        required=True,
+        help="真实实验来源名称，写入 source 字段和数据契约限制",
+    )
+
     args = parser.parse_args()
     if args.command == "validate-price-experiment-csv":
         result = validate_price_experiment_csv_files(
@@ -1175,6 +1389,22 @@ def main() -> None:
             print(f"[quality] 完成：{result}")
             if result["issue_count"]:
                 raise SystemExit(1)
+        elif args.command == "import-price-experiment-csv":
+            result = import_observed_price_experiment_csv(
+                connection,
+                args.dataset_id,
+                args.assignments,
+                args.observations,
+                source=args.source,
+            )
+            print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
+            if not result["valid"]:
+                raise SystemExit(1)
+            quality = scan_synthetic_analytics_dataset(connection, args.dataset_id)
+            print(json.dumps({"quality_scan": quality}, ensure_ascii=False, indent=2))
+            if quality["issue_count"]:
+                raise SystemExit(1)
+            connection.commit()
     finally:
         connection.close()
 

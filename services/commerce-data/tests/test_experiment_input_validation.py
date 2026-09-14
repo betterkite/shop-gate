@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 from shopgate_commerce_data import import_cli
-from shopgate_commerce_data.import_cli import validate_price_experiment_csv_files
+from shopgate_commerce_data.import_cli import (
+    import_observed_price_experiment_csv,
+    validate_price_experiment_csv_files,
+)
 
 ASSIGNMENT_HEADER = (
     "experiment_id,user_id,variant,assigned_at,allocation_method\n"
@@ -127,3 +131,99 @@ def test_validation_cli_is_read_only_and_does_not_open_database(
     report = json.loads(capsys.readouterr().out)
     assert report["valid"] is True
     assert report["source_kind"] == "observed"
+
+
+class _FakeCursor:
+    def __init__(self, contract, existing_items):
+        self.contract = contract
+        self.existing_items = existing_items
+        self.statements: list[tuple[str, object]] = []
+        self._fetchone_calls = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, query, params=()):
+        self.statements.append((query, params))
+
+    def executemany(self, query, params):
+        self.statements.append((query, list(params)))
+
+    def fetchone(self):
+        self._fetchone_calls += 1
+        if self._fetchone_calls == 1:
+            return self.contract
+        return {"assignment_rows": 2, "observation_rows": 2}
+
+    def fetchall(self):
+        return [{"item_id": item_id} for item_id in self.existing_items]
+
+
+class _FakeConnection:
+    def __init__(self, contract, existing_items):
+        self.cursor_instance = _FakeCursor(contract, existing_items)
+
+    def cursor(self):
+        return self.cursor_instance
+
+
+def test_import_is_idempotent_and_updates_mixed_contract(tmp_path: Path) -> None:
+    assignments, observations = _write_valid_files(tmp_path)
+    contract = {
+        "source_kind": "synthetic",
+        "source_name": "synthetic_analytics",
+        "window_start": date(2026, 9, 1),
+        "window_end": date(2026, 9, 7),
+        "row_counts": {
+            "price_experiment_assignments": 2,
+            "price_experiment_observations": 2,
+        },
+        "limitations": [],
+        "generation_rule": "seeded demo",
+    }
+    connection = _FakeConnection(contract, [1001])
+
+    result = import_observed_price_experiment_csv(
+        connection,
+        "retail-demo",
+        assignments,
+        observations,
+        source="store-platform",
+    )
+
+    assert result["valid"] is True
+    assert result["imported"] is True
+    assert result["dataset_source_kind"] == "mixed"
+    assert result["replaced_experiment_ids"] == ["exp-1"]
+    assert any("DELETE FROM commerce.dataset_price_experiment_assignments" in query
+               for query, _ in connection.cursor_instance.statements)
+    assert any("INSERT INTO commerce.dataset_price_experiment_observations" in query
+               for query, _ in connection.cursor_instance.statements)
+
+
+def test_import_rejects_missing_item_before_mutation(tmp_path: Path) -> None:
+    assignments, observations = _write_valid_files(tmp_path)
+    contract = {
+        "source_kind": "synthetic",
+        "source_name": "synthetic_analytics",
+        "window_start": date(2026, 9, 1),
+        "window_end": date(2026, 9, 7),
+        "row_counts": {},
+        "limitations": [],
+        "generation_rule": "seeded demo",
+    }
+    connection = _FakeConnection(contract, [])
+
+    result = import_observed_price_experiment_csv(
+        connection,
+        "retail-demo",
+        assignments,
+        observations,
+    )
+
+    assert result["valid"] is False
+    assert any("缺少商品 ID" in error for error in result["errors"])
+    assert not any("DELETE FROM" in query for query, _ in connection.cursor_instance.statements)

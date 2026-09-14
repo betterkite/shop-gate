@@ -142,6 +142,24 @@ experiment_id,observation_date,item_id,variant,selling_price,exposed_users,purch
 报告中的 `source_kind=observed` 只说明输入来自外部观察文件，`causal_claim=not_verified` 表示
 系统仍未据此证明随机化或因果关系。校验成功不等于可以直接宣称价格带来的因果效果。
 
+校验通过后，可以把实验写入一个已经存在的数据集。目标数据集必须已有对应商品主数据，观察日期
+必须落在数据集契约窗口内：
+
+```bash
+uv run --project services/commerce-data \
+  shopgate-commerce-import import-price-experiment-csv \
+  --dataset-id retail-demo-p28-real-import-v1 \
+  --assignments data/import/price-experiment-assignments.csv \
+  --observations data/import/price-experiment-observations.csv \
+  --source my-store-price-experiment
+```
+
+该命令在同一事务中替换同名 `experiment_id` 的旧实验记录，重复执行不会重复累计；目标数据集的
+其他实验、订单、库存和行为数据不受影响。真实实验行写入 `synthetic=false`，合成数据集会变为
+`source_kind=mixed`，并更新实验行数与限制说明。写入后自动执行质量扫描，发现错误时事务回滚。
+混合数据集仍可能同时包含合成实验，因此接口和页面必须继续显示“演示/真实来源”边界，不能只看
+整体数据集状态下结论。
+
 对应接口为 `POST /api/v1/commerce/datasets/import/csv?dataset_id=...&seed=...&filename=...`，请求体直接发送 UTF-8 CSV（`Content-Type: text/csv`），返回的任务 ID 与合成数据生成任务共用状态查询和质量扫描。
 
 契约可以通过 API 查看：

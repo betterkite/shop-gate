@@ -238,9 +238,9 @@ def calculate_refunds(
     cumulative_amount = cumulative_return = cumulative_recover = ZERO
     previous_amount = previous_cost = ZERO
     results = []
-    for row in sorted(refunds, key=lambda row: (row.occurred_at, row.refund_id)):
-        if row.status == "pending":
-            continue
+    # Pending events may legitimately have no completion timestamp; exclude before sorting.
+    completed = [row for row in refunds if row.status != "pending"]
+    for row in sorted(completed, key=lambda row: (row.occurred_at, row.refund_id)):
         if row.status != "completed" or row.refund_type not in {
             "refund_only",
             "return",

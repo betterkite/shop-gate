@@ -7,6 +7,7 @@ import uvicorn
 from dotenv import dotenv_values
 
 COMMERCE_ENVIRONMENT_KEYS = {
+    "SHOPGATE_BI_SERVICE_SECRET",
     "DATABASE_URL",
     "SHOPGATE_DATABASE_ENABLED",
     "SHOPGATE_DATABASE_REQUIRED",

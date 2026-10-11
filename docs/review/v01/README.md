@@ -4,6 +4,8 @@
 
 [R1-B核算规则与人工复算样例](accounting.md)登记唯一指标服务、历史快照、费用守恒和开发/验收边界。
 
+[R2-A十二类标准数据交换](data-exchange.md)登记模板、原子预览确认、往返与人工复算，不代表前端或演示生成已完成。
+
 状态：R0 基线建立中，业务实现尚未验收。对应 [issue #83](https://github.com/betterkite/shop-gate/issues/83)。
 
 ## 目标与来源

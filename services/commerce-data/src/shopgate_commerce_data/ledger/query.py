@@ -332,6 +332,7 @@ def query_ledger(
                     row["returned_quantity"],
                     row["recoverable_quantity"],
                     row["status"],
+                    row["cancelled_quantity"],
                 )
             )
         events = []

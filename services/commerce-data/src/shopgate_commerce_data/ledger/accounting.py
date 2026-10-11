@@ -119,13 +119,20 @@ def make_snapshot(
     mappings: list[Mapping],
     costs: list[Cost],
     rates: dict[str, Decimal],
+    payment_fx_rate: Decimal | None = None,
 ) -> Snapshot:
     quantity = exact_decimal(quantity, "quantity")
     paid_amount = exact_decimal(paid_amount, "money")
     if quantity <= 0 or paid_amount < 0:
         raise ValueError("付款数量必须为正，实收不能为负。")
     # Identity for actual CNY is not an invented foreign exchange rate.
-    revenue_rate = Decimal(1) if currency == "CNY" else rates.get(currency)
+    revenue_rate = (
+        payment_fx_rate
+        if payment_fx_rate is not None
+        else (Decimal(1) if currency == "CNY" else rates.get(currency))
+    )
+    if currency == "CNY" and revenue_rate != 1:
+        raise ValueError("人民币原币汇率必须为1。")
     if revenue_rate is not None:
         revenue_rate = exact_decimal(revenue_rate, "fx_rate")
     mapping = choose_mapping(paid_at, mappings)
@@ -210,6 +217,7 @@ class Refund:
     returned_quantity: Decimal = ZERO
     recoverable_quantity: Decimal = ZERO
     status: str = "completed"
+    cancelled_quantity: Decimal = ZERO
 
 
 @dataclass(frozen=True)
@@ -233,18 +241,28 @@ def calculate_refunds(
     for row in sorted(refunds, key=lambda row: (row.occurred_at, row.refund_id)):
         if row.status == "pending":
             continue
-        if row.status != "completed" or row.refund_type not in {"refund_only", "return"}:
+        if row.status != "completed" or row.refund_type not in {
+            "refund_only",
+            "return",
+            "unshipped_cancel",
+        }:
             raise ValueError("退款状态或类型无效。")
         amount = exact_decimal(row.amount, "money")
         returned = exact_decimal(row.returned_quantity, "quantity")
         recovered = exact_decimal(row.recoverable_quantity, "quantity")
-        if amount <= 0 or returned < 0 or not ZERO <= recovered <= returned:
+        cancelled = exact_decimal(row.cancelled_quantity, "quantity")
+        if amount <= 0 or returned < 0 or not ZERO <= recovered <= returned or cancelled < 0:
             raise ValueError("退款金额或退货数量无效。")
         if row.refund_type == "refund_only" and (returned != 0 or recovered != 0):
             raise ValueError("仅退款不能回收商品成本。")
+        if row.refund_type == "unshipped_cancel":
+            if returned != 0 or recovered != 0 or cancelled <= 0:
+                raise ValueError("未发货取消须使用取消数量，不作为已退货处理。")
+        elif cancelled != 0:
+            raise ValueError("非未发货取消不能提供取消数量。")
         cumulative_amount += amount
-        cumulative_return += returned
-        cumulative_recover += recovered
+        cumulative_return += returned + cancelled
+        cumulative_recover += recovered + cancelled
         if cumulative_amount > paid_amount or cumulative_return > platform_quantity:
             raise ValueError("累计退款金额或退货数量超过原订单行。")
         with localcontext() as context:

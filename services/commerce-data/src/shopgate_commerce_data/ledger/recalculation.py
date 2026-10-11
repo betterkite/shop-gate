@@ -46,7 +46,8 @@ def rows(connection: psycopg.Connection, query: str, params=()) -> list[dict]:
 def load_lines(connection: psycopg.Connection) -> list[dict]:
     return rows(
         connection,
-        "SELECT l.*, o.paid_at, o.currency, s.channel_id FROM bi.order_lines l "
+        "SELECT l.*, o.paid_at, o.currency, o.fx_rate AS payment_fx_rate, "
+        "o.fx_source AS payment_fx_source, s.channel_id FROM bi.order_lines l "
         "JOIN bi.orders o USING(workspace_id,dataset_id,order_id,store_id) "
         "JOIN bi.stores s USING(workspace_id,dataset_id,store_id) "
         "WHERE o.status='paid' ORDER BY l.line_id",
@@ -158,6 +159,7 @@ def rebuild_accounting(
             mappings=listing_mappings,
             costs=[cost for sku in candidate_skus for cost in costs_by_sku[sku]],
             rates=rates_by_day[day],
+            payment_fx_rate=line["payment_fx_rate"],
         )
         data = asdict(snapshot)
         data.pop("missing")
@@ -174,7 +176,11 @@ def rebuild_accounting(
                 else (f"{row['rate_id']} / {day} / {row['source']}" if row else None)
             )
 
-        revenue_source = source(line["currency"])
+        revenue_source = (
+            f"订单显式汇率 / {line['payment_fx_source']}"
+            if line["payment_fx_rate"] is not None
+            else source(line["currency"])
+        )
         cost_source = source(cost.currency) if cost else None
         snapshots[line["line_id"]] = snapshot
         if (
@@ -225,7 +231,11 @@ def rebuild_accounting(
     for expense in expenses:
         day = business_date(expense["occurred_at"])
         fx = exchange.get((expense["currency"], day))
-        rate = Decimal(1) if expense["currency"] == "CNY" else fx["rate"] if fx else None
+        rate = (
+            expense["fx_rate"]
+            if expense["fx_rate"] is not None
+            else (Decimal(1) if expense["currency"] == "CNY" else fx["rate"] if fx else None)
+        )
         with localcontext() as context:
             context.prec = 80
             amount = money(expense["amount"] * rate) if rate is not None else None
@@ -270,9 +280,13 @@ def rebuild_accounting(
                 status = "allocated"
         allocations = allocate_cents(amount, weights) if amount is not None else {}
         fx_source = (
-            "人民币原币"
-            if expense["currency"] == "CNY"
-            else (f"{fx['rate_id']} / {day} / {fx['source']}" if fx else None)
+            f"费用显式汇率 / {expense['fx_source']}"
+            if expense["fx_rate"] is not None
+            else (
+                "人民币原币"
+                if expense["currency"] == "CNY"
+                else (f"{fx['rate_id']} / {day} / {fx['source']}" if fx else None)
+            )
         )
         previous = old_expenses.get(expense["expense_id"])
         if (

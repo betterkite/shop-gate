@@ -34,7 +34,7 @@ def accounting_url():
             "GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA bi TO accounting_app"
         )
         connection.execute("REVOKE ALL ON bi.schema_migrations FROM accounting_app")
-        assert connection.execute("SELECT count(*) FROM bi.schema_migrations").fetchone()[0] == 2
+        assert connection.execute("SELECT count(*) FROM bi.schema_migrations").fetchone()[0] == 3
     return url
 
 

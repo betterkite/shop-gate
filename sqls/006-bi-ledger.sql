@@ -99,7 +99,8 @@ CREATE TABLE bi.cost_versions (
       OR (level = 'store' AND channel_id IS NOT NULL AND store_id IS NOT NULL)),
   FOREIGN KEY (workspace_id, dataset_id, sku_id) REFERENCES bi.skus,
   FOREIGN KEY (workspace_id, dataset_id, channel_id) REFERENCES bi.channels,
-  FOREIGN KEY (workspace_id, dataset_id, store_id, channel_id) REFERENCES bi.stores
+  FOREIGN KEY (workspace_id, dataset_id, store_id, channel_id)
+    REFERENCES bi.stores (workspace_id, dataset_id, store_id, channel_id)
 );
 CREATE INDEX cost_versions_lookup ON bi.cost_versions
   (workspace_id, dataset_id, sku_id, valid_from DESC);
@@ -119,9 +120,11 @@ CREATE TABLE bi.order_lines (
   quantity bi.quantity NOT NULL CHECK (quantity > 0),
   paid_amount bi.money NOT NULL CHECK (paid_amount >= 0),
   PRIMARY KEY (workspace_id, dataset_id, line_id),
-  FOREIGN KEY (workspace_id, dataset_id, order_id, store_id) REFERENCES bi.orders
+  FOREIGN KEY (workspace_id, dataset_id, order_id, store_id)
+    REFERENCES bi.orders (workspace_id, dataset_id, order_id, store_id)
     DEFERRABLE INITIALLY IMMEDIATE,
-  FOREIGN KEY (workspace_id, dataset_id, listing_id, store_id) REFERENCES bi.listings
+  FOREIGN KEY (workspace_id, dataset_id, listing_id, store_id)
+    REFERENCES bi.listings (workspace_id, dataset_id, listing_id, store_id)
     DEFERRABLE INITIALLY IMMEDIATE
 );
 CREATE TABLE bi.line_snapshots (
@@ -176,7 +179,8 @@ CREATE TABLE bi.expenses (
   CHECK (allocation_method <> 'direct' OR line_id IS NOT NULL),
   FOREIGN KEY (workspace_id, dataset_id) REFERENCES bi.datasets,
   FOREIGN KEY (workspace_id, dataset_id, channel_id) REFERENCES bi.channels,
-  FOREIGN KEY (workspace_id, dataset_id, store_id, channel_id) REFERENCES bi.stores,
+  FOREIGN KEY (workspace_id, dataset_id, store_id, channel_id)
+    REFERENCES bi.stores (workspace_id, dataset_id, store_id, channel_id),
   FOREIGN KEY (workspace_id, dataset_id, line_id) REFERENCES bi.order_lines
 );
 CREATE TABLE bi.expense_allocations (
@@ -258,7 +262,7 @@ BEGIN
     RAISE EXCEPTION 'Overlapping mapping intervals' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
-END $$;
+END; $$;
 CREATE TRIGGER mapping_intervals BEFORE INSERT OR UPDATE ON bi.mappings
   FOR EACH ROW EXECUTE FUNCTION bi.prevent_mapping_overlap();
 CREATE FUNCTION bi.prevent_cost_overlap() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -274,7 +278,7 @@ BEGIN
     RAISE EXCEPTION 'Overlapping cost intervals' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
-END $$;
+END; $$;
 CREATE TRIGGER cost_intervals BEFORE INSERT OR UPDATE ON bi.cost_versions
   FOR EACH ROW EXECUTE FUNCTION bi.prevent_cost_overlap();
 
@@ -297,7 +301,7 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
-END $$;
+END; $$;
 CREATE TRIGGER refund_limits BEFORE INSERT OR UPDATE ON bi.refunds
   FOR EACH ROW EXECUTE FUNCTION bi.check_completed_refund();
 COMMENT ON COLUMN bi.refunds.returned_quantity IS
@@ -329,5 +333,5 @@ BEGIN
       || 'WITH CHECK (workspace_id = current_setting(''shopgate.workspace_id'', true) '
       || 'AND dataset_id = current_setting(''shopgate.dataset_id'', true))', tbl);
   END LOOP;
-END
+END;
 $policies$;

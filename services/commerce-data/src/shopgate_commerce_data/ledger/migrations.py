@@ -1,4 +1,5 @@
 """Explicit, transactional migrations; normal API startup never applies DDL."""
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,8 @@ def migrate(connection: psycopg.Connection, *, migration_path: Path = MIGRATION)
             "applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"
         )
         existing = connection.execute(
-            "SELECT checksum FROM bi.schema_migrations WHERE revision = %s", ("006",),
+            "SELECT checksum FROM bi.schema_migrations WHERE revision = %s",
+            ("006",),
         ).fetchone()
         if existing:
             if existing[0] != digest:

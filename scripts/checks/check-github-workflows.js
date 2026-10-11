@@ -28,6 +28,11 @@ for (const filename of fs.readdirSync(workflowDir).filter((name) => /\.ya?ml$/.t
 }
 
 const quality = fs.readFileSync(path.join(workflowDir, 'quality.yml'), 'utf8');
+const backendJob = quality.split(/^  backend-commerce-data:\s*$/m)[1]
+  ?.split(/^  authenticated-smoke:\s*$/m)[0] ?? '';
+if (!/npm ci/.test(backendJob) || !/npm run test:backend/.test(backendJob)) {
+  failures.push('.github/workflows/quality.yml: backend must install and run the dedicated PostgreSQL ledger test harness');
+}
 const nativeTimescaleServices = quality.match(/^\s{6}timescaledb:\s*$/gm) ?? [];
 if (nativeTimescaleServices.length !== 2) {
   failures.push(

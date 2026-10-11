@@ -24,6 +24,10 @@ delete environment.SHOPGATE_LEDGER_TEST_DATABASE_URL;
 let started = false;
 let exitCode = 1;
 try {
+  execFileSync('uv', ['run', '--project', 'services/commerce-data',
+    'ruff', 'check', 'services/commerce-data'], {
+    cwd: root, env: environment, stdio: 'inherit',
+  });
   if (process.platform === 'linux') {
     let knownUser = true;
     try { execFileSync('id', ['-un'], { stdio: 'pipe' }); } catch { knownUser = false; }

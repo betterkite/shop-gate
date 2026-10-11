@@ -6,7 +6,10 @@ from typing import Literal
 
 PrecisionKind = Literal["money", "quantity", "unit_cost", "fx_rate"]
 LIMITS: dict[PrecisionKind, tuple[int, int]] = {
-    "money": (2, 16), "quantity": (4, 12), "unit_cost": (4, 12), "fx_rate": (8, 8),
+    "money": (2, 16),
+    "quantity": (4, 12),
+    "unit_cost": (4, 12),
+    "fx_rate": (8, 8),
 }
 DECIMAL_TEXT = re.compile(r"^-?(?:0|[1-9]\d*)(?:\.\d+)?$")
 

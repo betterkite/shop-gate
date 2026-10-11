@@ -1,11 +1,13 @@
 """Internal preview/confirm protocol; no SQL or callback comes from user/model input."""
+
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 import psycopg
@@ -28,8 +30,9 @@ class MutationResult:
 
 
 def payload_hash(payload: dict[str, Any]) -> str:
-    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"),
-                         allow_nan=False)
+    encoded = json.dumps(
+        payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+    )
     if len(encoded.encode()) > 2_000_000:
         raise ValueError("操作内容过大。")
     return hashlib.sha256(encoded.encode()).hexdigest()
@@ -45,22 +48,31 @@ def bind_scope(connection: psycopg.Connection, scope: LedgerScope) -> None:
         raise ScopeError("经营运行时不能使用超级用户或绕过行级隔离的数据库角色。")
     connection.execute(
         "SELECT set_config('shopgate.workspace_id', %s, true), "
-        "set_config('shopgate.dataset_id', %s, true)", (scope.workspace_id, scope.dataset_id),
+        "set_config('shopgate.dataset_id', %s, true)",
+        (scope.workspace_id, scope.dataset_id),
     )
 
 
 def checked_dataset(connection: psycopg.Connection, scope: LedgerScope, *, lock: bool = False):
-    query = ("SELECT version FROM bi.datasets WHERE workspace_id = %s AND dataset_id = %s "
-             "AND state = 'active'") + (" FOR UPDATE" if lock else "")
+    query = (
+        "SELECT version FROM bi.datasets WHERE workspace_id = %s AND dataset_id = %s "
+        "AND state = 'active'"
+    ) + (" FOR UPDATE" if lock else "")
     row = connection.execute(query, (scope.workspace_id, scope.dataset_id)).fetchone()
     if row is None:
         raise ScopeError("数据集不存在或当前身份无权访问。")
     return row[0]
 
 
-def create_preview(connection: psycopg.Connection, scope: LedgerScope, kind: str,
-                   payload: dict[str, Any], impact: dict[str, Any], *,
-                   lifetime_seconds: int = 300) -> str:
+def create_preview(
+    connection: psycopg.Connection,
+    scope: LedgerScope,
+    kind: str,
+    payload: dict[str, Any],
+    impact: dict[str, Any],
+    *,
+    lifetime_seconds: int = 300,
+) -> str:
     scope.require("ledger.manage")
     if kind not in OPERATION_KINDS or not 1 <= lifetime_seconds <= 900:
         raise ValueError("操作类型或预览期限无效。")
@@ -76,17 +88,31 @@ def create_preview(connection: psycopg.Connection, scope: LedgerScope, kind: str
             "(workspace_id, dataset_id, preview_id, actor_id, kind, version, payload, "
             "payload_hash, impact, expires_at) VALUES "
             "(%s, %s, %s, %s, %s, %s, %s, %s, %s, clock_timestamp() + %s)",
-            (scope.workspace_id, scope.dataset_id, preview_id, scope.actor_id, kind,
-             scope.version, Jsonb(payload), digest, Jsonb(impact),
-             timedelta(seconds=lifetime_seconds)),
+            (
+                scope.workspace_id,
+                scope.dataset_id,
+                preview_id,
+                scope.actor_id,
+                kind,
+                scope.version,
+                Jsonb(payload),
+                digest,
+                Jsonb(impact),
+                timedelta(seconds=lifetime_seconds),
+            ),
         )
     return preview_id
 
 
-def confirm_operation(connection: psycopg.Connection, scope: LedgerScope, preview_id: str,
-                      idempotency_key: str, *, confirmed_by_user: bool,
-                      apply: Callable[[psycopg.Connection, str, dict[str, Any]], MutationResult]
-                      ) -> dict[str, Any]:
+def confirm_operation(
+    connection: psycopg.Connection,
+    scope: LedgerScope,
+    preview_id: str,
+    idempotency_key: str,
+    *,
+    confirmed_by_user: bool,
+    apply: Callable[[psycopg.Connection, str, dict[str, Any]], MutationResult],
+) -> dict[str, Any]:
     scope.require("ledger.manage")
     if confirmed_by_user is not True:
         raise ScopeError("正式修改必须先由用户明确确认。")
@@ -104,8 +130,10 @@ def confirm_operation(connection: psycopg.Connection, scope: LedgerScope, previe
                 (scope.workspace_id, scope.dataset_id, idempotency_key),
             ).fetchone()
             if previous:
-                if (previous["actor_id"] != scope.actor_id
-                        or previous["request_hash"] != request_digest):
+                if (
+                    previous["actor_id"] != scope.actor_id
+                    or previous["request_hash"] != request_digest
+                ):
                     raise OperationConflict("同一提交标识不能对应其他用户或不同操作。")
                 return previous["result"]
             preview = cursor.execute(
@@ -127,8 +155,11 @@ def confirm_operation(connection: psycopg.Connection, scope: LedgerScope, previe
             raise TypeError("经营操作必须返回明确的变更与结果。")
         payload_hash(mutation.result)
         committed_version = version + int(mutation.changed)
-        result = {"version": committed_version, "changed": mutation.changed,
-                  "data": mutation.result}
+        result = {
+            "version": committed_version,
+            "changed": mutation.changed,
+            "data": mutation.result,
+        }
         if mutation.changed:
             connection.execute(
                 "UPDATE bi.datasets SET version = %s, updated_at = clock_timestamp() "
@@ -144,15 +175,35 @@ def confirm_operation(connection: psycopg.Connection, scope: LedgerScope, previe
             "INSERT INTO bi.operations (workspace_id, dataset_id, idempotency_key, actor_id, "
             "preview_id, request_hash, result, committed_version) VALUES "
             "(%s, %s, %s, %s, %s, %s, %s, %s)",
-            (scope.workspace_id, scope.dataset_id, idempotency_key, scope.actor_id,
-             preview_id, request_digest, Jsonb(result), committed_version),
+            (
+                scope.workspace_id,
+                scope.dataset_id,
+                idempotency_key,
+                scope.actor_id,
+                preview_id,
+                request_digest,
+                Jsonb(result),
+                committed_version,
+            ),
         )
         connection.execute(
             "INSERT INTO bi.audit_events (workspace_id, dataset_id, event_id, actor_id, "
             "operation_kind, preview_id, version, summary) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (scope.workspace_id, scope.dataset_id, str(uuid4()), scope.actor_id,
-             preview["kind"], preview_id, committed_version,
-             Jsonb({"changed": mutation.changed, "payload_hash": preview["payload_hash"],
-                    "user_confirmed": True})),
+            (
+                scope.workspace_id,
+                scope.dataset_id,
+                str(uuid4()),
+                scope.actor_id,
+                preview["kind"],
+                preview_id,
+                committed_version,
+                Jsonb(
+                    {
+                        "changed": mutation.changed,
+                        "payload_hash": preview["payload_hash"],
+                        "user_confirmed": True,
+                    }
+                ),
+            ),
         )
         return result

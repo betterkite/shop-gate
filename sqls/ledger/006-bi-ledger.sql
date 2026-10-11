@@ -1,5 +1,6 @@
 -- Independent v0.1 transaction ledger. Never converts old behavior estimates into orders.
 -- Run through ledger.migrations; DDL, checksum and revision are committed together.
+-- Nested location intentionally excludes ordinary db:init and Docker first-start globbing.
 CREATE SCHEMA IF NOT EXISTS bi;
 
 CREATE DOMAIN bi.money AS numeric
@@ -71,6 +72,7 @@ CREATE TABLE bi.mappings (
   valid_from timestamptz NOT NULL, valid_to timestamptz,
   created_version bigint NOT NULL CHECK (created_version > 0),
   PRIMARY KEY (workspace_id, dataset_id, mapping_id),
+  UNIQUE (workspace_id, dataset_id, mapping_id, sku_id, unit_multiplier),
   CHECK (valid_to IS NULL OR valid_to > valid_from),
   FOREIGN KEY (workspace_id, dataset_id, listing_id) REFERENCES bi.listings,
   FOREIGN KEY (workspace_id, dataset_id, sku_id) REFERENCES bi.skus
@@ -93,6 +95,7 @@ CREATE TABLE bi.cost_versions (
   valid_from timestamptz NOT NULL, valid_to timestamptz,
   source text NOT NULL, created_version bigint NOT NULL CHECK (created_version > 0),
   PRIMARY KEY (workspace_id, dataset_id, cost_id),
+  UNIQUE (workspace_id, dataset_id, cost_id, sku_id, unit_cost),
   CHECK (valid_to IS NULL OR valid_to > valid_from),
   CHECK ((level = 'base' AND channel_id IS NULL AND store_id IS NULL)
       OR (level = 'channel' AND channel_id IS NOT NULL AND store_id IS NULL)
@@ -140,15 +143,25 @@ CREATE TABLE bi.line_snapshots (
   PRIMARY KEY (workspace_id, dataset_id, line_id, revision),
   CHECK (unit_multiplier IS NULL OR unit_multiplier > 0),
   CHECK (standard_quantity IS NULL OR standard_quantity > 0),
+  CHECK (revenue_cny IS NULL OR revenue_cny >= 0),
+  CHECK (cost_cny IS NULL OR cost_cny >= 0),
+  CHECK ((mapping_id IS NULL AND sku_id IS NULL AND unit_multiplier IS NULL
+            AND standard_quantity IS NULL)
+      OR (mapping_id IS NOT NULL AND sku_id IS NOT NULL AND unit_multiplier IS NOT NULL
+            AND standard_quantity IS NOT NULL)),
+  CHECK ((cost_id IS NULL AND unit_cost IS NULL)
+      OR (cost_id IS NOT NULL AND unit_cost IS NOT NULL)),
   CHECK (accounting_status <> 'complete' OR
     (mapping_id IS NOT NULL AND sku_id IS NOT NULL AND cost_id IS NOT NULL
      AND unit_multiplier IS NOT NULL AND standard_quantity IS NOT NULL
      AND unit_cost IS NOT NULL AND revenue_fx_rate IS NOT NULL
      AND cost_fx_rate IS NOT NULL AND revenue_cny IS NOT NULL AND cost_cny IS NOT NULL)),
   FOREIGN KEY (workspace_id, dataset_id, line_id) REFERENCES bi.order_lines,
-  FOREIGN KEY (workspace_id, dataset_id, mapping_id) REFERENCES bi.mappings,
+  FOREIGN KEY (workspace_id, dataset_id, mapping_id, sku_id, unit_multiplier)
+    REFERENCES bi.mappings (workspace_id, dataset_id, mapping_id, sku_id, unit_multiplier),
   FOREIGN KEY (workspace_id, dataset_id, sku_id) REFERENCES bi.skus,
-  FOREIGN KEY (workspace_id, dataset_id, cost_id) REFERENCES bi.cost_versions
+  FOREIGN KEY (workspace_id, dataset_id, cost_id, sku_id, unit_cost)
+    REFERENCES bi.cost_versions (workspace_id, dataset_id, cost_id, sku_id, unit_cost)
 );
 CREATE TABLE bi.refunds (
   workspace_id text NOT NULL, dataset_id text NOT NULL, refund_id text NOT NULL,
@@ -308,6 +321,18 @@ COMMENT ON COLUMN bi.refunds.returned_quantity IS
   'Original platform sale units; convert with payment snapshot multiplier.';
 COMMENT ON COLUMN bi.refunds.recoverable_quantity IS
   'Recoverable platform units; refund_only never implies recovery.';
+
+CREATE FUNCTION bi.reject_history_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'Ledger history is append-only; create a new revision'
+    USING ERRCODE = '23514';
+END; $$;
+CREATE TRIGGER immutable_snapshots BEFORE UPDATE OR DELETE ON bi.line_snapshots
+  FOR EACH ROW EXECUTE FUNCTION bi.reject_history_mutation();
+CREATE TRIGGER immutable_operations BEFORE UPDATE OR DELETE ON bi.operations
+  FOR EACH ROW EXECUTE FUNCTION bi.reject_history_mutation();
+CREATE TRIGGER immutable_audit BEFORE UPDATE OR DELETE ON bi.audit_events
+  FOR EACH ROW EXECUTE FUNCTION bi.reject_history_mutation();
 
 -- A verified service scope is set only inside the repository transaction.
 ALTER TABLE bi.workspaces ENABLE ROW LEVEL SECURITY;

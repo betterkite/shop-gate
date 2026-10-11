@@ -62,7 +62,7 @@ try {
   };
   delete testEnvironment.DATABASE_URL;
   delete testEnvironment.PI_AGENT_TEST_DATABASE_URL;
-  console.log('[ledger] Dedicated ephemeral PostgreSQL 17; daily database is not used.');
+  console.log('[ledger] Dedicated ephemeral PostgreSQL 18; daily database is not used.');
   exitCode = await new Promise((resolve, reject) => {
     const child = spawn('uv', ['run', '--project', 'services/commerce-data',
       'pytest', '-q', 'services/commerce-data/tests'], {

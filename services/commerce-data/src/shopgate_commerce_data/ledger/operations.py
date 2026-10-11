@@ -11,6 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 import psycopg
+from psycopg.pq import TransactionStatus
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -41,6 +42,8 @@ def payload_hash(payload: dict[str, Any]) -> str:
 def bind_scope(connection: psycopg.Connection, scope: LedgerScope) -> None:
     """Must run inside a transaction; SET LOCAL cannot leak to a pooled next request."""
     scope.require("ledger.read")
+    if connection.info.transaction_status != TransactionStatus.INTRANS:
+        raise ScopeError("经营作用域必须在数据库事务内绑定。")
     role = connection.execute(
         "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
     ).fetchone()

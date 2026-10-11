@@ -62,7 +62,7 @@ API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准
 
 ## 代码边界
 
-v0.1独立账本新增于 `ledger/` 与 `sqls/006-bi-ledger.sql`。当前只交付schema、精度、可信作用域和预览确认协议，尚未替换上述旧API；不会自动迁移旧行为数据。安装、隔离测试和权限边界见 [账本底座说明](../../docs/review/v01/ledger-foundation.md)。
+v0.1独立账本新增于 `ledger/` 与 `sqls/ledger/006-bi-ledger.sql`。当前只交付schema、精度、可信作用域和预览确认协议，尚未替换上述旧API；不会自动迁移旧行为数据。安装、隔离测试和权限边界见 [账本底座说明](../../docs/review/v01/ledger-foundation.md)。
 
 - `api.py`：FastAPI app factory、健康与就绪端点。
 - `cli.py`：API 启动和环境变量白名单。

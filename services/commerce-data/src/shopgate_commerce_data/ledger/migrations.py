@@ -10,7 +10,7 @@ import psycopg
 
 from shopgate_commerce_data.database_core import database_url_from_env
 
-MIGRATION = Path(__file__).resolve().parents[5] / "sqls" / "006-bi-ledger.sql"
+MIGRATION = Path(__file__).resolve().parents[5] / "sqls" / "ledger" / "006-bi-ledger.sql"
 
 
 def migrate(connection: psycopg.Connection, *, migration_path: Path = MIGRATION) -> None:

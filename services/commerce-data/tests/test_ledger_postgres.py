@@ -108,6 +108,20 @@ def test_migration_repeat_and_checksum_not_silent_mutation(context, tmp_path):
         assert connection.execute("SELECT checksum FROM bi.schema_migrations").fetchone()
 
 
+def test_versioned_migration_is_not_a_startup_bootstrap():
+    assert MIGRATION.parent.name == "ledger"
+    assert not (MIGRATION.parent.parent / MIGRATION.name).exists()
+
+
+def test_scope_binding_requires_a_transaction(context):
+    scope, app_url, _ = context
+    with (
+        psycopg.connect(app_url, autocommit=True) as connection,
+        pytest.raises(ScopeError, match="事务"),
+    ):
+        bind_scope(connection, scope)
+
+
 def test_ddl_failure_is_atomic_on_a_separate_database(context, tmp_path):
     _, _, admin_url = context
     database = f"ledger_migration_{uuid4().hex}"
@@ -427,6 +441,85 @@ def test_noop_does_not_increase_business_version(context):
             apply=lambda *_: MutationResult(False, {"duplicate": True}),
         )
         assert result["version"] == 1 and result["changed"] is False
+
+
+def test_simultaneous_retry_returns_same_result_once(context):
+    scope, app_url, admin_url = context
+    seed_store(admin_url, scope)
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview_id = preview_target(connection, scope)
+
+    def retry(_):
+        with psycopg.connect(app_url, autocommit=True) as connection:
+            return confirm_operation(
+                connection,
+                scope,
+                preview_id,
+                "same-request",
+                confirmed_by_user=True,
+                apply=apply_target,
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(retry, (0, 1)))
+    assert results[0] == results[1] and results[0]["version"] == 2
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM bi.audit_events WHERE workspace_id=%s", (scope.workspace_id,)
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_snapshot_unknown_is_null_and_history_is_append_only(context):
+    scope, _, admin_url = context
+    seed_catalog(admin_url, scope)
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        prefix = (scope.workspace_id, scope.dataset_id)
+        connection.execute(
+            "INSERT INTO bi.line_snapshots "
+            "(workspace_id,dataset_id,line_id,revision,accounting_status) "
+            "VALUES (%s,%s,'line-001',1,'missing_mapping')",
+            prefix,
+        )
+        assert connection.execute(
+            "SELECT unit_cost, cost_cny FROM bi.line_snapshots "
+            "WHERE workspace_id=%s AND line_id='line-001'",
+            (scope.workspace_id,),
+        ).fetchone() == (None, None)
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute(
+                "UPDATE bi.line_snapshots SET cost_cny=0 WHERE workspace_id=%s",
+                (scope.workspace_id,),
+            )
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute(
+                "INSERT INTO bi.line_snapshots "
+                "(workspace_id,dataset_id,line_id,revision,accounting_status) "
+                "VALUES (%s,%s,'line-001',2,'complete')",
+                prefix,
+            )
+
+
+def test_audit_and_committed_idempotency_results_cannot_be_overwritten(context):
+    scope, app_url, admin_url = context
+    seed_store(admin_url, scope)
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview_id = preview_target(connection, scope)
+        confirm_operation(
+            connection, scope, preview_id, "immutable", confirmed_by_user=True, apply=apply_target
+        )
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute(
+                "UPDATE bi.operations SET committed_version=3 WHERE workspace_id=%s",
+                (scope.workspace_id,),
+            )
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute(
+                "DELETE FROM bi.audit_events WHERE workspace_id=%s", (scope.workspace_id,)
+            )
 
 
 def test_concurrent_confirms_exactly_one_commits(context):

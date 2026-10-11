@@ -309,6 +309,52 @@ def test_all_twelve_export_import_roundtrip_exact_duplicate_no_version_bump(empt
             assert connection.execute("SELECT count(*) FROM bi.accounting_runs").fetchone()[0] == 1
 
 
+def test_all_twelve_exports_rehydrate_new_dataset_without_changing_fact_values(empty):
+    current, _, _ = commit(empty)
+    with psycopg.connect(empty[1], autocommit=True) as connection:
+        exported = export_csv12(connection, current)["files"]
+    with psycopg.connect(empty[2], autocommit=True) as admin:
+        admin.execute(
+            "INSERT INTO bi.datasets(workspace_id,dataset_id,name,source_kind) "
+            "VALUES (%s,'restored','标准往返集','import')",
+            (current.workspace_id,),
+        )
+    restored = replace(current, dataset_id="restored", version=1)
+    with psycopg.connect(empty[1], autocommit=True) as connection:
+        preview = preview_import(
+            connection, restored, [CsvFile(r, f"{r}.csv", value) for r, value in exported.items()]
+        )
+        assert preview["state"] == "preview", preview["errors"]
+        result = confirm_import(
+            connection, restored, preview["preview_id"], "restore", confirmed_by_user=True
+        )
+        restored = replace(restored, version=result["version"])
+        assert export_csv12(connection, restored)["files"] == exported
+        assert (
+            query_ledger(connection, restored, Query())["summary"]["metrics"]["contribution_profit"]
+            == "121.00"
+        )
+
+
+def test_batch_pagination_full_count_and_private_scope_after_reconnection(empty):
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        for _ in range(23):
+            preview_import(
+                connection, scope, [CsvFile("products", "空.csv", standard_csv("products", []))]
+            )
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        first = list_batches(connection, scope)
+        second = list_batches(connection, scope, page=2)
+        assert first["total"] == second["total"] == 23
+        assert len(first["rows"]) == 20 and len(second["rows"]) == 3
+        assert len({row["batch_id"] for row in first["rows"] + second["rows"]}) == 23
+        assert list_batches(connection, scope, page=3)["rows"] == []
+        assert count_sources(empty) == (0, 0, 1)
+        with pytest.raises(ScopeError):
+            list_batches(connection, replace(scope, workspace_id="unrelated"))
+
+
 @pytest.mark.parametrize(
     "problem", ["reference", "late_refund", "refund_overpaid", "shipped_cancel", "expense_scope"]
 )

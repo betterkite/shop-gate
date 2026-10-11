@@ -100,7 +100,12 @@ def preview_target(connection, scope, **kwargs):
 def test_migration_repeat_and_checksum_not_silent_mutation(context, tmp_path):
     _, _, admin_url = context
     with psycopg.connect(admin_url, autocommit=True) as connection:
-        assert connection.execute("SELECT count(*) FROM bi.schema_migrations").fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM bi.schema_migrations WHERE revision='006'"
+            ).fetchone()[0]
+            == 1
+        )
         altered = tmp_path / "changed.sql"
         altered.write_text(MIGRATION.read_text() + "\n-- changed\n")
         with pytest.raises(RuntimeError, match="校验"):

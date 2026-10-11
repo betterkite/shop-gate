@@ -1,5 +1,9 @@
 # v0.1 完整电商 BI 与经营分析 Agent 重构基线
 
+[数据重构与八模块依赖](data-reconstruction.md)明确事实账本、固定核算集、演示与正式导入的分离；数据重构与功能重构必须一同验收。
+
+[R1-B核算规则与人工复算样例](accounting.md)登记唯一指标服务、历史快照、费用守恒和开发/验收边界。
+
 状态：R0 基线建立中，业务实现尚未验收。对应 [issue #83](https://github.com/betterkite/shop-gate/issues/83)。
 
 ## 目标与来源

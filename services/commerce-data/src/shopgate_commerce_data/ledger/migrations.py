@@ -13,7 +13,9 @@ from shopgate_commerce_data.database_core import database_url_from_env
 MIGRATION = Path(__file__).resolve().parents[5] / "sqls" / "ledger" / "006-bi-ledger.sql"
 
 
-def migrate(connection: psycopg.Connection, *, migration_path: Path = MIGRATION) -> None:
+def migrate(
+    connection: psycopg.Connection, *, migration_path: Path = MIGRATION, revision: str = "006"
+) -> None:
     source = migration_path.read_text(encoding="utf-8")
     digest = hashlib.sha256(source.encode()).hexdigest()
     with connection.transaction():
@@ -26,7 +28,7 @@ def migrate(connection: psycopg.Connection, *, migration_path: Path = MIGRATION)
         )
         existing = connection.execute(
             "SELECT checksum FROM bi.schema_migrations WHERE revision = %s",
-            ("006",),
+            (revision,),
         ).fetchone()
         if existing:
             if existing[0] != digest:
@@ -35,16 +37,29 @@ def migrate(connection: psycopg.Connection, *, migration_path: Path = MIGRATION)
         connection.execute(source)
         connection.execute(
             "INSERT INTO bi.schema_migrations (revision, checksum) VALUES (%s, %s)",
-            ("006", digest),
+            (revision, digest),
         )
+
+
+def migrate_all(connection: psycopg.Connection) -> None:
+    # Apply the ordered series atomically, including on a fresh database.
+    with connection.transaction():
+        for revision in ("006", "007"):
+            migrate(
+                connection,
+                migration_path=MIGRATION.with_name(
+                    f"{revision}-bi-" + ("ledger.sql" if revision == "006" else "accounting.sql")
+                ),
+                revision=revision,
+            )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="显式安装独立BI账本，不修改旧commerce表。")
     parser.parse_args()
     with psycopg.connect(database_url_from_env(), autocommit=True) as connection:
-        migrate(connection)
-    print("BI ledger migration 006 verified/applied.")
+        migrate_all(connection)
+    print("BI ledger migrations 006/007 verified/applied.")
 
 
 if __name__ == "__main__":

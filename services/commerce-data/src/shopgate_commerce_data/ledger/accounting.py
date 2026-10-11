@@ -181,7 +181,10 @@ def allocate_cents(total: Decimal, weights: dict[str, Decimal]) -> dict[str, Dec
     total = exact_decimal(total, "money")
     if not weights:
         return {}
-    if any(not value.is_finite() or value <= 0 for value in weights.values()):
+    if any(
+        not isinstance(value, Decimal) or not value.is_finite() or value <= 0
+        for value in weights.values()
+    ):
         raise ValueError("分摊权重必须是有限正数。")
     with localcontext() as context:
         context.prec = 80

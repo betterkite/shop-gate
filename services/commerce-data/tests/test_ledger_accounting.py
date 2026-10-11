@@ -15,7 +15,7 @@ from shopgate_commerce_data.ledger.accounting import (
     ratio,
 )
 from shopgate_commerce_data.ledger.metrics import METRICS, metric_catalog
-from shopgate_commerce_data.ledger.query import Query
+from shopgate_commerce_data.ledger.query import Query, aggregate
 from shopgate_commerce_data.ledger.scope import LedgerScope
 
 AT = datetime(2026, 10, 1, tzinfo=UTC)
@@ -95,6 +95,66 @@ def test_large_precision_allocation_and_invalid_weight():
     assert sum(result.values()) == D("9999999999999999.99")
     with pytest.raises(ValueError):
         allocate_cents(D("1.00"), {"x": D("NaN")})
+    with pytest.raises(ValueError):
+        allocate_cents(D("1.00"), {"x": 1.5})
+
+
+def test_unknown_payment_and_refund_are_separate_metric_states():
+    sale = {
+        "kind": "sale",
+        "line_id": "l",
+        "order_id": "o",
+        "revenue": None,
+        "cost": D("1.00"),
+        "quantity": D(1),
+        "unit": "件",
+        "complete": False,
+    }
+    metrics = aggregate([sale], Query())["metrics"]
+    assert metrics["sales_amount"] is None
+    assert metrics["refund_amount"] == "0.00"
+    refund = {
+        "kind": "refund",
+        "line_id": "l",
+        "order_id": "o",
+        "refund": None,
+        "recovery": D(0),
+        "complete": False,
+    }
+    metrics = aggregate([refund], Query())["metrics"]
+    assert metrics["sales_amount"] == "0.00"
+    assert metrics["refund_amount"] is None
+    assert metrics["net_sales"] is None
+
+
+def test_different_standard_units_not_added_and_ratios_use_aggregate_numerators():
+    sales = [
+        {
+            "kind": "sale",
+            "line_id": "a",
+            "order_id": "o",
+            "revenue": D("100.00"),
+            "cost": D("10.00"),
+            "quantity": D(1),
+            "unit": "件",
+            "complete": True,
+        },
+        {
+            "kind": "sale",
+            "line_id": "b",
+            "order_id": "o",
+            "revenue": D("10.00"),
+            "cost": D("10.00"),
+            "quantity": D(1),
+            "unit": "箱",
+            "complete": True,
+        },
+    ]
+    result = aggregate(sales, Query())
+    assert result["metrics"]["standard_quantity"] is None
+    assert result["quality"]["quantity_by_unit"] == {"件": "1.0000", "箱": "1.0000"}
+    assert result["metrics"]["contribution_margin"] == "0.81818182"
+    assert result["metrics"]["order_count"] == 1
 
 
 def test_refund_only_keeps_cost_and_return_recovers_original_snapshot():

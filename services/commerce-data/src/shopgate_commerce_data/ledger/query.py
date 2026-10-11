@@ -157,6 +157,7 @@ def _group(event: dict, dimension: str) -> tuple[str, str]:
 def aggregate(events: list[dict], query: Query) -> dict:
     sales = refunds = costs = expenses = covered = contribution = ZERO
     missing_revenue = set()
+    missing_refund = set()
     missing_cost = set()
     missing_expense = set()
     missing_attribution = set()
@@ -187,7 +188,7 @@ def aggregate(events: list[dict], query: Query) -> dict:
         elif kind == "refund":
             refund_orders.add(event["order_id"])
             if event["refund"] is None:
-                missing_revenue.add(event["line_id"])
+                missing_refund.add(event["line_id"])
             else:
                 refunds += event["refund"]
             if event["recovery"] is None:
@@ -211,8 +212,8 @@ def aggregate(events: list[dict], query: Query) -> dict:
         else:
             raise ValueError("核算事件类型无效。")
     gross = None if missing_revenue else sales
-    refund_total = None if missing_revenue else refunds
-    net = None if missing_revenue else sales - refunds
+    refund_total = None if missing_refund else refunds
+    net = None if missing_revenue or missing_refund else sales - refunds
     product_cost = None if missing_cost else costs
     total_expense = None if missing_expense or missing_attribution else expenses
     profit = (
@@ -245,6 +246,7 @@ def aggregate(events: list[dict], query: Query) -> dict:
         "metrics": {key: data[key] for key in query.metrics},
         "quality": {
             "unknown_revenue_lines": len(missing_revenue),
+            "unknown_refund_lines": len(missing_refund),
             "unknown_cost_lines": len(missing_cost),
             "unknown_expenses": len(missing_expense),
             "unknown_attribution_expenses": len(missing_attribution),
@@ -313,6 +315,11 @@ def query_ledger(
                 "JOIN bi.channels c USING(workspace_id,dataset_id,channel_id)",
             )
         }
+        if query.channel_ids and any(
+            store_id in stores and stores[store_id]["channel_id"] not in query.channel_ids
+            for store_id in query.store_ids
+        ):
+            raise ValueError("所选店铺不属于所选销售平台，请调整筛选范围。")
         listings = {row["listing_id"]: row for row in rows(connection, "SELECT * FROM bi.listings")}
         refunds = defaultdict(list)
         for row in rows(connection, "SELECT * FROM bi.refunds WHERE status='completed'"):

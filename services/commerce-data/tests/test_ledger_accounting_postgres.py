@@ -410,3 +410,74 @@ def test_recalc_error_rolls_back_all_and_explicit_confirmation_required(golden):
             assert connection.execute("SELECT version FROM bi.datasets").fetchone()[0] == 1
             assert connection.execute("SELECT count(*) FROM bi.line_snapshots").fetchone()[0] == 0
             assert connection.execute("SELECT count(*) FROM bi.operations").fetchone()[0] == 0
+
+
+def test_missing_cost_repair_requires_confirmation_preserves_old_snapshot(golden):
+    scope, app_url, admin_url = golden
+    prefix = (scope.workspace_id, scope.dataset_id)
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        connection.execute(
+            "DELETE FROM bi.cost_versions WHERE workspace_id=%s "
+            "AND dataset_id=%s AND cost_id='base002'",
+            prefix,
+        )
+    scope = calculate(golden)
+    initial = read(golden, scope)["summary"]["metrics"]
+    assert initial["product_cost"] is None
+    assert initial["accounted_revenue"] == "170.00"
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        connection.execute(
+            "INSERT INTO bi.cost_versions VALUES (%s,%s,'repair002','002','base',"
+            "NULL,NULL,10.0000,'CNY','2026-01-01',NULL,'缺失修复',3)",
+            prefix,
+        )
+    # Merely repairing source cost does not rewrite old paid-order snapshots.
+    assert read(golden, scope)["summary"]["metrics"]["product_cost"] is None
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview = preview_recalculation(connection, scope, only_missing=True)
+        with connection.transaction():
+            bind_scope(connection, scope)
+            impact = connection.execute(
+                "SELECT impact FROM bi.operation_previews WHERE preview_id=%s", (preview,)
+            ).fetchone()[0]
+            assert impact["changed_lines"] == 1
+            assert impact["known_cost_before_cny"] == "42.00"
+            assert impact["known_cost_after_cny"] == "52.00"
+        result = confirm_recalculation(connection, scope, preview, "repair", confirmed_by_user=True)
+        assert result["version"] == 3
+        assert (
+            confirm_recalculation(connection, scope, preview, "repair", confirmed_by_user=True)
+            == result
+        )
+    current = replace(scope, version=3)
+    assert read(golden, current)["summary"]["metrics"]["contribution_profit"] == "105.00"
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        history = connection.execute(
+            "SELECT revision,cost_cny,accounting_status "
+            "FROM bi.line_snapshots WHERE workspace_id=%s AND dataset_id=%s AND line_id='line-b' "
+            "ORDER BY revision",
+            prefix,
+        ).fetchall()
+        assert history[0] == (2, None, "missing_cost")
+        assert str(history[1][1]) == "10.00"
+        assert history[1][0] == 3
+
+
+def test_mixed_unit_expense_is_not_falsely_assigned_and_platform_store_mismatch_rejected(golden):
+    scope, _, admin_url = golden
+    with psycopg.connect(admin_url, autocommit=True) as connection:
+        connection.execute(
+            "UPDATE bi.skus SET unit='箱' WHERE workspace_id=%s AND sku_id='002'",
+            (scope.workspace_id,),
+        )
+    scope = calculate(golden)
+    overall = read(golden, scope)
+    assert overall["summary"]["metrics"]["contribution_profit"] == "105.00"
+    assert overall["summary"]["metrics"]["standard_quantity"] is None
+    selected = read(golden, scope, sku_ids=("001",))
+    assert selected["summary"]["quality"]["unknown_attribution_expenses"] == 1
+    assert selected["summary"]["metrics"]["contribution_profit"] is None
+    grouped = read(golden, scope, dimension="sku")
+    assert grouped["summary"] == overall["summary"]
+    with pytest.raises(ValueError, match="平台"):
+        read(golden, scope, channel_ids=("temu",), store_ids=("a",))

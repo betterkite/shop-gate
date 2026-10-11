@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from zoneinfo import ZoneInfo
 
 import psycopg
@@ -90,6 +90,7 @@ def rebuild_accounting(
         raise ValueError("当前统一核算币种为人民币，其他原币需提供汇率。")
     lines = load_lines(connection)
     line_map = {row["line_id"]: row for row in lines}
+    selected_ids = set(line_ids) if line_ids is not None else None
     if line_ids is not None and not set(line_ids).issubset(line_map):
         raise ValueError("重算对象不存在或不属于当前可见付款订单。")
     mappings = defaultdict(list)
@@ -107,10 +108,23 @@ def rebuild_accounting(
         Cost(**{name: row[name] for name in Cost.__dataclass_fields__})
         for row in rows(connection, "SELECT * FROM bi.cost_versions")
     ]
+    costs_by_sku = defaultdict(list)
+    costs_by_id = {cost.cost_id: cost for cost in costs}
+    for cost in costs:
+        costs_by_sku[cost.sku_id].append(cost)
+    sku_units = {
+        row["sku_id"]: row["unit"] for row in rows(connection, "SELECT sku_id,unit FROM bi.skus")
+    }
     exchange = {
         (row["currency"], row["rate_date"]): row
         for row in rows(connection, "SELECT * FROM bi.fx_rates")
     }
+    rates_by_day = defaultdict(dict)
+    lines_by_day = defaultdict(list)
+    for (currency, day), row in exchange.items():
+        rates_by_day[day][currency] = row["rate"]
+    for line in lines:
+        lines_by_day[business_date(line["paid_at"])].append(line)
     old = {
         row["line_id"]: row
         for row in rows(
@@ -122,7 +136,7 @@ def rebuild_accounting(
     processed = 0
     for line in lines:
         previous = old.get(line["line_id"])
-        selected = line_ids is None or line["line_id"] in line_ids
+        selected = selected_ids is None or line["line_id"] in selected_ids
         needs = (
             previous is None
             or selected
@@ -132,7 +146,8 @@ def rebuild_accounting(
             snapshots[line["line_id"]] = snapshot_from_row(previous)
             continue
         day = business_date(line["paid_at"])
-        rates = {currency: row["rate"] for (currency, date), row in exchange.items() if date == day}
+        listing_mappings = mappings[line["listing_id"]]
+        candidate_skus = {mapping.sku_id for mapping in listing_mappings}
         snapshot = make_snapshot(
             paid_at=line["paid_at"],
             quantity=line["quantity"],
@@ -140,16 +155,16 @@ def rebuild_accounting(
             currency=line["currency"],
             channel_id=line["channel_id"],
             store_id=line["store_id"],
-            mappings=mappings[line["listing_id"]],
-            costs=costs,
-            rates=rates,
+            mappings=listing_mappings,
+            costs=[cost for sku in candidate_skus for cost in costs_by_sku[sku]],
+            rates=rates_by_day[day],
         )
         data = asdict(snapshot)
         data.pop("missing")
         columns = tuple(data)
         # Column names are internal dataclass constants, never browser/model input.
         values = [data[name] for name in columns]
-        cost = next((cost for cost in costs if cost.cost_id == snapshot.cost_id), None)
+        cost = costs_by_id.get(snapshot.cost_id)
 
         def source(currency, day=day):
             row = exchange.get((currency, day))
@@ -211,10 +226,17 @@ def rebuild_accounting(
         day = business_date(expense["occurred_at"])
         fx = exchange.get((expense["currency"], day))
         rate = Decimal(1) if expense["currency"] == "CNY" else fx["rate"] if fx else None
-        amount = money(expense["amount"] * rate) if rate is not None else None
+        with localcontext() as context:
+            context.prec = 80
+            amount = money(expense["amount"] * rate) if rate is not None else None
+        candidates = (
+            ([line_map[expense["line_id"]]] if expense["line_id"] in line_map else [])
+            if expense["allocation_method"] == "direct"
+            else lines_by_day[day]
+        )
         eligible = [
             line
-            for line in lines
+            for line in candidates
             if (expense["store_id"] is None or line["store_id"] == expense["store_id"])
             and (expense["channel_id"] is None or line["channel_id"] == expense["channel_id"])
             and (
@@ -237,7 +259,10 @@ def rebuild_accounting(
                 values = {
                     line["line_id"]: getattr(snapshots[line["line_id"]], key) for line in eligible
                 }
-                if any(value is None for value in values.values()):
+                units = {sku_units.get(snapshots[line["line_id"]].sku_id) for line in eligible}
+                if any(value is None for value in values.values()) or (
+                    expense["allocation_method"] == "quantity" and len(units) != 1
+                ):
                     status = "missing_weight"
                 else:
                     weights = {key: value for key, value in values.items() if value > 0}

@@ -634,6 +634,102 @@ def test_no_mapping_is_unknown_not_zero_revenue_and_calculation_preview_error_is
         assert any(error["resource"] == "accounting" for error in preview["errors"])
 
 
+def test_bulk_import_keeps_same_and_cross_chunk_duplicates_idempotent(empty):
+    products = [
+        {
+            "product_id": f"bulk-{index:04d}",
+            "name": f"商品{index}",
+            "category": "日用品",
+            "series": "",
+        }
+        for index in range(601)
+    ]
+    entries = [products[0], *products, products[0]]
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        uploaded = [CsvFile("products", "商品.csv", standard_csv("products", entries))]
+        preview = preview_import(connection, scope, uploaded)
+        assert preview["state"] == "preview", preview["errors"]
+        assert preview["summary"]["products"] == {"inserted": 601, "duplicates": 2}
+        result = confirm_import(
+            connection, scope, preview["preview_id"], "bulk", confirmed_by_user=True
+        )
+        scope = replace(scope, version=result["version"])
+        repeat = preview_import(connection, scope, uploaded)
+        assert repeat["summary"]["products"] == {"inserted": 0, "duplicates": 603}
+        assert (
+            confirm_import(
+                connection, scope, repeat["preview_id"], "repeat-bulk", confirmed_by_user=True
+            )["version"]
+            == 2
+        )
+        with connection.transaction():
+            bind_scope(connection, scope)
+            assert connection.execute("SELECT count(*) FROM bi.products").fetchone()[0] == 601
+
+
+def test_bulk_failure_restores_chunks_and_exact_rows_before_whole_batch_rollback(empty):
+    records = {name: [] for name in SPECS}
+    records["products"] = [
+        {"product_id": f"bulk-{index:04d}", "name": f"商品{index}", "category": "", "series": ""}
+        for index in range(601)
+    ]
+    records["skus"] = [
+        {
+            "sku_id": f"sku-{index:04d}",
+            "product_id": row["product_id"],
+            "name": "规格",
+            "unit": "件",
+        }
+        for index, row in enumerate(records["products"])
+    ]
+    for index in (240, 540):
+        records["skus"][index]["product_id"] = "private-missing-parent"
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview = preview_import(connection, scope, files(records))
+        assert preview["state"] == "rejected" and preview["preview_id"] is None
+        assert [(error["resource"], error["row"]) for error in preview["errors"]] == [
+            ("skus", 242),
+            ("skus", 542),
+        ]
+        assert "private-missing-parent" not in str(preview["errors"])
+        with connection.transaction():
+            bind_scope(connection, scope)
+            assert connection.execute("SELECT count(*) FROM bi.products").fetchone()[0] == 0
+            assert connection.execute("SELECT count(*) FROM bi.skus").fetchone()[0] == 0
+        for index in (240, 540):
+            records["skus"][index]["product_id"] = records["products"][index]["product_id"]
+        repaired = preview_import(connection, scope, files(records))
+        assert repaired["state"] == "preview", repaired["errors"]
+        assert repaired["summary"]["skus"] == {"inserted": 601, "duplicates": 0}
+        assert (
+            confirm_import(
+                connection, scope, repaired["preview_id"], "repaired-bulk", confirmed_by_user=True
+            )["version"]
+            == 2
+        )
+
+
+@pytest.mark.parametrize("offset", [10, 501])
+def test_bulk_conflict_same_or_cross_chunk_never_overwrites_identity(empty, offset):
+    entries = [
+        {"product_id": f"bulk-{index:04d}", "name": f"商品{index}", "category": "", "series": ""}
+        for index in range(offset)
+    ]
+    entries.append({**entries[0], "name": "冲突名称"})
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview = preview_import(
+            connection, scope, [CsvFile("products", "商品.csv", standard_csv("products", entries))]
+        )
+        assert preview["state"] == "rejected"
+        assert preview["error_count"] == 1 and preview["errors"][0]["row"] == offset + 2
+        with connection.transaction():
+            bind_scope(connection, scope)
+            assert connection.execute("SELECT count(*) FROM bi.products").fetchone()[0] == 0
+
+
 def test_full_1000_spec_180_day_demo_imports_and_queries_on_real_pg_without_replacing_official(
     empty,
 ):
@@ -659,13 +755,20 @@ def test_full_1000_spec_180_day_demo_imports_and_queries_on_real_pg_without_repl
         )
         assert result["version"] == 2
         scope = replace(scope, version=2)
-        metrics = query_ledger(connection, scope, Query())["summary"]["metrics"]
+        full_period = Query(
+            start=generated["manifest"]["start_date"], end=generated["manifest"]["end_date"]
+        )
+        metrics = query_ledger(connection, scope, full_period)["summary"]["metrics"]
         # 12000 ordinals minus multiples of29 or47 (including0), overlap counted once.
         assert metrics["order_count"] == 11339
         assert metrics["product_cost"] is None  # deliberately missing facts are not invented zeros
         assert (
             metrics["accounted_revenue"] is not None and Decimal(metrics["accounted_revenue"]) > 0
         )
+        recent = query_ledger(connection, scope, Query())
+        assert recent["range"]["end"] == generated["manifest"]["end_date"]
+        assert recent["range"]["start"] == "2026-05-31"
+        assert 0 < recent["summary"]["metrics"]["order_count"] < 11339
         with connection.transaction():
             bind_scope(connection, scope)
             assert connection.execute("SELECT count(*) FROM bi.skus").fetchone()[0] == 1000

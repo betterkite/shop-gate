@@ -43,6 +43,26 @@ def rows(connection: psycopg.Connection, query: str, params=()) -> list[dict]:
         return cursor.execute(query, params).fetchall()
 
 
+class _BufferedInsert:
+    """Bound pipeline memory while retaining all SQL constraints and one outer transaction."""
+
+    def __init__(self, connection, statement):
+        self.connection = connection
+        self.statement = statement
+        self.pending = []
+
+    def add(self, values):
+        self.pending.append(values)
+        if len(self.pending) >= 500:
+            self.flush()
+
+    def flush(self):
+        if self.pending:
+            with self.connection.cursor() as cursor:
+                cursor.executemany(self.statement, self.pending)
+            self.pending.clear()
+
+
 def load_lines(connection: psycopg.Connection) -> list[dict]:
     return rows(
         connection,
@@ -135,6 +155,15 @@ def rebuild_accounting(
     }
     snapshots: dict[str, Snapshot] = {}
     processed = 0
+    snapshot_columns = tuple(name for name in Snapshot.__dataclass_fields__ if name != "missing")
+    line_inserts = _BufferedInsert(
+        connection,
+        "INSERT INTO bi.line_snapshots(workspace_id,dataset_id,line_id,revision,"
+        + ",".join(snapshot_columns)
+        + ",accounting_status,revenue_fx_source,cost_fx_source,missing_reasons) VALUES ("
+        + ",".join(["%s"] * (len(snapshot_columns) + 8))
+        + ")",
+    )
     for line in lines:
         previous = old.get(line["line_id"])
         selected = selected_ids is None or line["line_id"] in selected_ids
@@ -190,12 +219,7 @@ def rebuild_accounting(
             and previous.get("cost_fx_source") == cost_source
         ):
             continue
-        connection.execute(
-            "INSERT INTO bi.line_snapshots(workspace_id,dataset_id,line_id,revision,"
-            + ",".join(columns)
-            + ",accounting_status,revenue_fx_source,cost_fx_source,missing_reasons) VALUES ("
-            + ",".join(["%s"] * (len(columns) + 8))
-            + ")",
+        line_inserts.add(
             (
                 scope.workspace_id,
                 scope.dataset_id,
@@ -210,6 +234,7 @@ def rebuild_accounting(
         )
         snapshots[line["line_id"]] = snapshot
         processed += 1
+    line_inserts.flush()
     expenses = rows(connection, "SELECT * FROM bi.expenses ORDER BY expense_id")
     old_expenses = {
         row["expense_id"]: row
@@ -228,6 +253,18 @@ def rebuild_accounting(
     ):
         old_allocations[row["expense_id"]][row["line_id"]] = (row["amount_cny"], row["weight"])
     processed_expenses = 0
+    allocation_inserts = _BufferedInsert(
+        connection,
+        "INSERT INTO bi.expense_allocations"
+        "(workspace_id,dataset_id,expense_id,line_id,revision,amount_cny,weight) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+    )
+    expense_inserts = _BufferedInsert(
+        connection,
+        "INSERT INTO bi.expense_snapshots(workspace_id,dataset_id,expense_id,revision,"
+        "amount_cny,fx_rate,fx_source,accounting_status,allocated_lines) VALUES "
+        "(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+    )
     for expense in expenses:
         day = business_date(expense["occurred_at"])
         fx = exchange.get((expense["currency"], day))
@@ -301,10 +338,7 @@ def rebuild_accounting(
             continue
         processed_expenses += 1
         for line_id, allocated in allocations.items():
-            connection.execute(
-                "INSERT INTO bi.expense_allocations"
-                "(workspace_id,dataset_id,expense_id,line_id,revision,amount_cny,weight) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            allocation_inserts.add(
                 (
                     scope.workspace_id,
                     scope.dataset_id,
@@ -315,10 +349,7 @@ def rebuild_accounting(
                     weights[line_id],
                 ),
             )
-        connection.execute(
-            "INSERT INTO bi.expense_snapshots(workspace_id,dataset_id,expense_id,revision,"
-            "amount_cny,fx_rate,fx_source,accounting_status,allocated_lines) VALUES "
-            "(%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        expense_inserts.add(
             (
                 scope.workspace_id,
                 scope.dataset_id,
@@ -331,6 +362,8 @@ def rebuild_accounting(
                 len(allocations),
             ),
         )
+    allocation_inserts.flush()
+    expense_inserts.flush()
     previous_run = rows(connection, "SELECT revision FROM bi.accounting_runs LIMIT 1")
     changed = bool(processed or processed_expenses or not previous_run)
     if changed:

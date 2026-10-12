@@ -156,7 +156,7 @@ def insert_or_duplicate(
     return True
 
 
-def apply_records(connection, scope, records: dict[str, list[dict]]) -> tuple[dict, list[CsvError]]:
+def _apply_rows(connection, scope, records: dict[str, list[dict]]) -> tuple[dict, list[CsvError]]:
     counts = {resource: {"inserted": 0, "duplicates": 0} for resource in SPECS}
     errors = []
     for resource in DEPENDENCY_ORDER:
@@ -204,6 +204,135 @@ def apply_records(connection, scope, records: dict[str, list[dict]]) -> tuple[di
                     }.get(error.sqlstate, "数据约束未通过，未写入该记录。")
                 )
                 errors.append(CsvError(record["_filename"], resource, record["_row"], "", message))
+    return counts, errors
+
+
+IMPORT_CHUNK_SIZE = 500
+
+
+def _insert_many_or_duplicate(connection, scope, table, fields, entries, resource):
+    """Internal bounded fast path; constraints/RLS still run for every INSERT.
+
+    The dataset lock prevents concurrent source changes. Track new identities in
+    input order as well as existing facts; do not use ON CONFLICT to hide conflicts.
+    A failed chunk is rolled back before the original row-by-row diagnostic path.
+    """
+    if not entries:
+        return []
+    identity = KEYS[table]
+    conditions = sql.SQL(" OR ").join(
+        sql.SQL("({})").format(
+            sql.SQL(" AND ").join(sql.SQL("{}=%s").format(sql.Identifier(key)) for key in identity)
+        )
+        for _ in entries
+    )
+    selected = rows(
+        connection,
+        sql.SQL("SELECT * FROM bi.{} WHERE workspace_id=%s AND dataset_id=%s AND ({})").format(
+            sql.Identifier(table), conditions
+        ),
+        (
+            scope.workspace_id,
+            scope.dataset_id,
+            *(record[key] for record in entries for key in identity),
+        ),
+    )
+    existing = {}
+    for record in selected:
+        # Mapping CSV combines listing + mapping fields, unlike either SQL table.
+        value = canonical(resource, {**entries[0], **record})
+        existing[tuple(value[key] for key in identity)] = record
+    changes, new_rows = [], []
+    for record in entries:
+        expected = canonical(resource, record)
+        key = tuple(expected[name] for name in identity)
+        if key in existing:
+            actual = canonical(resource, {**record, **existing[key]})
+            if any(expected[field] != actual[field] for field in fields):
+                raise ValueError("同一身份的记录内容不一致；请使用对应维护流程，不会覆盖原记录。")
+            changes.append(False)
+        else:
+            existing[key] = record
+            new_rows.append(record)
+            changes.append(True)
+    if new_rows:
+        columns = ("workspace_id", "dataset_id", *fields)
+        versioned = table in {"mappings", "cost_versions"}
+        if versioned:
+            columns += ("created_version",)
+        statement = sql.SQL("INSERT INTO bi.{} ({}) VALUES ({})").format(
+            sql.Identifier(table),
+            sql.SQL(",").join(map(sql.Identifier, columns)),
+            sql.SQL(",").join(sql.Placeholder() for _ in columns),
+        )
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                statement,
+                [
+                    (
+                        scope.workspace_id,
+                        scope.dataset_id,
+                        *[
+                            record.get(key) if key not in EMPTY_TEXT else record.get(key) or ""
+                            for key in fields
+                        ],
+                        *((scope.version + 1,) if versioned else ()),
+                    )
+                    for record in new_rows
+                ],
+            )
+    return changes
+
+
+def _apply_chunk(connection, scope, resource, entries):
+    if resource != "mappings":
+        return _insert_many_or_duplicate(
+            connection,
+            scope,
+            TABLES[resource],
+            tuple(spec.name for spec in SPECS[resource]),
+            entries,
+            resource,
+        )
+    changed = _insert_many_or_duplicate(
+        connection, scope, "listings", LISTING_FIELDS, entries, resource
+    )
+    mapped = [record for record in entries if record["status"] == "mapped"]
+    mapping_changes = iter(
+        _insert_many_or_duplicate(connection, scope, "mappings", MAPPING_FIELDS, mapped, resource)
+    )
+    for index, record in enumerate(entries):
+        if record["status"] == "mapped":
+            changed[index] = next(mapping_changes) or changed[index]
+    unmapped = [record["listing_id"] for record in entries if record["status"] != "mapped"]
+    if unmapped and rows(
+        connection,
+        "SELECT mapping_id FROM bi.mappings WHERE listing_id=ANY(%s) LIMIT 1",
+        (unmapped,),
+    ):
+        raise ValueError("该平台规格已有映射历史，不能以未映射行清除历史。")
+    return changed
+
+
+def apply_records(connection, scope, records: dict[str, list[dict]]) -> tuple[dict, list[CsvError]]:
+    counts = {resource: {"inserted": 0, "duplicates": 0} for resource in SPECS}
+    errors = []
+    for resource in DEPENDENCY_ORDER:
+        for offset in range(0, len(records[resource]), IMPORT_CHUNK_SIZE):
+            entries = records[resource][offset : offset + IMPORT_CHUNK_SIZE]
+            try:
+                with connection.transaction():
+                    changes = _apply_chunk(connection, scope, resource, entries)
+                counts[resource]["inserted"] += sum(changes)
+                counts[resource]["duplicates"] += len(changes) - sum(changes)
+            except ValueError, psycopg.IntegrityError:
+                # The whole fast chunk was rolled back, including earlier successful INSERTs.
+                # Retry in original order to preserve exact filename/row and dependency errors.
+                fallback = {name: entries if name == resource else [] for name in SPECS}
+                row_counts, row_errors = _apply_rows(connection, scope, fallback)
+                for key in counts[resource]:
+                    counts[resource][key] += row_counts[resource][key]
+                errors.extend(row_errors)
     return counts, errors
 
 

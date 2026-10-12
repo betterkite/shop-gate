@@ -14,6 +14,8 @@ export interface LedgerGatewayInput {
   write?: boolean;
 }
 
+export type DirectoryGatewayInput = Pick<LedgerGatewayInput, 'headers' | 'workspaceId' | 'write'>;
+
 function authenticated(context: RequiredActionContext) {
   if (!context.session || context.localSystemAdmin) {
     throw new AuthorizationError('AUTHENTICATION_REQUIRED', 401, '经营账本需要登录身份。');
@@ -34,19 +36,22 @@ function sameActor(actual: RequiredActionContext, expected: RequiredActionContex
  * actorUserId and capabilities cannot be supplied by a browser or a model.
  * Dataset/version are still checked by the ledger transaction, not assumed true.
  */
-export async function issueLedgerScope(input: LedgerGatewayInput) {
+async function authorizedWorkspace(input: DirectoryGatewayInput) {
   if (typeof window !== 'undefined') throw new Error('Ledger service authorization is server-only.');
-  if (!IDENTIFIER.test(input.datasetId) || !Number.isSafeInteger(input.version) || input.version < 1
-      || (input.write !== undefined && typeof input.write !== 'boolean')) {
-    throw new TypeError('数据集、版本或操作范围无效。');
+  if (input.write !== undefined && typeof input.write !== 'boolean') {
+    throw new TypeError('操作范围无效。');
   }
   const actor = authenticated(await requireAction({
     headers: input.headers, action: 'commerce.data.read',
   }));
-  if (!IDENTIFIER.test(actor.actorUserId)) throw new TypeError('登录身份标识无效。');
+  if (typeof actor.actorUserId !== 'string' || !IDENTIFIER.test(actor.actorUserId)) {
+    throw new TypeError('登录身份标识无效。');
+  }
   const personalWorkspace = `account:${actor.actorUserId}`;
   const workspaceId = input.workspaceId ?? personalWorkspace;
-  if (!IDENTIFIER.test(workspaceId)) throw new TypeError('工作空间标识无效。');
+  if (typeof workspaceId !== 'string' || !IDENTIFIER.test(workspaceId)) {
+    throw new TypeError('工作空间标识无效。');
+  }
   if (workspaceId.startsWith('account:')) {
     if (workspaceId !== personalWorkspace) {
       throw new AuthorizationError('WORKSPACE_NOT_FOUND', 404, '工作空间不存在或当前用户无权访问。');
@@ -65,25 +70,52 @@ export async function issueLedgerScope(input: LedgerGatewayInput) {
       headers: input.headers, action: 'commerce.operation.manage',
     }), actor);
   }
+  return { workspaceId, actorId: actor.actorUserId };
+}
+
+function sign(claims: Record<string, unknown>) {
   const secret = process.env.SHOPGATE_BI_SERVICE_SECRET ?? '';
   if (Buffer.byteLength(secret) < 32) {
     throw new Error('经营数据服务签名尚未配置；请配置双方相同的服务密钥。');
   }
+  const encoded = Buffer.from(JSON.stringify(claims)).toString('base64url');
+  const signature = createHmac('sha256', secret).update(encoded).digest('base64url');
+  return `${encoded}.${signature}`;
+}
+
+export async function issueLedgerScope(input: LedgerGatewayInput) {
+  if (typeof input.datasetId !== 'string' || !IDENTIFIER.test(input.datasetId)
+      || !Number.isSafeInteger(input.version) || input.version < 1) {
+    throw new TypeError('数据集、版本或操作范围无效。');
+  }
+  const { workspaceId, actorId } = await authorizedWorkspace(input);
   const issuedAt = Math.floor(Date.now() / 1000);
   const claims = {
     aud: 'shopgate-bi-v1',
     workspace_id: workspaceId,
     dataset_id: input.datasetId,
-    actor_id: actor.actorUserId,
+    actor_id: actorId,
     version: input.version,
     capabilities: input.write ? ['ledger.read', 'ledger.manage'] : ['ledger.read'],
     iat: issuedAt,
     exp: issuedAt + 120,
   };
-  const encoded = Buffer.from(JSON.stringify(claims)).toString('base64url');
-  const signature = createHmac('sha256', secret).update(encoded).digest('base64url');
   return {
-    workspaceId, datasetId: input.datasetId, actorId: actor.actorUserId,
-    version: input.version, expiresAt: claims.exp, token: `${encoded}.${signature}`,
+    workspaceId, datasetId: input.datasetId, actorId,
+    version: input.version, expiresAt: claims.exp, token: sign(claims),
+  };
+}
+
+/** Metadata only; no dataset wildcard/version and never valid for fact endpoints. */
+export async function issueDirectoryScope(input: DirectoryGatewayInput) {
+  const { workspaceId, actorId } = await authorizedWorkspace(input);
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const claims = {
+    aud: 'shopgate-bi-directory-v1', workspace_id: workspaceId, actor_id: actorId,
+    capabilities: input.write ? ['datasets.read', 'datasets.manage'] : ['datasets.read'],
+    iat: issuedAt, exp: issuedAt + 120,
+  };
+  return {
+    workspaceId, actorId, expiresAt: claims.exp, token: sign(claims),
   };
 }

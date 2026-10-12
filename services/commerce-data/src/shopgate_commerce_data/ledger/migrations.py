@@ -48,6 +48,7 @@ def migrate_all(connection: psycopg.Connection) -> None:
             ("006", "006-bi-ledger.sql"),
             ("007", "007-bi-accounting.sql"),
             ("008", "008-bi-exchange.sql"),
+            ("009", "009-bi-datasets.sql"),
         ):
             migrate(
                 connection,
@@ -61,7 +62,7 @@ def main() -> None:
     parser.parse_args()
     with psycopg.connect(database_url_from_env(), autocommit=True) as connection:
         migrate_all(connection)
-    print("BI ledger migrations 006/007/008 verified/applied.")
+    print("BI ledger migrations 006/007/008/009 verified/applied.")
 
 
 if __name__ == "__main__":

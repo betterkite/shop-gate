@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ requireAction: vi.fn() }));
 vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
-import { issueLedgerScope } from './gateway-scope';
+import { issueDirectoryScope, issueLedgerScope } from './gateway-scope';
 
 const TEST_SECRET = 'ledger-only-test-key-not-a-real-credential';
 const context = (role: 'owner' | 'editor' | 'viewer' = 'owner', actor = 'member-a') => ({
@@ -111,5 +111,51 @@ describe('authenticated ledger gateway scope', () => {
     vi.stubEnv('SHOPGATE_BI_SERVICE_SECRET', '');
     await expect(issueLedgerScope({ headers: new Headers(), datasetId: 'demo', version: 1 }))
       .rejects.toThrow('签名尚未配置');
+  });
+
+  it('signs metadata-only audience from actual actor without a wildcard dataset', async () => {
+    const result = await issueDirectoryScope({ headers: new Headers({ 'x-user-id': 'forged' }) });
+    const [encoded, signature] = result.token.split('.');
+    const claims = JSON.parse(Buffer.from(encoded, 'base64url').toString());
+    expect(claims).toMatchObject({ aud: 'shopgate-bi-directory-v1',
+      workspace_id: 'account:member-a', actor_id: 'member-a', capabilities: ['datasets.read'] });
+    expect(claims).not.toHaveProperty('dataset_id');
+    expect(claims).not.toHaveProperty('version');
+    expect(claims.exp - claims.iat).toBe(120);
+    expect(signature).toBe(createHmac('sha256', TEST_SECRET).update(encoded).digest('base64url'));
+  });
+
+  it('denies directory access to a foreign personal workspace', async () => {
+    await expect(issueDirectoryScope({ headers: new Headers(), workspaceId: 'account:other' }))
+      .rejects.toMatchObject({ code: 'WORKSPACE_NOT_FOUND', status: 404 });
+  });
+
+  it('checks shared membership and never grants viewers dataset creation', async () => {
+    mocks.requireAction.mockResolvedValue(context('viewer'));
+    const input = { headers: new Headers(), workspaceId: 'project-a' };
+    const result = await issueDirectoryScope(input);
+    expect(JSON.parse(Buffer.from(result.token.split('.')[0], 'base64url').toString())
+      .capabilities).toEqual(['datasets.read']);
+    await expect(issueDirectoryScope({ ...input, write: true }))
+      .rejects.toMatchObject({ code: 'WORKSPACE_READ_ONLY' });
+  });
+
+  it('requires actual management capability for an editor creation token', async () => {
+    mocks.requireAction.mockResolvedValue(context('editor'));
+    const result = await issueDirectoryScope({ headers: new Headers(), workspaceId: 'project-a', write: true });
+    expect(mocks.requireAction).toHaveBeenLastCalledWith(expect.objectContaining({ action: 'commerce.operation.manage' }));
+    expect(JSON.parse(Buffer.from(result.token.split('.')[0], 'base64url').toString())
+      .capabilities).toEqual(['datasets.read', 'datasets.manage']);
+  });
+
+  it('fails closed for changed identity, denied capability and local system bypass in directory', async () => {
+    mocks.requireAction.mockResolvedValueOnce(context()).mockResolvedValueOnce(context('editor', 'other'));
+    await expect(issueDirectoryScope({ headers: new Headers(), workspaceId: 'project-a' }))
+      .rejects.toMatchObject({ code: 'AUTH_CONTEXT_CHANGED' });
+    mocks.requireAction.mockResolvedValueOnce(context()).mockRejectedValueOnce(new Error('manage denied'));
+    await expect(issueDirectoryScope({ headers: new Headers(), write: true })).rejects.toThrow('manage denied');
+    mocks.requireAction.mockResolvedValue({ session: null, actorUserId: 'local-system-admin', localSystemAdmin: true });
+    await expect(issueDirectoryScope({ headers: new Headers() }))
+      .rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' });
   });
 });

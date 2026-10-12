@@ -3,6 +3,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from decimal import Decimal
 from uuid import uuid4
 
 import psycopg
@@ -631,3 +632,49 @@ def test_no_mapping_is_unknown_not_zero_revenue_and_calculation_preview_error_is
         )
         assert preview["state"] == "rejected"
         assert any(error["resource"] == "accounting" for error in preview["errors"])
+
+
+def test_full_1000_spec_180_day_demo_imports_and_queries_on_real_pg_without_replacing_official(
+    empty,
+):
+    from shopgate_commerce_data.ledger.demo import DemoPlan, demo_files, generate_demo
+
+    original, app_url, admin_url = empty
+    with psycopg.connect(admin_url, autocommit=True) as admin:
+        admin.execute(
+            "INSERT INTO bi.datasets(workspace_id,dataset_id,name,source_kind) "
+            "VALUES (%s,'demo-ledger','独立演示经营集','demo')",
+            (original.workspace_id,),
+        )
+    scope = replace(original, dataset_id="demo-ledger")
+    generated = generate_demo(DemoPlan(start_date="2026-01-01"))
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview = preview_import(connection, scope, demo_files(generated))
+        assert preview["state"] == "preview", preview["errors"]
+        with connection.transaction():
+            bind_scope(connection, scope)
+            assert connection.execute("SELECT count(*) FROM bi.orders").fetchone()[0] == 0
+        result = confirm_import(
+            connection, scope, preview["preview_id"], "demo-confirm", confirmed_by_user=True
+        )
+        assert result["version"] == 2
+        scope = replace(scope, version=2)
+        metrics = query_ledger(connection, scope, Query())["summary"]["metrics"]
+        # 12000 ordinals minus multiples of29 or47 (including0), overlap counted once.
+        assert metrics["order_count"] == 11339
+        assert metrics["product_cost"] is None  # deliberately missing facts are not invented zeros
+        assert (
+            metrics["accounted_revenue"] is not None and Decimal(metrics["accounted_revenue"]) > 0
+        )
+        with connection.transaction():
+            bind_scope(connection, scope)
+            assert connection.execute("SELECT count(*) FROM bi.skus").fetchone()[0] == 1000
+            assert connection.execute("SELECT count(*) FROM bi.orders").fetchone()[0] == 12000
+            assert connection.execute("SELECT source_kind FROM bi.datasets").fetchone()[0] == "demo"
+        with connection.transaction():
+            bind_scope(connection, original)
+            assert connection.execute("SELECT count(*) FROM bi.orders").fetchone()[0] == 0
+            assert connection.execute("SELECT source_kind,version FROM bi.datasets").fetchone() == (
+                "import",
+                1,
+            )

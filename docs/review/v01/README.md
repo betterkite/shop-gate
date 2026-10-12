@@ -6,6 +6,8 @@
 
 [R2-A十二类标准数据交换](data-exchange.md)登记模板、原子预览确认、往返与人工复算，不代表前端或演示生成已完成。
 
+[R2-B经营演示生成](demo-generation.md)登记独立模拟事实、种子/日期及场景，生成器候选尚未验收，目录/API/网页仍待实施。
+
 状态：R0 基线建立中，业务实现尚未验收。对应 [issue #83](https://github.com/betterkite/shop-gate/issues/83)。
 
 ## 目标与来源

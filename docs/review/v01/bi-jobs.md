@@ -36,6 +36,8 @@ JSON/base64入口严格按80MiB编码体积+64KiB元信息限额逐块计量，�
 
 独立入口`uv run --project services/commerce-data shopgate-bi-worker`，`--once`处理一个持久任务；systemd样本为`deploy/systemd/shopgate-bi-worker.service`。普通API/worker启动不迁移、不创建任务、不生成数据。此处没有启用用户服务或应用日常DB迁移，不声称生产已部署。
 
+worker使用独立的`deploy/bi-worker.env.example`四项模板；systemd读取私有`/etc/shopgate/bi-worker.env`，不再读取Web的共享环境文件。直接运行可由服务管理器传入四项值，或显式设置`SHOPGATE_BI_WORKER_ENV_FILE`选择私有配置文件。worker不自动发现根目录`.env/.env.local`，文件不做变量替换、不能夹带管理员/模型/Node认证配置，已传入的环境值优先。复制时保持私有权限，不填写或提交真实凭据到公开模板。
+
 ## 候选验收与剩余项
 
 新增纯协议/签名、Node真实会话读取及权限评价单元、精确proxy门、网关和真实PG任务测试。真实PG场景包括手算121元预览/确认/12导出、元信息20分页、幂等/私有输入/RLS、领取竞争、取消/提交竞争、执行与提交前拒绝授权的完整回滚、用户新会话续授权、演示正式隔离、错误下载与实际独立worker进程在领取后异常退出后的新进程恢复。

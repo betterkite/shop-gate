@@ -8,7 +8,7 @@ Type=simple
 User=shopgate
 Group=shopgate
 WorkingDirectory=/opt/shopgate/current
-EnvironmentFile=/etc/shopgate/shopgate.env
+EnvironmentFile=/etc/shopgate/bi-worker.env
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=UV_CACHE_DIR=/var/cache/shopgate/uv

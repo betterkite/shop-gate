@@ -9,9 +9,9 @@ import signal
 import threading
 from uuid import uuid4
 
-from shopgate_commerce_data.cli import load_commerce_environment
 from shopgate_commerce_data.ledger.job_scope import CurrentAuthorization
 from shopgate_commerce_data.ledger.jobs import claim_job, execute_job
+from shopgate_commerce_data.ledger.worker_environment import load_worker_environment
 from shopgate_commerce_data.routers.bi import BiSettings
 
 LOG = logging.getLogger(__name__)
@@ -38,7 +38,10 @@ def main():
     parser = argparse.ArgumentParser(description="独立经营任务worker，不迁移或重置数据。")
     parser.add_argument("--once", action="store_true", help="只处理一个已持久化任务后退出")
     arguments = parser.parse_args()
-    load_commerce_environment()
+    try:
+        load_worker_environment()
+    except ValueError:
+        raise SystemExit("经营worker配置文件无效，请使用独立的四项配置模板。") from None
     secret = os.getenv("SHOPGATE_BI_SERVICE_SECRET", "")
     mode = os.getenv("SHOPGATE_BI_DEMO_ENABLED", "0")
     if mode not in {"0", "1"}:

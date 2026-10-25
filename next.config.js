@@ -60,6 +60,9 @@ const nextConfig = {
   ],
   // 关闭 critters 的 CSS 优化，避免构建时缺少可选依赖。
   experimental: {
+    // The bounded BI upload accepts60MiB decoded CSV (80MiB base64 +64KiB metadata).
+    // Individual routes retain their smaller strict limits; do not truncate at proxy10MiB.
+    proxyClientMaxBodySize: '81mb',
     optimizeCss: false,
     scrollRestoration: true,
     webpackMemoryOptimizations: true,

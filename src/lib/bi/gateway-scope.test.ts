@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ requireAction: vi.fn() }));
 vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
-import { issueDirectoryScope, issueLedgerScope } from './gateway-scope';
+import { getBiWorkspaceAccess, issueDirectoryScope, issueLedgerScope } from './gateway-scope';
 
 const TEST_SECRET = 'ledger-only-test-key-not-a-real-credential';
 const context = (role: 'owner' | 'editor' | 'viewer' = 'owner', actor = 'member-a') => ({
@@ -16,6 +16,16 @@ describe('authenticated ledger gateway scope', () => {
     mocks.requireAction.mockReset().mockResolvedValue(context());
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it('derives presentation permissions from real scope without requiring a backend secret', async () => {
+    vi.stubEnv('SHOPGATE_BI_SERVICE_SECRET', '');
+    vi.stubEnv('SHOPGATE_BI_DEMO_ENABLED', '1');
+    expect(await getBiWorkspaceAccess({ headers: new Headers() })).toEqual({ workspaceId: 'account:member-a', canManage: true, demoEnabled: true });
+    mocks.requireAction.mockResolvedValue(context('viewer'));
+    expect(await getBiWorkspaceAccess({ headers: new Headers(), workspaceId: 'project-a' })).toMatchObject({ canManage: false });
+    mocks.requireAction.mockResolvedValue({ session: null, actorUserId: 'local-system-admin', localSystemAdmin: true });
+    await expect(getBiWorkspaceAccess({ headers: new Headers() })).rejects.toMatchObject({ status: 401 });
+  });
 
   it('signs personal scope from authenticated actor, not forged browser headers', async () => {
     const result = await issueLedgerScope({

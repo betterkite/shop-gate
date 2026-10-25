@@ -8,6 +8,7 @@ import { GET as datasets, POST as create } from '@/app/api/bi/datasets/route';
 import { POST as query } from '@/app/api/bi/query/route';
 import { GET as catalog } from '@/app/api/bi/catalog/route';
 import { GET as template } from '@/app/api/bi/templates/[resource]/route';
+import { GET as metadata } from '@/app/api/bi/datasets/[dataset_id]/route';
 
 const SECRET = 'gateway-http-test-not-an-external-credential';
 const context = (role = 'owner', actor = 'member-a') => ({
@@ -40,6 +41,15 @@ describe('same-origin BI gateway with real scope issuer', () => {
     vi.stubGlobal('fetch', mocks.fetch);
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('fetches selected metadata independently of the directory page and still checks workspace', async () => {
+    upstream(record);
+    expect((await metadata(get('datasets/official'), { params: Promise.resolve({ dataset_id: 'official' }) })).status).toBe(200);
+    expect(mocks.fetch.mock.calls[0][0].href).toBe('http://127.0.0.1:8000/api/v1/bi/datasets/official');
+    upstream({ ...record, workspace_id: 'foreign' });
+    expect((await metadata(get('datasets/official'), { params: Promise.resolve({ dataset_id: 'official' }) })).status).toBe(503);
+    expect((await metadata(get('datasets/official'), { params: Promise.resolve({ dataset_id: '../private' }) })).status).toBe(422);
+  });
 
   it('authorizes directory from actual account and sends no cookies or browser service headers', async () => {
     upstream({ workspace_id: record.workspace_id, rows: [{ ...record, service_token: 'hidden' }],
@@ -150,7 +160,7 @@ describe('same-origin BI gateway with real scope issuer', () => {
     expect((await query(post('query', { dataset_id: 'official', version: 2, query: {} }))).status).toBe(503);
   });
 
-  it.each([403, 409, 422, 503, 504])('maps upstream %s without raw response messages', async (status) => {
+  it.each([403, 409, 413, 422, 503, 504])('maps upstream %s without raw response messages', async (status) => {
     upstream({ password: SECRET, query: 'secret-sql' }, status);
     const response = await datasets(get('datasets'));
     expect(response.status).toBe(status);

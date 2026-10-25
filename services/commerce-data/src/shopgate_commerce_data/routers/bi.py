@@ -30,7 +30,12 @@ from shopgate_commerce_data.ledger.csv_contract import (
     description,
     standard_csv,
 )
-from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset, list_datasets
+from shopgate_commerce_data.ledger.datasets import (
+    DatasetPlan,
+    create_dataset,
+    dataset_metadata,
+    list_datasets,
+)
 from shopgate_commerce_data.ledger.job_scope import verify_job_scope
 from shopgate_commerce_data.ledger.jobs import (
     change_job,
@@ -406,6 +411,22 @@ def create_bi_router(settings: BiSettings | None = None):
                     value.idempotency_key,
                     confirmed_by_user=value.confirmed_by_user,
                     demo_allowed=config.demo_allowed,
+                )
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.get("/datasets/{dataset_id}")
+    async def metadata(dataset_id: str, request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_directory_token(token, config.secret).require("datasets.read")
+        if request.query_params:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return dataset_metadata(
+                    connection, verify_directory_token(token, config.secret), dataset_id
                 )
 
         return {"success": True, "data": await run_in_threadpool(execute)}

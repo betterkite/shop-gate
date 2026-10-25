@@ -14,6 +14,7 @@ from shopgate_commerce_data.ledger.datasets import (
     DatasetPlan,
     bind_directory,
     create_dataset,
+    dataset_metadata,
     list_datasets,
 )
 from shopgate_commerce_data.ledger.exchange import confirm_import, preview_import
@@ -101,6 +102,25 @@ def test_creation_is_confirmed_empty_accounting_and_metadata_atomic_not_startup_
             assert (
                 connection.execute("SELECT count(*) FROM bi.dataset_creations").fetchone()[0] == 1
             )
+
+
+def test_selected_metadata_is_available_off_page_without_broadening_facts(directory):
+    scope, app, _ = directory
+    with psycopg.connect(app, autocommit=True) as connection:
+        for index in range(23):
+            create(connection, scope, f"data-{index:02}")
+        assert "data-22" not in {
+            row["dataset_id"] for row in list_datasets(connection, scope)["rows"]
+        }
+        selected = dataset_metadata(connection, scope, "data-22")
+        assert selected["dataset_id"] == "data-22" and selected["version"] == 1
+        with pytest.raises(ScopeError):
+            dataset_metadata(connection, replace(scope, workspace_id="foreign"), "data-22")
+        with connection.transaction():
+            bind_scope(connection, fact_scope(scope, "data-22"))
+            connection.execute("UPDATE bi.datasets SET state='archived'")
+        with pytest.raises(ScopeError):
+            dataset_metadata(connection, scope, "data-22")
 
 
 def test_directory_permission_gives_metadata_not_facts_and_no_unscoped_or_foreign_rows(directory):

@@ -105,6 +105,28 @@ def list_datasets(connection, scope: DirectoryScope, *, page=1, page_size=20, so
         }
 
 
+def dataset_metadata(connection, scope: DirectoryScope, dataset_id):
+    require_idle(connection)
+    if not isinstance(dataset_id, str) or not IDENTIFIER.fullmatch(dataset_id):
+        raise ValueError("数据集标识无效。")
+    with connection.transaction():
+        connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        bind_directory(connection, scope)
+        found = rows(
+            connection,
+            "SELECT dataset_id,name,source_kind,version,reporting_currency,"
+            "state,updated_at FROM bi.dataset_directory WHERE workspace_id=%s "
+            "AND dataset_id=%s AND state='active'",
+            (scope.workspace_id, dataset_id),
+        )
+        if not found:
+            raise ScopeError("数据集不存在、已归档或当前身份无权访问。")
+        result = found[0]
+        result["workspace_id"] = scope.workspace_id
+        result["updated_at"] = result["updated_at"].isoformat()
+        return result
+
+
 def create_dataset(
     connection,
     scope: DirectoryScope,

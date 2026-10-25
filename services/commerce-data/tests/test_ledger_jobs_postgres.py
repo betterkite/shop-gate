@@ -167,6 +167,9 @@ def test_complete_preview_manual_money_confirmation_and_all_twelve_exports(conte
     process(context)
     preview = status(context, job["job_id"])
     assert preview["state"] == "ready_preview"
+    assert preview["result"]["preview_expires_at"]
+    assert preview["result"]["template_version"] == "1"
+    assert len(preview["result"]["source_files"]) == 12
     impact = preview["result"]["impact"]
     assert impact["before"]["metrics"]["net_sales"] == "0.00"
     assert impact["after"]["metrics"]["net_sales"] == "164.00"
@@ -501,6 +504,53 @@ def test_demo_plan_is_confirmed_new_empty_demo_only_and_never_auto_commits(conte
             query_ledger(connection, demo[0].ledger(), Query())["summary"]["metrics"]["order_count"]
             == 0
         )
+        assert (
+            query_ledger(connection, scope.ledger(), Query())["summary"]["metrics"]["order_count"]
+            == 0
+        )
+
+
+def test_full_default_demo_durable_preview_confirm_matches_180_day_source_and_official_isolation(
+    context,
+):
+    scope, app, _, _ = context
+    demo = (replace(scope, dataset_id="demo"), *context[1:])
+    prepared = submit(demo, "prepare_demo", {"start_date": "2026-01-01", "confirmed_by_user": True})
+    process(demo)
+    ready = status(demo, prepared["job_id"])
+    assert ready["state"] == "ready_preview", ready
+    manifest = ready["result"]["manifest"]
+    assert manifest["row_counts"]["skus"] == 1000
+    assert manifest["row_counts"]["products"] == 500
+    assert manifest["row_counts"]["orders"] == 12000
+    assert manifest["start_date"] == "2026-01-01" and manifest["end_date"] == "2026-06-29"
+    with psycopg.connect(app, autocommit=True) as connection:
+        assert (
+            query_ledger(connection, demo[0].ledger(), Query())["summary"]["metrics"]["order_count"]
+            == 0
+        )
+        assert query_ledger(connection, scope.ledger(), Query())["version"] == 1
+    confirmed = submit(
+        demo,
+        "confirm_import",
+        {"preview_id": ready["result"]["preview_id"], "confirmed_by_user": True},
+    )
+    process(demo)
+    result = status(demo, confirmed["job_id"])
+    assert result["state"] == "committed" and result["result"]["version"] == 2
+    with psycopg.connect(app, autocommit=True) as connection:
+        actual = query_ledger(
+            connection,
+            replace(demo[0], version=2).ledger(),
+            Query(start="2026-01-01", end="2026-06-29"),
+        )
+        assert actual["summary"]["metrics"]["order_count"] == 11339
+        all_source = query_ledger(
+            connection,
+            replace(demo[0], version=2).ledger(),
+            Query(start="0001-01-01", end="9999-12-31"),
+        )
+        assert all_source["summary"] == ready["result"]["impact"]["after"]
         assert (
             query_ledger(connection, scope.ledger(), Query())["summary"]["metrics"]["order_count"]
             == 0

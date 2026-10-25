@@ -114,6 +114,26 @@ def test_http_directory_creation_persisted_conflicts_and_foreign_header_cannot_g
     assert SECRET not in listing.text and auth["authorization"] not in listing.text
 
 
+def test_selected_dataset_metadata_cannot_be_forged_or_read_across_workspaces(client):
+    browser, workspace, _, _ = client
+    auth = headers(workspace)
+    assert browser.post(PREFIX + "/datasets", headers=auth, json=plan()).status_code == 200
+    selected = browser.get(PREFIX + "/datasets/official", headers=auth)
+    assert selected.status_code == 200
+    assert selected.json()["data"]["workspace_id"] == workspace
+    assert selected.json()["data"]["version"] == 1
+    assert browser.get(PREFIX + "/datasets/official", headers=headers("foreign")).status_code == 403
+    assert (
+        browser.get(
+            PREFIX + "/datasets/official", headers=headers(workspace, directory=False)
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.get(PREFIX + "/datasets/official?actor_id=admin", headers=auth).status_code == 422
+    )
+
+
 @pytest.mark.parametrize("kind", ["missing", "forged", "expired", "purpose", "self_identity"])
 def test_directory_rejects_unsigned_expired_wrong_purpose_and_self_reported_identity(client, kind):
     browser, workspace, _, _ = client

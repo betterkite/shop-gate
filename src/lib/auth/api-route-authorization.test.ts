@@ -64,6 +64,7 @@ describe('API route authorization coverage', () => {
   it('maps high-risk global and cross-project routes to catalogued capabilities', async () => {
     const expectedActions: Record<string, string[]> = {
       'src/app/api/bi/datasets/route.ts': ['commerce.data.read', 'commerce.operation.manage'],
+      'src/app/api/bi/datasets/[dataset_id]/route.ts': ['commerce.data.read'],
       'src/app/api/bi/query/route.ts': ['commerce.data.read'],
       'src/app/api/bi/catalog/route.ts': ['commerce.data.read'],
       'src/app/api/bi/templates/[resource]/route.ts': ['commerce.data.read'],

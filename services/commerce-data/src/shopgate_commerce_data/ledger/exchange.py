@@ -494,7 +494,19 @@ def preview_import(
             )
         result = {
             "batch_id": batch_id,
+            "template_version": TEMPLATE_VERSION,
+            "source_files": evidence["files"],
             "preview_id": preview_id,
+            "preview_expires_at": (
+                connection.execute(
+                    "SELECT expires_at FROM bi.operation_previews WHERE preview_id=%s",
+                    (preview_id,),
+                )
+                .fetchone()[0]
+                .isoformat()
+                if preview_id
+                else None
+            ),
             "state": "rejected" if errors else "preview",
             "version": scope.version,
             "summary": summary,

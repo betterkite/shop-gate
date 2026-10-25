@@ -80,6 +80,19 @@ function sign(claims: Record<string, unknown>) {
   return signBiServiceClaims(claims);
 }
 
+/** Page capabilities are presentation only; every API and commit rechecks authority. */
+export async function getBiWorkspaceAccess(input: DirectoryGatewayInput) {
+  const { workspaceId } = await authorizedWorkspace({ ...input, write: false });
+  let canManage = false;
+  try {
+    await authorizedWorkspace({ ...input, workspaceId, write: true });
+    canManage = true;
+  } catch (error) {
+    if (!(error instanceof AuthorizationError) || error.status !== 403) throw error;
+  }
+  return { workspaceId, canManage, demoEnabled: process.env.SHOPGATE_BI_DEMO_ENABLED === '1' };
+}
+
 export async function issueLedgerScope(input: LedgerGatewayInput) {
   if (typeof input.datasetId !== 'string' || !IDENTIFIER.test(input.datasetId)
       || !Number.isSafeInteger(input.version) || input.version < 1) {

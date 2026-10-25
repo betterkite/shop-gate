@@ -131,7 +131,12 @@ async function upstream(path: string, token: string, body?: Record<string, unkno
       headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    const bytes = await boundedBytes(response.body, maxOutput);
+    let bytes: Buffer;
+    try { bytes = await boundedBytes(response.body, maxOutput); }
+    catch (error) {
+      if (error instanceof BiProblem && error.code === 'BI_INPUT_TOO_LARGE') throw new BiProblem('BI_UNAVAILABLE', 503);
+      throw error;
+    }
     if (!response.ok) {
       // Status mapping only: do not expose unknown upstream messages or raw error payloads.
       const errors: Record<number, ErrorCode> = { 401: 'BI_SCOPE_DENIED', 403: 'BI_SCOPE_DENIED',
@@ -143,8 +148,6 @@ async function upstream(path: string, token: string, body?: Record<string, unkno
     return { bytes, contentType: response.headers.get('content-type') ?? '' };
   } catch (error) {
     if (error instanceof BiProblem) {
-      // A too-large upstream response is not a browser input error.
-      if (error.code === 'BI_INPUT_TOO_LARGE') throw new BiProblem('BI_UNAVAILABLE', 503);
       throw error;
     }
     throw new BiProblem(error instanceof Error && error.name === 'TimeoutError'
@@ -197,6 +200,18 @@ export async function postDataset(request: NextRequest) {
   const data = decoded((await upstream('datasets', scope.token,
     picked(body, ['dataset_id', 'name', 'source_kind', 'idempotency_key', 'confirmed_by_user']))).bytes);
   if (data.workspace_id !== scope.workspaceId || data.dataset_id !== body.dataset_id) {
+    throw new BiProblem('BI_UNAVAILABLE', 503);
+  }
+  return success(picked(data, DATASET_FIELDS));
+}
+
+export async function getDataset(request: NextRequest, datasetId: string) {
+  jobIdentifier(datasetId);
+  const options = params(request, ['workspace_id']);
+  const scope = await issueDirectoryScope({ headers: request.headers,
+    workspaceId: optionalWorkspace(options.workspace_id) });
+  const data = decoded((await upstream(`datasets/${encodeURIComponent(datasetId)}`, scope.token)).bytes);
+  if (data.workspace_id !== scope.workspaceId || data.dataset_id !== datasetId) {
     throw new BiProblem('BI_UNAVAILABLE', 503);
   }
   return success(picked(data, DATASET_FIELDS));

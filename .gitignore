@@ -19,6 +19,11 @@ build/
 
 # local app data
 data/
+# This exact Next route contains source code, not runtime data. Keep payloads ignored.
+!src/app/bi/data/
+src/app/bi/data/*
+!src/app/bi/data/*.ts
+!src/app/bi/data/*.tsx
 prisma/data/
 public/uploads/
 public/generated/

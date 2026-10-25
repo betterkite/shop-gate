@@ -1,6 +1,6 @@
 # Shop Gate commerce-data
 
-这是 Shop Gate 零售 Data Agent 的数据服务，承载 UserBehavior 事件、商品/类目主数据和日聚合查询。金额、价格、库存、品牌与店铺字段均按项目约定的真实/合成边界返回；合成字段由响应中的 `synthetic_fields` 标注。
+这是 Shop Gate 的经营数据服务。v0.1独立账本使用`bi.*`，以订单、退款、历史成本与费用事实核算；旧`commerce.*`行为/合成查询保留兼容，不能当作正式经营账本。旧接口合成字段仍由`synthetic_fields`标注。
 
 ## 运行
 
@@ -62,12 +62,13 @@ API 详情以项目根目录的 [API 总览](../../docs/api-reference.md) 为准
 
 ## 代码边界
 
-v0.1独立账本新增于 `ledger/` 与 `sqls/ledger/006-bi-ledger.sql`。当前只交付schema、精度、可信作用域和预览确认协议，尚未替换上述旧API；不会自动迁移旧行为数据。安装、隔离测试和权限边界见 [账本底座说明](../../docs/review/v01/ledger-foundation.md)。
+v0.1独立账本位于`ledger/`与`sqls/ledger/006–009`迁移，已局部隔离验证核算/数据交换/演示/目录服务。新增签名`/api/v1/bi`目录、创建、模板与查询候选，尚待独立验收；不会自动迁移旧行为数据或重置用户数据。[签名接口说明](../../docs/review/v01/bi-http.md)列出路径、配置和未完成范围。BI显式使用非管理员`SHOPGATE_BI_DATABASE_URL`，不回退DATABASE_URL；`SHOPGATE_BI_DEMO_ENABLED`只允许显式演示操作。安装、隔离测试和权限边界见 [账本底座说明](../../docs/review/v01/ledger-foundation.md)。
 
 - `api.py`：FastAPI app factory、健康与就绪端点。
 - `cli.py`：API 启动和环境变量白名单。
 - `import_cli.py`：UserBehavior、合成数据和日聚合导入。
-- `routers/commerce.py`：唯一 HTTP 领域路由。
+- `routers/commerce.py`：旧行为与扩展分析兼容路由。
+- `routers/bi.py`：独立验签、受控经营查询/目录/模板路由，不在启动时迁移/生成。
 - `retail.py`：零售查询和纯计算函数。
 - `synthetic.py`：可复现的合成主数据/行为生成器。
 - `database_core.py`：PostgreSQL/TimescaleDB 连接和共享数据转换。

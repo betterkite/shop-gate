@@ -1,6 +1,6 @@
-# R2-B 签名经营接口（候选，尚未验收）
+# R2-B 签名经营接口
 
-对应 [issue #87](https://github.com/betterkite/shop-gate/issues/87)。本片接通目录、空集创建、指标/模板与统一查询；不是完整导入中心或八模块页面。当前仅静态检查，新候选须完整可信隔离验证。
+对应 [issue #87](https://github.com/betterkite/shop-gate/issues/87)。目录、空集创建、指标/模板与统一查询957798f已通过verification:b546ffb7的368后端/0skip、真实PG18及六项+Git；不是完整导入中心或八模块页面。随后新增的[持久任务候选](bi-jobs.md)需要新的完整验证，不能借用旧证据。
 
 ## 使用边界
 

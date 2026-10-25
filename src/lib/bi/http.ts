@@ -3,10 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { getProjectAuthConfig } from '@/lib/config/auth';
-import { issueDirectoryScope, issueLedgerScope } from './gateway-scope';
+import { issueDirectoryScope, issueLedgerScope, issueJobScope } from './gateway-scope';
+import { BI_JOB_KINDS } from './job-signatures';
 
 const MAX_INPUT = 64 * 1024;
 const MAX_OUTPUT = 2 * 1024 * 1024;
+const MAX_UPLOAD = 80 * 1024 * 1024 + MAX_INPUT; // 60MiB decoded + base64 overhead + metadata.
 const RESOURCES = new Set(['channels', 'stores', 'products', 'skus', 'mappings', 'fx_rates',
   'costs', 'orders', 'order_lines', 'refunds', 'expenses', 'targets']);
 const MESSAGES = {
@@ -87,17 +89,17 @@ async function boundedBytes(stream: ReadableStream<Uint8Array> | null, limit: nu
   return Buffer.concat(chunks, size);
 }
 
-async function input(request: NextRequest) {
+async function input(request: NextRequest, limit = MAX_INPUT) {
   sameOrigin(request);
   if (request.headers.get('content-type')?.split(';')[0].trim() !== 'application/json'
       || (request.headers.get('content-encoding') ?? 'identity') !== 'identity') {
     throw new BiProblem('BI_MEDIA_UNSUPPORTED', 415);
   }
   const declared = request.headers.get('content-length');
-  if (declared !== null && (!/^\d{1,10}$/.test(declared) || Number(declared) > MAX_INPUT)) {
+  if (declared !== null && (!/^\d{1,10}$/.test(declared) || Number(declared) > limit)) {
     throw new BiProblem('BI_INPUT_TOO_LARGE', 413);
   }
-  const body = await boundedBytes(request.body, MAX_INPUT);
+  const body = await boundedBytes(request.body, limit);
   try { return object(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body))); }
   catch { throw new BiProblem('BI_INPUT_INVALID', 422); }
 }
@@ -120,7 +122,7 @@ function serviceUrl(path: string) {
   } catch { throw new BiProblem('BI_UNAVAILABLE', 503); }
 }
 
-async function upstream(path: string, token: string, body?: Record<string, unknown>) {
+async function upstream(path: string, token: string, body?: Record<string, unknown>, maxOutput = MAX_OUTPUT) {
   const url = serviceUrl(path); // Only fixed routes below; never a browser-provided URL.
   try {
     const response = await fetch(url, {
@@ -129,7 +131,7 @@ async function upstream(path: string, token: string, body?: Record<string, unkno
       headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    const bytes = await boundedBytes(response.body, MAX_OUTPUT);
+    const bytes = await boundedBytes(response.body, maxOutput);
     if (!response.ok) {
       // Status mapping only: do not expose unknown upstream messages or raw error payloads.
       const errors: Record<number, ErrorCode> = { 401: 'BI_SCOPE_DENIED', 403: 'BI_SCOPE_DENIED',
@@ -162,8 +164,8 @@ function picked(value: Record<string, unknown>, allowed: readonly string[]) {
   return Object.fromEntries(allowed.filter((key) => key in value).map((key) => [key, value[key]]));
 }
 
-function success(data: Record<string, unknown>) {
-  return NextResponse.json({ success: true, data }, { headers: HEADERS });
+function success(data: Record<string, unknown>, status = 200) {
+  return NextResponse.json({ success: true, data }, { status, headers: HEADERS });
 }
 
 const DATASET_FIELDS = ['workspace_id', 'dataset_id', 'name', 'source_kind', 'version',
@@ -234,6 +236,86 @@ export async function getTemplate(request: NextRequest, resource: string) {
   const scope = await issueDirectoryScope({ headers: request.headers,
     workspaceId: optionalWorkspace(options.workspace_id) });
   const result = await upstream(`templates/${resource}`, scope.token);
+  if (!result.contentType.startsWith('text/csv')) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return new NextResponse(new Uint8Array(result.bytes), { headers: { ...HEADERS,
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="shopgate-${resource}-v1.csv"` } });
+}
+
+const JOB_FIELDS = ['workspace_id', 'dataset_id', 'job_id', 'kind', 'base_version', 'state',
+  'result', 'cancel_requested', 'attempts', 'error_code', 'created_at', 'updated_at', 'expires_at', 'expired', 'stage_label'];
+
+function jobInputScope(value: Record<string, unknown>) {
+  if (typeof value.dataset_id !== 'string' || !/^[A-Za-z0-9_.:-]{1,120}$/.test(value.dataset_id)
+      || typeof value.version !== 'number' || !Number.isSafeInteger(value.version) || value.version < 1) {
+    throw new BiProblem('BI_INPUT_INVALID', 422);
+  }
+  return { datasetId: value.dataset_id, version: value.version,
+    workspaceId: optionalWorkspace(value.workspace_id) };
+}
+
+function jobQueryScope(request: NextRequest, extra: string[] = []) {
+  const options = params(request, ['workspace_id', 'dataset_id', 'version', ...extra]);
+  if (!/^[1-9]\d{0,15}$/.test(options.version ?? '')) throw new BiProblem('BI_INPUT_INVALID', 422);
+  return { scope: jobInputScope({ ...options, version: Number(options.version) }), options };
+}
+
+function checkedJob(value: unknown, scope: { workspaceId: string; datasetId: string }, jobId?: string) {
+  const job = object(value);
+  if (job.workspace_id !== scope.workspaceId || job.dataset_id !== scope.datasetId
+      || (jobId !== undefined && job.job_id !== jobId)) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return picked(job, JOB_FIELDS);
+}
+
+function jobIdentifier(value: string) {
+  if (!/^[A-Za-z0-9_.:-]{1,120}$/.test(value)) throw new BiProblem('BI_INPUT_INVALID', 422);
+  return value;
+}
+
+export async function postJob(request: NextRequest) {
+  const body = await input(request, MAX_UPLOAD);
+  keys(body, ['workspace_id', 'dataset_id', 'version', 'kind', 'parameters', 'idempotency_key', 'files']);
+  if (!BI_JOB_KINDS.includes(body.kind as typeof BI_JOB_KINDS[number])
+      || typeof body.idempotency_key !== 'string' || (body.files !== undefined && !Array.isArray(body.files))) {
+    throw new BiProblem('BI_INPUT_INVALID', 422);
+  }
+  object(body.parameters);
+  const scope = await issueJobScope({ headers: request.headers, ...jobInputScope(body), write: body.kind !== 'export_standard' });
+  const data = decoded((await upstream('jobs', scope.token, picked(body, ['kind', 'parameters', 'idempotency_key', 'files']))).bytes);
+  return success(checkedJob(data, scope), 202);
+}
+
+export async function getJobs(request: NextRequest, jobId?: string) {
+  if (jobId !== undefined) jobIdentifier(jobId);
+  const { scope: wanted, options } = jobQueryScope(request, jobId === undefined ? ['page'] : []);
+  const scope = await issueJobScope({ headers: request.headers, ...wanted });
+  const path = jobId === undefined ? `jobs?${new URLSearchParams(options.page ? { page: options.page } : {})}` : `jobs/${jobId}`;
+  const data = decoded((await upstream(path, scope.token)).bytes);
+  if (jobId !== undefined) return success(checkedJob(data, scope, jobId));
+  if (!Array.isArray(data.rows)) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return success({ ...picked(data, ['page', 'page_size', 'total']), rows: data.rows.map((job) => checkedJob(job, scope)) });
+}
+
+export async function postJobAction(request: NextRequest, jobId: string, action: string) {
+  jobIdentifier(jobId);
+  if (!['cancel', 'reauthorize'].includes(action)) throw new BiProblem('BI_INPUT_INVALID', 422);
+  const body = await input(request);
+  keys(body, ['workspace_id', 'dataset_id', 'version']);
+  const wanted = jobInputScope(body);
+  const readScope = await issueJobScope({ headers: request.headers, ...wanted });
+  const existing = checkedJob(decoded((await upstream(`jobs/${jobId}`, readScope.token)).bytes), readScope, jobId);
+  const scope = existing.kind === 'export_standard' ? readScope
+    : await issueJobScope({ headers: request.headers, ...wanted, write: true });
+  const data = decoded((await upstream(`jobs/${jobId}/${action}`, scope.token, {})).bytes);
+  return success(checkedJob(data, scope, jobId));
+}
+
+export async function getJobFile(request: NextRequest, jobId: string, resource: string) {
+  jobIdentifier(jobId);
+  if (!RESOURCES.has(resource) && resource !== 'errors') throw new BiProblem('BI_INPUT_INVALID', 422);
+  const { scope: wanted } = jobQueryScope(request);
+  const scope = await issueJobScope({ headers: request.headers, ...wanted });
+  const result = await upstream(`jobs/${jobId}/files/${resource}`, scope.token, undefined, 256 * 1024 * 1024);
   if (!result.contentType.startsWith('text/csv')) throw new BiProblem('BI_UNAVAILABLE', 503);
   return new NextResponse(new Uint8Array(result.bytes), { headers: { ...HEADERS,
     'Content-Type': 'text/csv; charset=utf-8',

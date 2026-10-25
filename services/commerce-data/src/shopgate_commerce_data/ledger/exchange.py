@@ -356,6 +356,8 @@ def preview_import(
     files: list[CsvFile],
     *,
     lifetime_seconds: int = 300,
+    on_complete=None,
+    include_impact=False,
 ) -> dict:
     scope.require("ledger.manage")
     require_idle(connection)
@@ -366,17 +368,44 @@ def preview_import(
     digest = digest_records(records)
     summary = {resource: {"inserted": 0, "duplicates": 0} for resource in SPECS}
     accounting = None
+    impact = None
+    if type(include_impact) is not bool:
+        raise ValueError("预览范围无效。")
     with connection.transaction():
         bind_scope(connection, scope)
         connection.execute("SELECT set_config('statement_timeout','60000',true)")
         if checked_dataset(connection, scope, lock=True) != scope.version:
             raise OperationConflict("数据已更新，请刷新后重新预览。")
+        if include_impact:
+            from shopgate_commerce_data.ledger.query import Query, query_ledger
+
+            impact_query = Query(start="0001-01-01", end="9999-12-31")
+            before = query_ledger(connection, scope, impact_query, _preview_transaction=True)[
+                "summary"
+            ]
         with connection.transaction(force_rollback=True):
             summary, relational_errors = apply_records(connection, scope, records)
             errors.extend(relational_errors)
             if not errors and any(count["inserted"] for count in summary.values()):
                 try:
                     accounting = rebuild_import(connection, scope)
+                    if include_impact:
+                        from dataclasses import replace
+
+                        connection.execute(
+                            "UPDATE bi.datasets SET version=%s", (scope.version + 1,)
+                        )
+                        after = query_ledger(
+                            connection,
+                            replace(scope, version=scope.version + 1),
+                            impact_query,
+                            _preview_transaction=True,
+                        )["summary"]
+                        impact = {
+                            "before": before,
+                            "after": after,
+                            "notice": "全部源事实范围的导入前后试算；未知不补零，尚未写入账本。",
+                        }
                 except ValueError, psycopg.IntegrityError:
                     errors.append(
                         CsvError(
@@ -387,9 +416,16 @@ def preview_import(
                             "核算未通过；请检查单位换算精度或金额范围，整批未提交。",
                         )
                     )
+        if include_impact and not errors and impact is None:
+            impact = {
+                "before": before,
+                "after": before,
+                "notice": "没有新增事实，不改变指标或数据版本。",
+            }
         evidence = {
             "resources": summary,
             "accounting": accounting,
+            "impact": impact,
             "files": [
                 {
                     "resource": file.resource,
@@ -456,15 +492,20 @@ def preview_import(
                 "UPDATE bi.import_batches SET preview_id=%s WHERE batch_id=%s",
                 (preview_id, batch_id),
             )
-    return {
-        "batch_id": batch_id,
-        "preview_id": preview_id,
-        "state": "rejected" if errors else "preview",
-        "version": scope.version,
-        "summary": summary,
-        "error_count": len(errors),
-        "errors": [error.public() for error in errors[:100]],
-    }
+        result = {
+            "batch_id": batch_id,
+            "preview_id": preview_id,
+            "state": "rejected" if errors else "preview",
+            "version": scope.version,
+            "summary": summary,
+            "accounting": accounting,
+            "impact": impact,
+            "error_count": len(errors),
+            "errors": [error.public() for error in errors[:100]],
+        }
+        if on_complete is not None:
+            on_complete(connection, result)
+    return result
 
 
 def confirm_import(
@@ -474,6 +515,7 @@ def confirm_import(
     idempotency_key: str,
     *,
     confirmed_by_user: bool,
+    on_complete=None,
 ) -> dict:
     require_idle(connection)
 
@@ -524,6 +566,7 @@ def confirm_import(
         idempotency_key,
         confirmed_by_user=confirmed_by_user,
         apply=apply,
+        on_complete=on_complete,
     )
 
 

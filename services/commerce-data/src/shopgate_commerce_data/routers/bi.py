@@ -6,6 +6,7 @@ The same-origin Node gateway supplies purpose-bound tokens, never browser header
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -20,8 +21,23 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.concurrency import run_in_threadpool
 
-from shopgate_commerce_data.ledger.csv_contract import SPECS, description, standard_csv
+from shopgate_commerce_data.ledger.csv_contract import (
+    MAX_BATCH_BYTES,
+    MAX_FILE_BYTES,
+    MAX_FILES,
+    SPECS,
+    CsvFile,
+    description,
+    standard_csv,
+)
 from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset, list_datasets
+from shopgate_commerce_data.ledger.job_scope import verify_job_scope
+from shopgate_commerce_data.ledger.jobs import (
+    change_job,
+    download_job_output,
+    read_jobs,
+    submit_job,
+)
 from shopgate_commerce_data.ledger.metrics import metric_catalog
 from shopgate_commerce_data.ledger.operations import OperationConflict
 from shopgate_commerce_data.ledger.query import Query, query_ledger
@@ -33,6 +49,7 @@ from shopgate_commerce_data.ledger.scope import (
 
 LOG = logging.getLogger(__name__)
 MAX_JSON_BYTES = 64 * 1024
+MAX_UPLOAD_JSON_BYTES = 4 * ((MAX_BATCH_BYTES + 2) // 3) + MAX_JSON_BYTES
 HEADERS = {"Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff"}
 
 
@@ -150,7 +167,7 @@ def _unique_object(pairs):
     return result
 
 
-async def read_json(request):
+async def read_json(request, *, limit=MAX_JSON_BYTES):
     if request.headers.get("content-type", "").split(";")[0].strip() != "application/json" or (
         request.headers.get("content-encoding", "identity") != "identity"
     ):
@@ -159,11 +176,11 @@ async def read_json(request):
     if declared is not None:
         if not declared.isascii() or not declared.isdigit():
             raise BiInputError()
-        if len(declared) > 10 or int(declared) > MAX_JSON_BYTES:
+        if len(declared) > 10 or int(declared) > limit:
             raise BiInputError("BI_INPUT_TOO_LARGE", 413)
     body = bytearray()
     async for chunk in request.stream():
-        if len(body) + len(chunk) > MAX_JSON_BYTES:
+        if len(body) + len(chunk) > limit:
             raise BiInputError("BI_INPUT_TOO_LARGE", 413)
         body.extend(chunk)
     try:
@@ -186,6 +203,39 @@ class DatasetInput(BaseModel):
     source_kind: str
     idempotency_key: str
     confirmed_by_user: bool
+
+
+class JobFileInput(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    resource: str
+    filename: str
+    content_base64: str
+
+
+class JobInput(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    kind: str
+    parameters: dict
+    idempotency_key: str
+    files: list[JobFileInput] = []
+
+
+def decode_files(files):
+    if len(files) > MAX_FILES:
+        raise BiInputError("BI_INPUT_TOO_LARGE", 413)
+    result, total = [], 0
+    for file in files:
+        if len(file.content_base64) > 4 * ((MAX_FILE_BYTES + 2) // 3):
+            raise BiInputError("BI_INPUT_TOO_LARGE", 413)
+        try:
+            content = base64.b64decode(file.content_base64, validate=True)
+        except (ValueError, UnicodeError) as error:
+            raise BiInputError() from error
+        total += len(content)
+        if len(content) > MAX_FILE_BYTES or total > MAX_BATCH_BYTES:
+            raise BiInputError("BI_INPUT_TOO_LARGE", 413)
+        result.append(CsvFile(file.resource, file.filename, content))
+    return result
 
 
 def query_input(value):
@@ -233,6 +283,97 @@ def create_bi_router(settings: BiSettings | None = None):
 
     def configured():
         return settings if settings is not None else BiSettings.from_environment()
+
+    @router.post("/jobs", status_code=202)
+    async def submit(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_job_scope(token, config.secret).require("jobs.read")
+        value = JobInput.model_validate(await read_json(request, limit=MAX_UPLOAD_JSON_BYTES))
+
+        def execute():
+            scope = verify_job_scope(token, config.secret)
+            files = decode_files(value.files)
+            with config.connection() as connection:
+                return submit_job(
+                    connection,
+                    scope,
+                    value.kind,
+                    value.parameters,
+                    value.idempotency_key,
+                    files=files,
+                    demo_allowed=config.demo_allowed,
+                )
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.get("/jobs")
+    async def jobs(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_job_scope(token, config.secret).require("jobs.read")
+        if set(request.query_params) - {"page"} or len(request.query_params.getlist("page")) > 1:
+            raise BiInputError()
+        page = request.query_params.get("page", "1")
+        if not page.isascii() or not page.isdigit() or len(page) > 7:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return read_jobs(connection, verify_job_scope(token, config.secret), page=int(page))
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.get("/jobs/{job_id}")
+    async def job(job_id: str, request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_job_scope(token, config.secret).require("jobs.read")
+        if request.query_params:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return read_jobs(connection, verify_job_scope(token, config.secret), job_id=job_id)
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.post("/jobs/{job_id}/{action}")
+    async def change(job_id: str, action: str, request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_job_scope(token, config.secret).require("jobs.read")
+        if action not in {"cancel", "reauthorize"} or await read_json(request) != {}:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return change_job(
+                    connection, verify_job_scope(token, config.secret), job_id, action=action
+                )
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.get("/jobs/{job_id}/files/{resource}")
+    async def download(job_id: str, resource: str, request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_job_scope(token, config.secret).require("jobs.read")
+        if request.query_params:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return download_job_output(
+                    connection, verify_job_scope(token, config.secret), job_id, resource
+                )
+
+        content = await run_in_threadpool(execute)
+        return Response(
+            content,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="shopgate-{resource}-v1.csv"'},
+        )
 
     @router.get("/datasets")
     async def datasets(request: Request):

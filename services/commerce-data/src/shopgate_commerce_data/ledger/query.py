@@ -267,14 +267,20 @@ def _ratio_text(value: Decimal | None) -> str | None:
 
 
 def query_ledger(
-    connection: psycopg.Connection, scope: LedgerScope, query: Query
+    connection: psycopg.Connection, scope: LedgerScope, query: Query, *, _preview_transaction=False
 ) -> dict[str, Any]:
     query.validate()
     scope.require("ledger.read")
-    if connection.info.transaction_status != TransactionStatus.IDLE:
+    if type(_preview_transaction) is not bool or (
+        connection.info.transaction_status
+        != (TransactionStatus.INTRANS if _preview_transaction else TransactionStatus.IDLE)
+    ):
         raise ValueError("经营查询需要独立事务，以确保一次分析的一致版本。")
     with connection.transaction():
-        connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        # Only the internal import preview uses an existing dataset-locked rollback
+        # transaction. HTTP/Agent query fields cannot select this internal argument.
+        if not _preview_transaction:
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         bind_scope(connection, scope)
         if checked_dataset(connection, scope) != scope.version:
             raise OperationConflict("数据已更新，请刷新；不能拼接不同版本的分析。")

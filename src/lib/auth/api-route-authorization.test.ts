@@ -42,7 +42,10 @@ describe('API route authorization coverage', () => {
       if (!ROUTE_HANDLER.test(source)) continue;
       const route = relative(file);
       if (PUBLIC_ROUTE_FILES.has(route)) continue;
-      if (!ROUTE_BOUNDARY.test(source)) missing.push(route);
+      if (route === 'src/app/api/internal/bi/job-authorization/route.ts') {
+        // An exact private service boundary, not an expansion of public allowlist.
+        expect(source).toMatch(/\brequireBiJobAuthorization\s*\(request.headers\)/);
+      } else if (!ROUTE_BOUNDARY.test(source)) missing.push(route);
     }
 
     expect(missing).toEqual([]);
@@ -64,6 +67,10 @@ describe('API route authorization coverage', () => {
       'src/app/api/bi/query/route.ts': ['commerce.data.read'],
       'src/app/api/bi/catalog/route.ts': ['commerce.data.read'],
       'src/app/api/bi/templates/[resource]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/[job_id]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/[job_id]/[action]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/[job_id]/files/[resource]/route.ts': ['commerce.data.read'],
       'src/app/api/evals/route.ts': [
         'platform.observability.read',
         'platform.settings.manage',

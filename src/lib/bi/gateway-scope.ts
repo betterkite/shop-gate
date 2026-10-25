@@ -1,8 +1,7 @@
 // Node-only service boundary. Tokens stay server-side; never return them in a page response.
-import { createHmac } from 'node:crypto';
-
 import { requireAction, type RequiredActionContext } from '@/lib/auth/action';
 import { AuthorizationError } from '@/lib/auth/authorization';
+import { signBiServiceClaims } from './job-signatures';
 
 const IDENTIFIER = /^[A-Za-z0-9_.:-]{1,120}$/;
 
@@ -70,7 +69,7 @@ async function authorizedWorkspace(input: DirectoryGatewayInput) {
       headers: input.headers, action: 'commerce.operation.manage',
     }), actor);
   }
-  return { workspaceId, actorId: actor.actorUserId };
+  return { workspaceId, actorId: actor.actorUserId, sessionId: actor.session?.session?.id };
 }
 
 function sign(claims: Record<string, unknown>) {
@@ -78,9 +77,7 @@ function sign(claims: Record<string, unknown>) {
   if (Buffer.byteLength(secret) < 32) {
     throw new Error('经营数据服务签名尚未配置；请配置双方相同的服务密钥。');
   }
-  const encoded = Buffer.from(JSON.stringify(claims)).toString('base64url');
-  const signature = createHmac('sha256', secret).update(encoded).digest('base64url');
-  return `${encoded}.${signature}`;
+  return signBiServiceClaims(claims);
 }
 
 export async function issueLedgerScope(input: LedgerGatewayInput) {
@@ -118,4 +115,22 @@ export async function issueDirectoryScope(input: DirectoryGatewayInput) {
   return {
     workspaceId, actorId, expiresAt: claims.exp, token: sign(claims),
   };
+}
+
+/** Durable jobs keep the real session ID privately, never the cookie/token. */
+export async function issueJobScope(input: LedgerGatewayInput) {
+  if (typeof input.datasetId !== 'string' || !IDENTIFIER.test(input.datasetId)
+      || !Number.isSafeInteger(input.version) || input.version < 1) {
+    throw new TypeError('数据集、版本或操作范围无效。');
+  }
+  const { workspaceId, actorId, sessionId } = await authorizedWorkspace(input);
+  if (typeof sessionId !== 'string' || !IDENTIFIER.test(sessionId)) {
+    throw new AuthorizationError('AUTHENTICATION_REQUIRED', 401, '请重新登录后提交经营任务。');
+  }
+  const now = Math.floor(Date.now() / 1000);
+  return { workspaceId, datasetId: input.datasetId, actorId, version: input.version,
+    token: sign({ aud: 'shopgate-bi-jobs-v1', workspace_id: workspaceId,
+      dataset_id: input.datasetId, actor_id: actorId, session_id: sessionId,
+      version: input.version, capabilities: input.write ? ['jobs.read', 'jobs.manage'] : ['jobs.read'],
+      iat: now, exp: now + 120 }) };
 }

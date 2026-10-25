@@ -115,6 +115,7 @@ def confirm_operation(
     *,
     confirmed_by_user: bool,
     apply: Callable[[psycopg.Connection, str, dict[str, Any]], MutationResult],
+    on_complete: Callable[[psycopg.Connection, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     scope.require("ledger.manage")
     if confirmed_by_user is not True:
@@ -138,6 +139,8 @@ def confirm_operation(
                     or previous["request_hash"] != request_digest
                 ):
                     raise OperationConflict("同一提交标识不能对应其他用户或不同操作。")
+                if on_complete is not None:
+                    on_complete(connection, previous["result"])
                 return previous["result"]
             preview = cursor.execute(
                 "SELECT *, expires_at <= clock_timestamp() AS expired "
@@ -209,4 +212,6 @@ def confirm_operation(
                 ),
             ),
         )
+        if on_complete is not None:
+            on_complete(connection, result)
         return result

@@ -5,6 +5,7 @@ import { getAuthSession } from '@/lib/auth/access';
 import { writeAuthAuditEvent } from '@/lib/auth/audit';
 import { authorizeApplicationRequest } from '@/lib/auth/authorization';
 import { getProjectAuthConfig, isPublicAuthPath } from '@/lib/config/auth';
+import { BI_JOB_AUTH_PATH, verifyJobAuthorizationRequest } from '@/lib/bi/job-signatures';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const PUBLIC_BRAND_ASSET_PATHS = new Set([
@@ -48,6 +49,19 @@ function isSameOriginMutation(request: NextRequest): boolean {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (isPublicBrandAssetPath(pathname)) return NextResponse.next();
+
+  // One exact service endpoint, not a public prefix. Handler rechecks the signature
+  // and real persisted session/policy before signing any grant. No cookie bypass.
+  if (pathname === BI_JOB_AUTH_PATH) {
+    try {
+      if (request.method !== 'POST') throw new Error('Method denied');
+      verifyJobAuthorizationRequest(request.headers.get('authorization'));
+      return NextResponse.next();
+    } catch {
+      return NextResponse.json({ success: false, error: 'BI_SCOPE_DENIED', message: '经营任务服务授权无效。' },
+        { status: 403, headers: { 'Cache-Control': 'no-store, max-age=0' } });
+    }
+  }
 
   const config = getProjectAuthConfig();
   if (!config.enabled) return NextResponse.next();

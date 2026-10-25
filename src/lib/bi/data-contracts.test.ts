@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalogSchema, dataLocationUrl, dataLoginReturnPath, datasetSchema, decimalLabel, inferResource, jobSchema,
-  previewCanCommit, readDataLocation, RESOURCES, sameDatasetSnapshot, StableRequestKeys,
+  JOB_ERROR_LABELS, previewCanCommit, readDataLocation, RESOURCES, sameDatasetSnapshot, StableRequestKeys,
   UPLOAD_LIMITS, validateUploads, type DataSnapshot } from './data-contracts';
 
 const dataset = datasetSchema.parse({ workspace_id: 'account:a', dataset_id: 'official', name: '经营数据',
@@ -48,6 +48,11 @@ describe('data center scope, exact values and confirmation contracts', () => {
     expect(decimalLabel('-121.00')).toBe('-121.00'); expect(decimalLabel('0.00')).toBe('0.00');
     expect(decimalLabel('0.99990000', true)).toBe('99.99%'); expect(decimalLabel('1.00000000', true)).toBe('100.00%');
     expect(decimalLabel('0.00000000', true)).toBe('0.00%'); expect(decimalLabel('NaN')).toBe('—');
+  });
+  it('explains timeout and input failures without presenting a failed task as completed', () => {
+    expect(JOB_ERROR_LABELS.BI_JOB_TIMEOUT).toContain('已回滚');
+    expect(JOB_ERROR_LABELS.BI_JOB_INPUT_INVALID).toContain('尚未写入');
+    expect(JOB_ERROR_LABELS.BI_JOB_CONFLICT).toContain('重新预览');
   });
   it('rejects mixed workspace/dataset/accounting versions before displaying facts', () => {
     const result = { workspace_id: 'account:a', dataset_id: 'official', version: 2, accounting_revision: 2 } as DataSnapshot;

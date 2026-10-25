@@ -518,7 +518,9 @@ def test_full_default_demo_durable_preview_confirm_matches_180_day_source_and_of
     prepared = submit(demo, "prepare_demo", {"start_date": "2026-01-01", "confirmed_by_user": True})
     process(demo)
     ready = status(demo, prepared["job_id"])
-    assert ready["state"] == "ready_preview", ready
+    assert ready["state"] == "ready_preview", {
+        key: ready[key] for key in ("state", "error_code", "stage_label", "attempts")
+    }
     manifest = ready["result"]["manifest"]
     assert manifest["row_counts"]["skus"] == 1000
     assert manifest["row_counts"]["products"] == 500
@@ -555,6 +557,35 @@ def test_full_default_demo_durable_preview_confirm_matches_180_day_source_and_of
             query_ledger(connection, scope.ledger(), Query())["summary"]["metrics"]["order_count"]
             == 0
         )
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (psycopg.errors.QueryCanceled("private SQL password=hidden"), "BI_JOB_TIMEOUT"),
+        (ValueError("private input contents"), "BI_JOB_INPUT_INVALID"),
+        (OperationConflict("private conflict contents"), "BI_JOB_CONFLICT"),
+        (psycopg.errors.InsufficientPrivilege("private SQL source"), "BI_JOB_FAILED"),
+    ],
+)
+def test_failures_have_actionable_safe_category_and_logs_without_partial_records(
+    context, monkeypatch, caplog, error, code
+):
+    import shopgate_commerce_data.ledger.jobs as jobs
+
+    def reject(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(jobs, "preview_import", reject)
+    job = submit(context)
+    process(context)
+    failed = status(context, job["job_id"])
+    assert failed["state"] == "failed" and failed["error_code"] == code
+    assert "private" not in caplog.text and "hidden" not in caplog.text
+    assert "private" not in json.dumps(failed) and job["job_id"] in caplog.text
+    with psycopg.connect(context[3], autocommit=True) as connection:
+        assert connection.execute("SELECT count(*) FROM bi.import_batches").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM bi.orders").fetchone()[0] == 0
 
 
 def test_signed_http_job_submit_202_owner_isolation_state_and_download(context):

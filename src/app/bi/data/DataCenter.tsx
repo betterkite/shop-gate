@@ -13,7 +13,7 @@ import { AuthUserMenu } from '@/components/auth/AuthUserMenu';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { catalogSchema, CHOICE_LABELS, FIELD_TYPE_LABELS, dataLocationUrl, datasetSchema, decimalLabel, directorySchema,
-  inferResource, JOB_LABELS, jobSchema, jobsSchema, previewCanCommit, queryResultSchema,
+  inferResource, JOB_ERROR_LABELS, JOB_LABELS, jobSchema, jobsSchema, previewCanCommit, queryResultSchema,
   readDataLocation, RESOURCES, RESOURCE_LABELS, sameDatasetSnapshot, scopedDataParams,
   StableRequestKeys, validateUploads, type DataCatalog, type DataJob, type Dataset,
   type DataSnapshot, type Resource } from '@/lib/bi/data-contracts';
@@ -413,7 +413,7 @@ function JobDetail({ job, dataset, params, canManage, canCommit, pending, openCo
     {stale && job.state !== 'committed' && <p className="mt-3 text-sm text-muted-foreground">当前数据已是版本 {dataset.version}；本任务仍保留原版本 {job.base_version}，不会拼接新数据。需要正式修改时请重新预览。</p>}
     {job.state === 'awaiting_auth' && <div className="mt-4"><Notice error>任务权限或登录会话已失效，尚未提交的修改已回滚。请重新登录并确认当前权限后继续。</Notice>
       {!stale && (canManage || job.kind === 'export_standard') && <Button className="mt-3" disabled={pending || job.expired} onClick={() => action('reauthorize')}>使用当前登录身份重新授权</Button>}</div>}
-    {job.state === 'failed' && <p className="mt-4 text-sm text-destructive">{job.error_code === 'BI_JOB_CONFLICT' ? '数据或预览发生变化，请刷新并重新预览；已有数据未被覆盖。' : '任务未完成，请检查文件及服务状态后重新提交；没有部分写入。'}</p>}
+    {job.state === 'failed' && <p className="mt-4 text-sm text-destructive">{JOB_ERROR_LABELS[job.error_code ?? ''] ?? JOB_ERROR_LABELS.BI_JOB_FAILED}</p>}
     {job.state === 'cancelled' && <p className="mt-4 text-sm text-muted-foreground">此任务已取消，没有因本任务写入经营事实。</p>}
     {job.state === 'committed' && <p role="status" className="mt-4 text-sm text-primary">{job.result.changed === false ? `此次内容与已有数据相同，未重复写入，数据仍为版本 ${resultVersion}。` : `已写入完成，结果版本为 ${resultVersion}。当前数据会自动刷新，不会自动调用模型。`}</p>}
     {sourceFiles.length > 0 && <details className="mt-4 rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm font-medium">本批文件与校验摘要 · 模板版本 {typeof job.result.template_version === 'string' ? job.result.template_version : '—'}</summary>

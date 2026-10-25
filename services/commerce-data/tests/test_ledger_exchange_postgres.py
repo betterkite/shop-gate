@@ -733,20 +733,32 @@ def test_bulk_conflict_same_or_cross_chunk_never_overwrites_identity(empty, offs
 def test_full_1000_spec_180_day_demo_imports_and_queries_on_real_pg_without_replacing_official(
     empty,
 ):
+    from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset
     from shopgate_commerce_data.ledger.demo import DemoPlan, demo_files, generate_demo
+    from shopgate_commerce_data.ledger.scope import DirectoryScope
 
-    original, app_url, admin_url = empty
-    with psycopg.connect(admin_url, autocommit=True) as admin:
-        admin.execute(
-            "INSERT INTO bi.datasets(workspace_id,dataset_id,name,source_kind) "
-            "VALUES (%s,'demo-ledger','独立演示经营集','demo')",
-            (original.workspace_id,),
+    original, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        create_dataset(
+            connection,
+            DirectoryScope(
+                original.workspace_id,
+                original.actor_id,
+                frozenset({"datasets.read", "datasets.manage"}),
+            ),
+            DatasetPlan("demo-ledger", "独立演示经营集", "demo"),
+            "create-full-demo",
+            confirmed_by_user=True,
+            demo_allowed=True,
         )
     scope = replace(original, dataset_id="demo-ledger")
     generated = generate_demo(DemoPlan(start_date="2026-01-01"))
     with psycopg.connect(app_url, autocommit=True) as connection:
-        preview = preview_import(connection, scope, demo_files(generated))
+        # Exercise the same full-source trial calculation used by durable jobs.
+        preview = preview_import(connection, scope, demo_files(generated), include_impact=True)
         assert preview["state"] == "preview", preview["errors"]
+        assert preview["impact"]["before"]["metrics"]["order_count"] == 0
+        assert preview["impact"]["after"]["metrics"]["order_count"] == 11339
         with connection.transaction():
             bind_scope(connection, scope)
             assert connection.execute("SELECT count(*) FROM bi.orders").fetchone()[0] == 0

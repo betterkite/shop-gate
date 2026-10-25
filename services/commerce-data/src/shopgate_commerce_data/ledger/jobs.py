@@ -8,6 +8,7 @@ final short row lock orders cancellation/current authorization against commit.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import asdict
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -41,6 +42,7 @@ from shopgate_commerce_data.ledger.recalculation import rows
 from shopgate_commerce_data.ledger.scope import IDENTIFIER, ScopeError
 
 TERMINAL = frozenset({"ready_preview", "rejected", "committed", "completed", "failed", "cancelled"})
+LOG = logging.getLogger(__name__)
 STAGES = {
     "queued": "等待处理",
     "running": "正在处理",
@@ -584,7 +586,19 @@ def execute_job(connection, job, worker_id, authorize, secret, *, demo_allowed=F
                     if state == "awaiting_auth"
                     else "BI_JOB_CONFLICT"
                     if isinstance(error, OperationConflict)
+                    else "BI_JOB_TIMEOUT"
+                    if isinstance(error, psycopg.errors.QueryCanceled)
+                    else "BI_JOB_INPUT_INVALID"
+                    if isinstance(error, ValueError)
                     else "BI_JOB_FAILED"
+                )
+                # Correlate only an immutable job ID, a fixed category and SQLSTATE.
+                # Never log exception messages, SQL, file contents, DSNs or tokens.
+                LOG.warning(
+                    "BI job %s outcome %s sqlstate %s",
+                    job["job_id"],
+                    code or state,
+                    error.sqlstate if isinstance(error, psycopg.Error) else "none",
                 )
                 connection.execute(
                     "UPDATE bi.jobs SET state=%s,stage=%s,error_code=%s,lease_owner=NULL,"

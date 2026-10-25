@@ -97,6 +97,12 @@ export function previewCanCommit(job: DataJob, dataset: Dataset, canManage: bool
 export const JOB_LABELS: Record<DataJob['kind'], string> = {
   preview_import: '文件导入预览', prepare_demo: '准备演示数据', confirm_import: '确认导入', export_standard: '标准数据导出',
 };
+export const JOB_ERROR_LABELS: Record<string, string> = {
+  BI_JOB_CONFLICT: '数据或预览发生变化，请刷新并重新预览；已有数据未被覆盖。',
+  BI_JOB_TIMEOUT: '本次处理被中断或超过时限，未提交的修改已回滚。请提供任务编号以便排查，勿重复确认同一批数据。',
+  BI_JOB_INPUT_INVALID: '任务内容未通过检查，尚未写入。请检查参数或重新上传文件预览。',
+  BI_JOB_FAILED: '任务未完成，请检查文件及服务状态后重新提交；没有部分写入。',
+};
 export const FIELD_TYPE_LABELS: Record<string, string> = {
   text: '文本', id: '标识文本，保留前导零', color: '#RRGGBB 颜色', currency: '三位原币代码，例如 CNY',
   timezone: '时区，例如 Asia/Shanghai', datetime: '带时区时间，例如 2026-01-01T10:00:00+08:00',

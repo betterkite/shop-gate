@@ -33,6 +33,11 @@ describe('ledger data center entry is authenticated and clear, never a fake BI c
     await expect(DataPage({ searchParams: Promise.resolve({ workspace_id: 'project-a' }) })).rejects.toThrow('REDIRECT:/login?next=');
     expect(mocks.redirect).toHaveBeenCalledWith('/login?next=%2Fbi%2Fdata%3Fworkspace_id%3Dproject-a');
   });
+  it('restores selected dataset, task and both pages after login without arbitrary return URLs', async () => {
+    mocks.access.mockRejectedValue(new AuthorizationError('AUTHENTICATION_REQUIRED', 401, 'private'));
+    await expect(DataPage({ searchParams: Promise.resolve({ workspace_id: 'project-a', dataset_id: 'official', dataset_page: '2', job_page: '3', job_id: 'job-a', next: 'https://foreign.test/' }) })).rejects.toThrow('REDIRECT:/login?next=');
+    expect(mocks.redirect).toHaveBeenCalledWith(`/login?next=${encodeURIComponent('/bi/data?workspace_id=project-a&dataset_id=official&dataset_page=2&job_page=3&job_id=job-a')}`);
+  });
   it('never exposes DB errors or silently switches to another dataset/workspace on authorization failure', async () => {
     mocks.access.mockRejectedValue(new Error('postgres://secret@private-host private-sql'));
     const output = renderToStaticMarkup(await DataPage({ searchParams: Promise.resolve({}) }));

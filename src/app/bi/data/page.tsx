@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { getBiWorkspaceAccess } from '@/lib/bi/gateway-scope';
 import { AuthorizationError } from '@/lib/auth/authorization';
+import { dataLoginReturnPath } from '@/lib/bi/data-contracts';
 import { DataCenter } from './DataCenter';
 
 export const metadata: Metadata = { title: '经营数据 · Shop Gate',
@@ -13,9 +14,10 @@ export const metadata: Metadata = { title: '经营数据 · Shop Gate',
 export const dynamic = 'force-dynamic';
 
 export default async function DataPage({ searchParams }: {
-  searchParams: Promise<{ workspace_id?: string | string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const requested = (await searchParams).workspace_id;
+  const search = await searchParams;
+  const requested = search.workspace_id;
   if (requested !== undefined && (typeof requested !== 'string' || !/^[A-Za-z0-9_.:-]{1,120}$/.test(requested))) {
     return <DataPageError message="工作空间链接无效，请从个人工作空间重新选择。" />;
   }
@@ -23,7 +25,7 @@ export default async function DataPage({ searchParams }: {
   try { access = await getBiWorkspaceAccess({ headers: await headers(), workspaceId: requested }); }
   catch (error) {
     if (error instanceof AuthorizationError && error.status === 401) {
-      const next = `/bi/data${requested ? `?workspace_id=${encodeURIComponent(requested)}` : ''}`;
+      const next = dataLoginReturnPath(search);
       redirect(`/login?next=${encodeURIComponent(next)}`);
     }
     return <DataPageError message={error instanceof AuthorizationError

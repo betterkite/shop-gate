@@ -49,6 +49,16 @@ export function readDataLocation(search: string): DataLocation {
     datasetPage: page('dataset_page'), jobPage: page('job_page'), jobId: identifier('job_id') };
 }
 
+/** Preserve only validated BI location fields through login, never caller URLs or identity. */
+export function dataLoginReturnPath(search: Record<string, string | string[] | undefined>): string {
+  const query = new URLSearchParams();
+  for (const key of ['workspace_id', 'dataset_id', 'dataset_page', 'job_page', 'job_id']) {
+    const value = search[key];
+    if (typeof value === 'string') query.set(key, value);
+  }
+  return dataLocationUrl('/bi/data', readDataLocation(query.toString()));
+}
+
 export function dataLocationUrl(current: string, change: Partial<DataLocation>): string {
   const url = new URL(current, 'http://shopgate.local');
   const fields = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPage: 'dataset_page', jobPage: 'job_page', jobId: 'job_id' } as const;
@@ -71,7 +81,7 @@ export function dataLocationUrl(current: string, change: Partial<DataLocation>):
 export function scopedDataParams(workspaceId: string, dataset: Dataset) {
   return new URLSearchParams({ workspace_id: workspaceId, dataset_id: dataset.dataset_id, version: String(dataset.version) });
 }
-export function sameDatasetSnapshot(workspaceId: string, dataset: Dataset, result: DataSnapshot) {
+export function sameDatasetSnapshot(workspaceId: string, dataset: Pick<Dataset, 'dataset_id' | 'version'>, result: DataSnapshot) {
   return workspaceId === result.workspace_id && dataset.dataset_id === result.dataset_id
     && dataset.version === result.version && result.version === result.accounting_revision;
 }

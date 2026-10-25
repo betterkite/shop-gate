@@ -221,13 +221,14 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
 
   useEffect(() => {
     const controller = new AbortController(); setSnapshot(null); setSnapshotError('');
+    const expected = { dataset_id: dataset.dataset_id, version: dataset.version };
     readBi('/api/bi/query', queryResultSchema, { method: 'POST', signal: controller.signal,
       body: JSON.stringify({ ...scopeBody, query: { dimension: 'overall' } }) }).then((data) => {
-      if (!sameDatasetSnapshot(workspaceId, dataset, data)) throw new Error('本次结果的版本不一致，请刷新。');
+      if (!sameDatasetSnapshot(workspaceId, expected, data)) throw new Error('本次结果的版本不一致，请刷新。');
       if (!controller.signal.aborted) setSnapshot(data);
     }).catch((error) => { if (!controller.signal.aborted) setSnapshotError(dataErrorMessage(error)); });
     return () => controller.abort();
-  }, [workspaceId, dataset.dataset_id, dataset.version, scopeBody, reload, dataset]);
+  }, [workspaceId, dataset.dataset_id, dataset.version, scopeBody, reload]);
 
   useEffect(() => {
     const controller = new AbortController(); const request = ++sequence.current;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalogSchema, dataLocationUrl, datasetSchema, decimalLabel, inferResource, jobSchema,
+import { catalogSchema, dataLocationUrl, dataLoginReturnPath, datasetSchema, decimalLabel, inferResource, jobSchema,
   previewCanCommit, readDataLocation, RESOURCES, sameDatasetSnapshot, StableRequestKeys,
   UPLOAD_LIMITS, validateUploads, type DataSnapshot } from './data-contracts';
 
@@ -19,6 +19,11 @@ describe('data center scope, exact values and confirmation contracts', () => {
   it('changes pages/details without dropping selected dataset or browser context', () => {
     expect(dataLocationUrl('/bi/data?workspace_id=project-a&dataset_id=official&job_id=job-a#tasks', { jobPage: 2 })).toBe('/bi/data?workspace_id=project-a&dataset_id=official&job_id=job-a&job_page=2#tasks');
     expect(dataLocationUrl('/bi/data?dataset_id=official&dataset_page=2', { datasetPage: 1 })).toBe('/bi/data?dataset_id=official');
+  });
+  it('keeps a validated dataset/task/page through reauthentication without caller URLs or identity', () => {
+    expect(dataLoginReturnPath({ workspace_id: 'project-a', dataset_id: 'official', dataset_page: '2', job_page: '3', job_id: 'job-a', next: 'https://foreign.test/', actor_id: 'forged' }))
+      .toBe('/bi/data?workspace_id=project-a&dataset_id=official&dataset_page=2&job_page=3&job_id=job-a');
+    expect(dataLoginReturnPath({ dataset_id: '../bad', job_id: ['one', 'two'], job_page: '-1', dataset_page: '1' })).toBe('/bi/data');
   });
   it('switching a dataset invalidates old object filters, version and job selection', () => {
     const url = dataLocationUrl('/bi/data?workspace_id=project-a&dataset_id=old&job_id=old-job&job_page=4&version=3&sku_id=old-sku&dataset_page=2', { datasetId: 'new' });

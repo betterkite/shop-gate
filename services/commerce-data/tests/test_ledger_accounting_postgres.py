@@ -11,7 +11,7 @@ from psycopg.rows import dict_row
 
 from shopgate_commerce_data.ledger.migrations import migrate_all
 from shopgate_commerce_data.ledger.operations import OperationConflict, bind_scope
-from shopgate_commerce_data.ledger.query import Query, query_ledger
+from shopgate_commerce_data.ledger.query import EXPENSES_WITH_SNAPSHOT_SQL, Query, query_ledger
 from shopgate_commerce_data.ledger.recalculation import (
     confirm_recalculation,
     preview_recalculation,
@@ -190,6 +190,53 @@ def test_filter_does_not_reallocate_source_fee_and_groups_reconcile(golden):
     assert selected["summary"]["metrics"]["expense_amount"] == "6.66"
     assert selected["summary"]["metrics"]["contribution_profit"] == "73.34"
     assert read(golden, scope, dimension="store")["summary"] == result["summary"]
+
+
+def test_expense_snapshot_lookup_uses_latest_eligible_full_key_and_keeps_rls(golden):
+    scope = calculate(golden)
+    foreign = f"foreign-{uuid4()}"
+    with psycopg.connect(golden[2], autocommit=True) as admin:
+        # Same expense ID at a newer revision and in another workspace. Neither
+        # can enter this analysis's version or compound identity.
+        admin.execute(
+            "INSERT INTO bi.expense_snapshots(workspace_id,dataset_id,expense_id,revision,"
+            "amount_cny,fx_rate,fx_source,accounting_status,allocated_lines) "
+            "VALUES(%s,%s,'fee',3,999,1,'future fixture','unallocated',0)",
+            (scope.workspace_id, scope.dataset_id),
+        )
+        admin.execute("INSERT INTO bi.workspaces(workspace_id,name) VALUES(%s,'other')", (foreign,))
+        admin.execute(
+            "INSERT INTO bi.datasets(workspace_id,dataset_id,name,source_kind) "
+            "VALUES(%s,'golden','other','demo')",
+            (foreign,),
+        )
+        admin.execute(
+            "INSERT INTO bi.expenses(workspace_id,dataset_id,expense_id,occurred_at,amount,"
+            "currency,expense_type,allocation_method,source) "
+            "VALUES(%s,'golden','fee','2026-10-01',777,'CNY','other','unallocated','other')",
+            (foreign,),
+        )
+        admin.execute(
+            "INSERT INTO bi.expense_snapshots(workspace_id,dataset_id,expense_id,revision,"
+            "amount_cny,fx_rate,fx_source,accounting_status,allocated_lines) "
+            "VALUES(%s,'golden','fee',2,777,1,'other','unallocated',0)",
+            (foreign,),
+        )
+    assert read(golden, scope)["summary"]["metrics"]["contribution_profit"] == "105.00"
+    with psycopg.connect(golden[1], autocommit=True) as connection, connection.transaction():
+        bind_scope(connection, scope)
+        with connection.cursor(row_factory=dict_row) as cursor:
+            found = cursor.execute(
+                EXPENSES_WITH_SNAPSHOT_SQL, (2, scope.workspace_id, scope.dataset_id)
+            ).fetchall()
+            assert len(found) == 3
+            fee = next(row for row in found if row["expense_id"] == "fee")
+            assert str(fee["amount_cny"]) == "10.01" and fee["revision"] == 2
+            # Even if an internal caller supplies different SQL parameters,
+            # RLS remains the authority, not the optimization predicates.
+            assert (
+                cursor.execute(EXPENSES_WITH_SNAPSHOT_SQL, (2, foreign, "golden")).fetchall() == []
+            )
 
 
 def test_refund_two_date_bases_negative_sales_and_no_fake_ratio(golden):

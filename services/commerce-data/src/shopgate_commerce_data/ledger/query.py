@@ -30,6 +30,24 @@ from shopgate_commerce_data.ledger.recalculation import (
 )
 from shopgate_commerce_data.ledger.scope import IDENTIFIER, LedgerScope
 
+# Look up one expense's latest eligible snapshot using its full primary key.
+# A freshly imported preview has no ANALYZE statistics yet. Joining a DISTINCT
+# subquery previously allowed repeated scans of all snapshots and timed out at
+# the unchanged 60-second preview limit. This bounded lookup also keeps newer
+# revisions out without relying on planner estimates or changing RLS/settings.
+EXPENSES_WITH_SNAPSHOT_SQL = """
+SELECT e.*,s.amount_cny,s.revision,s.accounting_status
+FROM bi.expenses e
+JOIN LATERAL (
+    SELECT amount_cny,revision,accounting_status
+    FROM bi.expense_snapshots s
+    WHERE s.workspace_id=e.workspace_id AND s.dataset_id=e.dataset_id
+      AND s.expense_id=e.expense_id AND s.revision<=%s
+    ORDER BY s.revision DESC LIMIT 1
+) s ON true
+WHERE e.workspace_id=%s AND e.dataset_id=%s
+"""
+
 
 @dataclass(frozen=True)
 class Query:
@@ -408,21 +426,25 @@ def query_ledger(
             row["expense_id"]: row
             for row in rows(
                 connection,
-                "SELECT e.*,s.amount_cny,"
-                "s.revision,s.accounting_status FROM bi.expenses e JOIN "
-                "(SELECT DISTINCT ON(expense_id) * FROM bi.expense_snapshots "
-                "WHERE revision <= %s ORDER BY expense_id,revision DESC) s "
-                "USING(workspace_id,dataset_id,expense_id)",
-                (scope.version,),
+                EXPENSES_WITH_SNAPSHOT_SQL,
+                (scope.version, scope.workspace_id, scope.dataset_id),
             )
         }
         allocations = defaultdict(list)
         for row in rows(
             connection,
-            "SELECT a.* FROM bi.expense_allocations a JOIN "
-            "(SELECT expense_id,max(revision) AS revision FROM bi.expense_snapshots "
-            "WHERE revision <= %s GROUP BY expense_id) s USING(expense_id,revision)",
-            (scope.version,),
+            "WITH latest AS MATERIALIZED ("
+            "SELECT expense_id,max(revision) AS revision FROM bi.expense_snapshots "
+            "WHERE workspace_id=%s AND dataset_id=%s AND revision<=%s GROUP BY expense_id) "
+            "SELECT a.* FROM bi.expense_allocations a JOIN latest USING(expense_id,revision) "
+            "WHERE a.workspace_id=%s AND a.dataset_id=%s",
+            (
+                scope.workspace_id,
+                scope.dataset_id,
+                scope.version,
+                scope.workspace_id,
+                scope.dataset_id,
+            ),
         ):
             allocations[row["expense_id"]].append(row)
         for expense in expenses.values():

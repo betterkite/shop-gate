@@ -6,6 +6,8 @@
 
 在产品checkout运行：
 
+先由私有系统显式提供 `SHOPGATE_BI_MIGRATION_DATABASE_URL`，明确已审核的迁移目标和管理员。命令不加载dotenv，不回退Web/日常 `DATABASE_URL`；空模板为 `deploy/bi-migration.env.example`。备份及新集群恢复步骤见[备份、恢复与重启](backup-recovery.md)。
+
 ```bash
 uv run --project services/commerce-data python -m shopgate_commerce_data.ledger.migrations
 ```
@@ -42,4 +44,4 @@ npm run test:backend
 
 测试覆盖重复迁移/校验、DDL回滚、精度、复合引用、RLS、角色、预览确认、权限、过期、幂等、回滚、并发、无变化版本及真实集群重启。通过数量在执行后登记，不提前宣称通过。
 
-用户数据库未执行迁移或重启。正式迁移前仍须在专用库演练备份恢复、审核角色权限。禁止自动删schema回滚；采用备份恢复或新前向迁移。R2/R7继续完整恢复演练与部署说明。
+用户数据库未执行迁移或重启。R2已在另一私有PG18集群完成已有87表/实际权限/手算121恢复，并重启本次原集群及三个服务；范围与失败修复见[恢复记录](backup-recovery.md)。正式迁移前仍须针对真实目标演练恢复并审核权限，R3–R7新增功能还须覆盖。禁止自动删schema回滚；采用备份恢复或新前向迁移。

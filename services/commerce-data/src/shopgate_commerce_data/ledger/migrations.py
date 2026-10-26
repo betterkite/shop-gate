@@ -4,13 +4,43 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import psycopg
 
-from shopgate_commerce_data.database_core import database_url_from_env
-
 MIGRATION = Path(__file__).resolve().parents[5] / "sqls" / "ledger" / "006-bi-ledger.sql"
+MIGRATIONS = (
+    ("006", "006-bi-ledger.sql"),
+    ("007", "007-bi-accounting.sql"),
+    ("008", "008-bi-exchange.sql"),
+    ("009", "009-bi-datasets.sql"),
+    ("010", "010-bi-jobs.sql"),
+    ("011", "011-bi-private-retention.sql"),
+)
+
+
+def migration_database_url() -> str:
+    """No dotenv discovery or daily/runtime DATABASE_URL fallback for admin DDL."""
+    url = os.getenv("SHOPGATE_BI_MIGRATION_DATABASE_URL", "").strip()
+    if not url:
+        raise ValueError("请显式配置独立的经营迁移连接 SHOPGATE_BI_MIGRATION_DATABASE_URL。")
+    try:
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme not in {"postgres", "postgresql"}
+            or not parsed.hostname
+            or not parsed.username
+            or not parsed.path.startswith("/")
+            or parsed.path == "/"
+            or parsed.fragment
+            or parsed.port == 0
+        ):
+            raise ValueError()
+    except ValueError:
+        raise ValueError("经营迁移连接须明确 PostgreSQL 主机、账号和目标数据库。") from None
+    return url
 
 
 def migrate(
@@ -44,14 +74,7 @@ def migrate(
 def migrate_all(connection: psycopg.Connection) -> None:
     # Apply the ordered series atomically, including on a fresh database.
     with connection.transaction():
-        for revision, filename in (
-            ("006", "006-bi-ledger.sql"),
-            ("007", "007-bi-accounting.sql"),
-            ("008", "008-bi-exchange.sql"),
-            ("009", "009-bi-datasets.sql"),
-            ("010", "010-bi-jobs.sql"),
-            ("011", "011-bi-private-retention.sql"),
-        ):
+        for revision, filename in MIGRATIONS:
             migrate(
                 connection,
                 migration_path=MIGRATION.with_name(filename),
@@ -62,9 +85,17 @@ def migrate_all(connection: psycopg.Connection) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="显式安装独立BI账本，不修改旧commerce表。")
     parser.parse_args()
-    with psycopg.connect(database_url_from_env(), autocommit=True) as connection:
-        migrate_all(connection)
-    print("BI ledger migrations 006/007/008/009/010 verified/applied.")
+    try:
+        url = migration_database_url()
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
+    try:
+        with psycopg.connect(url, autocommit=True, connect_timeout=5) as connection:
+            migrate_all(connection)
+    except (psycopg.Error, RuntimeError):
+        # Do not echo administrator credentials, private SQL or source values.
+        raise SystemExit("经营账本迁移未完成；请检查目标库权限、迁移校验和及私有运维记录。") from None
+    print(f"BI ledger migrations {'/'.join(revision for revision, _ in MIGRATIONS)} verified/applied.")
 
 
 if __name__ == "__main__":

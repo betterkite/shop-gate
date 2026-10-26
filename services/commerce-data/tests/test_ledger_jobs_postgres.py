@@ -1,15 +1,18 @@
 """Durable queue on owned PG18, including actual worker-process crash/recovery.
 
-The loopback authorization fixture is explicitly a signed service test double;
-current real Node session/policy behavior is separately unit tested, and the final
-real browser/Node/user chain still needs integration acceptance before #87 closes.
+The first loopback fixture below is explicitly a signed service test double.
+The real_node_authorizer fixture runs the actual Node handler/Prisma authorization
+against real sessions, users, policies and memberships in the owned PG18 database.
+Neither fixture replaces actual Next/login/browser acceptance before #87 closes.
 """
 
 import base64
 import json
 import os
+import select
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -17,6 +20,7 @@ from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 
+import httpx
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
@@ -29,6 +33,7 @@ from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset
 from shopgate_commerce_data.ledger.exchange import export_csv12
 from shopgate_commerce_data.ledger.job_scope import (
     AUTH_FIELDS,
+    CurrentAuthorization,
     JobScope,
     authorization_claims,
     sign_claims,
@@ -741,3 +746,322 @@ def test_actual_crashed_claimant_process_and_new_worker_recover_from_durable_lea
     assert recovered["state"] == "ready_preview" and recovered["attempts"] == 2
     with psycopg.connect(app, autocommit=True) as connection:
         assert query_ledger(connection, scope.ledger(), Query())["version"] == 1
+
+
+def _node_test_environment():
+    # No dotenv discovery, daily database URL, model configuration or bearer tokens.
+    return {
+        key: os.environ[key]
+        for key in ("PATH", "HOME", "LD_PRELOAD", "LD_LIBRARY_PATH")
+        if key in os.environ
+    }
+
+
+@pytest.fixture
+def real_node_authorizer(context):
+    """Actual Prisma migrations and Node DAL; no auth/repository/handler mocks."""
+    _, _, _, admin = context
+    environment = {
+        **_node_test_environment(),
+        "DATABASE_URL": admin,
+        "NODE_ENV": "test",
+        "SHOPGATE_AUTH_MODE": "local",
+        "SHOPGATE_AUTH_SECRET": "owned-pg-auth-fixture-not-an-external-secret",
+        "SHOPGATE_BI_SERVICE_SECRET": SECRET,
+        "BETTER_AUTH_URL": "http://127.0.0.1",
+        "SHOPGATE_BI_AUTH_TEST_FIXTURE": "owned-pg18",
+    }
+    provision = subprocess.run(
+        ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert provision.returncode == 0, "Actual Prisma migrations must apply to the fresh owned DB."
+    with psycopg.connect(admin, autocommit=True) as connection:
+        if not connection.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname='jobs_auth_reader'"
+        ).fetchone():
+            connection.execute("CREATE ROLE jobs_auth_reader LOGIN NOSUPERUSER NOBYPASSRLS")
+        connection.execute("GRANT USAGE ON SCHEMA public TO jobs_auth_reader")
+        connection.execute(
+            "GRANT SELECT ON auth_users,auth_sessions,projects,project_memberships,"
+            "permission_profiles,permission_profile_grants,user_permission_overrides "
+            "TO jobs_auth_reader"
+        )
+        assert not connection.execute(
+            "SELECT has_table_privilege('jobs_auth_reader','bi.orders','SELECT')"
+        ).fetchone()[0]
+        connection.execute(
+            "INSERT INTO permission_profiles(id,key,name,is_default,updated_at) "
+            "VALUES('bi-member','member-default','测试经营成员',true,now())"
+        )
+        for permission in ("commerce.data.read", "commerce.operation.manage", "project.read"):
+            connection.execute(
+                "INSERT INTO permission_profile_grants(id,profile_id,permission_key,updated_at) "
+                "VALUES(%s,'bi-member',%s,now())",
+                (str(uuid4()), permission),
+            )
+        for actor in ("operator", "other-owner"):
+            connection.execute(
+                "INSERT INTO auth_users(id,name,email,permission_profile_id,updated_at) "
+                "VALUES(%s,%s,%s,'bi-member',now())",
+                (actor, actor, f"{actor}@owned.invalid"),
+            )
+        # Operator is an editor, never the owner/admin who would bypass role changes.
+        connection.execute(
+            "INSERT INTO projects(id,name,owner_id,updated_at) "
+            "VALUES('jobs-space','经营权限集成测试','other-owner',now())"
+        )
+        connection.execute(
+            "INSERT INTO project_memberships(id,project_id,user_id,role,updated_at) "
+            "VALUES('operator-member','jobs-space','operator','editor',now())"
+        )
+        connection.execute(
+            "INSERT INTO auth_sessions(id,user_id,token,expires_at,updated_at) "
+            "VALUES('session-original','operator',%s,now()+interval '1 hour',now())",
+            (uuid4().hex,),
+        )
+    environment["DATABASE_URL"] = admin.replace("ledger_test_admin@", "jobs_auth_reader@")
+    with tempfile.TemporaryFile(mode="w+t") as errors:
+        child = subprocess.Popen(
+            ["node", "--import", "tsx", "scripts/checks/bi-job-authorization-fixture.ts"],
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=errors,
+            text=True,
+        )
+        try:
+            deadline = time.monotonic() + 30
+            origin = None
+            while time.monotonic() < deadline:
+                if select.select([child.stdout], [], [], 1)[0]:
+                    line = child.stdout.readline()
+                    assert line, "Actual Node authorization service exited before readiness."
+                    try:
+                        ready = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(ready, dict) and ready.get("role") == "jobs_auth_reader":
+                        origin = ready["origin"]
+                        break
+                assert child.poll() is None, "Actual Node authorization fixture must remain alive."
+            assert origin and origin.startswith("http://127.0.0.1:"), "Node readiness deadline."
+            yield origin
+        finally:
+            child.terminate()
+            try:
+                child.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=5)
+            child.stdout.close()
+
+
+def _real_node_worker(context, origin):
+    # Actual independent Python worker, with only its four explicit runtime settings.
+    environment = {
+        **_node_test_environment(),
+        "SHOPGATE_BI_WORKER_DATABASE_URL": context[2],
+        "SHOPGATE_BI_SERVICE_SECRET": SECRET,
+        "SHOPGATE_BI_DEMO_ENABLED": "0",
+        "SHOPGATE_BI_AUTH_ORIGIN": origin,
+    }
+    result = subprocess.run(
+        [sys.executable, "-m", "shopgate_commerce_data.ledger.worker", "--once"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=50,
+    )
+    assert result.returncode == 0, "Owned worker must complete without a substitute authorization."
+
+
+@pytest.mark.parametrize(
+    "revocation",
+    [
+        "session_deleted",
+        "session_expired",
+        "account_banned",
+        "password_changed",
+        "password_required",
+        "policy_denied",
+        "member_removed",
+        "member_viewer",
+    ],
+)
+def test_real_node_current_authority_at_commit_rolls_back_and_new_session_recovers(
+    context, real_node_authorizer, revocation
+):
+    scope, app, _, admin = context
+    preview_job = submit(context)
+    _real_node_worker(context, real_node_authorizer)
+    preview = status(context, preview_job["job_id"])
+    assert preview["state"] == "ready_preview"
+    assert preview["result"]["impact"]["after"]["metrics"]["contribution_profit"] == "121.00"
+    confirmation = submit(
+        context,
+        "confirm_import",
+        {"preview_id": preview["result"]["preview_id"], "confirmed_by_user": True},
+    )
+    current = CurrentAuthorization(real_node_authorizer, SECRET)
+    phases = []
+
+    def revoke_before_real_node_lookup(job, phase):
+        phases.append(phase)
+        if phase == "commit":
+            statements = {
+                "session_deleted": "DELETE FROM auth_sessions WHERE id='session-original'",
+                "session_expired": "UPDATE auth_sessions SET expires_at=now()-interval '1 minute' "
+                "WHERE id='session-original'",
+                "account_banned": "UPDATE auth_users SET banned=true WHERE id='operator'",
+                "password_changed": "UPDATE auth_users SET password_changed_at=now() "
+                "WHERE id='operator'",
+                "password_required": "UPDATE auth_users SET must_change_password=true "
+                "WHERE id='operator'",
+                "policy_denied": "INSERT INTO user_permission_overrides"
+                "(id,user_id,permission_key,effect,updated_at) "
+                "VALUES('deny-manage','operator','commerce.operation.manage','deny',now())",
+                "member_removed": "DELETE FROM project_memberships WHERE user_id='operator'",
+                "member_viewer": "UPDATE project_memberships SET role='viewer' "
+                "WHERE user_id='operator'",
+            }
+            with psycopg.connect(admin, autocommit=True) as connection:
+                connection.execute(statements[revocation])
+        return current(job, phase)  # Real HTTP, actual Prisma, no fabricated grant.
+
+    process(context, revoke_before_real_node_lookup)
+    assert phases == ["start", "commit"]
+    assert status(context, confirmation["job_id"])["state"] == "awaiting_auth"
+    with psycopg.connect(admin, autocommit=True) as connection:
+        assert (
+            connection.execute(
+                "SELECT version FROM bi.datasets WHERE dataset_id='official'"
+            ).fetchone()[0]
+            == 1
+        )
+        for table in ("orders", "operations", "audit_events"):
+            assert (
+                connection.execute(
+                    sql.SQL("SELECT count(*) FROM bi.{}").format(sql.Identifier(table))
+                ).fetchone()[0]
+                == 0
+            )
+        assert (
+            connection.execute(
+                "SELECT state FROM bi.import_batches WHERE batch_id=%s",
+                (preview["result"]["batch_id"],),
+            ).fetchone()[0]
+            == "preview"
+        )
+        assert (
+            connection.execute(
+                "SELECT consumed_at FROM bi.operation_previews WHERE preview_id=%s",
+                (preview["result"]["preview_id"],),
+            ).fetchone()[0]
+            is None
+        )
+        # Admin fixture restores current access, but never revives the old session.
+        connection.execute("DELETE FROM auth_sessions WHERE user_id='operator'")
+        connection.execute(
+            "UPDATE auth_users SET banned=false,must_change_password=false,"
+            "password_changed_at=NULL "
+            "WHERE id='operator'"
+        )
+        connection.execute("DELETE FROM user_permission_overrides WHERE user_id='operator'")
+        connection.execute("DELETE FROM project_memberships WHERE user_id='operator'")
+        connection.execute(
+            "INSERT INTO project_memberships(id,project_id,user_id,role,updated_at) "
+            "VALUES('renewed-member','jobs-space','operator','editor',now())"
+        )
+        connection.execute(
+            "INSERT INTO auth_sessions(id,user_id,token,expires_at,updated_at) "
+            "VALUES('session-new','operator',%s,now()+interval '1 hour',now())",
+            (uuid4().hex,),
+        )
+    renewed = (replace(scope, session_id="session-new"), *context[1:])
+    # Restoring membership alone cannot revive a task bound to a deleted session.
+    _real_node_worker(context, real_node_authorizer)
+    assert status(context, confirmation["job_id"])["state"] == "awaiting_auth"
+    with psycopg.connect(app, autocommit=True) as connection:
+        change_job(connection, renewed[0], confirmation["job_id"], action="reauthorize")
+    _real_node_worker(renewed, real_node_authorizer)
+    done = status(renewed, confirmation["job_id"])
+    assert done["state"] == "committed" and done["result"]["version"] == 2
+    with psycopg.connect(app, autocommit=True) as connection:
+        actual = query_ledger(
+            connection,
+            replace(renewed[0], version=2).ledger(),
+            Query(start="0001-01-01", end="9999-12-31"),
+        )
+        assert actual["summary"] == preview["result"]["impact"]["after"]
+    with psycopg.connect(admin, autocommit=True) as connection:
+        assert connection.execute("SELECT count(*) FROM bi.audit_events").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM bi.operations").fetchone()[0] == 1
+
+
+def test_real_node_rejects_forged_identity_and_revoked_session_before_preview(
+    context, real_node_authorizer
+):
+    scope, _, worker, admin = context
+    created = submit(context)
+    with psycopg.connect(worker, autocommit=True) as connection:
+        claimed = claim_job(connection, "real-auth-protocol")
+        claims = authorization_claims(claimed, "start")
+        url = real_node_authorizer + "/api/internal/bi/job-authorization"
+        for changes in (
+            {"aud": "shopgate-bi-v1"},
+            {"actor_id": "other-owner"},
+            {"workspace_id": "account:other-owner"},
+            {"workspace_id": "unrelated-project"},
+        ):
+            response = httpx.post(
+                url,
+                headers={"authorization": "Bearer " + sign_claims({**claims, **changes}, SECRET)},
+                timeout=5,
+                trust_env=False,
+            )
+            assert response.status_code == 403
+            assert response.json()["error"] == "BI_SCOPE_DENIED"
+            assert response.headers["cache-control"] == "no-store, max-age=0"
+            assert "token" not in response.json().get("data", {})
+        response = httpx.post(url, headers={"cookie": "fake-session"}, timeout=5, trust_env=False)
+        assert response.status_code == 403
+        with psycopg.connect(admin, autocommit=True) as fixture:
+            fixture.execute("DELETE FROM auth_sessions WHERE id='session-original'")
+        execute_job(
+            connection,
+            claimed,
+            "real-auth-protocol",
+            CurrentAuthorization(real_node_authorizer, SECRET),
+            SECRET,
+        )
+    assert status(context, created["job_id"])["state"] == "awaiting_auth"
+    with psycopg.connect(admin, autocommit=True) as connection:
+        for table in ("orders", "import_batches", "operation_previews", "audit_events"):
+            assert (
+                connection.execute(
+                    sql.SQL("SELECT count(*) FROM bi.{}").format(sql.Identifier(table))
+                ).fetchone()[0]
+                == 0
+            )
+    assert scope.session_id == "session-original"
+
+
+def test_real_node_current_viewer_can_export_but_cannot_preview(context, real_node_authorizer):
+    _, _, _, admin = context
+    with psycopg.connect(admin, autocommit=True) as connection:
+        connection.execute("UPDATE project_memberships SET role='viewer' WHERE user_id='operator'")
+        connection.execute(
+            "INSERT INTO user_permission_overrides(id,user_id,permission_key,effect,updated_at) "
+            "VALUES('deny-manage','operator','commerce.operation.manage','deny',now())"
+        )
+    export = submit(context, "export_standard", {"resources": ["products"]})
+    _real_node_worker(context, real_node_authorizer)
+    assert status(context, export["job_id"])["state"] == "completed"
+    preview = submit(context)
+    _real_node_worker(context, real_node_authorizer)
+    assert status(context, preview["job_id"])["state"] == "awaiting_auth"
+    with psycopg.connect(admin, autocommit=True) as connection:
+        assert connection.execute("SELECT count(*) FROM bi.operation_previews").fetchone()[0] == 0

@@ -6,8 +6,8 @@ vi.mock('@/lib/auth/client', () => ({ authClient: { signIn: { email: vi.fn() } }
 import LoginClient from './LoginClient';
 
 it('does not advertise guessed development credentials on the public login page', () => {
-  const html = renderToStaticMarkup(<LoginClient rememberMe={false}
-    developmentAdmin={{ login: 'admin', email: 'admin@shopgate.local' }} nextPath="/bi/data" />);
+  const html = renderToStaticMarkup(React.createElement(LoginClient, { rememberMe: false,
+    developmentAdmin: { login: 'admin', email: 'admin@shopgate.local' }, nextPath: '/bi/data' }));
   expect(html).not.toContain('shopgate2025');
   expect(html).not.toContain('admin@shopgate.local');
   expect(html).not.toContain('本地默认');

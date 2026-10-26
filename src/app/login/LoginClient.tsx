@@ -83,7 +83,7 @@ export default function LoginClient({
                 让数据说话，让结论经得起验证。
               </h1>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                专业 Skills 连接数据能力，Agent 协同完成分析与验证。
+                汇总订单、退款、成本与费用，协助你了解经营表现。
               </p>
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function LoginClient({
               安全访问
             </div>
             <h2 className="mt-5 text-3xl font-bold tracking-[-0.03em] sm:text-4xl">欢迎回来</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">登录后继续访问你的项目、策略与研究工作台。</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">登录后查看经营数据，继续你的分析工作。</p>
 
             <form className="mt-9 space-y-5" onSubmit={submit}>
               <div className="space-y-2">
@@ -111,11 +111,9 @@ export default function LoginClient({
                   value={identity}
                   onChange={(event) => setIdentity(event.target.value)}
                   className="h-12 rounded-xl border-input bg-background px-4 shadow-sm placeholder:text-muted-foreground/65 focus-visible:ring-primary"
-                  placeholder="admin@shopgate.local"
+                  placeholder="请输入登录邮箱或账号"
                 />
-                {developmentAdmin ? (
-                  <p className="inline-flex rounded-lg bg-primary/[0.07] px-2.5 py-1.5 text-xs font-medium text-primary">本地默认：admin@shopgate.local / shopgate2025</p>
-                ) : null}
+                <p className="text-xs leading-5 text-muted-foreground">使用管理员为你创建的账号登录。</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-semibold">密码</Label>
@@ -151,8 +149,7 @@ export default function LoginClient({
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background text-primary shadow-sm"><LockKeyhole className="h-4 w-4" /></span>
                 <p className="text-xs leading-5 text-muted-foreground">
-                  密码使用 Argon2id 保护，会话仅保存在 HttpOnly Cookie 中；
-                  {rememberMe ? '有效期由项目会话策略控制。' : '关闭浏览器后需要重新登录。'}
+                  请妥善保管账号信息，使用共享设备后及时退出登录。
                 </p>
               </div>
             </div>

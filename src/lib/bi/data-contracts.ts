@@ -26,7 +26,7 @@ export const jobSchema = z.object({ workspace_id: id, dataset_id: id, job_id: id
 export type DataJob = z.infer<typeof jobSchema>;
 export const batchSchema = z.object({ workspace_id: id, dataset_id: id, batch_id: id,
   state: z.enum(['preview', 'committed', 'rejected']), row_count: z.number().int().nonnegative(),
-  error_count: z.number().int().nonnegative(), version, based_on_version: version,
+  error_count: z.number().int().nonnegative(), version, based_on_version: version.nullable(),
   created_at: z.string(), expires_at: z.string().nullable(), expired: z.boolean(), owned_by_current_user: z.boolean(),
   can_confirm: z.boolean().optional(), preview_id: id.nullable().optional(), preview_expires_at: z.string().nullable().optional(),
   evidence: z.record(z.string(), z.unknown()).optional(), result: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -36,7 +36,7 @@ const batchEnvelope = { workspace_id: id, dataset_id: id, version };
 export const batchesSchema = z.object({ ...batchEnvelope, rows: z.array(batchSchema), total: z.number().int().nonnegative(),
   page: z.number().int().positive(), page_size: z.literal(20) });
 export const batchDetailSchema = z.object({ ...batchEnvelope, batch: batchSchema });
-export const BATCH_LABELS: Record<ImportBatch['state'], string> = { preview: '已预览，尚未写入', committed: '已正式写入', rejected: '校验未通过，未写入' };
+export const BATCH_LABELS: Record<ImportBatch['state'], string> = { preview: '已预览，尚未写入', committed: '已确认处理', rejected: '校验未通过，未写入' };
 export function batchCanCommit(batch: ImportBatch, dataset: Dataset, canManage: boolean, now = Date.now()) {
   return canManage && batch.can_confirm === true && batch.owned_by_current_user && batch.state === 'preview'
     && batch.dataset_id === dataset.dataset_id && (!dataset.workspace_id || batch.workspace_id === dataset.workspace_id)

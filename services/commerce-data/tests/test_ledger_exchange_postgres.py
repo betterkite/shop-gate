@@ -435,6 +435,40 @@ def test_expired_or_stale_history_never_renews_original_preview(empty):
         assert count_sources(empty) == (0, 0, 1)
 
 
+def test_legacy_batch_does_not_invent_a_missing_preview_version(empty):
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        with connection.transaction():
+            bind_scope(connection, scope)
+            connection.execute(
+                "INSERT INTO bi.import_batches(workspace_id,dataset_id,batch_id,actor_id,"
+                "resource_type,content_hash,state,row_count,error_count) "
+                "VALUES(%s,%s,'legacy-batch',%s,'bundle',%s,'committed',0,0)",
+                (scope.workspace_id, scope.dataset_id, scope.actor_id, "a" * 64),
+            )
+        detail = batch_history(connection, scope, batch_id="legacy-batch")["batch"]
+        assert detail["version"] == 1 and detail["based_on_version"] is None
+        assert detail["preview_id"] is None and detail["preview_expires_at"] is None
+        assert detail["can_confirm"] is False and detail["evidence"] == {}
+        assert batch_history(connection, scope)["rows"][0]["based_on_version"] is None
+
+
+def test_fully_duplicate_confirmed_batch_records_unchanged_version(empty):
+    current, _, _ = commit(empty)
+    with psycopg.connect(empty[1], autocommit=True) as connection:
+        preview = preview_import(connection, current, files())
+        result = confirm_import(
+            connection, current, preview["preview_id"], "repeat-history", confirmed_by_user=True
+        )
+        assert result["changed"] is False and result["version"] == 2
+        detail = batch_history(connection, current, batch_id=preview["batch_id"])["batch"]
+        assert (
+            detail["state"] == "committed" and detail["version"] == detail["based_on_version"] == 2
+        )
+        assert all(count["inserted"] == 0 for count in detail["result"]["resources"].values())
+        assert detail["can_confirm"] is False
+
+
 @pytest.mark.parametrize(
     "problem", ["reference", "late_refund", "refund_overpaid", "shipped_cancel", "expense_scope"]
 )

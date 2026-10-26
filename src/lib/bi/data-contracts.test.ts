@@ -48,7 +48,7 @@ describe('data center scope, exact values and confirmation contracts', () => {
     expect(batchCanCommit(batch, dataset, true, now)).toBe(true);
     expect(batchCanCommit(batch, dataset, false, now)).toBe(false);
     for (const patch of [{ state: 'committed' as const }, { owned_by_current_user: false },
-      { can_confirm: false }, { workspace_id: 'foreign' }, { dataset_id: 'other' }, { based_on_version: 1 },
+      { can_confirm: false }, { workspace_id: 'foreign' }, { dataset_id: 'other' }, { based_on_version: 1 }, { based_on_version: null },
       { expired: true }, { preview_id: null }, { expires_at: null }, { preview_expires_at: '2026-10-25T08:00:00Z' }]) {
       expect(batchCanCommit({ ...batch, ...patch }, dataset, true, now)).toBe(false);
     }

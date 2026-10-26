@@ -721,7 +721,9 @@ def batch_history(connection, scope, *, page=1, batch_id=None):
             }
             item.update(envelope)
             item["version"] = batch["version"]  # Historical result version, not current dataset.
-            item["based_on_version"] = batch["based_on_version"] or batch["version"]
+            # Legacy imports may have no saved operation preview. Their result
+            # version is known, but must not be invented as the original version.
+            item["based_on_version"] = batch["based_on_version"]
             item["owned_by_current_user"] = owned
             item["expired"] = batch["expires_at"] is not None and batch["expires_at"] <= now
             for key in ("created_at", "expires_at"):

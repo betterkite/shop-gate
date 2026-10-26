@@ -94,8 +94,11 @@ def main() -> None:
             migrate_all(connection)
     except (psycopg.Error, RuntimeError):
         # Do not echo administrator credentials, private SQL or source values.
-        raise SystemExit("经营账本迁移未完成；请检查目标库权限、迁移校验和及私有运维记录。") from None
-    print(f"BI ledger migrations {'/'.join(revision for revision, _ in MIGRATIONS)} verified/applied.")
+        raise SystemExit(
+            "经营账本迁移未完成；请检查目标库权限、迁移校验和及私有运维记录。"
+        ) from None
+    revisions = "/".join(revision for revision, _ in MIGRATIONS)
+    print(f"BI ledger migrations {revisions} verified/applied.")
 
 
 if __name__ == "__main__":

@@ -39,8 +39,8 @@ function Pagination({ page, total, change, label }: { page: number; total: numbe
 }
 
 export function DataCenter({ workspaceId, canManage, demoEnabled }: { workspaceId: string; canManage: boolean; demoEnabled: boolean }) {
-  const router = useRouter(); const pathname = usePathname(); const search = useSearchParams();
-  const location = readDataLocation(search.toString());
+  const router = useRouter(); const pathname = usePathname() ?? '/bi/data'; const search = useSearchParams()?.toString() ?? '';
+  const location = readDataLocation(search);
   const [directory, setDirectory] = useState<z.infer<typeof directorySchema> | null>(null);
   const [selected, setSelected] = useState<Dataset | null>(null);
   const [catalog, setCatalog] = useState<DataCatalog | null>(null);
@@ -49,9 +49,9 @@ export function DataCenter({ workspaceId, canManage, demoEnabled }: { workspaceI
   const [catalogError, setCatalogError] = useState(''); const [projectError, setProjectError] = useState('');
   const [loading, setLoading] = useState(true); const [refresh, setRefresh] = useState(0);
   const [versionMessage, setVersionMessage] = useState(''); const lastVersion = useRef<number | null>(null);
-  const currentHref = `${pathname}?${search.toString()}`;
+  const currentHref = `${pathname}?${search}`;
   const navigate: Navigation = useCallback((change, replace = false) => {
-    const href = dataLocationUrl(`${pathname}?${search.toString()}`, change);
+    const href = dataLocationUrl(`${pathname}?${search}`, change);
     if (replace) router.replace(href, { scroll: false }); else router.push(href, { scroll: false });
   }, [pathname, router, search]);
   const refreshData = useCallback(() => setRefresh((value) => value + 1), []);

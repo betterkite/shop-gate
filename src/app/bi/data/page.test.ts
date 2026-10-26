@@ -2,18 +2,19 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ access: vi.fn(), redirect: vi.fn(), push: vi.fn(), replace: vi.fn() }));
+const mocks = vi.hoisted(() => ({ access: vi.fn(), redirect: vi.fn(), push: vi.fn(), replace: vi.fn(), search: vi.fn(), pathname: vi.fn() }));
 vi.mock('@/lib/bi/gateway-scope', () => ({ getBiWorkspaceAccess: mocks.access }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect, useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
-  usePathname: () => '/bi/data', useSearchParams: () => new URLSearchParams() }));
+  usePathname: () => mocks.pathname(), useSearchParams: () => mocks.search() }));
 vi.mock('@/components/auth/AuthUserMenu', () => ({ AuthUserMenu: () => React.createElement('span', null, '账号') }));
 vi.mock('@/components/ui/theme-toggle', () => ({ ThemeToggle: () => React.createElement('button', null, '切换主题') }));
 import DataPage from './page';
 import { AuthorizationError } from '@/lib/auth/authorization';
 
 describe('ledger data center entry is authenticated and clear, never a fake BI completion', () => {
-  beforeEach(() => { mocks.access.mockReset().mockResolvedValue({ workspaceId: 'account:a', canManage: true, demoEnabled: true });
+  beforeEach(() => { mocks.search.mockReset().mockReturnValue(new URLSearchParams()); mocks.pathname.mockReset().mockReturnValue('/bi/data');
+    mocks.access.mockReset().mockResolvedValue({ workspaceId: 'account:a', canManage: true, demoEnabled: true });
     mocks.redirect.mockReset().mockImplementation((href: string) => { throw new Error(`REDIRECT:${href}`); }); });
   it('renders real workflow choices and theme while awaiting actual service data', async () => {
     const output = renderToStaticMarkup(await DataPage({ searchParams: Promise.resolve({}) }));
@@ -27,6 +28,13 @@ describe('ledger data center entry is authenticated and clear, never a fake BI c
     const output = renderToStaticMarkup(await DataPage({ searchParams: Promise.resolve({ workspace_id: 'project-a' }) }));
     expect(output).toContain('只读'); expect(output).not.toContain('name="confirmed_by_user"');
     expect(output).not.toContain('创建并选择数据集');
+  });
+  it('tolerates the nullable navigation contract without losing the authenticated workspace', async () => {
+    mocks.search.mockReturnValue(null); mocks.pathname.mockReturnValue(null);
+    const output = renderToStaticMarkup(await DataPage({ searchParams: Promise.resolve({}) }));
+    expect(output).toContain('数据集与导入中心');
+    expect(output).toContain('请先选择一个数据集');
+    expect(output).not.toContain('local-system-admin');
   });
   it('redirects unauthenticated requests with a safe local return path', async () => {
     mocks.access.mockRejectedValue(new AuthorizationError('AUTHENTICATION_REQUIRED', 401, 'private'));

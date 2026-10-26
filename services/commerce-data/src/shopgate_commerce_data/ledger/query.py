@@ -48,6 +48,19 @@ JOIN LATERAL (
 WHERE e.workspace_id=%s AND e.dataset_id=%s
 """
 
+# A scalar indexed lookup avoids joining the whole latest-version relation to
+# every allocation when the trial transaction has no fresh table statistics.
+EXPENSE_ALLOCATIONS_SQL = """
+SELECT a.* FROM bi.expense_allocations a
+WHERE a.workspace_id=%s AND a.dataset_id=%s
+  AND a.revision=(
+      SELECT s.revision FROM bi.expense_snapshots s
+      WHERE s.workspace_id=a.workspace_id AND s.dataset_id=a.dataset_id
+        AND s.expense_id=a.expense_id AND s.revision<=%s
+      ORDER BY s.revision DESC LIMIT 1
+  )
+"""
+
 
 @dataclass(frozen=True)
 class Query:
@@ -433,18 +446,8 @@ def query_ledger(
         allocations = defaultdict(list)
         for row in rows(
             connection,
-            "WITH latest AS MATERIALIZED ("
-            "SELECT expense_id,max(revision) AS revision FROM bi.expense_snapshots "
-            "WHERE workspace_id=%s AND dataset_id=%s AND revision<=%s GROUP BY expense_id) "
-            "SELECT a.* FROM bi.expense_allocations a JOIN latest USING(expense_id,revision) "
-            "WHERE a.workspace_id=%s AND a.dataset_id=%s",
-            (
-                scope.workspace_id,
-                scope.dataset_id,
-                scope.version,
-                scope.workspace_id,
-                scope.dataset_id,
-            ),
+            EXPENSE_ALLOCATIONS_SQL,
+            (scope.workspace_id, scope.dataset_id, scope.version),
         ):
             allocations[row["expense_id"]].append(row)
         for expense in expenses.values():

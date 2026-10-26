@@ -11,7 +11,12 @@ from psycopg.rows import dict_row
 
 from shopgate_commerce_data.ledger.migrations import migrate_all
 from shopgate_commerce_data.ledger.operations import OperationConflict, bind_scope
-from shopgate_commerce_data.ledger.query import EXPENSES_WITH_SNAPSHOT_SQL, Query, query_ledger
+from shopgate_commerce_data.ledger.query import (
+    EXPENSE_ALLOCATIONS_SQL,
+    EXPENSES_WITH_SNAPSHOT_SQL,
+    Query,
+    query_ledger,
+)
 from shopgate_commerce_data.ledger.recalculation import (
     confirm_recalculation,
     preview_recalculation,
@@ -232,11 +237,20 @@ def test_expense_snapshot_lookup_uses_latest_eligible_full_key_and_keeps_rls(gol
             assert len(found) == 3
             fee = next(row for row in found if row["expense_id"] == "fee")
             assert str(fee["amount_cny"]) == "10.01" and fee["revision"] == 2
+            allocated = cursor.execute(
+                EXPENSE_ALLOCATIONS_SQL, (scope.workspace_id, scope.dataset_id, 2)
+            ).fetchall()
+            assert any(row["expense_id"] == "fee" and row["revision"] == 2 for row in allocated)
+            later = cursor.execute(
+                EXPENSE_ALLOCATIONS_SQL, (scope.workspace_id, scope.dataset_id, 3)
+            ).fetchall()
+            assert not any(row["expense_id"] == "fee" for row in later)
             # Even if an internal caller supplies different SQL parameters,
             # RLS remains the authority, not the optimization predicates.
             assert (
                 cursor.execute(EXPENSES_WITH_SNAPSHOT_SQL, (2, foreign, "golden")).fetchall() == []
             )
+            assert cursor.execute(EXPENSE_ALLOCATIONS_SQL, (foreign, "golden", 2)).fetchall() == []
 
 
 def test_refund_two_date_bases_negative_sales_and_no_fake_ratio(golden):

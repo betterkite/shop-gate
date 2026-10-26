@@ -795,7 +795,7 @@ def real_node_authorizer(context):
         ).fetchone()[0]
         connection.execute(
             "INSERT INTO permission_profiles(id,key,name,is_default,updated_at) "
-            "VALUES('bi-member','member-default','测试经营成员',true,now())"
+            "VALUES('bi-member','bi-test-member','测试经营成员',false,now())"
         )
         for permission in ("commerce.data.read", "commerce.operation.manage", "project.read"):
             connection.execute(

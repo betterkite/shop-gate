@@ -41,7 +41,7 @@ def accounting_url():
         connection.execute("REVOKE ALL ON bi.schema_migrations FROM accounting_app")
         assert connection.execute(
             "SELECT revision FROM bi.schema_migrations ORDER BY revision"
-        ).fetchall() == [("006",), ("007",), ("008",), ("009",), ("010",)]
+        ).fetchall() == [("006",), ("007",), ("008",), ("009",), ("010",), ("011",)]
     return url
 
 

@@ -17,6 +17,7 @@ const MESSAGES = {
   BI_MEDIA_UNSUPPORTED: '此接口只接受未压缩的 JSON 请求。',
   BI_SCOPE_DENIED: '授权无效、已过期或无权访问，请重新登录后重试。',
   BI_CONFLICT: '数据或请求已变化，请刷新并重新确认；未覆盖已有记录。',
+  BI_FILE_EXPIRED: '导出文件已到期，请重新导出；经营数据和任务记录仍保留。',
   BI_UNAVAILABLE: '经营数据服务尚未就绪，请联系管理员检查配置与迁移。',
   BI_TIMEOUT: '本次操作超时，请刷新检查状态；创建重试须使用原请求标识。',
   BI_INTERNAL_ERROR: '经营数据处理失败，请稍后重试并提供本次请求编号。',
@@ -140,7 +141,7 @@ async function upstream(path: string, token: string, body?: Record<string, unkno
     if (!response.ok) {
       // Status mapping only: do not expose unknown upstream messages or raw error payloads.
       const errors: Record<number, ErrorCode> = { 401: 'BI_SCOPE_DENIED', 403: 'BI_SCOPE_DENIED',
-        409: 'BI_CONFLICT', 413: 'BI_INPUT_TOO_LARGE', 415: 'BI_MEDIA_UNSUPPORTED',
+        409: 'BI_CONFLICT', 410: 'BI_FILE_EXPIRED', 413: 'BI_INPUT_TOO_LARGE', 415: 'BI_MEDIA_UNSUPPORTED',
         422: 'BI_INPUT_INVALID', 504: 'BI_TIMEOUT' };
       const code = errors[response.status] ?? 'BI_UNAVAILABLE';
       throw new BiProblem(code, errors[response.status] ? response.status : 503);

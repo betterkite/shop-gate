@@ -48,7 +48,8 @@ export async function downloadBiFile(path: string, filename: string) {
   if (!response.ok) {
     throw new DataRequestError(response.status === 401 ? '登录已过期，请重新登录后下载。'
       : response.status === 403 ? '当前无权下载此文件，请检查工作空间和任务归属。'
-        : response.status === 409 ? '文件尚未准备好或已过期，请刷新任务。' : '下载未完成，请刷新任务后重试。', response.status);
+        : response.status === 410 ? '导出文件已到期，请重新导出；经营数据和任务记录仍保留。'
+          : response.status === 409 ? '文件尚未准备好或已过期，请刷新任务。' : '下载未完成，请刷新任务后重试。', response.status);
   }
   if (!response.headers.get('content-type')?.startsWith('text/csv')) throw new DataRequestError('下载响应不是标准 CSV，请重新登录或刷新后重试。', 502);
   const blob = await response.blob();

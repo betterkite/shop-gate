@@ -81,4 +81,13 @@ describe('durable job same-origin gateway', () => {
     expect(result.status).toBe(200); expect(result.headers.get('authorization')).toBeNull();
     expect((await download(get(), { params: Promise.resolve({ job_id: '../foreign', resource: 'products' }) })).status).toBe(422);
   });
+  it('preserves the expired file status with a safe instruction to re-export', async () => {
+    mocks.fetch.mockResolvedValueOnce(new Response('private SQL password=never-echo', { status: 410 }));
+    const result = await download(get(), { params: Promise.resolve({ job_id: 'job-a', resource: 'products' }) });
+    expect(result.status).toBe(410);
+    const body = await result.json();
+    expect(body.error).toBe('BI_FILE_EXPIRED');
+    expect(body.message).toContain('重新导出');
+    expect(JSON.stringify(body)).not.toContain('private');
+  });
 });

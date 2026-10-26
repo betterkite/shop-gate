@@ -46,4 +46,12 @@ describe('browser data transport never calls models or external data hosts', () 
     await expect(downloadBiFile('/api/bi/templates/orders', 'shopgate-orders-v1.csv')).rejects.toMatchObject({ status: 502 });
     await expect(downloadBiFile('https://foreign.test/', 'shopgate-orders-v1.csv')).rejects.toThrow('无效');
   });
+  it('explains expired exports without saving an empty or error file', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('private upstream error', { status: 410 })));
+    const failure = await downloadBiFile('/api/bi/jobs/job-a/files/products', 'shopgate-products-v1.csv').catch((error) => error);
+    expect(failure).toMatchObject({ status: 410 });
+    expect(failure.message).toContain('重新导出');
+    expect(failure.message).toContain('经营数据和任务记录仍保留');
+    expect(failure.message).not.toContain('private');
+  });
 });

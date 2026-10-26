@@ -120,6 +120,7 @@ export const JOB_LABELS: Record<DataJob['kind'], string> = {
   preview_import: '文件导入预览', prepare_demo: '准备演示数据', confirm_import: '确认导入', export_standard: '标准数据导出',
 };
 export const JOB_ERROR_LABELS: Record<string, string> = {
+  BI_JOB_EXPIRED: '任务在结束前已到期，未提交的修改没有写入。请重新提交或预览。',
   BI_JOB_CONFLICT: '数据或预览发生变化，请刷新并重新预览；已有数据未被覆盖。',
   BI_JOB_TIMEOUT: '本次处理被中断或超过时限，未提交的修改已回滚。请提供任务编号以便排查，勿重复确认同一批数据。',
   BI_JOB_INPUT_INVALID: '任务内容未通过检查，尚未写入。请检查参数或重新上传文件预览。',

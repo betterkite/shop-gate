@@ -30,7 +30,12 @@ from test_ledger_exchange_postgres import files as golden_files
 from shopgate_commerce_data.api import create_app
 from shopgate_commerce_data.ledger.csv_contract import SPECS, CsvFile, standard_csv
 from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset
-from shopgate_commerce_data.ledger.exchange import export_csv12
+from shopgate_commerce_data.ledger.exchange import (
+    batch_history,
+    confirm_import,
+    export_csv12,
+    preview_import,
+)
 from shopgate_commerce_data.ledger.job_scope import (
     AUTH_FIELDS,
     CurrentAuthorization,
@@ -47,8 +52,13 @@ from shopgate_commerce_data.ledger.jobs import (
     submit_job,
 )
 from shopgate_commerce_data.ledger.migrations import migrate_all
-from shopgate_commerce_data.ledger.operations import OperationConflict, bind_scope
+from shopgate_commerce_data.ledger.operations import (
+    OperationConflict,
+    PrivateFileExpired,
+    bind_scope,
+)
 from shopgate_commerce_data.ledger.query import Query, query_ledger
+from shopgate_commerce_data.ledger.retention import apply_retention, plan_retention
 from shopgate_commerce_data.ledger.scope import DirectoryScope, ScopeError, _verified_claims
 from shopgate_commerce_data.routers.bi import BiSettings
 
@@ -1065,3 +1075,382 @@ def test_real_node_current_viewer_can_export_but_cannot_preview(context, real_no
     assert status(context, preview["job_id"])["state"] == "awaiting_auth"
     with psycopg.connect(admin, autocommit=True) as connection:
         assert connection.execute("SELECT count(*) FROM bi.operation_previews").fetchone()[0] == 0
+
+
+@pytest.fixture
+def maintenance(context):
+    admin = context[3]
+    with psycopg.connect(admin, autocommit=True) as connection:
+        if not connection.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname='jobs_maintenance'"
+        ).fetchone():
+            connection.execute("CREATE ROLE jobs_maintenance LOGIN NOSUPERUSER NOBYPASSRLS")
+            connection.execute("GRANT shopgate_bi_maintenance TO jobs_maintenance")
+    return admin.replace("ledger_test_admin@", "jobs_maintenance@")
+
+
+def expired_job_clone(context, source_id, *, state="completed", dataset=None):
+    """Insert owned historical fixtures; never disable input immutability or edit time."""
+    new_id = str(uuid4())
+    with psycopg.connect(context[3], autocommit=True) as connection:
+        connection.execute(
+            "INSERT INTO bi.jobs(workspace_id,dataset_id,job_id,actor_id,session_id,kind,"
+            "base_version,idempotency_key,request_hash,payload,state,stage,result,created_at,"
+            "expires_at,lease_owner,lease_until) "
+            "SELECT workspace_id,coalesce(%s,dataset_id),%s,actor_id,session_id,kind,base_version,"
+            "%s,request_hash,payload,%s,%s,result,clock_timestamp()-interval '2 days',"
+            "clock_timestamp()-interval '1 day',"
+            "CASE WHEN %s='running' THEN 'abandoned-worker' END,"
+            "CASE WHEN %s='running' THEN clock_timestamp()-interval '1 hour' END "
+            "FROM bi.jobs WHERE job_id=%s",
+            (dataset, new_id, str(uuid4()), state, state, state, state, source_id),
+        )
+        connection.execute(
+            "INSERT INTO bi.job_files SELECT workspace_id,coalesce(%s,dataset_id),%s,ordinal,"
+            "resource_type,filename,content,content_hash FROM bi.job_files WHERE job_id=%s",
+            (dataset, new_id, source_id),
+        )
+        connection.execute(
+            "INSERT INTO bi.job_outputs SELECT workspace_id,coalesce(%s,dataset_id),%s,"
+            "resource_type,content,content_hash FROM bi.job_outputs WHERE job_id=%s",
+            (dataset, new_id, source_id),
+        )
+    return new_id
+
+
+def test_retention_plan_confirmation_exact_scope_idempotency_and_no_fact_or_version_change(
+    context, maintenance
+):
+    scope, app, _, admin = context
+    source = submit(context)
+    expired = expired_job_clone(context, source["job_id"], state="queued")
+    other_dataset = expired_job_clone(context, source["job_id"], state="queued", dataset="demo")
+    with psycopg.connect(maintenance, autocommit=True) as connection:
+        plan = plan_retention(connection, scope.workspace_id, scope.dataset_id)
+        assert [job["job_id"] for job in plan["inventory"]["jobs"]] == [expired]
+        assert plan["inventory"]["jobs"][0]["files"] == 12
+        assert plan["inventory"]["batches"] == []
+        assert "filename" not in json.dumps(plan) and "session_id" not in json.dumps(plan)
+        with pytest.raises(ScopeError):
+            apply_retention(
+                connection, plan["plan_id"], plan["digest"], confirmed_by_operator=False
+            )
+        with pytest.raises(psycopg.errors.InvalidParameterValue):
+            apply_retention(connection, plan["plan_id"], "f" * 64, confirmed_by_operator=True)
+        receipt = apply_retention(
+            connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+        )
+        assert receipt["removed_files"] == 12
+        assert receipt["removed_outputs"] == receipt["removed_rows"] == 0
+        assert (
+            apply_retention(connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True)
+            == receipt
+        )
+    with psycopg.connect(admin, autocommit=True) as connection:
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM bi.job_files WHERE job_id=%s", (expired,)
+            ).fetchone()[0]
+            == 0
+        )
+        for job_id in (source["job_id"], other_dataset):
+            assert (
+                connection.execute(
+                    "SELECT count(*) FROM bi.job_files WHERE job_id=%s", (job_id,)
+                ).fetchone()[0]
+                == 12
+            )
+        assert connection.execute("SELECT count(*) FROM bi.jobs").fetchone()[0] == 3
+        assert connection.execute("SELECT count(*) FROM bi.retention_receipts").fetchone()[0] == 1
+        for table in ("orders", "operations", "audit_events"):
+            assert (
+                connection.execute(
+                    sql.SQL("SELECT count(*) FROM bi.{}").format(sql.Identifier(table))
+                ).fetchone()[0]
+                == 0
+            )
+    with psycopg.connect(app, autocommit=True) as connection:
+        assert query_ledger(connection, scope.ledger(), Query())["version"] == 1
+
+
+def test_retention_worker_session_lock_blocks_cleanup_even_with_expired_lease(context, maintenance):
+    source = submit(context)
+    expired = expired_job_clone(context, source["job_id"], state="running")
+    with psycopg.connect(maintenance, autocommit=True) as connection:
+        plan = plan_retention(connection, "jobs-space", "official")
+        with psycopg.connect(context[2], autocommit=True) as held:
+            held.execute(
+                "SELECT pg_advisory_lock(hashtext('shopgate.bi.jobs'),hashtext(%s))", (expired,)
+            )
+            with pytest.raises(psycopg.errors.SerializationFailure):
+                apply_retention(
+                    connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+                )
+        # Closing the actual holder releases its session lock; the same reviewed plan now works.
+        result = apply_retention(
+            connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+        )
+        assert result["removed_files"] == 12 and result["expired_workers"] == 1
+    with psycopg.connect(context[3], autocommit=True) as connection:
+        assert connection.execute(
+            "SELECT state,error_code,lease_owner,lease_until FROM bi.jobs WHERE job_id=%s",
+            (expired,),
+        ).fetchone() == ("failed", "BI_JOB_EXPIRED", None, None)
+
+
+def test_retention_changed_inventory_and_plan_expiration_roll_back_without_receipt(
+    context, maintenance
+):
+    source = submit(context)
+    first = expired_job_clone(context, source["job_id"], state="queued")
+    with psycopg.connect(maintenance, autocommit=True) as connection:
+        plan = plan_retention(connection, "jobs-space", "official")
+        second = expired_job_clone(context, source["job_id"], state="queued")
+        with pytest.raises(psycopg.errors.SerializationFailure):
+            apply_retention(connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True)
+        with psycopg.connect(context[3], autocommit=True) as admin:
+            assert admin.execute("SELECT count(*) FROM bi.retention_receipts").fetchone()[0] == 0
+            assert (
+                admin.execute(
+                    "SELECT count(*) FROM bi.job_files WHERE job_id IN(%s,%s)", (first, second)
+                ).fetchone()[0]
+                == 24
+            )
+            # Insert a genuinely old immutable fixture rather than disabling triggers.
+            expired_plan = str(uuid4())
+            admin.execute(
+                "INSERT INTO bi.retention_plans(plan_id,operator_role,workspace_id,dataset_id,"
+                "object_limit,inventory,digest,expires_at) "
+                "SELECT %s,operator_role,workspace_id,dataset_id,object_limit,inventory,digest,"
+                "clock_timestamp()-interval '1 minute' FROM bi.retention_plans WHERE plan_id=%s",
+                (expired_plan, plan["plan_id"]),
+            )
+        with pytest.raises(psycopg.errors.SerializationFailure):
+            apply_retention(connection, expired_plan, plan["digest"], confirmed_by_operator=True)
+        fresh = plan_retention(connection, "jobs-space", "official", limit=1)
+        assert len(fresh["inventory"]["jobs"]) == 1
+        assert (
+            apply_retention(
+                connection, fresh["plan_id"], fresh["digest"], confirmed_by_operator=True
+            )["removed_files"]
+            == 12
+        )
+
+
+def test_retention_preserves_original_preview_evidence_and_committed_manual_ledger(
+    context, maintenance
+):
+    scope, app, _, admin = context
+    with psycopg.connect(app, autocommit=True) as connection:
+        preview = preview_import(connection, scope.ledger(), golden_files(), lifetime_seconds=2)
+        committed = confirm_import(
+            connection,
+            scope.ledger(),
+            preview["preview_id"],
+            "retention-manual-confirm",
+            confirmed_by_user=True,
+        )
+        assert committed["version"] == 2
+        current = replace(scope, version=2)
+        before = query_ledger(
+            connection, current.ledger(), Query(start="0001-01-01", end="9999-12-31")
+        )
+        assert before["summary"]["metrics"]["contribution_profit"] == "121.00"
+        live = preview_import(connection, current.ledger(), golden_files(), lifetime_seconds=900)
+    time.sleep(2.05)
+    with psycopg.connect(app, autocommit=True) as connection:
+        history = batch_history(connection, current.ledger(), batch_id=preview["batch_id"])
+    with psycopg.connect(maintenance, autocommit=True) as connection:
+        plan = plan_retention(connection, "jobs-space", "official")
+        assert [batch["batch_id"] for batch in plan["inventory"]["batches"]] == [
+            preview["batch_id"]
+        ]
+        receipt = apply_retention(
+            connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+        )
+        assert receipt["removed_rows"] > 0
+    with psycopg.connect(app, autocommit=True) as connection:
+        assert (
+            query_ledger(connection, current.ledger(), Query(start="0001-01-01", end="9999-12-31"))
+            == before
+        )
+        assert batch_history(connection, current.ledger(), batch_id=preview["batch_id"]) == history
+    with psycopg.connect(admin, autocommit=True) as connection:
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM bi.import_rows WHERE batch_id=%s", (preview["batch_id"],)
+            ).fetchone()[0]
+            == 0
+        )
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM bi.import_rows WHERE batch_id=%s", (live["batch_id"],)
+            ).fetchone()[0]
+            > 0
+        )
+        assert connection.execute("SELECT count(*) FROM bi.audit_events").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM bi.operations").fetchone()[0] == 1
+
+
+def test_expired_export_has_explicit_410_before_and_after_reclamation(context, maintenance):
+    scope, app, _, _ = context
+    original = submit(context, "export_standard", {"resources": ["products"]})
+    process(context)
+    expired = expired_job_clone(context, original["job_id"])
+    application = create_app(bi_settings=BiSettings(app, SECRET))
+    now = int(time.time())
+    token = sign_claims(
+        {
+            "aud": "shopgate-bi-jobs-v1",
+            "workspace_id": scope.workspace_id,
+            "dataset_id": scope.dataset_id,
+            "actor_id": scope.actor_id,
+            "version": 1,
+            "session_id": scope.session_id,
+            "capabilities": sorted(scope.capabilities),
+            "iat": now,
+            "exp": now + 30,
+        },
+        SECRET,
+    )
+    with TestClient(application) as client, psycopg.connect(app, autocommit=True) as connection:
+        for reclaimed in (False, True):
+            if reclaimed:
+                with psycopg.connect(maintenance, autocommit=True) as operator:
+                    plan = plan_retention(operator, "jobs-space", "official")
+                    assert (
+                        apply_retention(
+                            operator, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+                        )["removed_outputs"]
+                        == 1
+                    )
+            with pytest.raises(PrivateFileExpired):
+                download_job_output(connection, scope, expired, "products")
+            response = client.get(
+                f"/api/v1/bi/jobs/{expired}/files/products",
+                headers={"authorization": "Bearer " + token},
+            )
+            assert response.status_code == 410 and response.json()["error"] == "BI_FILE_EXPIRED"
+            assert "重新导出" in response.json()["message"]
+        assert download_job_output(connection, scope, original["job_id"], "products")
+
+
+def test_retention_authority_is_not_granted_to_app_or_worker_or_spoofed_gucs(context, maintenance):
+    source = submit(context)
+    expired_job_clone(context, source["job_id"], state="queued")
+    process(context)  # Populate actual import_rows so immutable DELETE is exercised, not zero rows.
+    for url in context[1:3]:
+        with psycopg.connect(url, autocommit=True) as connection:
+            connection.execute("SELECT set_config('shopgate.retention_allowed','true',false)")
+            with pytest.raises(ScopeError):
+                plan_retention(connection, "jobs-space", "official")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                connection.execute("SELECT bi.plan_private_retention('jobs-space','official',100)")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                connection.execute("SET ROLE shopgate_bi_retention_executor")
+            with connection.transaction():
+                bind_scope(connection, context[0].ledger())
+                connection.execute("SELECT set_config('shopgate.actor_id','operator',true)")
+                for table in ("job_files", "import_rows"):
+                    with pytest.raises(psycopg.errors.CheckViolation), connection.transaction():
+                        # DELETE is granted: exercise the immutable trigger, not only ACL.
+                        connection.execute(
+                            sql.SQL("DELETE FROM bi.{}").format(sql.Identifier(table))
+                        )
+    with psycopg.connect(maintenance, autocommit=True) as connection:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            connection.execute("DELETE FROM bi.job_files")
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            connection.execute("SELECT * FROM bi.orders")
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            connection.execute("SET ROLE shopgate_bi_retention_executor")
+
+
+def test_retention_waits_for_actual_dataset_transaction_and_plan_is_bound_to_operator(
+    context, maintenance
+):
+    scope, app, _, admin = context
+    source = submit(context)
+    expired_job_clone(context, source["job_id"], state="queued")
+    with psycopg.connect(maintenance, autocommit=True) as operator:
+        plan = plan_retention(operator, "jobs-space", "official")
+    with psycopg.connect(app, autocommit=True) as holder, holder.transaction():
+        bind_scope(holder, scope.ledger())
+        holder.execute("SELECT 1 FROM bi.datasets FOR UPDATE")
+
+        def blocked_cleanup():
+            with (
+                psycopg.connect(
+                    maintenance, autocommit=True, options="-c lock_timeout=150"
+                ) as waiting,
+                pytest.raises(psycopg.errors.LockNotAvailable),
+            ):
+                apply_retention(
+                    waiting, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+                )
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(blocked_cleanup).result(timeout=5)
+    with psycopg.connect(admin, autocommit=True) as connection:
+        if not connection.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname='jobs_other_maintenance'"
+        ).fetchone():
+            connection.execute("CREATE ROLE jobs_other_maintenance LOGIN NOSUPERUSER NOBYPASSRLS")
+            connection.execute("GRANT shopgate_bi_maintenance TO jobs_other_maintenance")
+        assert connection.execute("SELECT count(*) FROM bi.retention_receipts").fetchone()[0] == 0
+    other = admin.replace("ledger_test_admin@", "jobs_other_maintenance@")
+    with (
+        psycopg.connect(other, autocommit=True) as connection,
+        pytest.raises(psycopg.errors.InvalidParameterValue),
+    ):
+        apply_retention(connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True)
+    with psycopg.connect(maintenance, autocommit=True) as connection:
+        assert (
+            apply_retention(
+                connection, plan["plan_id"], plan["digest"], confirmed_by_operator=True
+            )["removed_files"]
+            == 12
+        )
+
+
+def test_actual_retention_cli_explicit_connection_confirmation_and_safe_output(
+    context, maintenance
+):
+    source = submit(context)
+    expired_job_clone(context, source["job_id"], state="queued")
+    command = [sys.executable, "-m", "shopgate_commerce_data.ledger.retention"]
+    environment = {
+        **_node_test_environment(),
+        "SHOPGATE_BI_MAINTENANCE_DATABASE_URL": maintenance,
+        "DATABASE_URL": "postgresql://not-a-real-credential@daily.invalid/never-used",
+    }
+    result = subprocess.run(
+        [*command, "plan", "--workspace-id", "jobs-space", "--dataset-id", "official"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0
+    plan = json.loads(result.stdout)
+    assert len(plan["inventory"]["jobs"]) == 1
+    execution = subprocess.run(
+        [*command, "apply", "--plan-id", plan["plan_id"], "--confirm-digest", plan["digest"]],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert execution.returncode == 0 and json.loads(execution.stdout)["removed_files"] == 12
+    for output in (result.stdout, result.stderr, execution.stdout, execution.stderr):
+        assert "postgresql://" not in output and "daily.invalid" not in output
+        assert "filename" not in output and "session_id" not in output
+    environment.pop("SHOPGATE_BI_MAINTENANCE_DATABASE_URL")
+    missing = subprocess.run(
+        [*command, "plan", "--workspace-id", "jobs-space", "--dataset-id", "official"],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert missing.returncode != 0 and "独立的经营维护连接" in missing.stderr

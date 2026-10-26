@@ -24,6 +24,10 @@ class OperationConflict(ValueError):
     """Stale, expired or reused request: do not partially apply."""
 
 
+class PrivateFileExpired(ValueError):
+    """A retained export is no longer downloadable; facts/history are unchanged."""
+
+
 @dataclass(frozen=True)
 class MutationResult:
     changed: bool

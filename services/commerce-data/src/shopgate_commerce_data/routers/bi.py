@@ -45,7 +45,7 @@ from shopgate_commerce_data.ledger.jobs import (
     submit_job,
 )
 from shopgate_commerce_data.ledger.metrics import metric_catalog
-from shopgate_commerce_data.ledger.operations import OperationConflict
+from shopgate_commerce_data.ledger.operations import OperationConflict, PrivateFileExpired
 from shopgate_commerce_data.ledger.query import Query, query_ledger
 from shopgate_commerce_data.ledger.scope import (
     ScopeError,
@@ -119,6 +119,7 @@ def error_response(code, status, request_id):
     messages = {
         "BI_SCOPE_DENIED": "授权无效、已过期或无权访问，请重新登录后重试。",
         "BI_CONFLICT": "数据或请求已变化，请刷新并重新确认；未覆盖已有记录。",
+        "BI_FILE_EXPIRED": "导出文件已到期，请重新导出；经营数据和任务记录仍保留。",
         "BI_UNAVAILABLE": "经营数据服务尚未就绪，请联系管理员检查配置与迁移。",
         "BI_TIMEOUT": "本次操作超时，请刷新检查状态；创建重试须使用原请求标识。",
         "BI_INPUT_TOO_LARGE": "请求内容过大，请减少筛选对象或使用数据导入入口。",
@@ -149,6 +150,8 @@ class SafeBiRoute(APIRoute):
                 code, status = "BI_SCOPE_DENIED", 403
             except OperationConflict:
                 code, status = "BI_CONFLICT", 409
+            except PrivateFileExpired:
+                code, status = "BI_FILE_EXPIRED", 410
             except RequestValidationError, ValidationError, ValueError, TypeError:
                 code, status = "BI_INPUT_INVALID", 422
             except psycopg.errors.QueryCanceled:

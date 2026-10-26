@@ -50,6 +50,7 @@ def migrate_all(connection: psycopg.Connection) -> None:
             ("008", "008-bi-exchange.sql"),
             ("009", "009-bi-datasets.sql"),
             ("010", "010-bi-jobs.sql"),
+            ("011", "011-bi-private-retention.sql"),
         ):
             migrate(
                 connection,

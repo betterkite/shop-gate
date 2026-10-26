@@ -34,6 +34,7 @@ from shopgate_commerce_data.ledger.exchange import (
 from shopgate_commerce_data.ledger.job_scope import JOB_KINDS, JobScope, verify_grant
 from shopgate_commerce_data.ledger.operations import (
     OperationConflict,
+    PrivateFileExpired,
     bind_scope,
     checked_dataset,
     payload_hash,
@@ -634,6 +635,8 @@ def download_job_output(connection, scope, job_id, resource):
         else:
             if job["state"] != "completed":
                 raise OperationConflict("导出尚未完成。")
+            if job["expires_at"] <= datetime.now(UTC):
+                raise PrivateFileExpired("导出文件已到期，请重新导出；经营数据和任务记录仍保留。")
             output = rows(
                 connection,
                 "SELECT content,content_hash FROM bi.job_outputs WHERE job_id=%s "

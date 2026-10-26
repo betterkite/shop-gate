@@ -9,6 +9,9 @@ import { POST as query } from '@/app/api/bi/query/route';
 import { GET as catalog } from '@/app/api/bi/catalog/route';
 import { GET as template } from '@/app/api/bi/templates/[resource]/route';
 import { GET as metadata } from '@/app/api/bi/datasets/[dataset_id]/route';
+import { GET as batchList } from '@/app/api/bi/batches/route';
+import { GET as batchDetail } from '@/app/api/bi/batches/[batch_id]/route';
+import { GET as batchErrors } from '@/app/api/bi/batches/[batch_id]/errors/route';
 
 const SECRET = 'gateway-http-test-not-an-external-credential';
 const context = (role = 'owner', actor = 'member-a') => ({
@@ -41,6 +44,51 @@ describe('same-origin BI gateway with real scope issuer', () => {
     vi.stubGlobal('fetch', mocks.fetch);
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('returns all historical batch pages under the exact ledger audience and strips private headers', async () => {
+    const batch = { workspace_id: record.workspace_id, dataset_id: 'official', batch_id: 'batch-a',
+      state: 'committed', version: 1, based_on_version: 1, row_count: 3, error_count: 0,
+      owned_by_current_user: false, actor_id: 'private-actor', evidence: { files: ['private'] } };
+    upstream({ workspace_id: record.workspace_id, dataset_id: 'official', version: 1,
+      rows: [batch], total: 23, page: 2, page_size: 20 });
+    const response = await batchList(get('batches?dataset_id=official&version=1&page=2'));
+    expect(response.status).toBe(200);
+    const body = await response.json(); expect(body.data.total).toBe(23);
+    expect(body.data.rows[0]).not.toHaveProperty('actor_id'); expect(body.data.rows[0]).not.toHaveProperty('evidence');
+    const [url, options] = mocks.fetch.mock.calls[0];
+    expect(url.href).toBe('http://127.0.0.1:8000/api/v1/bi/batches?page=2');
+    const claims = JSON.parse(Buffer.from(options.headers.authorization.split(' ')[1].split('.')[0], 'base64url').toString());
+    expect(claims).toMatchObject({ aud: 'shopgate-bi-v1', actor_id: 'member-a', dataset_id: 'official', version: 1 });
+    upstream({ workspace_id: record.workspace_id, dataset_id: 'foreign', version: 1, rows: [], total: 0 });
+    expect((await batchList(get('batches?dataset_id=official&version=1'))).status).toBe(503);
+  });
+
+  it('keeps off-page batch detail private and rejects mismatched identity or version', async () => {
+    const requested = { params: Promise.resolve({ batch_id: 'batch-a' }) };
+    const batch = { workspace_id: record.workspace_id, dataset_id: 'official', batch_id: 'batch-a',
+      state: 'preview', version: 1, based_on_version: 1, owned_by_current_user: false,
+      can_confirm: true, preview_id: 'private-preview', errors: ['private'], evidence: { files: ['private'] } };
+    const envelope = { workspace_id: record.workspace_id, dataset_id: 'official', version: 1, batch };
+    upstream(envelope);
+    const result = await batchDetail(get('batches/batch-a?dataset_id=official&version=1'), requested);
+    const body = await result.json(); expect(body.data.batch.can_confirm).toBe(false);
+    expect(body.data.batch).not.toHaveProperty('preview_id'); expect(JSON.stringify(body)).not.toContain('private');
+    upstream({ ...envelope, batch: { ...batch, batch_id: 'other' } });
+    expect((await batchDetail(get('batches/batch-a?dataset_id=official&version=1'), requested)).status).toBe(503);
+    upstream({ ...envelope, version: 2 });
+    expect((await batchDetail(get('batches/batch-a?dataset_id=official&version=1'), requested)).status).toBe(503);
+    expect((await batchDetail(get('batches/a?dataset_id=official&version=1'), { params: Promise.resolve({ batch_id: '../private' }) })).status).toBe(422);
+  });
+
+  it('downloads batch validation CSV only through the authenticated fixed endpoint', async () => {
+    mocks.fetch.mockResolvedValueOnce(new Response('文件,行,错误说明\n', { headers: { 'content-type': 'text/csv; charset=utf-8' } }));
+    const response = await batchErrors(get('batches/batch-a/errors?dataset_id=official&version=1'), { params: Promise.resolve({ batch_id: 'batch-a' }) });
+    expect(response.status).toBe(200); expect(response.headers.get('content-disposition')).toContain('shopgate-errors-v1.csv');
+    expect(mocks.fetch.mock.calls[0][0].href).toBe('http://127.0.0.1:8000/api/v1/bi/batches/batch-a/errors');
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    mocks.requireAction.mockRejectedValueOnce(new AuthorizationError('DENIED', 403, 'private'));
+    expect((await batchList(get('batches?dataset_id=official&version=1'))).status).toBe(403);
+  });
 
   it('fetches selected metadata independently of the directory page and still checks workspace', async () => {
     upstream(record);

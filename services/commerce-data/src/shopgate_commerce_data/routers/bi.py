@@ -36,6 +36,7 @@ from shopgate_commerce_data.ledger.datasets import (
     dataset_metadata,
     list_datasets,
 )
+from shopgate_commerce_data.ledger.exchange import batch_history, download_errors
 from shopgate_commerce_data.ledger.job_scope import verify_job_scope
 from shopgate_commerce_data.ledger.jobs import (
     change_job,
@@ -288,6 +289,50 @@ def create_bi_router(settings: BiSettings | None = None):
 
     def configured():
         return settings if settings is not None else BiSettings.from_environment()
+
+    @router.get("/batches")
+    @router.get("/batches/{batch_id}")
+    async def batches(request: Request, batch_id: str | None = None):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.read")
+        allowed = set() if batch_id is not None else {"page"}
+        if set(request.query_params) - allowed or len(request.query_params.getlist("page")) > 1:
+            raise BiInputError()
+        page = request.query_params.get("page", "1")
+        if not page.isascii() or not page.isdigit() or len(page) > 7:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return batch_history(
+                    connection,
+                    verify_scope_token(token, config.secret),
+                    page=int(page),
+                    batch_id=batch_id,
+                )
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.get("/batches/{batch_id}/errors")
+    async def batch_errors(batch_id: str, request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.read")
+        if request.query_params:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return download_errors(
+                    connection, verify_scope_token(token, config.secret), batch_id
+                )
+
+        return Response(
+            await run_in_threadpool(execute),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="shopgate-errors-v1.csv"'},
+        )
 
     @router.post("/jobs", status_code=202)
     async def submit(request: Request):

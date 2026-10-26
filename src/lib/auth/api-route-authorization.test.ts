@@ -72,6 +72,9 @@ describe('API route authorization coverage', () => {
       'src/app/api/bi/jobs/[job_id]/route.ts': ['commerce.data.read'],
       'src/app/api/bi/jobs/[job_id]/[action]/route.ts': ['commerce.data.read'],
       'src/app/api/bi/jobs/[job_id]/files/[resource]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/batches/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/batches/[batch_id]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/batches/[batch_id]/errors/route.ts': ['commerce.data.read'],
       'src/app/api/evals/route.ts': [
         'platform.observability.read',
         'platform.settings.manage',

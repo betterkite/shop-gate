@@ -336,3 +336,47 @@ export async function getJobFile(request: NextRequest, jobId: string, resource: 
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': `attachment; filename="shopgate-${resource}-v1.csv"` } });
 }
+
+const BATCH_FIELDS = ['workspace_id', 'dataset_id', 'batch_id', 'resource_type', 'state',
+  'row_count', 'error_count', 'version', 'based_on_version', 'created_at', 'expires_at',
+  'expired', 'owned_by_current_user'];
+
+function checkedBatch(value: unknown, scope: { workspaceId: string; datasetId: string }, batchId?: string) {
+  const batch = object(value);
+  if (batch.workspace_id !== scope.workspaceId || batch.dataset_id !== scope.datasetId
+      || (batchId !== undefined && batch.batch_id !== batchId)) throw new BiProblem('BI_UNAVAILABLE', 503);
+  const result = picked(batch, BATCH_FIELDS);
+  if (batchId !== undefined) {
+    result.can_confirm = batch.can_confirm === true && batch.owned_by_current_user === true;
+    if (batch.owned_by_current_user === true) {
+      Object.assign(result, picked(batch, ['preview_id', 'preview_expires_at', 'result', 'errors']));
+      if (batch.evidence !== undefined) result.evidence = picked(object(batch.evidence), ['resources', 'files', 'template_version', 'impact']);
+    }
+  }
+  return result;
+}
+
+export async function getBatchHistory(request: NextRequest, batchId?: string) {
+  if (batchId !== undefined) jobIdentifier(batchId);
+  const { scope: wanted, options } = jobQueryScope(request, batchId === undefined ? ['page'] : []);
+  const scope = await issueLedgerScope({ headers: request.headers, ...wanted });
+  const path = batchId === undefined ? `batches?${new URLSearchParams(options.page ? { page: options.page } : {})}` : `batches/${batchId}`;
+  const data = decoded((await upstream(path, scope.token)).bytes);
+  if (data.workspace_id !== scope.workspaceId || data.dataset_id !== scope.datasetId || data.version !== scope.version) {
+    throw new BiProblem('BI_UNAVAILABLE', 503);
+  }
+  const envelope = picked(data, ['workspace_id', 'dataset_id', 'version']);
+  if (batchId !== undefined) return success({ ...envelope, batch: checkedBatch(data.batch, scope, batchId) });
+  if (!Array.isArray(data.rows)) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return success({ ...envelope, ...picked(data, ['total', 'page', 'page_size']), rows: data.rows.map((row) => checkedBatch(row, scope)) });
+}
+
+export async function getBatchErrors(request: NextRequest, batchId: string) {
+  jobIdentifier(batchId);
+  const { scope: wanted } = jobQueryScope(request);
+  const scope = await issueLedgerScope({ headers: request.headers, ...wanted });
+  const result = await upstream(`batches/${batchId}/errors`, scope.token, undefined, 256 * 1024 * 1024);
+  if (!result.contentType.startsWith('text/csv')) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return new NextResponse(new Uint8Array(result.bytes), { headers: { ...HEADERS,
+    'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="shopgate-errors-v1.csv"' } });
+}

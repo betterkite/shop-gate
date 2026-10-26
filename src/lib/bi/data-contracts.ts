@@ -24,6 +24,26 @@ export const jobSchema = z.object({ workspace_id: id, dataset_id: id, job_id: id
   error_code: z.string().nullable(), created_at: z.string(), updated_at: z.string(), expires_at: z.string(),
   expired: z.boolean(), stage_label: z.string() });
 export type DataJob = z.infer<typeof jobSchema>;
+export const batchSchema = z.object({ workspace_id: id, dataset_id: id, batch_id: id,
+  state: z.enum(['preview', 'committed', 'rejected']), row_count: z.number().int().nonnegative(),
+  error_count: z.number().int().nonnegative(), version, based_on_version: version,
+  created_at: z.string(), expires_at: z.string().nullable(), expired: z.boolean(), owned_by_current_user: z.boolean(),
+  can_confirm: z.boolean().optional(), preview_id: id.nullable().optional(), preview_expires_at: z.string().nullable().optional(),
+  evidence: z.record(z.string(), z.unknown()).optional(), result: z.record(z.string(), z.unknown()).nullable().optional(),
+  errors: z.array(z.record(z.string(), z.unknown())).optional() });
+export type ImportBatch = z.infer<typeof batchSchema>;
+const batchEnvelope = { workspace_id: id, dataset_id: id, version };
+export const batchesSchema = z.object({ ...batchEnvelope, rows: z.array(batchSchema), total: z.number().int().nonnegative(),
+  page: z.number().int().positive(), page_size: z.literal(20) });
+export const batchDetailSchema = z.object({ ...batchEnvelope, batch: batchSchema });
+export const BATCH_LABELS: Record<ImportBatch['state'], string> = { preview: '已预览，尚未写入', committed: '已正式写入', rejected: '校验未通过，未写入' };
+export function batchCanCommit(batch: ImportBatch, dataset: Dataset, canManage: boolean, now = Date.now()) {
+  return canManage && batch.can_confirm === true && batch.owned_by_current_user && batch.state === 'preview'
+    && batch.dataset_id === dataset.dataset_id && (!dataset.workspace_id || batch.workspace_id === dataset.workspace_id)
+    && batch.based_on_version === dataset.version && !batch.expired && typeof batch.preview_id === 'string'
+    && batch.expires_at !== null && now < Date.parse(batch.expires_at)
+    && typeof batch.preview_expires_at === 'string' && now < Date.parse(batch.preview_expires_at);
+}
 export const jobsSchema = z.object({ rows: z.array(jobSchema), total: z.number().int().nonnegative(),
   page: z.number().int().positive(), page_size: z.literal(20) });
 export const fieldSchema = z.object({ name: z.string(), label: z.string(), kind: z.string(),
@@ -40,19 +60,21 @@ export const queryResultSchema = z.object({ workspace_id: id, dataset_id: id, ve
     quality: z.record(z.string(), z.unknown()) }) });
 export type DataSnapshot = z.infer<typeof queryResultSchema>;
 
-export type DataLocation = { workspaceId?: string; datasetId?: string; datasetPage: number; jobPage: number; jobId?: string };
+export type DataLocation = { workspaceId?: string; datasetId?: string; datasetPage: number; jobPage: number; jobId?: string; batchPage?: number; batchId?: string };
 export function readDataLocation(search: string): DataLocation {
   const params = new URLSearchParams(search);
   const identifier = (key: string) => { const value = params.get(key); return value && id.safeParse(value).success ? value : undefined; };
   const page = (key: string) => { const text = params.get(key) ?? '1'; return /^[1-9]\d{0,5}$/.test(text) ? Number(text) : 1; };
   return { workspaceId: identifier('workspace_id'), datasetId: identifier('dataset_id'),
-    datasetPage: page('dataset_page'), jobPage: page('job_page'), jobId: identifier('job_id') };
+    datasetPage: page('dataset_page'), jobPage: page('job_page'), jobId: identifier('job_id'),
+    ...(params.has('batch_page') ? { batchPage: page('batch_page') } : {}),
+    ...(identifier('batch_id') ? { batchId: identifier('batch_id') } : {}) };
 }
 
 /** Preserve only validated BI location fields through login, never caller URLs or identity. */
 export function dataLoginReturnPath(search: Record<string, string | string[] | undefined>): string {
   const query = new URLSearchParams();
-  for (const key of ['workspace_id', 'dataset_id', 'dataset_page', 'job_page', 'job_id']) {
+  for (const key of ['workspace_id', 'dataset_id', 'dataset_page', 'job_page', 'job_id', 'batch_page', 'batch_id']) {
     const value = search[key];
     if (typeof value === 'string') query.set(key, value);
   }
@@ -61,12 +83,12 @@ export function dataLoginReturnPath(search: Record<string, string | string[] | u
 
 export function dataLocationUrl(current: string, change: Partial<DataLocation>): string {
   const url = new URL(current, 'http://shopgate.local');
-  const fields = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPage: 'dataset_page', jobPage: 'job_page', jobId: 'job_id' } as const;
+  const fields = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPage: 'dataset_page', jobPage: 'job_page', jobId: 'job_id', batchPage: 'batch_page', batchId: 'batch_id' } as const;
   if ('workspaceId' in change && change.workspaceId !== (url.searchParams.get('workspace_id') ?? undefined)) {
     // Object filters belong to the previous workspace. Never carry them into another account/project.
     url.search = '';
   } else if ('datasetId' in change && change.datasetId !== (url.searchParams.get('dataset_id') ?? undefined)) {
-    for (const key of ['job_id', 'job_page', 'version', 'page', 'store_id', 'sku_id', 'product_id', 'channel_id']) url.searchParams.delete(key);
+    for (const key of ['job_id', 'job_page', 'batch_id', 'batch_page', 'version', 'page', 'store_id', 'sku_id', 'product_id', 'channel_id']) url.searchParams.delete(key);
   }
   for (const [key, parameter] of Object.entries(fields)) {
     if (key in change) {

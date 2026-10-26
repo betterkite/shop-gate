@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalogSchema, dataLocationUrl, dataLoginReturnPath, datasetSchema, decimalLabel, inferResource, jobSchema,
-  JOB_ERROR_LABELS, previewCanCommit, readDataLocation, RESOURCES, sameDatasetSnapshot, StableRequestKeys,
+  batchCanCommit, batchSchema, JOB_ERROR_LABELS, previewCanCommit, readDataLocation, RESOURCES, sameDatasetSnapshot, StableRequestKeys,
   UPLOAD_LIMITS, validateUploads, type DataSnapshot } from './data-contracts';
 
 const dataset = datasetSchema.parse({ workspace_id: 'account:a', dataset_id: 'official', name: '经营数据',
@@ -32,6 +32,26 @@ describe('data center scope, exact values and confirmation contracts', () => {
   it('switching a workspace resets all old dataset/actor-specific context', () => {
     expect(dataLocationUrl('/bi/data?workspace_id=project-a&dataset_id=old&job_id=old-job&sku_id=private', { workspaceId: 'project-b' })).toBe('/bi/data?workspace_id=project-b');
     expect(dataLocationUrl('/bi/data?workspace_id=project-a&dataset_id=old', { workspaceId: undefined })).toBe('/bi/data');
+  });
+  it('restores historical batch links and clears their context on dataset/workspace changes', () => {
+    expect(readDataLocation('dataset_id=official&batch_id=batch-a&batch_page=2')).toMatchObject({ batchId: 'batch-a', batchPage: 2 });
+    expect(dataLocationUrl('/bi/data?dataset_id=official&batch_page=2&batch_id=batch-a', { batchPage: 3 })).toBe('/bi/data?dataset_id=official&batch_page=3&batch_id=batch-a');
+    expect(dataLocationUrl('/bi/data?dataset_id=official&batch_page=2&batch_id=batch-a', { datasetId: 'new' })).toBe('/bi/data?dataset_id=new');
+    expect(dataLoginReturnPath({ dataset_id: 'official', batch_id: 'batch-a', batch_page: '2', actor_id: 'forged' })).toBe('/bi/data?dataset_id=official&batch_page=2&batch_id=batch-a');
+  });
+  it('allows only the current owner preview with both original expiration checks and write authority', () => {
+    const batch = batchSchema.parse({ workspace_id: 'account:a', dataset_id: 'official', batch_id: 'batch-a',
+      state: 'preview', row_count: 3, error_count: 0, version: 2, based_on_version: 2,
+      created_at: '2026-10-25T08:00:00Z', expires_at: '2026-10-25T08:15:00Z',
+      expired: false, owned_by_current_user: true, can_confirm: true, preview_id: 'preview-a',
+      preview_expires_at: '2026-10-25T08:15:00Z' });
+    expect(batchCanCommit(batch, dataset, true, now)).toBe(true);
+    expect(batchCanCommit(batch, dataset, false, now)).toBe(false);
+    for (const patch of [{ state: 'committed' as const }, { owned_by_current_user: false },
+      { can_confirm: false }, { workspace_id: 'foreign' }, { dataset_id: 'other' }, { based_on_version: 1 },
+      { expired: true }, { preview_id: null }, { expires_at: null }, { preview_expires_at: '2026-10-25T08:00:00Z' }]) {
+      expect(batchCanCommit({ ...batch, ...patch }, dataset, true, now)).toBe(false);
+    }
   });
   it('only permits current unexpired explicitly manageable previews', () => {
     expect(previewCanCommit(job, dataset, true, now)).toBe(true);

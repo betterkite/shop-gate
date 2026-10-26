@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from shopgate_commerce_data.api import create_app
-from shopgate_commerce_data.ledger.csv_contract import SPECS, standard_csv
+from shopgate_commerce_data.ledger.csv_contract import SPECS, CsvFile, standard_csv
 from shopgate_commerce_data.ledger.demo import DemoPlan, demo_files, generate_demo
 from shopgate_commerce_data.ledger.exchange import confirm_import, preview_import
 from shopgate_commerce_data.ledger.migrations import migrate_all
@@ -132,6 +132,61 @@ def test_selected_dataset_metadata_cannot_be_forged_or_read_across_workspaces(cl
     assert (
         browser.get(PREFIX + "/datasets/official?actor_id=admin", headers=auth).status_code == 422
     )
+
+
+def test_signed_full_batch_history_and_private_errors_for_direct_imports(client):
+    browser, workspace, settings, _ = client
+    assert (
+        browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan()).status_code
+        == 200
+    )
+    scope = LedgerScope(
+        workspace, "official", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
+    with settings.connection() as connection:
+        preview = preview_import(
+            connection,
+            scope,
+            [
+                # Missing required product name: invalid input stays private to its submitter.
+                CsvFile(
+                    "products",
+                    "private-file.csv",
+                    b"template_version,product_id,name,category,series\n1,001,,test,\n",
+                )
+            ],
+        )
+    auth = headers(workspace, directory=False)
+    listed = browser.get(PREFIX + "/batches", headers=auth)
+    assert listed.status_code == 200 and listed.json()["data"]["total"] == 1
+    batch_id = preview["batch_id"]
+    detail = browser.get(PREFIX + f"/batches/{batch_id}", headers=auth)
+    assert detail.status_code == 200 and detail.json()["data"]["batch"]["state"] == "rejected"
+    assert detail.json()["data"]["batch"]["errors"]
+    assert "actor_id" not in detail.json()["data"]["batch"]
+    other = browser.get(
+        PREFIX + f"/batches/{batch_id}",
+        headers=headers(workspace, directory=False, actor_id="other"),
+    )
+    assert other.status_code == 200 and "private-file" not in other.text
+    download = browser.get(PREFIX + f"/batches/{batch_id}/errors", headers=auth)
+    assert download.status_code == 200 and download.headers["content-type"].startswith("text/csv")
+    assert (
+        browser.get(
+            PREFIX + f"/batches/{batch_id}/errors",
+            headers=headers(workspace, directory=False, actor_id="other"),
+        ).status_code
+        == 403
+    )
+    assert browser.get(PREFIX + "/batches", headers=headers(workspace)).status_code == 403
+    assert (
+        browser.get(PREFIX + "/batches", headers=headers("foreign", directory=False)).status_code
+        == 403
+    )
+    for suffix in ("?page=0", "?page=1&page=2", "?actor_id=forged"):
+        assert browser.get(PREFIX + "/batches" + suffix, headers=auth).status_code == 422
+    assert browser.get(PREFIX + f"/batches/{batch_id}?page=1", headers=auth).status_code == 422
+    assert "no-store" in detail.headers["cache-control"]
 
 
 @pytest.mark.parametrize("kind", ["missing", "forged", "expired", "purpose", "self_identity"])

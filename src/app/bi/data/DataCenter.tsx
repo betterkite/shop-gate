@@ -18,6 +18,7 @@ import { catalogSchema, CHOICE_LABELS, FIELD_TYPE_LABELS, dataLocationUrl, datas
   StableRequestKeys, validateUploads, type DataCatalog, type DataJob, type Dataset,
   type DataSnapshot, type Resource } from '@/lib/bi/data-contracts';
 import { dataErrorMessage, downloadBiFile, fileBase64, readBi, requestDigest } from '@/lib/bi/data-browser';
+import { BatchHistory } from './BatchHistory';
 
 const PANEL = 'rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6';
 const SELECT = 'h-10 max-w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground';
@@ -161,6 +162,7 @@ export function DataCenter({ workspaceId, canManage, demoEnabled }: { workspaceI
       {catalogError && <Notice error>字段说明未加载：{catalogError}<Button size="sm" variant="outline" onClick={refreshData}>重试</Button></Notice>}
       {selected && <DatasetOperations key={`${workspaceId}:${selected.dataset_id}`} workspaceId={workspaceId} dataset={selected}
         canManage={canManage} demoEnabled={demoEnabled} catalog={catalog} jobPage={location.jobPage} jobId={location.jobId}
+        batchPage={location.batchPage ?? 1} batchId={location.batchId}
         navigate={navigate} refreshData={refreshData} currentHref={currentHref} />}
       <footer className="border-t border-border py-4 text-xs leading-6 text-muted-foreground">这是重构中的经营数据入口。旧行为分析与历史成果暂保留原入口，不会自动转换成真实订单；八模块经营页面随后接入这份账本。</footer>
     </main>
@@ -199,9 +201,10 @@ function CreateDataset({ workspaceId, canManage, demoEnabled, onCreated }: { wor
   </section>;
 }
 
-function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catalog, jobPage, jobId, navigate, refreshData, currentHref }: {
+function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catalog, jobPage, jobId, batchPage, batchId, navigate, refreshData, currentHref }: {
   workspaceId: string; dataset: Dataset; canManage: boolean; demoEnabled: boolean; catalog: DataCatalog | null;
   jobPage: number; jobId?: string; navigate: Navigation; refreshData: () => void; currentHref: string;
+  batchPage: number; batchId?: string;
 }) {
   const [files, setFiles] = useState<UploadChoice[]>([]); const [pending, setPending] = useState(false);
   const [message, setMessage] = useState(''); const [problem, setProblem] = useState('');
@@ -382,6 +385,10 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
       {detail && <JobDetail job={detail} dataset={dataset} params={params} canManage={canManage} canCommit={canCommit} pending={pending}
         openConfirmation={() => setDialog(true)} action={(choice) => { void action(detail, choice); }} download={(path, resource) => { void download(path, resource); }} />}
     </section>
+
+    <BatchHistory key={params} workspaceId={workspaceId} dataset={dataset} page={batchPage} batchId={batchId}
+      canManage={canManage} pending={pending} navigate={navigate} refresh={reload}
+      confirm={async (previewId) => { await execute('confirm_import', { preview_id: previewId, confirmed_by_user: true }); }} />
 
     <AlertDialog open={dialog} onOpenChange={setDialog}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>确认写入这批经营数据？</AlertDialogTitle>
       <AlertDialogDescription>将使用你刚查看的预览写入“{dataset.name}”（版本 {dataset.version}）。提交前会再次检查权限、预览期限和数据版本；任一检查失败都不会部分写入。相同请求重复提交不会重复增加版本。</AlertDialogDescription></AlertDialogHeader>

@@ -11,6 +11,7 @@ import pytest
 
 from shopgate_commerce_data.ledger.csv_contract import SPECS, CsvFile, standard_csv
 from shopgate_commerce_data.ledger.exchange import (
+    batch_history,
     confirm_import,
     download_errors,
     export_csv12,
@@ -354,6 +355,84 @@ def test_batch_pagination_full_count_and_private_scope_after_reconnection(empty)
         assert count_sources(empty) == (0, 0, 1)
         with pytest.raises(ScopeError):
             list_batches(connection, replace(scope, workspace_id="unrelated"))
+
+
+def test_history_preserves_original_evidence_after_commit_and_actor_private_details(empty):
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview = preview_import(connection, scope, files())
+        batch_id = preview["batch_id"]
+        detail = batch_history(connection, scope, batch_id=batch_id)["batch"]
+        assert detail["can_confirm"] is True and detail["based_on_version"] == 1
+        assert (
+            len(detail["evidence"]["files"]) == 12 and detail["evidence"]["template_version"] == "1"
+        )
+        assert detail["evidence"]["resources"]["orders"]["inserted"] > 0
+        assert "actor_id" not in detail and "record" not in detail
+        readonly = replace(scope, capabilities=frozenset({"ledger.read"}))
+        assert (
+            batch_history(connection, readonly, batch_id=batch_id)["batch"]["can_confirm"] is False
+        )
+        other = batch_history(connection, replace(scope, actor_id="other"), batch_id=batch_id)[
+            "batch"
+        ]
+        assert other["owned_by_current_user"] is False and other["can_confirm"] is False
+        assert not {"preview_id", "evidence", "errors", "result"}.intersection(other)
+        confirm_import(
+            connection, scope, preview["preview_id"], "history-confirm", confirmed_by_user=True
+        )
+    current = replace(scope, version=2)
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        committed = batch_history(connection, current, batch_id=batch_id)["batch"]
+        assert committed["state"] == "committed" and committed["version"] == 2
+        assert committed["based_on_version"] == 1 and not committed["can_confirm"]
+        assert committed["evidence"] == detail["evidence"]
+        assert committed["result"]["resources"] == detail["evidence"]["resources"]
+        with pytest.raises(OperationConflict):
+            batch_history(connection, scope)
+        with pytest.raises(ScopeError):
+            batch_history(connection, replace(current, workspace_id="other"), batch_id=batch_id)
+        with pytest.raises(ScopeError):
+            batch_history(connection, current, batch_id="not-found")
+
+
+def test_batch_history_full_paging_includes_direct_imports_and_off_page_details(empty):
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        for _ in range(23):
+            preview_import(
+                connection, scope, [CsvFile("products", "empty.csv", standard_csv("products", []))]
+            )
+        first = batch_history(connection, scope)
+        second = batch_history(connection, scope, page=2)
+        assert first["total"] == second["total"] == 23
+        assert len(first["rows"]) == 20 and len(second["rows"]) == 3
+        assert len({b["batch_id"] for b in first["rows"] + second["rows"]}) == 23
+        assert all("evidence" not in row and "actor_id" not in row for row in first["rows"])
+        off_page = second["rows"][-1]["batch_id"]
+        assert batch_history(connection, scope, batch_id=off_page)["batch"]["batch_id"] == off_page
+        assert batch_history(connection, scope, page=3)["rows"] == []
+        for invalid in (True, 0, -1, 1.5, 1_000_001):
+            with pytest.raises(ValueError):
+                batch_history(connection, scope, page=invalid)
+
+
+def test_expired_or_stale_history_never_renews_original_preview(empty):
+    scope, app_url, _ = empty
+    with psycopg.connect(app_url, autocommit=True) as connection:
+        preview = preview_import(connection, scope, files())
+        with connection.transaction():
+            bind_scope(connection, scope)
+            connection.execute(
+                "UPDATE bi.operation_previews SET expires_at=clock_timestamp()-interval '1 second'"
+            )
+        detail = batch_history(connection, scope, batch_id=preview["batch_id"])["batch"]
+        assert detail["can_confirm"] is False and detail["state"] == "preview"
+        with pytest.raises(OperationConflict):
+            confirm_import(
+                connection, scope, preview["preview_id"], "expired-history", confirmed_by_user=True
+            )
+        assert count_sources(empty) == (0, 0, 1)
 
 
 @pytest.mark.parametrize(

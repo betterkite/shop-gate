@@ -649,3 +649,114 @@ def download_errors(connection: psycopg.Connection, scope: LedgerScope, batch_id
         if not records or records[0]["actor_id"] != scope.actor_id:
             raise ScopeError("批次不存在或当前身份无权下载。")
         return error_csv(records[0]["errors"])
+
+
+def batch_history(connection, scope, *, page=1, batch_id=None):
+    """All persisted imports, including those created before the durable queue.
+
+    Shared readers receive safe batch headers; original preview evidence/errors
+    remain private to the submitter. Nothing here mutates or renews a preview.
+    """
+    require_idle(connection)
+    if type(page) is not int or not 1 <= page <= 1_000_000:
+        raise ValueError("页码无效。")
+    if batch_id is not None and (
+        not isinstance(batch_id, str) or not IDENTIFIER.fullmatch(batch_id)
+    ):
+        raise ValueError("批次标识无效。")
+    with connection.transaction():
+        connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        bind_scope(connection, scope)
+        version = checked_dataset(connection, scope)
+        if version != scope.version:
+            raise OperationConflict("数据已更新，请刷新后查看导入历史。")
+        envelope = {
+            "workspace_id": scope.workspace_id,
+            "dataset_id": scope.dataset_id,
+            "version": version,
+        }
+        select = (
+            "SELECT b.*,p.version AS based_on_version,p.expires_at AS preview_expires_at,"
+            "p.consumed_at,p.actor_id AS preview_actor,p.kind AS preview_kind,p.impact AS evidence "
+            "FROM bi.import_batches b LEFT JOIN bi.operation_previews p "
+            "ON p.workspace_id=b.workspace_id AND p.dataset_id=b.dataset_id "
+            "AND p.preview_id=b.preview_id "
+            "WHERE b.workspace_id=%s AND b.dataset_id=%s"
+        )
+        parameters = (scope.workspace_id, scope.dataset_id)
+        if batch_id is not None:
+            found = rows(connection, select + " AND b.batch_id=%s", (*parameters, batch_id))
+            if not found:
+                raise ScopeError("导入批次不存在或当前身份无权查看。")
+        else:
+            # Do not load private result/error JSON for every row just to list headers.
+            select = select.replace(
+                "b.*",
+                "b.batch_id,b.actor_id,b.resource_type,b.state,"
+                "b.row_count,b.error_count,b.version,b.created_at,b.expires_at,b.preview_id",
+            )
+            select = select.replace(",p.impact AS evidence", "")
+            found = rows(
+                connection,
+                select + " ORDER BY b.created_at DESC,b.batch_id LIMIT 20 OFFSET %s",
+                (*parameters, (page - 1) * 20),
+            )
+        now = datetime.now(UTC)
+        output = []
+        for batch in found:
+            owned = batch["actor_id"] == scope.actor_id
+            item = {
+                key: batch[key]
+                for key in (
+                    "batch_id",
+                    "resource_type",
+                    "state",
+                    "row_count",
+                    "error_count",
+                    "version",
+                    "created_at",
+                    "expires_at",
+                    "based_on_version",
+                )
+            }
+            item.update(envelope)
+            item["version"] = batch["version"]  # Historical result version, not current dataset.
+            item["based_on_version"] = batch["based_on_version"] or batch["version"]
+            item["owned_by_current_user"] = owned
+            item["expired"] = batch["expires_at"] is not None and batch["expires_at"] <= now
+            for key in ("created_at", "expires_at"):
+                item[key] = batch[key].isoformat() if batch[key] is not None else None
+            if batch_id is not None:
+                preview_live = (
+                    owned
+                    and "ledger.manage" in scope.capabilities
+                    and batch["state"] == "preview"
+                    and not item["expired"]
+                    and batch["preview_kind"] == "import"
+                    and batch["preview_actor"] == scope.actor_id
+                    and batch["based_on_version"] == version
+                    and batch["consumed_at"] is None
+                    and batch["preview_expires_at"] is not None
+                    and batch["preview_expires_at"] > now
+                )
+                item["can_confirm"] = preview_live
+                if owned:
+                    evidence = batch["evidence"] or batch["result"]
+                    item["evidence"] = {
+                        key: evidence[key]
+                        for key in ("resources", "files", "template_version", "impact")
+                        if key in evidence
+                    }
+                    item["preview_id"] = batch["preview_id"]
+                    item["preview_expires_at"] = (
+                        batch["preview_expires_at"].isoformat()
+                        if batch["preview_expires_at"]
+                        else None
+                    )
+                    item["errors"] = batch["errors"][:100]
+                    item["result"] = batch["result"] if batch["state"] == "committed" else None
+            output.append(item)
+        if batch_id is not None:
+            return {**envelope, "batch": output[0]}
+        count = connection.execute("SELECT count(*) FROM bi.import_batches").fetchone()[0]
+        return {**envelope, "rows": output, "total": count, "page": page, "page_size": 20}

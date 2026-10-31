@@ -236,7 +236,9 @@ def test_channel_and_target_lists_expose_all23_with_stable20_paging(context):
     records = manual_records()
     for index in range(22):
         key = f"extra-{index:02}"
-        records["channels"].append({"channel_id": key, "name": f"平台{index:02}"})
+        records["channels"].append(
+            {"channel_id": key, "name": f"平台{index:02}", "color": "#0891b2"}
+        )
         records["stores"].append(
             {
                 "store_id": key,

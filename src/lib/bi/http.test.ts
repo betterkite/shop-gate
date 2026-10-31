@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({ requireAction: vi.fn(), fetch: vi.fn() }));
 vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
 import { GET as datasets, POST as create } from '@/app/api/bi/datasets/route';
 import { POST as query } from '@/app/api/bi/query/route';
+import { POST as overview } from '@/app/api/bi/overview/route';
 import { GET as catalog } from '@/app/api/bi/catalog/route';
 import { GET as template } from '@/app/api/bi/templates/[resource]/route';
 import { GET as metadata } from '@/app/api/bi/datasets/[dataset_id]/route';
@@ -44,6 +45,40 @@ describe('same-origin BI gateway with real scope issuer', () => {
     vi.stubGlobal('fetch', mocks.fetch);
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('signs overview reads from current actor and exact version and keeps nulls', async () => {
+    const data = { workspace_id: record.workspace_id, dataset_id: 'official', version: 2,
+      accounting_revision: 2, state: 'ready', summary: { metrics: { net_sales: '164.00',
+        contribution_profit: null } }, trend: { rows: [{ metrics: null, state: 'no_records' }] } };
+    upstream({ ...data, service_token: SECRET });
+    const response = await overview(post('overview', { dataset_id: 'official', version: 2,
+      options: { query: { start: '2026-07-01', end: '2026-07-02' }, interval: 'day' } }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, data });
+    const [url, sent] = mocks.fetch.mock.calls[0];
+    expect(url.href).toBe('http://127.0.0.1:8000/api/v1/bi/overview');
+    expect(JSON.parse(sent.body).interval).toBe('day');
+    const claims = JSON.parse(Buffer.from(sent.headers.authorization.split(' ')[1].split('.')[0], 'base64url').toString());
+    expect(claims).toMatchObject({ aud: 'shopgate-bi-v1', actor_id: 'member-a', version: 2,
+      dataset_id: 'official', workspace_id: record.workspace_id, capabilities: ['ledger.read'] });
+    expect(mocks.requireAction).toHaveBeenCalledWith(expect.objectContaining({ action: 'commerce.data.read' }));
+  });
+
+  it.each([{ workspace_id: 'foreign' }, { dataset_id: 'other' }, { version: 3 },
+    { accounting_revision: 1 }])('rejects mismatched overview envelope %o', async (change) => {
+    upstream({ workspace_id: record.workspace_id, dataset_id: 'official', version: 2,
+      accounting_revision: 2, ...change });
+    expect((await overview(post('overview', { dataset_id: 'official', version: 2, options: {} }))).status).toBe(503);
+  });
+
+  it('rejects overview actor/SQL/nested-mode fields and cross-origin before forwarding', async () => {
+    expect((await overview(post('overview', { dataset_id: 'official', version: 2, actor_id: 'foreign', options: {} }))).status).toBe(422);
+    expect((await overview(post('overview', { dataset_id: 'official', version: 2,
+      options: { _preview_transaction: true } }))).status).toBe(422);
+    expect((await overview(post('overview', { dataset_id: 'official', version: 2,
+      options: {} }, { origin: 'https://foreign.test' }))).status).toBe(403);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
 
   it('returns all historical batch pages under the exact ledger audience and strips private headers', async () => {
     const batch = { workspace_id: record.workspace_id, dataset_id: 'official', batch_id: 'batch-a',

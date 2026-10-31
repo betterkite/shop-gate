@@ -46,6 +46,7 @@ from shopgate_commerce_data.ledger.jobs import (
 )
 from shopgate_commerce_data.ledger.metrics import metric_catalog
 from shopgate_commerce_data.ledger.operations import OperationConflict, PrivateFileExpired
+from shopgate_commerce_data.ledger.overview import OverviewRequest, overview
 from shopgate_commerce_data.ledger.query import Query, query_ledger
 from shopgate_commerce_data.ledger.scope import (
     ScopeError,
@@ -269,6 +270,21 @@ def query_input(value):
     return query
 
 
+def overview_input(value):
+    if not isinstance(value, dict) or set(value) - {
+        "query", "interval", "channel_page", "target_page", "target_month"
+    }:
+        raise BiInputError()
+    options = dict(value)
+    options["query"] = query_input(options.get("query", {}))
+    for key in ("interval", "target_month"):
+        if key in options and not isinstance(options[key], str):
+            raise BiInputError()
+    result = OverviewRequest(**options)
+    result.validate()
+    return result
+
+
 def directory_params(request):
     allowed = {"page", "page_size", "source_kind"}
     if any(key not in allowed for key in request.query_params):
@@ -476,6 +492,21 @@ def create_bi_router(settings: BiSettings | None = None):
                 return dataset_metadata(
                     connection, verify_directory_token(token, config.secret), dataset_id
                 )
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.post("/overview")
+    async def operating_overview(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.read")
+        if request.query_params:
+            raise BiInputError()
+        selected = overview_input(await read_json(request))
+
+        def execute():
+            with config.connection() as connection:
+                return overview(connection, verify_scope_token(token, config.secret), selected)
 
         return {"success": True, "data": await run_in_threadpool(execute)}
 

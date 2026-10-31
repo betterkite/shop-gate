@@ -114,6 +114,42 @@ def test_http_directory_creation_persisted_conflicts_and_foreign_header_cannot_g
     assert SECRET not in listing.text and auth["authorization"] not in listing.text
 
 
+def test_signed_overview_reads_fixed_manual_ledger_and_refuses_foreign_scope(client):
+    from test_ledger_exchange_postgres import files
+
+    browser, workspace, config, _ = client
+    created = browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan())
+    assert created.status_code == 200
+    scope = LedgerScope(workspace, "official", "http-user", 1,
+                        frozenset({"ledger.read", "ledger.manage"}))
+    with config.connection() as connection:
+        preview = preview_import(connection, scope, files())
+        confirm_import(connection, scope, preview["preview_id"], "overview-fixture",
+                       confirmed_by_user=True)
+    auth = headers(workspace, directory=False, manage=False, version=2)
+    response = browser.post(PREFIX + "/overview", headers=auth, json={"query": {
+        "start": "2026-07-01", "end": "2026-07-02"}, "interval": "week"})
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["version"] == data["accounting_revision"] == 2
+    assert data["summary"]["metrics"]["accounted_contribution"] == "121.00"
+    assert data["summary"]["metrics"]["net_sales"] == "164.00"
+    assert "no-store" in response.headers["cache-control"]
+    assert browser.post(PREFIX + "/overview", headers=headers(
+        "foreign", directory=False, version=2), json={}).status_code == 403
+    assert browser.post(PREFIX + "/overview", headers=headers(
+        workspace, directory=False, version=1), json={}).status_code == 409
+    for bad in ({"actor_id": "foreign"}, {"_preview_transaction": True},
+                {"query": {"sql": "SELECT private"}}, {"channel_page": True},
+                {"target_month": "2026-07-02"}, {"interval": []}):
+        rejected = browser.post(PREFIX + "/overview", headers=auth, json=bad)
+        assert rejected.status_code == 422
+        assert SECRET not in rejected.text and "SELECT private" not in rejected.text
+    assert browser.post(PREFIX + "/overview", json={}).status_code == 403
+    denied = browser.post(PREFIX + "/overview?actor=foreign", headers=auth, json={})
+    assert denied.status_code == 422
+
+
 def test_selected_dataset_metadata_cannot_be_forged_or_read_across_workspaces(client):
     browser, workspace, _, _ = client
     auth = headers(workspace)

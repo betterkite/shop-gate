@@ -238,6 +238,23 @@ export async function postQuery(request: NextRequest) {
     'page', 'page_size', 'query']));
 }
 
+export async function postOverview(request: NextRequest) {
+  const body = await input(request);
+  keys(body, ['workspace_id', 'dataset_id', 'version', 'options']);
+  const wanted = jobInputScope(body);
+  const options = object(body.options);
+  keys(options, ['query', 'interval', 'channel_page', 'target_page', 'target_month']);
+  const scope = await issueLedgerScope({ headers: request.headers, ...wanted });
+  const data = decoded((await upstream('overview', scope.token, options)).bytes);
+  if (data.workspace_id !== scope.workspaceId || data.dataset_id !== scope.datasetId
+      || data.version !== scope.version || data.accounting_revision !== scope.version) {
+    throw new BiProblem('BI_UNAVAILABLE', 503);
+  }
+  return success(picked(data, ['workspace_id', 'dataset_id', 'version', 'accounting_revision',
+    'algorithm_version', 'range', 'data_cutoff', 'recorded_start', 'summary', 'state',
+    'previous', 'comparison', 'trend', 'channels', 'attention', 'targets', 'notes']));
+}
+
 export async function getCatalog(request: NextRequest) {
   const options = params(request, ['workspace_id']);
   const scope = await issueDirectoryScope({ headers: request.headers,

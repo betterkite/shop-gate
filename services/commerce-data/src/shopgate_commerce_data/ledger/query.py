@@ -6,8 +6,10 @@ performance is a mandatory R7 gate, not claimed by these correctness tests.
 
 from __future__ import annotations
 
+import copy
 import json
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -297,36 +299,57 @@ def _ratio_text(value: Decimal | None) -> str | None:
     return None if value is None else format(value, ".8f")
 
 
-def query_ledger(
-    connection: psycopg.Connection, scope: LedgerScope, query: Query, *, _preview_transaction=False
-) -> dict[str, Any]:
-    query.validate()
-    scope.require("ledger.read")
-    if type(_preview_transaction) is not bool or (
-        connection.info.transaction_status
-        != (TransactionStatus.INTRANS if _preview_transaction else TransactionStatus.IDLE)
-    ):
-        raise ValueError("经营查询需要独立事务，以确保一次分析的一致版本。")
-    with connection.transaction():
-        # Only the internal import preview uses an existing dataset-locked rollback
-        # transaction. HTTP/Agent query fields cannot select this internal argument.
-        if not _preview_transaction:
-            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-        bind_scope(connection, scope)
-        if checked_dataset(connection, scope) != scope.version:
-            raise OperationConflict("数据已更新，请刷新；不能拼接不同版本的分析。")
-        runs = rows(
-            connection,
-            "SELECT revision,algorithm_version FROM bi.accounting_runs "
-            "ORDER BY revision DESC LIMIT 1",
+
+class LedgerReadSnapshot:
+    """One authorized transaction; source/event caches never outlive this read."""
+
+    def __init__(self, connection, scope, run):
+        self._connection, self._scope, self._run = connection, scope, run
+        self._active = True
+        self._source_rows = {}
+        self._event_sets = {}
+        self._lines = None
+        self.recorded_start = None
+
+    def _check_active(self):
+        if (not self._active
+                or self._connection.info.transaction_status != TransactionStatus.INTRANS):
+            raise ValueError("经营读取快照已结束，请重新读取当前版本。")
+
+    def _rows(self, connection, statement, params=()):
+        self._check_active()
+        if connection is not self._connection:
+            raise ValueError("经营快照不能切换数据库连接。")
+        key = (statement, tuple(params))
+        if key not in self._source_rows:
+            self._source_rows[key] = rows(connection, statement, params)
+        return self._source_rows[key]
+
+    def _events(self, query):
+        connection, scope, rows = self._connection, self._scope, self._rows
+        stores = {
+            row["store_id"]: row
+            for row in rows(
+                connection,
+                "SELECT s.*,c.name AS channel_name FROM bi.stores s "
+                "JOIN bi.channels c USING(workspace_id,dataset_id,channel_id)",
+            )
+        }
+        if query.channel_ids and any(
+            store_id in stores and stores[store_id]["channel_id"] not in query.channel_ids
+            for store_id in query.store_ids
+        ):
+            raise ValueError("所选店铺不属于所选销售平台，请调整筛选范围。")
+        item_scope = bool(
+            query.dimension in {"product", "sku", "listing", "order", "line"}
+            or query.product_ids or query.sku_ids or query.listing_ids or query.category
         )
-        if not runs:
-            raise OperationConflict("该数据集尚未完成经营核算，请先导入并核算。")
-        if runs[0]["revision"] != scope.version:
-            raise OperationConflict("数据版本与核算版本不一致，请完成核算后重试。")
-        if runs[0]["algorithm_version"] != ALGORITHM_VERSION:
-            raise OperationConflict("核算版本不受支持，需显式重新核算。")
-        lines = load_lines(connection)
+        event_key = (query.refund_basis, item_scope)
+        if event_key in self._event_sets:
+            return self._event_sets[event_key]
+        if self._lines is None:
+            self._lines = load_lines(connection)
+        lines = self._lines
         snapshots = {
             row["line_id"]: row
             for row in rows(
@@ -344,19 +367,6 @@ def query_ledger(
                 "JOIN bi.products p USING(workspace_id,dataset_id,product_id)",
             )
         }
-        stores = {
-            row["store_id"]: row
-            for row in rows(
-                connection,
-                "SELECT s.*,c.name AS channel_name FROM bi.stores s "
-                "JOIN bi.channels c USING(workspace_id,dataset_id,channel_id)",
-            )
-        }
-        if query.channel_ids and any(
-            store_id in stores and stores[store_id]["channel_id"] not in query.channel_ids
-            for store_id in query.store_ids
-        ):
-            raise ValueError("所选店铺不属于所选销售平台，请调整筛选范围。")
         listings = {row["listing_id"]: row for row in rows(connection, "SELECT * FROM bi.listings")}
         refunds = defaultdict(list)
         for row in rows(connection, "SELECT * FROM bi.refunds WHERE status='completed'"):
@@ -523,11 +533,24 @@ def query_ledger(
             ],
             default=None,
         )
+        business_days = [event["date"] for event in events] + [
+            business_date(refund.occurred_at)
+            for values in refunds.values() for refund in values
+        ]
+        self.recorded_start = min(business_days, default=None)
+        self._event_sets[event_key] = (events, latest_business_day)
+        return events, latest_business_day
+
+    def query(self, query: Query) -> dict[str, Any]:
+        self._check_active()
+        query.validate()
+        scope = self._scope
+        events, latest_business_day = self._events(query)
         end = date.fromisoformat(query.end) if query.end else latest_business_day
         start = (
             date.fromisoformat(query.start)
             if query.start
-            else end - timedelta(days=29)
+            else end - timedelta(days=min(29, end.toordinal() - 1))
             if end
             else None
         )
@@ -584,7 +607,7 @@ def query_ledger(
             "workspace_id": scope.workspace_id,
             "dataset_id": scope.dataset_id,
             "version": scope.version,
-            "accounting_revision": runs[0]["revision"],
+            "accounting_revision": self._run["revision"],
             "algorithm_version": ALGORITHM_VERSION,
             "cache_key": query.cache_key(scope),
             "range": {
@@ -605,3 +628,57 @@ def query_ledger(
                 "退款发生日口径不提供无适当付款分母的退款比例。",
             ],
         }
+
+    def target_records(self, month):
+        """Private server-owned monthly inputs, still inside the same authorized snapshot."""
+        return copy.deepcopy(self._rows(
+            self._connection,
+            "SELECT t.*,s.name AS store_name,s.channel_id FROM bi.targets t "
+            "JOIN bi.stores s USING(workspace_id,dataset_id,store_id) "
+            "WHERE t.month=%s ORDER BY t.store_id",
+            (month,),
+        ))
+
+
+@contextmanager
+def ledger_read_snapshot(connection, scope, *, _preview_transaction=False):
+    """Server-owned consistent read; HTTP/model fields cannot select nested mode."""
+    scope.require("ledger.read")
+    if type(_preview_transaction) is not bool or (
+        connection.info.transaction_status
+        != (TransactionStatus.INTRANS if _preview_transaction else TransactionStatus.IDLE)
+    ):
+        raise ValueError("经营查询需要独立事务，以确保一次分析的一致版本。")
+    with connection.transaction():
+        if not _preview_transaction:
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        bind_scope(connection, scope)
+        if checked_dataset(connection, scope) != scope.version:
+            raise OperationConflict("数据已更新，请刷新；不能拼接不同版本的分析。")
+        runs = rows(
+            connection,
+            "SELECT revision,algorithm_version FROM bi.accounting_runs "
+            "ORDER BY revision DESC LIMIT 1",
+        )
+        if not runs:
+            raise OperationConflict("该数据集尚未完成经营核算，请先导入并核算。")
+        if runs[0]["revision"] != scope.version:
+            raise OperationConflict("数据版本与核算版本不一致，请完成核算后重试。")
+        if runs[0]["algorithm_version"] != ALGORITHM_VERSION:
+            raise OperationConflict("核算版本不受支持，需显式重新核算。")
+        snapshot = LedgerReadSnapshot(connection, scope, runs[0])
+        try:
+            yield snapshot
+        finally:
+            snapshot._active = False
+            snapshot._source_rows.clear()
+            snapshot._event_sets.clear()
+            snapshot._lines = None
+
+
+def query_ledger(
+    connection: psycopg.Connection, scope: LedgerScope, query: Query, *, _preview_transaction=False
+) -> dict[str, Any]:
+    query.validate()
+    with ledger_read_snapshot(connection, scope, _preview_transaction=_preview_transaction) as read:
+        return read.query(query)

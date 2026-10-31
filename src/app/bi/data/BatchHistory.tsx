@@ -3,16 +3,16 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { batchCanCommit, batchDetailSchema, batchesSchema, BATCH_LABELS, decimalLabel, scopedDataParams,
-  RESOURCE_LABELS, RESOURCES, type ImportBatch, type Dataset, type DataLocation } from '@/lib/bi/data-contracts';
+import { batchCanCommit, batchDetailSchema, batchesSchema, BATCH_LABELS, csvErrorField, decimalLabel, scopedDataParams,
+  RESOURCE_LABELS, RESOURCES, type ImportBatch, type Dataset, type DataLocation, type DataCatalog } from '@/lib/bi/data-contracts';
 import { dataErrorMessage, downloadBiFile, readBi } from '@/lib/bi/data-browser';
 
 function object(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 type History = ReturnType<typeof batchesSchema.parse>;
-export function BatchHistory({ workspaceId, dataset, page, batchId, canManage, pending, navigate, confirm, refresh }: {
-  workspaceId: string; dataset: Dataset; page: number; batchId?: string; canManage: boolean; pending: boolean;
+export function BatchHistory({ workspaceId, dataset, page, batchId, canManage, pending, catalog, navigate, confirm, refresh }: {
+  workspaceId: string; dataset: Dataset; page: number; batchId?: string; canManage: boolean; pending: boolean; catalog: DataCatalog | null;
   navigate: (change: Partial<DataLocation>) => void; confirm: (previewId: string) => Promise<void>; refresh: number;
 }) {
   const [history, setHistory] = useState<History | null>(null); const [detail, setDetail] = useState<ImportBatch | null>(null);
@@ -53,7 +53,7 @@ export function BatchHistory({ workspaceId, dataset, page, batchId, canManage, p
   const summary = object(detail?.evidence?.resources); const impact = object(detail?.evidence?.impact);
   const before = object(object(impact.before).metrics); const after = object(object(impact.after).metrics);
   const files = Array.isArray(detail?.evidence?.files) ? detail.evidence.files.map(object) : [];
-  return <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-label="全部导入批次">
+  return <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6" aria-label="全部导入批次">
     <div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-lg font-semibold">全部导入批次</h2>
       <p className="mt-2 text-sm text-muted-foreground">包括早期导入和后台任务产生的批次。预览完成不表示已写入；共享成员可查看状态，文件与校验明细由提交人查看。</p></div>
       <Button variant="outline" size="sm" onClick={() => setRetry((n) => n + 1)}>刷新批次</Button></div>
@@ -80,7 +80,7 @@ export function BatchHistory({ workspaceId, dataset, page, batchId, canManage, p
         {Object.keys(after).length > 0 && <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><caption className="mb-2 text-left">原预览试算 · 全部源事实期间</caption><thead><tr className="border-b border-border"><th className="p-2">指标</th><th className="p-2">导入前</th><th className="p-2">预计导入后</th></tr></thead><tbody>{[
           ['net_sales', '净销售额（元）'], ['accounted_contribution', '已核算范围贡献金额（元）'], ['order_count', '付款订单数'],
         ].map(([metric, label]) => <tr key={metric} className="border-b border-border/50"><td className="p-2">{label}</td><td className="p-2">{decimalLabel(before[metric])}</td><td className="p-2">{decimalLabel(after[metric])}</td></tr>)}</tbody></table><p className="mt-2 text-xs text-muted-foreground">保留原预览范围和版本，待核算不等于零。</p></div>}
-        {(detail.errors?.length ?? 0) > 0 && <ul className="mt-4 grid gap-2 text-xs">{detail.errors!.map((row, index) => <li key={index}>{String(row.filename ?? '文件')} · 第 {String(row.row ?? '—')} 行 · {String(row.field ?? '')}：{String(row.message ?? '请检查格式或关联')}</li>)}</ul>}
+        {(detail.errors?.length ?? 0) > 0 && <ul className="mt-4 grid gap-2 text-xs">{detail.errors!.map((row, index) => <li className="break-words" key={index}>{String(row.filename ?? '文件')} · 第 {String(row.row ?? '—')} 行 · {csvErrorField(row, catalog)}：{String(row.message ?? '请检查格式或关联')}</li>)}</ul>}
         <div className="mt-4 flex flex-wrap items-center gap-3"><Button variant="outline" size="sm" onClick={async () => {
           try { await downloadBiFile(`/api/bi/batches/${encodeURIComponent(detail.batch_id)}/errors?${params}`, 'shopgate-errors-v1.csv'); }
           catch (problem) { setError(dataErrorMessage(problem)); }

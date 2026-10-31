@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { dataErrorMessage, DataRequestError, downloadBiFile, fileBase64, readBi, requestDigest } from './data-browser';
+import { dataErrorMessage, DataRequestError, downloadBiFile, fileBase64, readBi, requestDigest, submitDataJob } from './data-browser';
+import { StableRequestKeys } from './data-contracts';
+
+const submission = { workspace_id: 'account:a', dataset_id: 'official', version: 2, kind: 'export_standard' as const,
+  parameters: { resources: ['products'] } };
+const acceptedJob = { ...submission, job_id: 'job-a', base_version: 2, state: 'queued', result: {},
+  cancel_requested: false, attempts: 0, error_code: null, expired: false, stage_label: '等待处理',
+  created_at: '2026-10-31T00:00:00Z', updated_at: '2026-10-31T00:00:00Z', expires_at: '2026-10-31T01:00:00Z' };
 
 describe('browser data transport never calls models or external data hosts', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -39,6 +46,35 @@ describe('browser data transport never calls models or external data hosts', () 
     expect(await requestDigest({ ...input, workspace_id: 'b' })).not.toBe(digest);
     expect(digest).toMatch(/^[a-f0-9]{64}$/);
   });
+  it('retries uncertain submissions once, then allows another deliberate export with identical options', async () => {
+    const response = (jobId: string) => new Response(JSON.stringify({ success: true, data: { ...acceptedJob, job_id: jobId } }));
+    const fetch = vi.fn().mockRejectedValueOnce(new TypeError('connection lost after server accepted'))
+      .mockResolvedValueOnce(response('first-export')).mockResolvedValueOnce(response('new-export'));
+    vi.stubGlobal('fetch', fetch);
+    const keys = new StableRequestKeys();
+    await expect(submitDataJob(submission, keys)).rejects.toThrow('connection lost');
+    expect((await submitDataJob(submission, keys)).job_id).toBe('first-export');
+    expect((await submitDataJob(submission, keys)).job_id).toBe('new-export');
+    const requests = fetch.mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(requests[0].idempotency_key).toBe(requests[1].idempotency_key);
+    expect(requests[2].idempotency_key).not.toBe(requests[1].idempotency_key);
+    for (const request of requests) expect({ ...request, idempotency_key: undefined }).toEqual({ ...submission, idempotency_key: undefined });
+  });
+  it('does not submit after switching data scope while the request digest is prepared', async () => {
+    const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
+    await expect(submitDataJob(submission, new StableRequestKeys(), () => false)).rejects.toThrow('已切换');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it.each([{ workspace_id: 'foreign' }, { dataset_id: 'foreign' }, { base_version: 1 }, { kind: 'confirm_import' }, { state: 'invalid' }])(
+    'retains the uncertain key when an acknowledgement is malformed or belongs to a different scope: %j', async (change) => {
+      const fetch = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: { ...acceptedJob, ...change } })))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ success: true, data: acceptedJob })));
+      vi.stubGlobal('fetch', fetch);
+      const keys = new StableRequestKeys();
+      await expect(submitDataJob(submission, keys)).rejects.toMatchObject({ status: 502 });
+      await submitDataJob(submission, keys);
+      expect(JSON.parse(fetch.mock.calls[0][1].body).idempotency_key).toBe(JSON.parse(fetch.mock.calls[1][1].body).idempotency_key);
+    });
   it('never saves an authentication/error HTML page as a downloaded CSV', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response('login page', { status: 401 }))
       .mockResolvedValueOnce(new Response('login page', { headers: { 'content-type': 'text/html' } })));

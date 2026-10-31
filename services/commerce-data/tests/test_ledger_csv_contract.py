@@ -117,6 +117,32 @@ def test_invalid_rows_errors_do_not_echo_private_cells_and_report_is_safe():
     assert all("secret" not in error.message for error in errors)
 
 
+def test_invalid_money_has_actionable_chinese_field_and_precision_in_page_and_download():
+    row = {
+        "line_id": "001",
+        "order_id": "0001",
+        "store_id": "001",
+        "listing_id": "001",
+        "quantity": "1",
+        "paid_amount": "999.001",
+    }
+    records, errors = parse_batch(
+        [CsvFile("order_lines", "订单明细.csv", standard_csv("order_lines", [row]))]
+    )
+    assert not records["order_lines"] and len(errors) == 1
+    public = errors[0].public()
+    assert public["field"] == "paid_amount"
+    assert public["field_label"] == "商品实收原币金额"
+    assert "最多2位小数" in public["message"]
+    assert "money:" not in public["message"] and "999.001" not in public["message"]
+    report = list(csv.reader(io.StringIO(error_csv([public]).decode("utf-8-sig"))))
+    assert report[1][1] == "订单明细（order_lines）"
+    assert report[1][3] == "商品实收原币金额（paid_amount）"
+    assert report[1][4] == public["message"]
+    legacy = {key: value for key, value in public.items() if key != "field_label"}
+    assert error_csv([legacy]) == error_csv([public])
+
+
 @pytest.mark.parametrize("content", [b"\xff", b'"unterminated', b"a,b\n1"])
 def test_bad_encoding_or_structure(content):
     _, errors = parse_batch([CsvFile("products", "bad.csv", content)])

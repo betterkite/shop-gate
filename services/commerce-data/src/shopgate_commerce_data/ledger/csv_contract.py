@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from shopgate_commerce_data.ledger.precision import decimal_text, exact_decimal
+from shopgate_commerce_data.ledger.precision import LIMITS, decimal_text, exact_decimal
 from shopgate_commerce_data.ledger.scope import IDENTIFIER
 
 TEMPLATE_VERSION = "1"
@@ -161,6 +161,32 @@ SPECS: dict[str, tuple[Field, ...]] = {
     ),
 }
 DEPENDENCY_ORDER = tuple(SPECS)
+RESOURCE_LABELS = dict(
+    zip(
+        DEPENDENCY_ORDER,
+        (
+            "销售平台",
+            "店铺",
+            "商品",
+            "标准规格",
+            "平台商品与规格对应关系",
+            "汇率",
+            "商品成本",
+            "订单",
+            "订单明细",
+            "退款与售后",
+            "经营费用",
+            "月度目标",
+        ),
+        strict=True,
+    )
+)
+
+
+def field_label(resource: str, name: str) -> str:
+    if name == "template_version":
+        return "模板版本"
+    return next((spec.label for spec in SPECS.get(resource, ()) if spec.name == name), name)
 
 
 @dataclass(frozen=True)
@@ -185,6 +211,7 @@ class CsvError:
             "resource": self.resource,
             "row": self.row,
             "field": self.field,
+            "field_label": field_label(self.resource, self.field),
             "message": self.message,
         }
 
@@ -211,21 +238,39 @@ def convert(spec: Field, value: str) -> str | None:
             raise ValueError("时区无效。") from error
     if spec.kind in {"money", "signed_money", "quantity", "unit_cost", "fx_rate"}:
         kind = "money" if spec.kind == "signed_money" else spec.kind
-        number = exact_decimal(value, kind)
+        try:
+            number = exact_decimal(value, kind)
+        except ValueError as error:
+            scale, digits = LIMITS[kind]
+            sign = (
+                "可为负数"
+                if spec.kind == "signed_money"
+                else ("须大于0" if kind == "fx_rate" else "不能为负数")
+            )
+            raise ValueError(
+                f"{spec.label}请填写普通数字，最多{scale}位小数、整数部分最多{digits}位，"
+                f"{sign}；不要使用千位逗号、科学计数法或无效数值。"
+            ) from error
         if spec.kind != "signed_money" and number < 0:
             raise ValueError("该字段不能为负数。")
         return decimal_text(number, kind)
     if spec.kind in {"date", "month"}:
         if not DATE_TEXT.fullmatch(value):
             raise ValueError("日期须为YYYY-MM-DD。")
-        parsed = date.fromisoformat(value)
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError as error:
+            raise ValueError("日期不存在，请检查月份和天数。") from error
         if spec.kind == "month" and parsed.day != 1:
             raise ValueError("目标月份须用该自然月首日。")
         return parsed.isoformat()
     if spec.kind == "datetime":
         if "T" not in value or re.search(r"\.\d{7,}", value):
             raise ValueError("时间须为带时区的ISO格式，最多6位小数秒。")
-        parsed = datetime.fromisoformat(value)
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as error:
+            raise ValueError("日期或时间不存在，请按字段示例填写。") from error
         if parsed.tzinfo is None:
             raise ValueError("时间必须包含时区。")
         return parsed.astimezone(UTC).isoformat()
@@ -418,6 +463,12 @@ def error_csv(errors: list[dict]) -> bytes:
         values = []
         for key in columns:
             value = str(row.get(key, ""))
+            if key == "resource" and value in RESOURCE_LABELS:
+                value = f"{RESOURCE_LABELS[value]}（{value}）"
+            if key == "field" and value:
+                label = field_label(str(row.get("resource", "")), value)
+                if label != value:
+                    value = f"{label}（{value}）"
             if value.lstrip().startswith(("=", "+", "-", "@")):
                 value = "'" + value
             values.append(value)

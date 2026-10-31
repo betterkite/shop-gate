@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { UPLOAD_LIMITS } from './data-contracts';
+import { jobSchema, StableRequestKeys, UPLOAD_LIMITS, type DataJob } from './data-contracts';
 
 export class DataRequestError extends Error {
   constructor(message: string, readonly status: number, readonly requestId?: string) { super(message); }
@@ -40,6 +40,22 @@ export async function fileBase64(file: File) {
 export async function requestDigest(body: Record<string, unknown>) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(body)));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** Keep uncertain retries idempotent; an acknowledged job ends that submission intent. */
+export async function submitDataJob(body: Record<string, unknown> & {
+  workspace_id: string; dataset_id: string; version: number; kind: DataJob['kind'];
+}, keys: StableRequestKeys, isCurrent: () => boolean = () => true) {
+  const digest = await requestDigest(body);
+  if (!isCurrent()) throw new Error('已切换数据范围，本次未提交。');
+  const job = await readBi('/api/bi/jobs', jobSchema, { method: 'POST',
+    body: JSON.stringify({ ...body, idempotency_key: keys.get(digest) }) });
+  if (job.workspace_id !== body.workspace_id || job.dataset_id !== body.dataset_id
+      || job.base_version !== body.version || job.kind !== body.kind) {
+    throw new DataRequestError('任务的范围或版本不一致，请刷新后查看处理任务。', 502);
+  }
+  keys.forget(digest);
+  return job;
 }
 
 export async function downloadBiFile(path: string, filename: string) {

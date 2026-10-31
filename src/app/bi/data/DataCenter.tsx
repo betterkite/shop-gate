@@ -12,16 +12,16 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { AuthUserMenu } from '@/components/auth/AuthUserMenu';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { catalogSchema, CHOICE_LABELS, FIELD_TYPE_LABELS, dataLocationUrl, datasetSchema, decimalLabel, directorySchema,
+import { catalogSchema, csvErrorField, CHOICE_LABELS, FIELD_TYPE_LABELS, dataLocationUrl, datasetSchema, decimalLabel, directorySchema,
   inferResource, JOB_ERROR_LABELS, JOB_LABELS, jobSchema, jobsSchema, previewCanCommit, queryResultSchema,
   readDataLocation, RESOURCES, RESOURCE_LABELS, sameDatasetSnapshot, scopedDataParams,
   StableRequestKeys, validateUploads, type DataCatalog, type DataJob, type Dataset,
   type DataSnapshot, type Resource } from '@/lib/bi/data-contracts';
-import { dataErrorMessage, downloadBiFile, fileBase64, readBi, requestDigest } from '@/lib/bi/data-browser';
+import { dataErrorMessage, downloadBiFile, fileBase64, readBi, submitDataJob } from '@/lib/bi/data-browser';
 import { BatchHistory } from './BatchHistory';
 
-const PANEL = 'rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6';
-const SELECT = 'h-10 max-w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground';
+const PANEL = 'min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6';
+const SELECT = 'h-10 min-w-0 max-w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground';
 const PROJECTS = z.array(z.object({ id: z.string(), name: z.string() }));
 type UploadChoice = { file: File; resource: Resource | '' };
 type Navigation = (change: Parameters<typeof dataLocationUrl>[1], replace?: boolean) => void;
@@ -121,7 +121,7 @@ export function DataCenter({ workspaceId, canManage, demoEnabled }: { workspaceI
         <div className="flex items-center gap-2"><ThemeToggle compact /><AuthUserMenu variant="header" /></div>
       </div>
     </header>
-    <main className="mx-auto grid max-w-[1440px] gap-5 px-4 py-6 sm:px-6">
+    <main className="mx-auto grid w-full min-w-0 max-w-[1440px] grid-cols-1 gap-5 px-4 py-6 sm:px-6">
       <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6">
         <h2 className="text-xl font-semibold">先选数据，再开始经营分析</h2>
         <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">订单、退款、成本与费用使用同一份经营账本。上传后先检查并预览，只有你确认后才正式写入。演示数据与正式数据分开保存，整个导入过程无需调用大模型。</p>
@@ -138,7 +138,7 @@ export function DataCenter({ workspaceId, canManage, demoEnabled }: { workspaceI
       </section>
 
       {error && <Notice error>{error} <Button size="sm" variant="outline" onClick={refreshData}>重试</Button></Notice>}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(330px,0.8fr)]">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(330px,0.8fr)]">
         <section className={PANEL} aria-label="数据集列表"><div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">可用数据集</h2><span className="text-xs text-muted-foreground">选择只切换范围，不修改数据</span></div>
           {loading && !directory && <p role="status" className="py-8 text-sm text-muted-foreground">正在读取数据集…</p>}
           {directory?.total === 0 && <p className="py-8 text-sm text-muted-foreground">此工作空间还没有数据集。{canManage ? '请在右侧创建正式导入集或演示集。' : '请联系有管理权限的成员创建。'}</p>}
@@ -185,6 +185,7 @@ function CreateDataset({ workspaceId, canManage, demoEnabled, onCreated }: { wor
       if (!datasetId) { datasetId = `data-${crypto.randomUUID()}`; identifiers.current.set(fingerprint, datasetId); }
       const data = await readBi('/api/bi/datasets', datasetSchema, { method: 'POST', body: JSON.stringify({ workspace_id: workspaceId,
         dataset_id: datasetId, name: name.trim(), source_kind: kind, confirmed_by_user: true, idempotency_key: keys.current.get(fingerprint) }) });
+      keys.current.forget(fingerprint); identifiers.current.delete(fingerprint);
       if (active.current) { setName(''); setConfirmation(false); setMessage('已创建空数据集；尚未导入或生成经营记录。'); onCreated(data); }
     } catch (error) { if (active.current) setMessage(dataErrorMessage(error)); }
     finally { if (active.current) setPending(false); }
@@ -279,9 +280,8 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
         }
       }
       const body = { ...scopeBody, kind, parameters, ...(source ? { files: upload } : {}) };
-      const digest = await requestDigest(body);
       if (!active.current || currentScope.current !== startScope) return;
-      const job = await readBi('/api/bi/jobs', jobSchema, { method: 'POST', body: JSON.stringify({ ...body, idempotency_key: keys.current.get(digest) }) });
+      const job = await submitDataJob(body, keys.current, () => active.current && currentScope.current === startScope);
       if (!active.current || currentScope.current !== startScope) return;
       setMessage('任务已提交，关闭页面后仍可在处理任务中查看。'); setFiles([]); setDialog(false); setDemoConfirmed(false);
       navigate({ jobId: job.job_id, jobPage: 1 }); setReload((value) => value + 1);
@@ -329,7 +329,7 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
       <Link className="ml-3 underline" href={`/login?next=${encodeURIComponent(currentHref)}`}>重新登录</Link></Notice>}
     {message && <Notice>{message}</Notice>}
 
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+    <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <section className={PANEL}><h2 className="flex items-center gap-2 text-lg font-semibold"><Upload className="h-5 w-5 text-primary" />上传标准经营数据</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">支持十二类 CSV，可一次选择多个文件。先预览检查，整批通过并经你确认后才写入。单文件20 MB、每批60 MB，最多36个文件和10万行。</p>
         {!canManage && <p className="mt-4 text-sm text-muted-foreground">只读权限不可上传或确认，可使用右侧模板与下方导出。</p>}
@@ -353,7 +353,7 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
       </section>
     </div>
 
-    <div className="grid items-start gap-5 lg:grid-cols-2">
+    <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-2">
       <section className={PANEL}><h2 className="text-lg font-semibold">准备独立演示数据</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">约1,000个标准规格、500个商品，覆盖3个平台、9家店铺和180天。包含活动起伏、长尾商品、成本变化、退款与待核算记录；先生成预览，不直接写入。</p>
         {dataset.source_kind !== 'demo' ? <p className="mt-4 text-sm text-muted-foreground">当前是正式导入集，不允许添加演示事实。请创建并选择新的演示集。</p>
@@ -382,12 +382,12 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
         {jobs.rows.map((job) => <tr key={job.job_id} className={`border-b border-border/60 ${job.job_id === jobId ? 'bg-primary/5' : ''}`}><td className="p-3 font-medium">{JOB_LABELS[job.kind]}</td><td className="p-3">{job.stage_label}</td><td className="p-3 tabular-nums">{job.base_version}</td><td className="p-3 text-xs text-muted-foreground">{new Date(job.created_at).toLocaleString('zh-CN')}</td><td className="p-3"><Button variant="ghost" size="sm" onClick={() => navigate({ jobId: job.job_id })}>查看详情</Button></td></tr>)}
       </tbody></table></div>}
       {jobs && <Pagination label="处理任务分页" page={jobPage} total={jobs.total} change={(page) => navigate({ jobPage: page })} />}
-      {detail && <JobDetail job={detail} dataset={dataset} params={params} canManage={canManage} canCommit={canCommit} pending={pending}
+      {detail && <JobDetail job={detail} dataset={dataset} catalog={catalog} params={params} canManage={canManage} canCommit={canCommit} pending={pending}
         openConfirmation={() => setDialog(true)} action={(choice) => { void action(detail, choice); }} download={(path, resource) => { void download(path, resource); }} />}
     </section>
 
     <BatchHistory key={params} workspaceId={workspaceId} dataset={dataset} page={batchPage} batchId={batchId}
-      canManage={canManage} pending={pending} navigate={navigate} refresh={reload}
+      canManage={canManage} pending={pending} catalog={catalog} navigate={navigate} refresh={reload}
       confirm={async (previewId) => { await execute('confirm_import', { preview_id: previewId, confirmed_by_user: true }); }} />
 
     <AlertDialog open={dialog} onOpenChange={setDialog}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>确认写入这批经营数据？</AlertDialogTitle>
@@ -401,8 +401,8 @@ function DatasetOperations({ workspaceId, dataset, canManage, demoEnabled, catal
 }
 
 function object(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null; }
-function JobDetail({ job, dataset, params, canManage, canCommit, pending, openConfirmation, action, download }: {
-  job: DataJob; dataset: Dataset; params: string; canManage: boolean; canCommit: boolean; pending: boolean;
+function JobDetail({ job, dataset, catalog, params, canManage, canCommit, pending, openConfirmation, action, download }: {
+  job: DataJob; dataset: Dataset; catalog: DataCatalog | null; params: string; canManage: boolean; canCommit: boolean; pending: boolean;
   openConfirmation: () => void; action: (choice: 'cancel' | 'reauthorize') => void;
   download: (path: string, resource: string) => void;
 }) {
@@ -440,7 +440,7 @@ function JobDetail({ job, dataset, params, canManage, canCommit, pending, openCo
       {job.state === 'ready_preview' && !canCommit && <p className="w-full text-xs text-muted-foreground">{!canManage ? '只读权限不能确认导入。' : stale ? '数据版本已变化，请重新预览。' : '预览已过期或不完整，请重新预览。'}</p>}
     </div>}
     {errors.length > 0 && <div className="mt-4 overflow-x-auto"><p className="mb-2 text-sm font-medium">发现 {typeof job.result.error_count === 'number' ? job.result.error_count : errors.length} 项问题，以下显示前 {errors.length} 项；全部问题可下载查看。</p>
-      <table className="w-full text-left text-xs"><thead><tr className="border-b border-border"><th className="p-2">文件</th><th className="p-2">行</th><th className="p-2">字段</th><th className="p-2">需要修正</th></tr></thead><tbody>{errors.map((row, index) => <tr key={index} className="border-b border-border/50"><td className="break-all p-2">{typeof row.filename === 'string' ? row.filename : '—'}</td><td className="p-2">{typeof row.row === 'number' ? row.row : '—'}</td><td className="p-2">{typeof row.field === 'string' ? row.field : '—'}</td><td className="p-2">{typeof row.message === 'string' ? row.message : '请检查格式或关联关系'}</td></tr>)}</tbody></table></div>}
+      <table className="w-full text-left text-xs"><thead><tr className="border-b border-border"><th className="p-2">文件</th><th className="p-2">行</th><th className="p-2">字段</th><th className="p-2">需要修正</th></tr></thead><tbody>{errors.map((row, index) => <tr key={index} className="border-b border-border/50"><td className="break-all p-2">{typeof row.filename === 'string' ? row.filename : '—'}</td><td className="p-2">{typeof row.row === 'number' ? row.row : '—'}</td><td className="p-2">{csvErrorField(row, catalog)}</td><td className="p-2">{typeof row.message === 'string' ? row.message : '请检查格式或关联关系'}</td></tr>)}</tbody></table></div>}
     {job.state === 'completed' && exported.length > 0 && <div className="mt-4"><p className="text-sm">已准备版本 {resultVersion} 的完整标准文件：</p>{job.expired && <p className="mt-2 text-sm text-muted-foreground">导出文件已到期，请重新导出；经营数据和任务记录仍保留。</p>}<ul className="mt-3 grid gap-2 sm:grid-cols-2">{exported.map((file) => typeof file.resource === 'string' && RESOURCES.includes(file.resource as Resource) ? <li key={file.resource}><Button variant="outline" size="sm" disabled={job.expired} onClick={() => download(`/api/bi/jobs/${encodeURIComponent(job.job_id)}/files/${file.resource}?${params}`, String(file.resource))}><Download className="h-4 w-4" />{RESOURCE_LABELS[file.resource as Resource]}</Button></li> : null)}</ul></div>}
   </article>;
 }

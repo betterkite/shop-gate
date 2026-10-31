@@ -53,6 +53,13 @@ export const catalogSchema = z.object({ metrics: z.array(z.object({ id: z.string
   templates: z.array(z.object({ resource: z.enum(RESOURCES as [Resource, ...Resource[]]),
     version: z.string(), fields: z.array(fieldSchema), notice: z.string() })) });
 export type DataCatalog = z.infer<typeof catalogSchema>;
+export function csvErrorField(row: Record<string, unknown>, catalog?: DataCatalog | null) {
+  const name = typeof row.field === 'string' ? row.field : '';
+  if (!name) return '整条记录';
+  const label = catalog?.templates.find((entry) => entry.resource === row.resource)?.fields.find((entry) => entry.name === name)?.label
+    ?? (typeof row.field_label === 'string' ? row.field_label : name === 'template_version' ? '模板版本' : undefined);
+  return label && label !== name ? `${label}（${name}）` : name;
+}
 export const queryResultSchema = z.object({ workspace_id: id, dataset_id: id, version,
   accounting_revision: version, data_cutoff: z.string().nullable(),
   range: z.object({ start: z.string().nullable(), end: z.string().nullable(), refund_basis: z.string() }),
@@ -129,7 +136,7 @@ export const JOB_ERROR_LABELS: Record<string, string> = {
 export const FIELD_TYPE_LABELS: Record<string, string> = {
   text: '文本', id: '标识文本，保留前导零', color: '#RRGGBB 颜色', currency: '三位原币代码，例如 CNY',
   timezone: '时区，例如 Asia/Shanghai', datetime: '带时区时间，例如 2026-01-01T10:00:00+08:00',
-  date: '日期 YYYY-MM-DD', month: '月份 YYYY-MM', money: '金额，最多2位小数',
+  date: '日期 YYYY-MM-DD', month: '月份首日 YYYY-MM-01', money: '金额，最多2位小数', signed_money: '金额，可为负数，最多2位小数',
   quantity: '数量，最多4位小数', unit_cost: '单位成本，最多4位小数', fx_rate: '汇率，最多8位小数',
 };
 export const CHOICE_LABELS: Record<string, string> = {

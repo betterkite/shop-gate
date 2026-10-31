@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { catalogSchema, dataLocationUrl, dataLoginReturnPath, datasetSchema, decimalLabel, inferResource, jobSchema,
   batchCanCommit, batchSchema, JOB_ERROR_LABELS, previewCanCommit, readDataLocation, RESOURCES, sameDatasetSnapshot, StableRequestKeys,
-  UPLOAD_LIMITS, validateUploads, type DataSnapshot } from './data-contracts';
+  UPLOAD_LIMITS, validateUploads, csvErrorField, type DataSnapshot } from './data-contracts';
 
 const dataset = datasetSchema.parse({ workspace_id: 'account:a', dataset_id: 'official', name: '经营数据',
   source_kind: 'import', version: 2, reporting_currency: 'CNY', state: 'active' });
@@ -73,6 +73,15 @@ describe('data center scope, exact values and confirmation contracts', () => {
     expect(JOB_ERROR_LABELS.BI_JOB_TIMEOUT).toContain('已回滚');
     expect(JOB_ERROR_LABELS.BI_JOB_INPUT_INVALID).toContain('尚未写入');
     expect(JOB_ERROR_LABELS.BI_JOB_CONFLICT).toContain('重新预览');
+  });
+  it('names new and historical CSV error fields in Chinese while retaining exact source columns', () => {
+    expect(csvErrorField({ field: 'paid_amount', field_label: '商品实收原币金额' })).toBe('商品实收原币金额（paid_amount）');
+    const catalog = catalogSchema.parse({ metrics: [], templates: [{ resource: 'order_lines', version: '1', notice: '',
+      fields: [{ name: 'paid_amount', label: '商品实收原币金额', kind: 'money', required: true, choices: [] }] }] });
+    expect(csvErrorField({ resource: 'order_lines', field: 'paid_amount' }, catalog)).toBe('商品实收原币金额（paid_amount）');
+    expect(csvErrorField({ field: 'template_version' })).toBe('模板版本（template_version）');
+    expect(csvErrorField({ field: '' })).toBe('整条记录');
+    expect(csvErrorField({ field: 'future_column' })).toBe('future_column');
   });
   it('rejects mixed workspace/dataset/accounting versions before displaying facts', () => {
     const result = { workspace_id: 'account:a', dataset_id: 'official', version: 2, accounting_revision: 2 } as DataSnapshot;

@@ -82,6 +82,15 @@ def _page(rows, page):
     return {"rows": rows[offset : offset + 20], "total": len(rows), "page": page, "page_size": 20}
 
 
+def _completion(actual, target):
+    if actual is None or target is None or target <= 0:
+        return None
+    return format(
+        (Decimal(actual) / target).quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP),
+        ".8f",
+    )
+
+
 def _monthly_targets(read, selected, month, page):
     end = month.replace(day=calendar.monthrange(month.year, month.month)[1])
     # Targets exist only at store/month granularity. Item/search/date filters
@@ -101,45 +110,53 @@ def _monthly_targets(read, selected, month, page):
         and (not monthly.store_ids or row["store_id"] in monthly.store_ids)
     ]
     monthly_result = read.query(replace(monthly, page_size=200))
-    actual_by_store = {row["key"]: row["metrics"]["net_sales"] for row in monthly_result["rows"]}
+    actual_by_store = {row["key"]: row["metrics"] for row in monthly_result["rows"]}
     for current_page in range(2, (monthly_result["total"] + 199) // 200 + 1):
         actual_by_store.update(
             {
-                row["key"]: row["metrics"]["net_sales"]
+                row["key"]: row["metrics"]
                 for row in read.query(replace(monthly, page=current_page, page_size=200))["rows"]
             }
         )
     result = []
     total_target = Decimal(0)
+    configured = 0
     for row in records:
-        actual = actual_by_store.get(row["store_id"])
+        actual_metrics = actual_by_store.get(row["store_id"], {})
+        actual = actual_metrics.get("net_sales")
         target = row["sales_target"]
-        total_target += target
-        completion = (
-            None
-            if actual is None or target <= 0
-            else format(
-                (Decimal(actual) / target).quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP),
-                ".8f",
-            )
-        )
+        profit_target = row["profit_target"]
+        if target is not None:
+            total_target += target
+            configured += 1
         result.append(
             {
                 "store_id": row["store_id"],
                 "store_name": row["store_name"],
                 "channel_id": row["channel_id"],
                 "month": month.isoformat(),
-                "sales_target": format(target, ".2f"),
+                "sales_target": format(target, ".2f") if target is not None else None,
+                "profit_target": format(profit_target, ".2f")
+                if profit_target is not None
+                else None,
                 "net_sales": actual,
-                "completion_ratio": completion,
-                "state": "recorded" if row["store_id"] in actual_by_store else "no_records",
+                "contribution_profit": actual_metrics.get("contribution_profit"),
+                "accounted_contribution": actual_metrics.get("accounted_contribution"),
+                "completion_ratio": _completion(actual, target),
+                "profit_completion_ratio": _completion(
+                    actual_metrics.get("contribution_profit"), profit_target
+                ),
+                "state": "not_set" if target is None else "recorded",
+                "actual_state": "recorded" if row["store_id"] in actual_by_store else "no_records",
             }
         )
     return {
         **_page(result, page),
         "month": month.isoformat(),
         "range": {"start": month.isoformat(), "end": end.isoformat()},
-        "sales_target_total": format(total_target, ".2f") if result else None,
+        "configured_count": configured,
+        "sales_target_total": format(total_target, ".2f") if configured else None,
+        "actual_summary": monthly_result["summary"],
         "scope_note": (
             "按所选平台与店铺的完整自然月净销售额对比；不沿用商品、搜索或部分日期筛选。"
         ),

@@ -114,34 +114,119 @@ def test_http_directory_creation_persisted_conflicts_and_foreign_header_cannot_g
     assert SECRET not in listing.text and auth["authorization"] not in listing.text
 
 
+def test_target_http_explicit_confirmation_and_fresh_authority_keep_fact_amounts(client):
+    from test_ledger_exchange_postgres import files
+
+    browser, workspace, config, _ = client
+    browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan())
+    scope = LedgerScope(
+        workspace, "official", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
+    with config.connection() as connection:
+        imported = preview_import(connection, scope, files())
+        confirm_import(
+            connection, scope, imported["preview_id"], "target-fixture", confirmed_by_user=True
+        )
+    auth = headers(workspace, directory=False, version=2)
+    change = {"store_id": "002", "month": "2026-07-01", "sales_target": "500", "profit_target": "0"}
+    preview = browser.post(PREFIX + "/targets/preview", headers=auth, json=change)
+    assert preview.status_code == 200
+    data = preview.json()["data"]
+    assert data["impact"]["previous"] is None and data["impact"]["changed"]
+    confirmation = {
+        "preview_id": data["preview_id"],
+        "idempotency_key": "target-http",
+        "confirmed_by_user": True,
+    }
+    assert (
+        browser.post(
+            PREFIX + "/targets/confirm",
+            headers=headers(workspace, directory=False, version=2, manage=False),
+            json=confirmation,
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.post(
+            PREFIX + "/targets/confirm",
+            headers=auth,
+            json=confirmation | {"confirmed_by_user": False},
+        ).status_code
+        == 403
+    )
+    for bad in (
+        change | {"actor_id": "forged"},
+        change | {"sales_target": 100},
+        change | {"month": "2026-07-02"},
+    ):
+        assert browser.post(PREFIX + "/targets/preview", headers=auth, json=bad).status_code == 422
+    assert (
+        browser.post(
+            PREFIX + "/targets/preview",
+            headers=headers("foreign", directory=False, version=2),
+            json=change,
+        ).status_code
+        == 403
+    )
+    confirmed = browser.post(PREFIX + "/targets/confirm", headers=auth, json=confirmation)
+    assert confirmed.status_code == 200 and confirmed.json()["data"]["version"] == 3
+    assert (
+        browser.post(PREFIX + "/targets/confirm", headers=auth, json=confirmation).json()
+        == confirmed.json()
+    )
+    result = browser.post(
+        PREFIX + "/overview", headers=headers(workspace, directory=False, version=3), json={}
+    ).json()["data"]
+    assert result["summary"]["metrics"]["contribution_profit"] == "121.00"
+    assert result["targets"]["configured_count"] == 2
+
+
 def test_signed_overview_reads_fixed_manual_ledger_and_refuses_foreign_scope(client):
     from test_ledger_exchange_postgres import files
 
     browser, workspace, config, _ = client
     created = browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan())
     assert created.status_code == 200
-    scope = LedgerScope(workspace, "official", "http-user", 1,
-                        frozenset({"ledger.read", "ledger.manage"}))
+    scope = LedgerScope(
+        workspace, "official", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
     with config.connection() as connection:
         preview = preview_import(connection, scope, files())
-        confirm_import(connection, scope, preview["preview_id"], "overview-fixture",
-                       confirmed_by_user=True)
+        confirm_import(
+            connection, scope, preview["preview_id"], "overview-fixture", confirmed_by_user=True
+        )
     auth = headers(workspace, directory=False, manage=False, version=2)
-    response = browser.post(PREFIX + "/overview", headers=auth, json={"query": {
-        "start": "2026-07-01", "end": "2026-07-02"}, "interval": "week"})
+    response = browser.post(
+        PREFIX + "/overview",
+        headers=auth,
+        json={"query": {"start": "2026-07-01", "end": "2026-07-02"}, "interval": "week"},
+    )
     assert response.status_code == 200, response.text
     data = response.json()["data"]
     assert data["version"] == data["accounting_revision"] == 2
     assert data["summary"]["metrics"]["accounted_contribution"] == "121.00"
     assert data["summary"]["metrics"]["net_sales"] == "164.00"
     assert "no-store" in response.headers["cache-control"]
-    assert browser.post(PREFIX + "/overview", headers=headers(
-        "foreign", directory=False, version=2), json={}).status_code == 403
-    assert browser.post(PREFIX + "/overview", headers=headers(
-        workspace, directory=False, version=1), json={}).status_code == 409
-    for bad in ({"actor_id": "foreign"}, {"_preview_transaction": True},
-                {"query": {"sql": "SELECT private"}}, {"channel_page": True},
-                {"target_month": "2026-07-02"}, {"interval": []}):
+    assert (
+        browser.post(
+            PREFIX + "/overview", headers=headers("foreign", directory=False, version=2), json={}
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.post(
+            PREFIX + "/overview", headers=headers(workspace, directory=False, version=1), json={}
+        ).status_code
+        == 409
+    )
+    for bad in (
+        {"actor_id": "foreign"},
+        {"_preview_transaction": True},
+        {"query": {"sql": "SELECT private"}},
+        {"channel_page": True},
+        {"target_month": "2026-07-02"},
+        {"interval": []},
+    ):
         rejected = browser.post(PREFIX + "/overview", headers=auth, json=bad)
         assert rejected.status_code == 422
         assert SECRET not in rejected.text and "SELECT private" not in rejected.text

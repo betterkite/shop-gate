@@ -38,7 +38,7 @@ from shopgate_commerce_data.ledger.operations import (
     create_preview,
 )
 from shopgate_commerce_data.ledger.recalculation import (
-    ALGORITHM_VERSION,
+    carry_unchanged_accounting,
     rebuild_accounting,
     rows,
 )
@@ -341,12 +341,7 @@ def rebuild_import(connection, scope):
     result = rebuild_accounting(connection, scope, revision=scope.version + 1, line_ids=[])
     if not result["changed"]:
         # Metadata/target changes still produce a consistent same-facts accounting watermark.
-        connection.execute(
-            "INSERT INTO bi.accounting_runs(workspace_id,dataset_id,revision,"
-            "algorithm_version,processed_lines,processed_expenses) "
-            "VALUES (%s,%s,%s,%s,0,0)",
-            (scope.workspace_id, scope.dataset_id, scope.version + 1, ALGORITHM_VERSION),
-        )
+        carry_unchanged_accounting(connection, scope)
     return result
 
 

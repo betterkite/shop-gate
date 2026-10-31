@@ -11,10 +11,11 @@ from test_ledger_exchange_postgres import commit, manual_records
 from shopgate_commerce_data.ledger import query as query_module
 from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset
 from shopgate_commerce_data.ledger.migrations import migrate_all
-from shopgate_commerce_data.ledger.operations import OperationConflict
+from shopgate_commerce_data.ledger.operations import OperationConflict, create_preview
 from shopgate_commerce_data.ledger.overview import OverviewRequest, overview
 from shopgate_commerce_data.ledger.query import Query, ledger_read_snapshot, query_ledger
 from shopgate_commerce_data.ledger.scope import DirectoryScope, LedgerScope, ScopeError
+from shopgate_commerce_data.ledger.targets import TargetChange, confirm_target, preview_target
 
 
 @pytest.fixture(scope="module")
@@ -143,7 +144,10 @@ def test_month_targets_ignore_item_and_partial_dates_but_inherit_store_platform(
         assert result["targets"]["rows"][0]["net_sales"] == "104.00"
         assert result["targets"]["range"] == {"start": "2026-07-01", "end": "2026-07-31"}
         selected = overview(connection, scope, OverviewRequest(query=Query(store_ids=("002",))))
-        assert selected["targets"]["total"] == 0
+        assert selected["targets"]["total"] == 1
+        assert selected["targets"]["rows"][0]["state"] == "not_set"
+        assert selected["targets"]["rows"][0]["sales_target"] is None
+        assert selected["targets"]["configured_count"] == 0
         assert selected["targets"]["sales_target_total"] is None
 
 
@@ -232,7 +236,7 @@ def test_concurrent_new_import_cannot_mix_overview_snapshot_or_cross_workspace(c
             overview(connection, replace(newer, workspace_id="foreign"), OverviewRequest())
 
 
-def test_channel_and_target_lists_expose_all23_with_stable20_paging(context):
+def test_all23_channels_and24_stores_including_unset_target_have_stable20_paging(context):
     records = manual_records()
     for index in range(22):
         key = f"extra-{index:02}"
@@ -269,11 +273,232 @@ def test_channel_and_target_lists_expose_all23_with_stable20_paging(context):
     assert first["channels"]["total"] == second["channels"]["total"] == 23
     assert len(first["channels"]["rows"]) == 20 and len(second["channels"]["rows"]) == 3
     assert len({row["key"] for data in (first, second) for row in data["channels"]["rows"]}) == 23
-    assert first["targets"]["total"] == 23
-    assert len(second["targets"]["rows"]) == 3
+    assert first["targets"]["total"] == 24
+    assert len(second["targets"]["rows"]) == 4
+    assert first["targets"]["configured_count"] == second["targets"]["configured_count"] == 23
+    all_targets = first["targets"]["rows"] + second["targets"]["rows"]
+    assert len({row["store_id"] for row in all_targets}) == 24
+    unset = next(row for row in all_targets if row["store_id"] == "002")
+    assert unset["state"] == "not_set" and unset["sales_target"] is None
+    assert unset["net_sales"] == "60.00" and unset["completion_ratio"] is None
     assert (
         first["targets"]["sales_target_total"]
         == second["targets"]["sales_target_total"]
         == ("3200.00")
     )
     assert first["summary"]["metrics"]["accounted_contribution"] == "99.00"
+
+
+def _source_snapshot(context):
+    scope, _, admin = context
+    with psycopg.connect(admin, autocommit=True) as connection:
+        return {
+            table: connection.execute(
+                f"SELECT to_jsonb(t) FROM bi.{table} t "
+                "WHERE workspace_id=%s AND dataset_id=%s ORDER BY to_jsonb(t)::text",
+                (scope.workspace_id, scope.dataset_id),
+            ).fetchall()
+            for table in (
+                "orders",
+                "order_lines",
+                "refunds",
+                "expenses",
+                "line_snapshots",
+                "expense_snapshots",
+                "expense_allocations",
+            )
+        }
+
+
+def test_target_preview_confirm_preserves_all_facts_and_new_accounting_queries(context):
+    scope, _, _ = commit(context)
+    before = _source_snapshot(context)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        preview = preview_target(
+            connection, scope, TargetChange("001", "2026-07-01", "1500.25", "-50")
+        )
+        assert preview["impact"]["previous"] == {
+            "sales_target": "1000.00",
+            "profit_target": "200.00",
+        }
+        assert preview["impact"]["expected_version_after"] == 3
+        assert (
+            query_ledger(connection, scope, Query())["summary"]["metrics"]["contribution_profit"]
+            == "121.00"
+        )
+        with pytest.raises(ScopeError):
+            confirm_target(
+                connection, scope, preview["preview_id"], "target-edit", confirmed_by_user=False
+            )
+        result = confirm_target(
+            connection, scope, preview["preview_id"], "target-edit", confirmed_by_user=True
+        )
+        assert result["version"] == result["accounting_revision"] == 3 and result["changed"]
+        assert (
+            confirm_target(
+                connection, scope, preview["preview_id"], "target-edit", confirmed_by_user=True
+            )
+            == result
+        )
+        with pytest.raises(OperationConflict):
+            query_ledger(connection, scope, Query())
+    assert _source_snapshot(context) == before
+    # Fresh connection represents a restarted HTTP/worker process, not in-memory state.
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        current = overview(connection, replace(scope, version=3), OverviewRequest())
+        assert current["summary"]["metrics"]["contribution_profit"] == "121.00"
+        target = next(row for row in current["targets"]["rows"] if row["store_id"] == "001")
+        assert target["sales_target"] == "1500.25" and target["profit_target"] == "-50.00"
+        assert target["net_sales"] == "104.00" and target["profit_completion_ratio"] is None
+
+
+def test_target_no_change_does_not_increment_version_or_add_watermark(context):
+    scope, _, _ = commit(context)
+    admin = context[2]
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        preview = preview_target(
+            connection, scope, TargetChange("001", "2026-07-01", "1000.00", "200.00")
+        )
+        assert preview["impact"]["changed"] is False
+        result = confirm_target(
+            connection, scope, preview["preview_id"], "same-target", confirmed_by_user=True
+        )
+        assert result["changed"] is False and result["version"] == 2
+    with psycopg.connect(admin, autocommit=True) as connection:
+        assert connection.execute(
+            "SELECT max(revision) FROM bi.accounting_runs WHERE workspace_id=%s",
+            (scope.workspace_id,),
+        ).fetchone() == (2,)
+
+
+def test_target_first_setting_zero_is_distinct_from_unset_and_stays_queryable(context):
+    scope, _, _ = commit(context)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        preview = preview_target(connection, scope, TargetChange("002", "2026-07-01", "0"))
+        assert preview["impact"]["previous"] is None and preview["impact"]["changed"]
+        confirm_target(
+            connection, scope, preview["preview_id"], "zero-target", confirmed_by_user=True
+        )
+        result = overview(connection, replace(scope, version=3), OverviewRequest())
+        target = next(row for row in result["targets"]["rows"] if row["store_id"] == "002")
+        assert target["sales_target"] == "0.00" and target["state"] == "recorded"
+        assert target["completion_ratio"] is None and target["profit_target"] is None
+        assert result["targets"]["configured_count"] == 2
+
+
+def test_target_scope_readonly_actor_expiry_and_other_preview_cannot_write(context):
+    scope, _, _ = commit(context)
+    admin = context[2]
+    readonly = replace(scope, capabilities=frozenset({"ledger.read"}))
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        change = TargetChange("001", "2026-07-01", "2000")
+        with pytest.raises(ScopeError):
+            preview_target(connection, readonly, change)
+        with pytest.raises(ScopeError):
+            preview_target(connection, scope, replace(change, store_id="foreign"))
+        preview = preview_target(connection, scope, change)
+        wrong_kind = create_preview(connection, scope, "costs", {}, {})
+        with pytest.raises(OperationConflict):
+            confirm_target(connection, scope, wrong_kind, "wrong-kind", confirmed_by_user=True)
+        for denied in (
+            readonly,
+            replace(scope, actor_id="other"),
+            replace(scope, workspace_id="foreign"),
+        ):
+            with pytest.raises(ScopeError):
+                confirm_target(
+                    connection, denied, preview["preview_id"], "denied", confirmed_by_user=True
+                )
+        with psycopg.connect(admin, autocommit=True) as owner:
+            owner.execute(
+                "UPDATE bi.operation_previews "
+                "SET expires_at=clock_timestamp()-interval '1 second' WHERE preview_id=%s",
+                (preview["preview_id"],),
+            )
+        with pytest.raises(OperationConflict):
+            confirm_target(
+                connection, scope, preview["preview_id"], "expired", confirmed_by_user=True
+            )
+        assert (
+            overview(connection, scope, OverviewRequest())["targets"]["sales_target_total"]
+            == "1000.00"
+        )
+
+
+def test_stale_target_preview_after_import_and_conflicting_idempotency_are_rejected(context):
+    scope, _, _ = commit(context)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        first = preview_target(connection, scope, TargetChange("001", "2026-07-01", "2000"))
+        second = preview_target(connection, scope, TargetChange("002", "2026-07-01", "3000"))
+        confirm_target(connection, scope, first["preview_id"], "one-key", confirmed_by_user=True)
+        for key in ("one-key", "other-key"):
+            with pytest.raises(OperationConflict):
+                confirm_target(connection, scope, second["preview_id"], key, confirmed_by_user=True)
+        current = overview(connection, replace(scope, version=3), OverviewRequest())
+        assert current["targets"]["configured_count"] == 1
+        assert current["targets"]["sales_target_total"] == "2000.00"
+        version3 = replace(scope, version=3)
+        pending = preview_target(connection, version3, TargetChange("001", "2026-07-01", "2500"))
+        version4, _, _ = commit(
+            (version3, context[1], context[2]),
+            {
+                "products": [
+                    {
+                        "product_id": "after-target",
+                        "name": "导入新增元信息",
+                        "category": "",
+                        "series": "",
+                    }
+                ]
+            },
+            key="import-after-target",
+        )
+        assert version4.version == 4
+        with pytest.raises(OperationConflict):
+            confirm_target(
+                connection,
+                version3,
+                pending["preview_id"],
+                "stale-after-import",
+                confirmed_by_user=True,
+            )
+        assert (
+            overview(connection, version4, OverviewRequest())["targets"]["sales_target_total"]
+            == "2000.00"
+        )
+
+
+def test_simultaneous_target_confirmations_have_only_one_version_winner(context):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    scope, _, _ = commit(context)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        previews = [
+            preview_target(connection, scope, TargetChange(store, "2026-07-01", "2000"))[
+                "preview_id"
+            ]
+            for store in ("001", "002")
+        ]
+    barrier = Barrier(2)
+
+    def confirm(preview):
+        with psycopg.connect(context[1], autocommit=True) as connection:
+            barrier.wait(timeout=10)
+            try:
+                return confirm_target(connection, scope, preview, preview, confirmed_by_user=True)[
+                    "version"
+                ]
+            except OperationConflict:
+                return "conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(confirm, previews))
+    assert results.count(3) == results.count("conflict") == 1
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        assert (
+            overview(connection, replace(scope, version=3), OverviewRequest())["summary"][
+                "metrics"
+            ]["net_sales"]
+            == "164.00"
+        )

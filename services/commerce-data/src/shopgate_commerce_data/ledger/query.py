@@ -633,9 +633,10 @@ class LedgerReadSnapshot:
         """Private server-owned monthly inputs, still inside the same authorized snapshot."""
         return copy.deepcopy(self._rows(
             self._connection,
-            "SELECT t.*,s.name AS store_name,s.channel_id FROM bi.targets t "
-            "JOIN bi.stores s USING(workspace_id,dataset_id,store_id) "
-            "WHERE t.month=%s ORDER BY t.store_id",
+            "SELECT s.store_id,s.name AS store_name,s.channel_id,t.month,"
+            "t.sales_target,t.profit_target FROM bi.stores s LEFT JOIN bi.targets t "
+            "ON (s.workspace_id,s.dataset_id,s.store_id)="
+            "(t.workspace_id,t.dataset_id,t.store_id) AND t.month=%s ORDER BY s.store_id",
             (month,),
         ))
 

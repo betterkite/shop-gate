@@ -7,6 +7,8 @@ vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
 import { GET as datasets, POST as create } from '@/app/api/bi/datasets/route';
 import { POST as query } from '@/app/api/bi/query/route';
 import { POST as overview } from '@/app/api/bi/overview/route';
+import { POST as targetPreview } from '@/app/api/bi/targets/preview/route';
+import { POST as targetConfirm } from '@/app/api/bi/targets/confirm/route';
 import { GET as catalog } from '@/app/api/bi/catalog/route';
 import { GET as template } from '@/app/api/bi/templates/[resource]/route';
 import { GET as metadata } from '@/app/api/bi/datasets/[dataset_id]/route';
@@ -45,6 +47,51 @@ describe('same-origin BI gateway with real scope issuer', () => {
     vi.stubGlobal('fetch', mocks.fetch);
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('issues manage scope for a target preview and exposes only the current dataset result', async () => {
+    upstream({ workspace_id: record.workspace_id, dataset_id: 'official', version: 2,
+      preview_id: 'preview-a', impact: { previous: null, proposed: { sales_target: '500.00', profit_target: null } },
+      expires_at: '2026-10-31T09:00:00Z', service_token: SECRET });
+    const change = { store_id: '002', month: '2026-07-01', sales_target: '500', profit_target: null };
+    const response = await targetPreview(post('targets/preview', { dataset_id: 'official', version: 2, change }));
+    expect(response.status).toBe(200);
+    const data = (await response.json()).data;
+    expect(data.impact.previous).toBeNull(); expect(data.service_token).toBeUndefined();
+    const [url, init] = mocks.fetch.mock.calls[0];
+    expect(url.href).toBe('http://127.0.0.1:8000/api/v1/bi/targets/preview');
+    expect(JSON.parse(init.body)).toEqual(change);
+    const claims = JSON.parse(Buffer.from(init.headers.authorization.slice(7).split('.')[0], 'base64url').toString());
+    expect(claims.capabilities).toEqual(['ledger.read', 'ledger.manage']);
+    expect(claims.actor_id).toBe('member-a');
+  });
+
+  it('requires human confirmation and keeps the exact committed accounting version', async () => {
+    const input = { dataset_id: 'official', version: 2, preview_id: 'preview-a', idempotency_key: 'target-a', confirmed_by_user: false };
+    expect((await targetConfirm(post('targets/confirm', input))).status).toBe(422);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    upstream({ workspace_id: record.workspace_id, dataset_id: 'official', version: 3,
+      accounting_revision: 3, changed: true, data: { facts_unchanged: true } });
+    expect((await targetConfirm(post('targets/confirm', { ...input, confirmed_by_user: true }))).status).toBe(200);
+    expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toEqual({ preview_id: 'preview-a', idempotency_key: 'target-a', confirmed_by_user: true });
+  });
+
+  it('rejects target scope forgery, readonly membership and lost permissions before sending mutations', async () => {
+    const body = { dataset_id: 'official', version: 2, change: { store_id: '002', month: '2026-07-01', sales_target: '500' } };
+    expect((await targetPreview(post('targets/preview', { ...body, actor_id: 'forged' }))).status).toBe(422);
+    expect((await targetPreview(post('targets/preview', { ...body, change: { ...body.change, sql: 'UPDATE private' } }))).status).toBe(422);
+    mocks.requireAction.mockResolvedValue(context('viewer'));
+    expect((await targetPreview(post('targets/preview', { ...body, workspace_id: 'shared' }))).status).toBe(403);
+    mocks.requireAction.mockRejectedValue(new AuthorizationError('REVOKED', 403, 'private revoked'));
+    expect((await targetConfirm(post('targets/confirm', { dataset_id: 'official', version: 2,
+      preview_id: 'preview-a', idempotency_key: 'target-a', confirmed_by_user: true }))).status).toBe(403);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a target acknowledgement whose accounting watermark is inconsistent', async () => {
+    upstream({ workspace_id: record.workspace_id, dataset_id: 'official', version: 3, accounting_revision: 2, changed: true });
+    expect((await targetConfirm(post('targets/confirm', { dataset_id: 'official', version: 2,
+      preview_id: 'preview-a', idempotency_key: 'target-a', confirmed_by_user: true }))).status).toBe(503);
+  });
 
   it('signs overview reads from current actor and exact version and keeps nulls', async () => {
     const data = { workspace_id: record.workspace_id, dataset_id: 'official', version: 2,

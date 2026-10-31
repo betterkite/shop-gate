@@ -43,6 +43,21 @@ def rows(connection: psycopg.Connection, query: str, params=()) -> list[dict]:
         return cursor.execute(query, params).fetchall()
 
 
+def carry_unchanged_accounting(connection, scope):
+    """Internal only: caller proves unchanged facts inside the locked mutation.
+
+    Metadata/targets need a current accounting watermark without rewriting any
+    original snapshots. This is not an alternative to accounting changed facts.
+    """
+    scope.require("ledger.manage")
+    connection.execute(
+        "INSERT INTO bi.accounting_runs(workspace_id,dataset_id,revision,"
+        "algorithm_version,processed_lines,processed_expenses) "
+        "VALUES (%s,%s,%s,%s,0,0)",
+        (scope.workspace_id, scope.dataset_id, scope.version + 1, ALGORITHM_VERSION),
+    )
+
+
 class _BufferedInsert:
     """Bound pipeline memory while retaining all SQL constraints and one outer transaction."""
 

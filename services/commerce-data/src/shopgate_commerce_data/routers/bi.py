@@ -53,6 +53,7 @@ from shopgate_commerce_data.ledger.scope import (
     verify_directory_token,
     verify_scope_token,
 )
+from shopgate_commerce_data.ledger.targets import TargetChange, confirm_target, preview_target
 
 LOG = logging.getLogger(__name__)
 MAX_JSON_BYTES = 64 * 1024
@@ -492,6 +493,42 @@ def create_bi_router(settings: BiSettings | None = None):
                 return dataset_metadata(
                     connection, verify_directory_token(token, config.secret), dataset_id
                 )
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.post("/targets/preview")
+    async def target_preview(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.manage")
+        body = await read_json(request)
+        if request.query_params or not isinstance(body, dict) or set(body) - {
+            "store_id", "month", "sales_target", "profit_target"
+        }:
+            raise BiInputError()
+        change = TargetChange(**body)
+        change.normalized()
+
+        def execute():
+            with config.connection() as connection:
+                return preview_target(connection, verify_scope_token(token, config.secret), change)
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.post("/targets/confirm")
+    async def target_confirm(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.manage")
+        body = await read_json(request)
+        if request.query_params or not isinstance(body, dict) or set(body) != {
+            "preview_id", "idempotency_key", "confirmed_by_user"
+        }:
+            raise BiInputError()
+
+        def execute():
+            with config.connection() as connection:
+                return confirm_target(connection, verify_scope_token(token, config.secret), **body)
 
         return {"success": True, "data": await run_in_threadpool(execute)}
 

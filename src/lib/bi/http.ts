@@ -255,6 +255,29 @@ export async function postOverview(request: NextRequest) {
     'previous', 'comparison', 'trend', 'channels', 'attention', 'targets', 'notes']));
 }
 
+export async function postTarget(request: NextRequest, operation: 'preview' | 'confirm') {
+  const body = await input(request);
+  keys(body, ['workspace_id', 'dataset_id', 'version', ...(operation === 'preview' ? ['change']
+    : ['preview_id', 'idempotency_key', 'confirmed_by_user'])]);
+  const wanted = jobInputScope(body);
+  const payload = operation === 'preview' ? object(body.change)
+    : { preview_id: body.preview_id, idempotency_key: body.idempotency_key, confirmed_by_user: body.confirmed_by_user };
+  if (operation === 'preview') keys(payload, ['store_id', 'month', 'sales_target', 'profit_target']);
+  else if (body.confirmed_by_user !== true || typeof body.preview_id !== 'string' || typeof body.idempotency_key !== 'string') {
+    throw new BiProblem('BI_INPUT_INVALID', 422);
+  }
+  const scope = await issueLedgerScope({ headers: request.headers, ...wanted, write: true });
+  const data = decoded((await upstream(`targets/${operation}`, scope.token, payload)).bytes);
+  if (data.workspace_id !== scope.workspaceId || data.dataset_id !== scope.datasetId
+      || (operation === 'preview' ? data.version !== scope.version
+        : (data.version !== scope.version && data.version !== scope.version + 1)
+          || data.accounting_revision !== data.version || typeof data.changed !== 'boolean')) {
+    throw new BiProblem('BI_UNAVAILABLE', 503);
+  }
+  return success(picked(data, ['workspace_id', 'dataset_id', 'version', 'accounting_revision',
+    'preview_id', 'expires_at', 'impact', 'changed', 'data']));
+}
+
 export async function getCatalog(request: NextRequest) {
   const options = params(request, ['workspace_id']);
   const scope = await issueDirectoryScope({ headers: request.headers,

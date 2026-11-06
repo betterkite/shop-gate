@@ -28,6 +28,16 @@ describe('readable BI assistant evidence', () => {
       rows: [{ key: 'store1', name: '测试店铺', metrics: { contribution_margin: '0.91666667' }, quality: {} }] }} />);
     expect(populated).toContain('测试店铺'); expect(populated).toContain('91.67%'); expect(populated).toContain('<table');
   });
+  it('renders restored definition expansion and distinguishes an out-of-range evidence page', () => {
+    expect(renderToStaticMarkup(<BiDefinitionEvidence evidence={source} open />)).toContain('open=""');
+    expect(renderToStaticMarkup(<BiDefinitionEvidence evidence={source} open={false} />)).not.toContain('open=""');
+    const data = agentResultSchema.parse({ evidence_id: randomUUID(), page: 3, page_size: 20, total: 21,
+      query: { dimension: 'store', metrics: ['net_sales'] }, rows: [],
+      metadata: { workspace_id: 'account:test', dataset_id: 'data', version: 1,
+        range: { start: null, end: null, refund_basis: 'payment' } } });
+    const html = renderToStaticMarkup(<BiEvidenceTable data={data} />);
+    expect(html).toContain('此页没有记录'); expect(html).not.toContain('此范围没有');
+  });
   it('requires matching saved definitions and retains the separate factual evidence requirement', () => {
     const answer = { kind: 'definition', text: '净销售额的含义', evidence_ids: [],
       definition_source_id: source.source_id, definition_ids: ['net_sales'] };

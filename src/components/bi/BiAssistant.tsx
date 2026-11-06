@@ -10,6 +10,7 @@ import { biAgentSubmissionSchema, type BiAgentSubmission } from '@/lib/bi/agent/
 import { type BiAgentAnswerContent } from '@/lib/bi/agent/result-contracts';
 import { BiAnswerMarkdown } from './BiAnswerMarkdown';
 import { BiAssistantChart } from './BiAssistantChart';
+import { findAssistantView, updateAssistantView, type AssistantViewState } from '@/lib/bi/agent/view-location';
 import { AgentRequestError, ACTIVE_AGENT_STATUSES, AGENT_STATUS_LABELS, agentAcceptedSchema, agentAnswerSchema,
   agentAvailabilitySchema, agentConversationsSchema, agentQuestionsSchema, agentResultSchema, readAgent } from '@/lib/bi/agent/browser';
 
@@ -91,6 +92,10 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
       setRefresh((n) => n + 1);
     } catch (e) { setError(message(e)); }
   }
+  const changeView = (next: AssistantViewState) => {
+    try { navigate({ assistantViews: updateAssistantView(location.assistantViews, next) }); }
+    catch (e) { setError(message(e)); }
+  };
   const ready = Boolean(resolvedRange) && availability?.can_run && availability.worker_available && availability.models.some((m) => m.id === model);
   return <section className={`${BI_PANEL} border-primary/25`} aria-label="经营助手">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-semibold">经营助手</h3>
@@ -113,7 +118,7 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
       {q.runs.map((r) => <div className="mt-3" key={r.id}>
         <div className="flex items-center gap-3 text-sm text-muted-foreground"><span role="status">{AGENT_STATUS_LABELS[r.status] ?? '正在确认分析状态'}</span>
           {ACTIVE_AGENT_STATUSES.includes(r.status) && <Button size="sm" variant="outline" disabled={Boolean(r.cancelRequestedAt)} onClick={() => { void cancel(r.id); }}>{r.cancelRequestedAt ? '正在取消' : '取消分析'}</Button>}</div>
-        {r.status === 'completed' && <AssistantAnswer workspaceId={workspaceId} datasetId={dataset.dataset_id} version={q.datasetVersion} runId={r.id} onFollowUp={(value) => { if (!intent) setText(value); }} />}
+        {r.status === 'completed' && <AssistantAnswer workspaceId={workspaceId} datasetId={dataset.dataset_id} version={q.datasetVersion} runId={r.id} viewStates={location.assistantViews} changeView={changeView} onFollowUp={(value) => { if (!intent) setText(value); }} />}
       </div>)}
     </article>)}</div>
     {history && <BiPagination label="助手问题分页" page={questionPage} total={history.total} change={(page) => navigate({ questionPage: page })} />}
@@ -132,8 +137,9 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
   </section>;
 }
 
-function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp }: {
+function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, viewStates, changeView }: {
   workspaceId: string; datasetId: string; version: number; runId: string; onFollowUp: (value: string) => void;
+  viewStates?: AssistantViewState[]; changeView: (next: AssistantViewState) => void;
 }) {
   const [answer, setAnswer] = useState<BiAgentAnswerContent | null>(null), [error, setError] = useState('');
   const [definitions, setDefinitions] = useState<z.infer<typeof agentAnswerSchema>['definitions']>(null);
@@ -146,32 +152,35 @@ function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp }:
   }, [workspaceId, version, runId]);
   if (error) return <BiNotice error>{error}</BiNotice>;
   if (!answer) return <p className="mt-3 text-sm">正在读取答案…</p>;
+  const definition = findAssistantView(viewStates, { kind: 'definition', run: runId, open: false });
   return <div className="mt-4 space-y-4"><BiAnswerMarkdown text={answer.text} />
-    {definitions && <BiDefinitionEvidence evidence={definitions} />}
-    {answer.views.filter((view) => view.kind !== 'table').map((view, i) => <BiAssistantChart key={`${view.result_id}:${view.metric}:${i}`} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} view={view} />)}
-    {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} />)}
+    {definitions && <BiDefinitionEvidence evidence={definitions} open={definition.open} onOpenChange={(open) => changeView({ ...definition, open })} />}
+    {answer.views.filter((view) => view.kind !== 'table').map((view, i) => <BiAssistantChart key={`${view.result_id}:${view.metric}:${i}`} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} view={view} page={findAssistantView(viewStates, { kind: 'chart', run: runId, result: view.result_id, metric: view.metric, page: 1 }).page} onPageChange={(page) => changeView({ kind: 'chart', run: runId, result: view.result_id, metric: view.metric, page })} />)}
+    {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} state={findAssistantView(viewStates, { kind: 'evidence', run: runId, result: id, page: 1, open: false })} changeView={changeView} />)}
     {answer.follow_up.length > 0 && <div className="flex flex-wrap gap-2">{answer.follow_up.map((value) => <Button key={value} size="sm" variant="outline" className="h-auto whitespace-normal text-left" onClick={() => onFollowUp(value)}>{value}</Button>)}</div>}
   </div>;
 }
-function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, number }: {
+function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, number, state, changeView }: {
   workspaceId: string; datasetId: string; version: number; runId: string; resultId: string; number: number;
+  state: Extract<AssistantViewState, { kind: 'evidence' }>; changeView: (next: AssistantViewState) => void;
 }) {
-  const [page, setPage] = useState(1), [data, setData] = useState<z.infer<typeof agentResultSchema> | null>(null), [error, setError] = useState('');
-  const [open, setOpen] = useState(false);
+  const { page, open } = state;
+  const [data, setData] = useState<z.infer<typeof agentResultSchema> | null>(null), [error, setError] = useState('');
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController(); setData(null); setError('');
     readAgent({ action: 'result', workspace_id: workspaceId, run_id: runId, result_id: resultId, page: String(page) }, agentResultSchema, { signal: controller.signal })
       .then((value) => {
-        if (value.evidence_id !== resultId || value.metadata.workspace_id !== workspaceId || value.metadata.dataset_id !== datasetId || value.metadata.version !== version) throw new Error('依据的范围或版本不一致，请刷新。');
+        if (value.evidence_id !== resultId || value.metadata.workspace_id !== workspaceId || value.metadata.dataset_id !== datasetId || value.metadata.version !== version || value.page !== page) throw new Error('依据的范围或版本不一致，请刷新。');
         if (!controller.signal.aborted) setData(value);
       }).catch((e) => { if (!controller.signal.aborted) setError(message(e)); });
     return () => controller.abort();
   }, [workspaceId, datasetId, version, runId, resultId, page, open]);
-  return <details className="min-w-0 rounded-lg border border-border p-3" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-medium">查看依据 {number}{data ? ` · 共 ${data.total} 项` : ''}</summary>
+  return <details className="min-w-0 rounded-lg border border-border p-3" open={open}><summary onClick={(event) => { event.preventDefault(); changeView({ ...state, open: !open }); }} className="cursor-pointer text-sm font-medium">查看依据 {number}{data ? ` · 共 ${data.total} 项` : ''}</summary>
     {error && <BiNotice error>{error}</BiNotice>}{!data && !error && <p className="mt-3 text-sm">正在读取依据…</p>}
     {data && <><p className="mt-3 text-xs text-muted-foreground">版本 {version} · {data.metadata.range.start ?? '无日期'} 至 {data.metadata.range.end ?? '无日期'} · {data.metadata.range.refund_basis === 'payment' ? '按原付款日期统计退款' : '按退款发生日期统计退款'}。保留提问时的查询结果。</p>
       <BiEvidenceTable data={data} />
-      <BiPagination label={`分析依据 ${number} 分页`} page={page} total={data.total} change={setPage} /></>}
+      {page > Math.max(1, Math.ceil(data.total / 20)) && <Button size="sm" variant="link" onClick={() => changeView({ ...state, page: 1 })}>返回依据第一页</Button>}
+      <BiPagination label={`分析依据 ${number} 分页`} page={page} total={data.total} change={(page) => changeView({ ...state, page })} /></>}
   </details>;
 }

@@ -1,5 +1,6 @@
 // Browser-safe presentation and URL scope. Accounting remains in the ledger.
 import { z } from 'zod';
+import { readAssistantViews, type AssistantViewState } from './agent/view-location';
 
 const identifier = z.string().regex(/^[A-Za-z0-9_.:-]{1,120}$/);
 const version = z.number().int().positive().safe();
@@ -106,11 +107,11 @@ export type OverviewLocation = { workspaceId?: string; datasetId?: string; datas
   filterKind?: ReferenceKind; filterPage: number; filterSearch: string; filterSort: 'name' | 'key'; filterDescending: boolean;
   qualityKey?: QualityKey; evidencePage: number; evidenceSearch: string; evidenceSort: 'key' | 'name' | 'date'; evidenceDescending: boolean;
   evidenceRecord?: string; evidenceEventPage: number;
-  conversationId?: string; conversationPage?: number; questionPage?: number;
+  conversationId?: string; conversationPage?: number; questionPage?: number; assistantViews?: AssistantViewState[];
   detailDimension?: SourceDimension; detailChannelId?: string; detailStoreId?: string; detailPage: number;
   detailSearch: string; detailSort: 'key' | 'net_sales' | 'accounted_contribution' | 'order_count'; detailDescending: boolean };
 const FIELDS = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPage: 'dataset_page', start: 'start', end: 'end',
-  conversationId: 'conversation', conversationPage: 'conversation_page', questionPage: 'question_page',
+  conversationId: 'conversation', conversationPage: 'conversation_page', questionPage: 'question_page', assistantViews: 'assistant_views',
   channelId: 'channel_id', storeId: 'store_id', productId: 'product_id', skuId: 'sku_id', listingId: 'listing_id', category: 'category',
   interval: 'interval', refundBasis: 'refund_basis', channelMetric: 'channel_metric', channelPage: 'channel_page', trendPage: 'trend_page', targetPage: 'target_page',
   targetMonth: 'target_month', editStoreId: 'edit_store_id', detailDimension: 'detail', detailChannelId: 'detail_channel_id',
@@ -143,9 +144,11 @@ export function readOverviewLocation(search: string): OverviewLocation {
   const quality = p.get('quality');
   const conversationId = p.get('conversation') ?? undefined;
   if (conversationId && !z.string().uuid().safeParse(conversationId).success) throw new Error('对话链接无效，请重新选择对话。');
+  const assistantViews = readAssistantViews(p.get('assistant_views'));
+  if (assistantViews.length && !conversationId) throw new Error('助手查看位置需要对应的对话。');
   if (quality !== null && !qualityKey.safeParse(quality).success) throw new Error('核算提醒类型无效。');
   return { workspaceId: id('workspace_id'), datasetId: id('dataset_id'), datasetPage: page('dataset_page'), start, end,
-    conversationId, conversationPage: page('conversation_page'), questionPage: page('question_page'),
+    conversationId, conversationPage: page('conversation_page'), questionPage: page('question_page'), assistantViews,
     channelId: id('channel_id'), storeId: id('store_id'), productId: id('product_id'), skuId: id('sku_id'), listingId: id('listing_id'), category: p.has('category') ? text('category') : undefined,
     filterKind: filter ? filter as ReferenceKind : undefined, filterPage: page('filter_page'), filterSearch: text('filter_search'),
     filterSort: choice('filter_sort', ['name', 'key'], 'name'), filterDescending: choice('filter_descending', ['true', 'false'], 'false') === 'true',
@@ -169,6 +172,9 @@ export function overviewUrl(current: string, change: Partial<OverviewLocation>) 
     const workspaceId = 'workspaceId' in change ? change.workspaceId : before.workspaceId;
     url.search = ''; if (workspaceId) url.searchParams.set('workspace_id', workspaceId);
   } else {
+    if ('conversationId' in change && change.conversationId !== before.conversationId) {
+      url.searchParams.delete('assistant_views'); url.searchParams.delete('question_page');
+    }
     if (['start', 'end', 'channelId', 'storeId', 'productId', 'skuId', 'listingId', 'category', 'refundBasis'].some((key) => key in change)) {
       for (const key of ['channel_page', 'trend_page', 'target_page', 'detail_page', 'filter_page', 'edit_store_id', 'detail_channel_id', 'detail_store_id', 'evidence_page', 'evidence_record', 'evidence_event_page']) url.searchParams.delete(key);
     }
@@ -197,6 +203,11 @@ export function overviewUrl(current: string, change: Partial<OverviewLocation>) 
   for (const [field, key] of Object.entries(FIELDS)) if (field in change) {
     const value = change[field as keyof OverviewLocation];
     const defaults: Record<string, unknown> = { interval: 'day', refundBasis: 'payment', channelMetric: 'net_sales', detailSort: 'net_sales', detailDescending: true, filterSort: 'name', filterDescending: false, evidenceSort: 'key', evidenceDescending: false };
+    if (field === 'assistantViews') {
+      if (!value || (value as AssistantViewState[]).length === 0) url.searchParams.delete(key);
+      else url.searchParams.set(key, JSON.stringify(readAssistantViews(JSON.stringify(value))));
+      continue;
+    }
     if (value === undefined || (value === '' && field !== 'category') || (field.endsWith('Page') && value === 1) || defaults[field] === value) url.searchParams.delete(key);
     else url.searchParams.set(key, String(value));
   }

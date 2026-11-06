@@ -8,13 +8,14 @@ import type { BiAgentAnswerContent } from '@/lib/bi/agent/result-contracts';
 import { chartSeries } from '@/lib/bi/agent/chart-series';
 import { chartAxis } from '@/lib/bi/chart-axis';
 
-export function BiAssistantChart({ workspaceId, datasetId, version, runId, view }: {
+export function BiAssistantChart({ workspaceId, datasetId, version, runId, view, page, onPageChange }: {
   workspaceId: string; datasetId: string; version: number; runId: string; view: BiAgentAnswerContent['views'][number];
+  page: number; onPageChange: (page: number) => void;
 }) {
   const [data, setData] = useState<z.infer<typeof agentChartSchema> | null>(null);
-  const [error, setError] = useState(''), [page, setPage] = useState(1);
+  const [error, setError] = useState('');
   useEffect(() => {
-    const controller = new AbortController(); setData(null); setError(''); setPage(1);
+    const controller = new AbortController(); setData(null); setError('');
     readAgent({ action: 'chart', workspace_id: workspaceId, run_id: runId, result_id: view.result_id }, agentChartSchema, { signal: controller.signal })
       .then((value) => {
         if (value.evidence_id !== view.result_id || value.metadata.workspace_id !== workspaceId || value.metadata.dataset_id !== datasetId
@@ -30,6 +31,7 @@ export function BiAssistantChart({ workspaceId, datasetId, version, runId, view 
   const series = chartSeries(data.rows, view.metric, view.kind === 'line', data.query.dimension === 'week' ? 7 : 1);
   const { rows } = series, { min, max, spread, ticks } = chartAxis(series.min, series.max);
   if (!rows.some((r) => r.value !== null)) return <BiNotice>没有可绘制的已知数值。缺失值未按零绘制，请查看下方依据。</BiNotice>;
+  if (view.kind === 'bar' && page > Math.max(1, Math.ceil(rows.length / 20))) return <BiNotice>此页没有记录。<button type="button" className="ml-2 text-primary underline" onClick={() => onPageChange(1)}>返回图表第一页</button></BiNotice>;
   const metric = AGENT_METRIC_LABELS[view.metric], percent = view.metric.endsWith('_ratio') || view.metric === 'contribution_margin';
   const tickLabel = (v: number) => new Intl.NumberFormat('zh-CN', percent
     ? { style: 'percent', maximumFractionDigits: 2 } : { notation: 'compact' }).format(v);
@@ -64,6 +66,6 @@ export function BiAssistantChart({ workspaceId, datasetId, version, runId, view 
         </>}
       </svg>
     </div>
-    {view.kind === 'bar' && <BiPagination label={`${metric}图表分页`} page={page} total={rows.length} change={setPage} />}
+    {view.kind === 'bar' && <BiPagination label={`${metric}图表分页`} page={page} total={rows.length} change={onPageChange} />}
   </section>;
 }

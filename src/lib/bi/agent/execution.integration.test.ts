@@ -65,6 +65,10 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
   const execute = (id: string, provider: PiAgentModelProvider, signal = new AbortController().signal) =>
     executeBiAgentRun({ runId: id, expectedVersion: 0, leaseOwner: unique(), signal, assertCapacity: () => undefined },
       { client: a, read, provider });
+  async function recoverOwned(runId: string, client = a) {
+    const run = await client.agentRun.findUniqueOrThrow({ where: { id: runId }, select: { executionScopeId: true } });
+    return recoverBiAgentExecutions(client, run.executionScopeId);
+  }
   async function candidate() {
     const fixture = await pending(), repository = new PrismaAgentRuntimeRepository(a);
     const session = await PiAgentDurableRunSession.claimPending({ repository, runId: fixture.id, expectedVersion: 0, heartbeatEnabled: false });
@@ -148,10 +152,10 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
   it('recovers a persisted candidate once without another model call', async () => {
     const fixture = await candidate();
     expect((await readBiAgentAnswer(fixture.actor, fixture.id, b)).answer).toBeNull();
-    await Promise.all([recoverBiAgentExecutions(a), recoverBiAgentExecutions(b)]);
+    await Promise.all([recoverOwned(fixture.id, a), recoverOwned(fixture.id, b)]);
     expect((await readBiAgentAnswer(fixture.actor, fixture.id, b)).status).toBe('completed');
     expect(await a.usageEvent.count({ where: { sourceId: fixture.id } })).toBe(1);
-    await recoverBiAgentExecutions(b);
+    await recoverOwned(fixture.id, b);
     expect(await a.usageEvent.count({ where: { sourceId: fixture.id } })).toBe(1);
   });
 
@@ -161,6 +165,16 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
     else await b.authSession.delete({ where: { id: fixture.actor.sessionId } });
     await publishBiAgentAnswer(fixture.id, b);
     expect((await a.agentRun.findUniqueOrThrow({ where: { id: fixture.id } })).status).toBe(mode === 'cancel' ? 'cancelled' : 'failed');
+  });
+
+  it('keeps scoped maintenance away from another account candidate and settlement', async () => {
+    const owned = await candidate(), other = await candidate();
+    await recoverOwned(owned.id, b);
+    expect((await a.agentRun.findUniqueOrThrow({ where: { id: owned.id } })).status).toBe('completed');
+    expect((await a.agentRun.findUniqueOrThrow({ where: { id: other.id } })).status).toBe('candidate_complete');
+    expect(await a.usageEvent.count({ where: { sourceId: other.id } })).toBe(0);
+    await recoverOwned(other.id, b);
+    expect((await a.agentRun.findUniqueOrThrow({ where: { id: other.id } })).status).toBe('completed');
   });
 
   it('rejects a candidate without a successful structured-answer tool receipt', async () => {
@@ -184,7 +198,7 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
       idempotencyKey: biAgentTokenReservationKey(run.id), reservationTtlSeconds: 120 });
     await a.agentRun.update({ where: { id: run.id }, data: { leaseExpiresAt: new Date(0) } });
     await a.agentWorkspaceLease.update({ where: { executionScopeId: run.executionScopeId }, data: { leaseExpiresAt: new Date(0) } });
-    await recoverBiAgentExecutions(b);
+    await recoverOwned(fixture.id, b);
     expect((await a.agentRun.findUniqueOrThrow({ where: { id: run.id } })).status).toBe('interrupted');
     expect((await a.agentRun.findUniqueOrThrow({ where: { id: untouched.id } })).status).toBe('pending');
     expect((await a.quotaReservation.findUniqueOrThrow({ where: { idempotencyKey: biAgentTokenReservationKey(run.id) } })).status).toBe('released');

@@ -98,6 +98,34 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
     } finally { vi.unstubAllEnvs(); await Promise.allSettled([a.$disconnect(), b.$disconnect()]); }
   });
 
+  it('answers definitions through the real engine with a saved catalog citation and no ledger tool', async () => {
+    const fixture = await pending(undefined, undefined, 0, '净销售额是什么意思？');
+    const catalog = vi.fn(async () => [{ id: 'net_sales', name: '净销售额', unit: '元',
+      formula: '付款成交金额 − 退款金额', missing_policy: '缺少金额时保留未知', dimensions: ['overall'],
+      source: '订单与退款', aggregation: '相加' }]);
+    const ledger = vi.fn(async () => { throw new Error('Definition must not query ledger'); });
+    const requests: PiAgentModelRequest[] = [];
+    const provider: PiAgentModelProvider = { name: 'deepseek', async *complete(request) {
+      requests.push(request);
+      const source = await b.biAgentMetricSource.findUnique({ where: { runId: fixture.id } });
+      if (source) expect(JSON.stringify(request.messages)).toContain(source.id);
+      yield { type: 'response_start', responseId: unique(), model: request.model };
+      yield { type: 'tool_call_delta', index: 0, id: unique(), nameDelta: source ? 'submit_answer' : 'metric_dictionary',
+        argumentsDelta: JSON.stringify(source ? { kind: 'definition', text: '净销售额是付款成交金额减去退款金额。',
+          evidence_ids: [], definition_source_id: source.id, definition_ids: ['net_sales'] } : {}) };
+      yield { type: 'usage', usage: { inputTokens: 10, outputTokens: 2, totalTokens: 12 } };
+      yield { type: 'finish', reason: 'tool_calls' };
+    } };
+    expect(await executeBiAgentRun({ runId: fixture.id, expectedVersion: 0, leaseOwner: unique(),
+      signal: new AbortController().signal, assertCapacity: () => undefined }, { client: a, read: ledger, catalog, provider }))
+      .toMatchObject({ status: 'completed' });
+    expect(requests).toHaveLength(2); expect(catalog).toHaveBeenCalledTimes(1); expect(ledger).not.toHaveBeenCalled();
+    expect(await readBiAgentAnswer(fixture.actor, fixture.id, b)).toMatchObject({ answer: { kind: 'definition', evidence_ids: [] },
+      definitions: { metrics: [{ id: 'net_sales', formula: '付款成交金额 − 退款金额' }] } });
+    expect(await b.biAgentResult.count({ where: { runId: fixture.id } })).toBe(0);
+    expect((await b.usageEvent.findMany({ where: { sourceId: fixture.id } })).map((e) => e.quantity)).toEqual([24n]);
+  });
+
   it('runs real engine/tools, publishes complete paged evidence, meters once and carries display history into follow-up', async () => {
     const fixture = await pending(), model = providerFor(fixture.id);
     expect(await execute(fixture.id, model.provider)).toMatchObject({ status: 'completed' });

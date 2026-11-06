@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { biAgentIdentifier, biAgentPageScopeSchema, biAgentSubmissionSchema } from './contracts';
 import { biAgentAnswerSchema, biMetric, biDimension, BI_AGENT_CHART_MAX_ROWS } from './result-contracts';
+import { definitionEvidenceSchema } from './metric-contracts';
 import { ledgerRowSchema } from '../overview-contracts';
 
 const count = z.number().int().nonnegative();
@@ -18,7 +19,13 @@ export const agentQuestionsSchema = z.object({ ...pagination, rows: z.array(ques
 export const agentAcceptedSchema = z.object({ conversation_id: z.string().uuid(), conversation_version: count,
   replayed: z.boolean(), request: question });
 export const agentAnswerSchema = z.object({ status: z.string(), dataset_version: count.optional(),
-  page_scope: biAgentPageScopeSchema.optional(), answer: biAgentAnswerSchema.nullable() });
+  page_scope: biAgentPageScopeSchema.optional(), answer: biAgentAnswerSchema.nullable(),
+  definitions: definitionEvidenceSchema.nullable().optional(),
+}).refine((value) => value.answer?.definition_source_id
+  ? value.definitions?.source_id === value.answer.definition_source_id
+    && value.definitions.metrics.length === value.answer.definition_ids.length
+    && value.definitions.metrics.every((metric) => (value.answer!.definition_ids as readonly string[]).includes(metric.id))
+  : !value.definitions);
 export const agentResultSchema = z.object({ ...pagination, evidence_id: z.string().uuid(),
   query: z.object({ dimension: biDimension, metrics: z.array(biMetric) }),
   metadata: z.object({ workspace_id: biAgentIdentifier, dataset_id: biAgentIdentifier, version: count,

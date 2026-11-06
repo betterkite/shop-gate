@@ -37,7 +37,7 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
         'SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_type = \'BASE TABLE\' ORDER BY table_name', schema);
       const snapshots: Record<string, unknown> = {};
       for (const { table_name: table } of tables) {
-        if (['_prisma_migrations', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers'].includes(table)) continue;
+        if (['_prisma_migrations', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers', 'bi_agent_metric_sources'].includes(table)) continue;
         if (!/^[a-z_]+$/.test(table)) throw new Error('Unexpected rehearsal table identifier');
         const row = table === 'agent_runs' ? "to_jsonb(t) - 'execution_scope_id' - 'bi_request_id' - 'cancel_requested_at'"
           : table === 'agent_worker_instances' ? "to_jsonb(t) - 'worker_kind'"

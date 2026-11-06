@@ -3,10 +3,9 @@ import type { PrismaClient } from '@prisma/client';
 import { BI_AGENT_TOOL_DEFINITIONS, resultPage, empty } from './tool-manifest';
 import type { readBiAgentLedger } from './ledger';
 import type { PiAgentTool, PiAgentToolContext, PiAgentToolResult } from '@/lib/agent/types';
-import { authorizeBiAgentRun } from './requests';
-import { readBiAgentMetricCatalog } from './ledger';
+import type { readBiAgentMetricCatalog } from './ledger';
 import { BiAgentProblem } from './contracts';
-import { BI_METRICS } from './result-contracts';
+import { collectBiAgentMetricSource } from './metric-sources';
 import { ledgerRowSchema, ledgerTableSchema } from '../overview-contracts';
 import { displayBiMetrics, displayBiRows } from './presentation';
 import { collectBiAgentResult, inspectBiAgentResultPage, saveBiAgentAnswer, assertBiAgentResultFence, type BiAgentResultFence } from './results';
@@ -25,9 +24,7 @@ export function createBiAgentTools(fence: BiAgentResultFence, dependencies: BiAg
         await assertBiAgentResultFence(fence, dependencies.client);
         if (name === 'metric_dictionary') {
           empty.parse(raw);
-          const authorized = await authorizeBiAgentRun(fence.runId, dependencies.client);
-          const data = await (dependencies.catalog ?? readBiAgentMetricCatalog)(authorized.authority, context.signal);
-          return { ok: true, data: { metrics: data.filter((metric) => (BI_METRICS as readonly string[]).includes(metric.id)) } };
+          return { ok: true, data: await collectBiAgentMetricSource(fence, context.signal, dependencies) };
         }
         if (name === 'query_ledger') {
           const result = await collectBiAgentResult(fence, context.operationId, raw, context.signal, dependencies);

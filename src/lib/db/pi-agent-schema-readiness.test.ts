@@ -56,7 +56,7 @@ describe('PI Agent schema readiness', () => {
       issues: [],
     });
     expect(PI_AGENT_SCHEMA_CONTRACT_VERSION).toBe(
-      '20261107000400_bi_worker_capacity'
+      '20261107000500_bi_agent_metric_sources'
     );
   });
 
@@ -116,6 +116,7 @@ describe('PI Agent schema readiness', () => {
     'agent_execution_scopes',
     'bi_agent_conversations',
     'bi_agent_requests',
+    'bi_agent_metric_sources',
     'agent_generation_leases',
     'agent_generation_jobs',
     'agent_worker_slots',

@@ -501,6 +501,7 @@ model AgentRun {
   toolApprovals  AgentToolApproval[]
   biResults      BiAgentResult[]
   biAnswer       BiAgentAnswer?
+  biMetricSource BiAgentMetricSource?
 
   @@index([projectId, createdAt])
   @@index([requestId, createdAt])
@@ -545,6 +546,17 @@ model BiAgentAnswer {
   createdAt DateTime @default(now()) @map("created_at")
   run       AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   @@map("bi_agent_answers")
+}
+
+/// Immutable dictionary evidence read for one private BI run.
+model BiAgentMetricSource {
+  id        String @id @default(uuid())
+  runId     String @unique @map("run_id")
+  metrics   Json
+  digest    String
+  createdAt DateTime @default(now()) @map("created_at")
+  run       AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  @@map("bi_agent_metric_sources")
 }
 
 /// One long-lived lease per execution scope. It serializes runs and governed

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ authorize: vi.fn(), catalog: vi.fn(), collect: vi.fn(), inspect: vi.fn(), save: vi.fn(), fence: vi.fn() }));
 vi.mock('./requests', () => ({ authorizeBiAgentRun: mocks.authorize }));
-vi.mock('./ledger', () => ({ readBiAgentMetricCatalog: mocks.catalog }));
+vi.mock('./metric-sources', () => ({ collectBiAgentMetricSource: mocks.catalog }));
 vi.mock('./results', () => ({ collectBiAgentResult: mocks.collect, inspectBiAgentResultPage: mocks.inspect,
   saveBiAgentAnswer: mocks.save, assertBiAgentResultFence: mocks.fence }));
 import { createBiAgentTools } from './tools';

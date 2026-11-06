@@ -34,12 +34,18 @@ export const biAgentLedgerPageSchema = ledgerTableSchema.extend({
 });
 export type BiAgentLedgerPage = z.infer<typeof biAgentLedgerPageSchema>;
 export const biAgentAnswerSchema = z.object({
-  kind: z.enum(['answer', 'clarification', 'data_unavailable']), text: safeText(12_000),
+  kind: z.enum(['answer', 'definition', 'clarification', 'data_unavailable']), text: safeText(12_000),
   evidence_ids: z.array(z.string().uuid()).max(16).refine((v) => new Set(v).size === v.length),
+  definition_source_id: z.string().uuid().optional(),
+  definition_ids: z.array(biMetric).max(BI_METRICS.length).default([])
+    .refine((ids) => new Set(ids).size === ids.length),
   views: z.array(z.object({ result_id: z.string().uuid(), kind: z.enum(['table', 'line', 'bar']),
     metric: biMetric }).strict()).max(6).default([]),
   follow_up: z.array(safeText(300)).max(3).default([]),
 }).strict().refine((answer) => answer.kind !== 'answer' || answer.evidence_ids.length > 0)
+  .refine((answer) => Boolean(answer.definition_source_id) === (answer.definition_ids.length > 0))
+  .refine((answer) => answer.kind !== 'definition' || (answer.definition_ids.length > 0
+    && answer.evidence_ids.length === 0 && answer.views.length === 0))
   .refine((answer) => answer.views.every((v) => answer.evidence_ids.includes(v.result_id)))
   .refine((answer) => new TextEncoder().encode(JSON.stringify(answer)).byteLength <= 55_000);
 export type BiAgentAnswerContent = z.infer<typeof biAgentAnswerSchema>;

@@ -2,6 +2,8 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { AuthorizationError } from '@/lib/auth/authorization';
 import { recheckBiAgentSession } from './authorization';
+import { definitionsForAnswer } from './metric-sources';
+import { BiAgentProblem } from './contracts';
 import { biAgentAnswerSchema } from './result-contracts';
 
 /** Publish a completed read-only analysis, including after worker restart.
@@ -35,6 +37,10 @@ export async function publishBiAgentAnswer(runId: string, client: PrismaClient =
         workspaceFencingToken: run.workspaceFencingToken } });
       if (!run.finishedAt || !parsed.success || !receipt) failure = 'BI_AGENT_ANSWER_INCOMPLETE';
       else {
+        try { await definitionsForAnswer(tx, runId, parsed.data); } catch (error) {
+          if (!(error instanceof BiAgentProblem)) throw error;
+          failure = 'BI_AGENT_ANSWER_INCOMPLETE';
+        }
         const results = await tx.biAgentResult.findMany({ where: { runId, complete: true,
           id: { in: parsed.data.evidence_ids } }, select: { id: true, collected: true, total: true } });
         if (results.length !== parsed.data.evidence_ids.length || results.some((r) => r.collected !== r.total)) {

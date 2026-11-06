@@ -1,15 +1,16 @@
 'use client';
+import { BiDefinitionEvidence, BiEvidenceTable } from './BiAssistantEvidence';
 import React, { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { BI_PANEL, BI_SELECT, BiNotice, BiPagination } from './BiPrimitives';
-import { decimalLabel, type Dataset } from '@/lib/bi/data-contracts';
+import { type Dataset } from '@/lib/bi/data-contracts';
 import { overviewQuery, type Overview, type OverviewLocation } from '@/lib/bi/overview-contracts';
 import { biAgentSubmissionSchema, type BiAgentSubmission } from '@/lib/bi/agent/contracts';
 import { type BiAgentAnswerContent } from '@/lib/bi/agent/result-contracts';
 import { BiAnswerMarkdown } from './BiAnswerMarkdown';
 import { BiAssistantChart } from './BiAssistantChart';
-import { AgentRequestError, ACTIVE_AGENT_STATUSES, AGENT_METRIC_LABELS, AGENT_STATUS_LABELS, agentAcceptedSchema, agentAnswerSchema,
+import { AgentRequestError, ACTIVE_AGENT_STATUSES, AGENT_STATUS_LABELS, agentAcceptedSchema, agentAnswerSchema,
   agentAvailabilitySchema, agentConversationsSchema, agentQuestionsSchema, agentResultSchema, readAgent } from '@/lib/bi/agent/browser';
 
 type Navigate = (change: Partial<OverviewLocation>) => void;
@@ -135,16 +136,18 @@ function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp }:
   workspaceId: string; datasetId: string; version: number; runId: string; onFollowUp: (value: string) => void;
 }) {
   const [answer, setAnswer] = useState<BiAgentAnswerContent | null>(null), [error, setError] = useState('');
+  const [definitions, setDefinitions] = useState<z.infer<typeof agentAnswerSchema>['definitions']>(null);
   useEffect(() => {
     const controller = new AbortController();
     readAgent({ action: 'answer', workspace_id: workspaceId, run_id: runId }, agentAnswerSchema, { signal: controller.signal })
-      .then((data) => { if (data.dataset_version !== version || !data.answer) throw new Error('答案版本不一致，请刷新对话。'); if (!controller.signal.aborted) setAnswer(data.answer); })
+      .then((data) => { if (data.dataset_version !== version || !data.answer) throw new Error('答案版本不一致，请刷新对话。'); if (!controller.signal.aborted) { setAnswer(data.answer); setDefinitions(data.definitions); } })
       .catch((e) => { if (!controller.signal.aborted) setError(message(e)); });
     return () => controller.abort();
   }, [workspaceId, version, runId]);
   if (error) return <BiNotice error>{error}</BiNotice>;
   if (!answer) return <p className="mt-3 text-sm">正在读取答案…</p>;
   return <div className="mt-4 space-y-4"><BiAnswerMarkdown text={answer.text} />
+    {definitions && <BiDefinitionEvidence evidence={definitions} />}
     {answer.views.filter((view) => view.kind !== 'table').map((view, i) => <BiAssistantChart key={`${view.result_id}:${view.metric}:${i}`} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} view={view} />)}
     {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} />)}
     {answer.follow_up.length > 0 && <div className="flex flex-wrap gap-2">{answer.follow_up.map((value) => <Button key={value} size="sm" variant="outline" className="h-auto whitespace-normal text-left" onClick={() => onFollowUp(value)}>{value}</Button>)}</div>}
@@ -168,9 +171,7 @@ function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, n
   return <details className="min-w-0 rounded-lg border border-border p-3" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-medium">查看依据 {number}{data ? ` · 共 ${data.total} 项` : ''}</summary>
     {error && <BiNotice error>{error}</BiNotice>}{!data && !error && <p className="mt-3 text-sm">正在读取依据…</p>}
     {data && <><p className="mt-3 text-xs text-muted-foreground">版本 {version} · {data.metadata.range.start ?? '无日期'} 至 {data.metadata.range.end ?? '无日期'} · {data.metadata.range.refund_basis === 'payment' ? '按原付款日期统计退款' : '按退款发生日期统计退款'}。保留提问时的查询结果。</p>
-      <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr><th className="p-2 text-left">对象 / 日期</th>{data.query.metrics.map((m) => <th key={m} className="whitespace-nowrap p-2 text-right">{AGENT_METRIC_LABELS[m]}</th>)}</tr></thead>
-        <tbody>{data.rows.map((r) => <tr key={r.key} className="border-t border-border"><td className="min-w-36 p-2">{r.name}</td>{data.query.metrics.map((m) => <td key={m} className="whitespace-nowrap p-2 text-right tabular-nums">{decimalLabel(r.metrics[m], ['contribution_margin', 'refund_ratio', 'coverage_ratio'].includes(m))}</td>)}</tr>)}</tbody></table></div>
-      {data.total === 0 && <p className="mt-3 text-sm text-muted-foreground">此范围没有符合条件的记录。</p>}
+      <BiEvidenceTable data={data} />
       <BiPagination label={`分析依据 ${number} 分页`} page={page} total={data.total} change={setPage} /></>}
   </details>;
 }

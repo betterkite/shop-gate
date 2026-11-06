@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { metricCatalogSchema } from './metric-contracts';
 import { signBiServiceClaims } from '../job-signatures';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
 import { BiAgentProblem, biAgentPageScopeSchema, type BiAgentPageScope } from './contracts';
@@ -95,9 +95,3 @@ export async function readBiAgentMetricCatalog(authority: BiAgentAuthority, sign
   if (after.actorId !== authority.actorId) throw new Error('BI identity changed.');
   signal.throwIfAborted(); return rows;
 }
-
-const metricCatalogSchema = z.array(z.object({
-  id: z.string().max(80), name: z.string().max(200), unit: z.string().max(80),
-  formula: z.string().max(2000), missing_policy: z.string().max(2000),
-  dimensions: z.array(z.string().max(80)).max(40), source: z.string().max(2000), aggregation: z.string().max(2000),
-})).max(100);

@@ -7,6 +7,7 @@ import { submitBiAgentQuestion, cancelBiAgentQuestion } from './requests';
 import { biAgentPageScopeSchema } from './contracts';
 import { collectBiAgentResult, saveBiAgentAnswer, readBiAgentAnswer, readBiAgentResultPage,
   readBiAgentChart, inspectBiAgentResultPage, type BiAgentResultFence } from './results';
+import { collectBiAgentMetricSource } from './metric-sources';
 import type { BiAgentAuthority } from './authorization';
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
@@ -207,4 +208,54 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
     await expect(inspectBiAgentResultPage(fence, result.evidence_id, 1, b)).rejects.toThrow();
     await expect(saveBiAgentAnswer(fence, answer(result.evidence_id), b)).rejects.toThrow();
   });
+
+  const definition = { id: 'net_sales', name: '净销售额', unit: '元', formula: '付款成交金额 − 退款金额',
+    missing_policy: '缺少金额时保留未知', dimensions: ['overall', 'store'], source: '订单明细与退款记录', aggregation: '金额相加' };
+  const definitionAnswer = (sourceId: string) => ({ kind: 'definition', text: '净销售额是付款成交金额减去退款金额。',
+    evidence_ids: [], definition_source_id: sourceId, definition_ids: ['net_sales'] });
+
+  it('persists immutable definitions without ledger rows and replays their original source after catalog failure', async () => {
+    const { actor, fence, repository } = await running(); const catalog = vi.fn(async () => [definition]);
+    const source = await collectBiAgentMetricSource(fence, signal(), { client: a, catalog });
+    catalog.mockRejectedValue(new Error('Catalog updated or offline'));
+    expect(await collectBiAgentMetricSource(fence, signal(), { client: b, catalog })).toEqual(source);
+    expect(catalog).toHaveBeenCalledTimes(1);
+    await expect(a.biAgentMetricSource.update({ where: { id: source.source_id }, data: { metrics: [] } })).rejects.toThrow();
+    await saveBiAgentAnswer(fence, definitionAnswer(source.source_id), a);
+    await complete(fence, repository);
+    const fresh = new PrismaClient({ datasourceUrl: databaseUrl! });
+    try {
+      expect(await readBiAgentAnswer(actor, fence.runId, fresh)).toMatchObject({ status: 'completed',
+        answer: { kind: 'definition', evidence_ids: [] }, definitions: { source_id: source.source_id, metrics: [definition] } });
+      expect(await fresh.biAgentResult.count({ where: { runId: fence.runId } })).toBe(0);
+    } finally { await fresh.$disconnect(); }
+    await expect(readBiAgentAnswer(await identity(), fence.runId, b)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
+    await a.authSession.delete({ where: { id: actor.sessionId } });
+    await expect(readBiAgentAnswer(actor, fence.runId, b)).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('rejects invented, cross-run, absent-metric and corrupted definition references', async () => {
+    const first = await running(), second = await running();
+    const source = await collectBiAgentMetricSource(first.fence, signal(), { client: a, catalog: async () => [definition] });
+    await expect(saveBiAgentAnswer(first.fence, definitionAnswer(randomUUID()), a)).rejects.toThrow();
+    await expect(saveBiAgentAnswer(second.fence, definitionAnswer(source.source_id), a)).rejects.toThrow();
+    await expect(saveBiAgentAnswer(first.fence, { ...definitionAnswer(source.source_id), definition_ids: ['sales_amount'] }, a)).rejects.toThrow();
+    // Even an out-of-band insert with a syntactically valid digest cannot be cited.
+    const corrupt = await a.biAgentMetricSource.create({ data: { runId: second.fence.runId, metrics: [definition], digest: '0'.repeat(64) } });
+    await expect(saveBiAgentAnswer(second.fence, definitionAnswer(corrupt.id), a)).rejects.toThrow();
+    expect(await b.biAgentAnswer.count({ where: { runId: { in: [first.fence.runId, second.fence.runId] } } })).toBe(0);
+  });
+
+  it.each(['cancel', 'logout', 'expiry', 'abort'])('does not save dictionary evidence when %s arrives during catalog reading', async (mode) => {
+    const { actor, fence } = await running(); const controller = new AbortController();
+    await expect(collectBiAgentMetricSource(fence, controller.signal, { client: a, catalog: async () => {
+      if (mode === 'cancel') await cancelBiAgentQuestion(actor, fence.runId, b);
+      if (mode === 'logout') await b.authSession.delete({ where: { id: actor.sessionId } });
+      if (mode === 'expiry') await b.agentRun.update({ where: { id: fence.runId }, data: { leaseExpiresAt: new Date(0) } });
+      if (mode === 'abort') controller.abort();
+      return [definition];
+    } })).rejects.toThrow();
+    expect(await b.biAgentMetricSource.count({ where: { runId: fence.runId } })).toBe(0);
+  });
+
 });

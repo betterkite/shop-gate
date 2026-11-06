@@ -7,6 +7,7 @@ import type { AgentRunRecord, CreateAgentRunInput } from './types';
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
 const prefix = `bi_scope_${randomUUID().replaceAll('-', '')}`;
+const pageScope = { view: 'overview', dateFrom: '2026-09-01', dateTo: '2026-09-30' };
 const zeroUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0,
   cachedInputTokens: 0, cacheMissInputTokens: 0, reasoningTokens: 0 };
 const hash = (value: string) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -47,7 +48,7 @@ describe.skipIf(!databaseUrl)('BI execution scopes (real PostgreSQL)', () => {
     return a.biAgentRequest.create({ data: {
       conversationId: conversation.id, executionScopeId: executionScope.id, actorUserId,
       idempotencyKey: unique(), instruction: '分析当前范围的净销售额，并给出数据来源。',
-      inputHash: 'a'.repeat(64), pageScope: { view: 'overview', dateFrom: '2026-09-01', dateTo: '2026-09-30' },
+      inputHash: 'a'.repeat(64), pageScope,
       datasetVersion: 2, model: 'deepseek-v4-flash',
     } });
   }
@@ -129,7 +130,7 @@ describe.skipIf(!databaseUrl)('BI execution scopes (real PostgreSQL)', () => {
     const first = await request(shared, actor);
     const second = await request(shared, otherActor);
     const personal = await scope(actor);
-    const data = { ...first, id: undefined };
+    const data = { ...first, id: undefined, pageScope };
     await expect(a.biAgentRequest.create({ data: { ...data, id: unique(),
       idempotencyKey: unique(), actorUserId: otherActor } })).rejects.toThrow();
     await expect(a.biAgentRequest.create({ data: { ...data, id: unique(),
@@ -148,7 +149,7 @@ describe.skipIf(!databaseUrl)('BI execution scopes (real PostgreSQL)', () => {
     const envelope = await request(owned, actor);
     await expect(a.biAgentRequest.update({ where: { id: envelope.id }, data: { datasetVersion: 3 } }))
       .rejects.toThrow();
-    const data = { ...envelope, id: undefined };
+    const data = { ...envelope, id: undefined, pageScope };
     await expect(a.biAgentRequest.create({ data })).rejects.toMatchObject({ code: 'P2002' });
     await expect(repository.createRun(input(owned.id, envelope.id, { model: 'different-model' })))
       .rejects.toMatchObject({ code: 'INVALID_STATE' });

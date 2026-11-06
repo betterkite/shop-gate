@@ -50,4 +50,3 @@ export async function listUnmeteredAgentRuns(
     LIMIT ${limit}
   `;
 }
-

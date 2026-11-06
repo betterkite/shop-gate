@@ -28,11 +28,14 @@ class OverviewRequest:
     channel_page: int = 1
     target_page: int = 1
     target_month: str | None = None
+    channel_metric: str = "net_sales"
 
     def validate(self):
         self.query.validate()
         if self.interval not in {"day", "week"}:
             raise ValueError("趋势仅支持按日或按周查看。")
+        if self.channel_metric not in {"net_sales", "accounted_contribution"}:
+            raise ValueError("渠道仅支持按净销售额或已核算经营贡献排序。")
         for page in (self.channel_page, self.target_page):
             if type(page) is not int or not 1 <= page <= 1_000_000:
                 raise ValueError("页码无效。")
@@ -89,6 +92,31 @@ def _completion(actual, target):
         (Decimal(actual) / target).quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP),
         ".8f",
     )
+
+
+def _channels(read, fixed, request, summary):
+    selected = replace(fixed, dimension="channel", page_size=200, sort=request.channel_metric)
+    first = read.query(selected)
+    records = list(first["rows"])
+    for page in range(2, (first["total"] + 199) // 200 + 1):
+        records.extend(read.query(replace(selected, page=page))["rows"])
+    states = {}
+    for metric in ("net_sales", "accounted_contribution"):
+        denominator = summary["metrics"][metric]
+        values = [row["metrics"][metric] for row in records]
+        state = (
+            "incomplete" if denominator is None or any(value is None for value in values)
+            else "nonpositive_total" if Decimal(denominator) <= 0
+            else "negative_values" if any(Decimal(value) < 0 for value in values)
+            else "comparable"
+        )
+        states[metric] = state
+        for row in records:
+            row.setdefault("shares", {})[metric] = (
+                _completion(row["metrics"][metric], Decimal(denominator))
+                if state == "comparable" else None
+            )
+    return {**_page(records, request.channel_page), "share_states": states}
 
 
 def _monthly_targets(read, selected, month, page):
@@ -333,15 +361,7 @@ def overview(connection, scope, request: OverviewRequest):
             )
             for metric in KPI_METRICS
         }
-        channels = read.query(
-            replace(
-                fixed,
-                dimension="channel",
-                page=request.channel_page,
-                sort="net_sales",
-                descending=True,
-            )
-        )
+        channels = _channels(read, fixed, request, current["summary"])
         month = (
             date.fromisoformat(request.target_month) if request.target_month else end.replace(day=1)
         )
@@ -358,7 +378,7 @@ def overview(connection, scope, request: OverviewRequest):
             else None,
             "comparison": comparison,
             "trend": _trend(read, fixed, start, end, request.interval),
-            "channels": {key: channels[key] for key in ("rows", "total", "page", "page_size")},
+            "channels": channels,
             "attention": _attention(current["summary"], comparison, fixed),
             "targets": _monthly_targets(read, selected, month, request.target_page),
             "notes": [

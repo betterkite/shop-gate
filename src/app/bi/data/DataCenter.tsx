@@ -118,7 +118,7 @@ export function DataCenter({ workspaceId, canManage, demoEnabled }: { workspaceI
         <div className="flex min-w-0 items-center gap-3"><Link href="/" aria-label="返回工作台" className="rounded-lg p-2 hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Link>
           <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Database className="h-5 w-5" /></span>
           <div><p className="text-xs font-medium text-primary">Shop Gate · 经营数据</p><h1 className="text-lg font-semibold sm:text-xl">数据集与导入中心</h1></div></div>
-        <div className="flex items-center gap-2"><ThemeToggle compact /><AuthUserMenu variant="header" /></div>
+        <div className="flex flex-wrap items-center gap-2"><Link className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10" href={`/bi/overview?${new URLSearchParams({ workspace_id: workspaceId, ...(location.datasetId ? { dataset_id: location.datasetId } : {}) })}`}>查看经营总览</Link><ThemeToggle compact /><AuthUserMenu variant="header" /></div>
       </div>
     </header>
     <main className="mx-auto grid w-full min-w-0 max-w-[1440px] grid-cols-1 gap-5 px-4 py-6 sm:px-6">

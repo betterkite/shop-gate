@@ -273,12 +273,12 @@ def query_input(value):
 
 def overview_input(value):
     if not isinstance(value, dict) or set(value) - {
-        "query", "interval", "channel_page", "target_page", "target_month"
+        "query", "interval", "channel_page", "target_page", "target_month", "channel_metric"
     }:
         raise BiInputError()
     options = dict(value)
     options["query"] = query_input(options.get("query", {}))
-    for key in ("interval", "target_month"):
+    for key in ("interval", "target_month", "channel_metric"):
         if key in options and not isinstance(options[key], str):
             raise BiInputError()
     result = OverviewRequest(**options)

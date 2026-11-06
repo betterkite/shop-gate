@@ -243,7 +243,7 @@ export async function postOverview(request: NextRequest) {
   keys(body, ['workspace_id', 'dataset_id', 'version', 'options']);
   const wanted = jobInputScope(body);
   const options = object(body.options);
-  keys(options, ['query', 'interval', 'channel_page', 'target_page', 'target_month']);
+  keys(options, ['query', 'interval', 'channel_page', 'target_page', 'target_month', 'channel_metric']);
   const scope = await issueLedgerScope({ headers: request.headers, ...wanted });
   const data = decoded((await upstream('overview', scope.token, options)).bytes);
   if (data.workspace_id !== scope.workspaceId || data.dataset_id !== scope.datasetId

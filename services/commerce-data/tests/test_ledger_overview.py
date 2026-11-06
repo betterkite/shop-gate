@@ -40,6 +40,7 @@ def test_comparison_is_exact_and_does_not_invent_growth(
     "change",
     [
         {"interval": "month"},
+        {"channel_metric": "arbitrary_sql"},
         {"channel_page": True},
         {"target_page": 0},
         {"target_page": 1.5},

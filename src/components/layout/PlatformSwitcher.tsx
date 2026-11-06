@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 
 const PRODUCTS = [
   { href: "/", label: "经营工作台", description: "发起零售分析并管理工作空间", icon: Home, group: "research" },
+  { href: "/bi/overview", label: "经营总览", description: "订单账本、经营趋势、平台贡献与月度目标", icon: BarChart3, group: "research" },
   { href: "/commerce-platform", label: "商品运营", description: "商品池、类目结构与渠道口径", icon: BarChart3, group: "research" },
   { href: "/operations-briefing", label: "经营情报", description: "观察池、经营日报与交付", icon: FileChartColumn, group: "research" },
   { href: "/analytics-workbench", label: "经营分析 BI", description: "用户、渠道、利润、库存与商品阶段", icon: BarChart3, group: "research" },

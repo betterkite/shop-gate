@@ -73,6 +73,8 @@ def test_overview_manual121_one_transaction_no_model_and_recordless_days_are_not
     assert result["previous"]["history_sufficient"] is False
     assert all(value["state"] == "history_insufficient" for value in result["comparison"].values())
     assert result["channels"]["rows"][0]["metrics"]["net_sales"] == "164.00"
+    assert result["channels"]["rows"][0]["shares"]["net_sales"] == "1.00000000"
+    assert result["channels"]["share_states"]["net_sales"] == "comparable"
     assert result["trend"]["rows"][0]["metrics"]["accounted_contribution"] == "121.00"
     assert result["trend"]["rows"][1]["metrics"] is None
     assert result["trend"]["rows"][1]["state"] == "no_records"
@@ -273,6 +275,13 @@ def test_all23_channels_and24_stores_including_unset_target_have_stable20_paging
     assert first["channels"]["total"] == second["channels"]["total"] == 23
     assert len(first["channels"]["rows"]) == 20 and len(second["channels"]["rows"]) == 3
     assert len({row["key"] for data in (first, second) for row in data["channels"]["rows"]}) == 23
+    assert first["channels"]["share_states"]["accounted_contribution"] == "negative_values"
+    assert second["channels"]["share_states"]["accounted_contribution"] == "negative_values"
+    assert all(row["shares"]["accounted_contribution"] is None
+               for data in (first, second) for row in data["channels"]["rows"])
+    assert first["channels"]["rows"][0]["shares"]["net_sales"] == "1.00000000"
+    assert all(row["shares"]["net_sales"] == "0.00000000"
+               for row in second["channels"]["rows"])
     assert first["targets"]["total"] == 24
     assert len(second["targets"]["rows"]) == 4
     assert first["targets"]["configured_count"] == second["targets"]["configured_count"] == 23

@@ -76,7 +76,7 @@ export function BiAssistant({ workspaceId, dataset, location, navigate }: {
       navigate({ conversationId: accepted.conversation_id, questionPage: Math.max(1, Math.ceil(accepted.conversation_version / 20)) });
     } catch (e) {
       if (!alive.current) return;
-      if (e instanceof AgentRequestError && e.status >= 400 && e.status < 500) setIntent(null);
+      if (e instanceof AgentRequestError && ((e.status >= 400 && e.status < 500) || e.code === 'BI_AGENT_MODEL_UNAVAILABLE')) setIntent(null);
       setError(message(e));
     }
     finally { sendingLock.current = false; if (alive.current) setSending(false); }
@@ -151,7 +151,9 @@ function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, n
   workspaceId: string; datasetId: string; version: number; runId: string; resultId: string; number: number;
 }) {
   const [page, setPage] = useState(1), [data, setData] = useState<z.infer<typeof agentResultSchema> | null>(null), [error, setError] = useState('');
+  const [open, setOpen] = useState(false);
   useEffect(() => {
+    if (!open) return;
     const controller = new AbortController(); setData(null); setError('');
     readAgent({ action: 'result', workspace_id: workspaceId, run_id: runId, result_id: resultId, page: String(page) }, agentResultSchema, { signal: controller.signal })
       .then((value) => {
@@ -159,8 +161,8 @@ function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, n
         if (!controller.signal.aborted) setData(value);
       }).catch((e) => { if (!controller.signal.aborted) setError(message(e)); });
     return () => controller.abort();
-  }, [workspaceId, datasetId, version, runId, resultId, page]);
-  return <details className="min-w-0 rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm font-medium">查看依据 {number}{data ? ` · 共 ${data.total} 项` : ''}</summary>
+  }, [workspaceId, datasetId, version, runId, resultId, page, open]);
+  return <details className="min-w-0 rounded-lg border border-border p-3" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}><summary className="cursor-pointer text-sm font-medium">查看依据 {number}{data ? ` · 共 ${data.total} 项` : ''}</summary>
     {error && <BiNotice error>{error}</BiNotice>}{!data && !error && <p className="mt-3 text-sm">正在读取依据…</p>}
     {data && <><p className="mt-3 text-xs text-muted-foreground">版本 {version} · {data.metadata.range.start ?? '无日期'} 至 {data.metadata.range.end ?? '无日期'} · {data.metadata.range.refund_basis === 'payment' ? '按原付款日期统计退款' : '按退款发生日期统计退款'}。保留提问时的查询结果。</p>
       <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr><th className="p-2 text-left">对象 / 日期</th>{data.query.metrics.map((m) => <th key={m} className="whitespace-nowrap p-2 text-right">{AGENT_METRIC_LABELS[m]}</th>)}</tr></thead>

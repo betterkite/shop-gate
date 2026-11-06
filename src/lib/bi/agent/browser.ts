@@ -35,7 +35,7 @@ export const AGENT_METRIC_LABELS: Record<z.infer<typeof biMetric>, string> = {
   contribution_margin: '经营贡献利润率（%）', refund_ratio: '退款金额占比（%）', accounted_revenue: '已核算收入（元）', coverage_ratio: '核算覆盖比例（%）',
 };
 export class AgentRequestError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  constructor(message: string, readonly status: number, readonly code?: string) { super(message); }
 }
 export async function readAgent<T>(params: Record<string, string>, schema: z.ZodType<T>, options: RequestInit = {}) {
   const response = await fetch(`/api/bi/assistant?${new URLSearchParams(params)}`, { ...options,
@@ -45,7 +45,7 @@ export async function readAgent<T>(params: Record<string, string>, schema: z.Zod
   if (!response.ok || body?.success !== true) {
     const known = typeof body?.error === 'string' && /^(BI_AGENT_|QUOTA_)/.test(body.error);
     throw new AgentRequestError(known && typeof body.message === 'string' && body.message.length <= 300 ? body.message
-      : '经营助手暂不可用，请稍后重试；经营数据页面仍可查看。', response.status);
+      : '经营助手暂不可用，请稍后重试；经营数据页面仍可查看。', response.status, known ? body.error : undefined);
   }
   const parsed = schema.safeParse(body.data);
   if (!parsed.success) throw new Error('分析结果格式不完整，请刷新后重试。');

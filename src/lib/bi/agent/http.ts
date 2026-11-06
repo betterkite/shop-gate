@@ -14,7 +14,7 @@ import { readBiAgentAnswer, readBiAgentResultPage } from './results';
 
 const headers = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' };
 const workspace = { workspace_id: biAgentIdentifier.optional() };
-const paging = z.string().regex(/^[1-9]\d{0,6}$/).transform(Number).refine((v) => v <= 1_000_000).default('1');
+const paging = z.string().regex(/^[1-9]\d{0,6}$/).transform(Number).refine((v) => v <= 1_000_000).default(1);
 const queries = z.discriminatedUnion('action', [
   z.object({ action: z.literal('availability'), ...workspace }).strict(),
   z.object({ action: z.literal('conversations'), ...workspace, dataset_id: biAgentIdentifier, page: paging }).strict(),

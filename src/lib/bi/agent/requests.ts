@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { createTransactionalQuotaService } from '@/lib/quota/service';
-import { assertAgentPendingCapacity } from '@/lib/services/agent-request-admission';
+import { assertAgentPendingCapacity, lockAgentRequestActor } from '@/lib/services/agent-request-admission';
 import { biAgentProvenance } from './provenance';
 import { getProjectLlmConfig } from '@/lib/config/llm';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
@@ -63,6 +63,7 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
     await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.conversation_id}, 0))::text`);
     const current = await recheckBiAgentSession(checked.sessionId, checked.workspaceId, 'run', tx);
     if (current.actorId !== checked.actorId) throw notFound();
+    await lockAgentRequestActor(tx, current.actorId);
     const personal = current.workspaceId === `account:${current.actorId}`;
     const scopeId = randomUUID();
     await tx.$executeRaw(Prisma.sql`INSERT INTO agent_execution_scopes

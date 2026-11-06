@@ -45,6 +45,8 @@ describe('BI assistant HTTP boundary', () => {
     mocks.result.mockResolvedValue({ rows: [] }); mocks.cancel.mockResolvedValue({ id: run, status: 'cancelled' });
     expect((await GET(get(`action=questions&conversation_id=${conversation}&page=2`))).status).toBe(200);
     expect(mocks.questions).toHaveBeenCalledWith(auth, conversation, 2);
+    expect((await GET(get(`action=questions&conversation_id=${conversation}`))).status).toBe(200);
+    expect(mocks.questions).toHaveBeenLastCalledWith(auth, conversation, 1);
     expect((await GET(get(`action=answer&run_id=${run}`))).status).toBe(200);
     expect((await GET(get(`action=result&run_id=${run}&result_id=${result}&page=2`))).status).toBe(200);
     expect(mocks.result).toHaveBeenCalledWith(auth, run, result, 2);

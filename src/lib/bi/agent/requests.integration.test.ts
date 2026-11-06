@@ -85,15 +85,18 @@ describe.skipIf(!databaseUrl)('BI assistant durable inbox (real PostgreSQL)', ()
     expect(await a.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'agent.requests.daily' } })).toBe(1);
   });
 
-  it('atomically enforces the daily limit across independent conversations and rolls back the loser', async () => {
+  it.each(['same', 'different'])('atomically enforces the daily limit across conversations in %s datasets', async (scope) => {
     const actor = await identity();
     await a.userQuotaOverride.create({ data: { userId: actor.actorId, metric: 'agent.requests.daily',
       limit: 1n, enforcement: 'hard', windowType: 'day' } });
     const questions = [question({ dataset_id: unique() }), question({ dataset_id: unique() })];
+    if (scope === 'same') questions[1].dataset_id = questions[0].dataset_id;
     const outcomes = await Promise.allSettled(questions.map((q, i) => submitBiAgentQuestion(actor, q,
       { client: i ? b : a, resolvePage: resolver })));
     expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(outcomes.find((r) => r.status === 'rejected')).toMatchObject({ reason: { code: 'QUOTA_EXCEEDED' } });
+    const failure = outcomes.find((r) => r.status === 'rejected');
+    if (failure?.status === 'rejected' && failure.reason?.code !== 'QUOTA_EXCEEDED') throw failure.reason;
+    expect(failure).toMatchObject({ reason: { code: 'QUOTA_EXCEEDED' } });
     expect(await a.biAgentRequest.count({ where: { actorUserId: actor.actorId } })).toBe(1);
     expect(await a.biAgentConversation.count({ where: { actorUserId: actor.actorId } })).toBe(1);
     expect(await a.agentExecutionScope.count({ where: { ownerUserId: actor.actorId } })).toBe(1);
@@ -121,11 +124,14 @@ describe.skipIf(!databaseUrl)('BI assistant durable inbox (real PostgreSQL)', ()
     const actor = await identity();
     await a.authUser.update({ where: { id: actor.actorId }, data: { role: 'admin' } });
     await a.userQuotaOverride.create({ data: { userId: actor.actorId, metric: 'agent.requests.daily',
-      limit: 0n, enforcement: 'hard', windowType: 'day' } });
+      limit: 1n, enforcement: 'hard', windowType: 'day' } });
     const q = question();
     await submitBiAgentQuestion(actor, q, deps()); await submitBiAgentQuestion(actor, q, deps());
+    await submitBiAgentQuestion(actor, question(), deps());
     const events = await a.usageEvent.findMany({ where: { actorUserId: actor.actorId } });
-    expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ quantity: 1n, enforcementExempt: true });
+    expect(events).toHaveLength(2);
+    for (const event of events) expect(event).toMatchObject({ quantity: 1n, enforcementExempt: true });
+    expect((await a.usageBucket.findMany({ where: { actorUserId: actor.actorId } })).reduce((sum, row) => sum + row.used, 0n)).toBe(2n);
   });
 
   it.each(['legacy-first', 'bi-first', 'concurrent'])('shares pending admission across both inboxes: %s', async (order) => {

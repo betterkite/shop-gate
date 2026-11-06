@@ -252,6 +252,7 @@ def _attention(summary, comparison, query):
         ("unknown_cost_lines", "商品成本"),
         ("unknown_expenses", "经营费用"),
         ("unknown_attribution_expenses", "费用归属"),
+        ("unknown_quantity_lines", "标准数量"),
     ):
         if quality[key]:
             rules.append(

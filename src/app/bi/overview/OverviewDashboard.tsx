@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { BI_PANEL, BI_SELECT, BiNotice, BiPagination } from '@/components/bi/BiPrimitives';
 import { decimalLabel, type Dataset } from '@/lib/bi/data-contracts';
 import { readBi, dataErrorMessage } from '@/lib/bi/data-browser';
-import { overviewSchema, overviewQuery, scopeMatches, KPI_LABELS, COMPARISON_LABELS, QUALITY_LABELS, REFERENCE_LABELS,
+import { overviewSchema, overviewQuery, scopeMatches, qualityKey, KPI_LABELS, COMPARISON_LABELS, QUALITY_LABELS, REFERENCE_LABELS,
   type Overview, type OverviewLocation } from '@/lib/bi/overview-contracts';
 import type { OverviewNavigate } from './OverviewWorkspace';
 import { OverviewTrend } from './OverviewTrend';
 import { OverviewSources } from './OverviewSources';
 import { TargetEditor } from './TargetEditor';
 import { ReferencePicker } from './ReferencePicker';
+import { QualityEvidence } from './QualityEvidence';
 
 type Props = { workspaceId: string; dataset: Dataset; canManage: boolean; location: OverviewLocation;
   navigate: OverviewNavigate; refresh: number; onCommitted: () => void };
@@ -42,8 +43,8 @@ export function OverviewDashboard({ workspaceId, dataset, canManage, location, n
   const data = response?.key === body ? response.data : null;
   useEffect(() => { if (data && area.current) setHeight(Math.max(650, area.current.getBoundingClientRect().height)); }, [data]);
   const go: OverviewNavigate = (change) => {
-    if ((change.editStoreId || change.detailDimension || change.filterKind)
-        && !location.editStoreId && !location.detailDimension && !location.filterKind) {
+    if ((change.editStoreId || change.detailDimension || change.filterKind || change.qualityKey)
+        && !location.editStoreId && !location.detailDimension && !location.filterKind && !location.qualityKey) {
       opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
     setHeight(Math.max(650, area.current?.getBoundingClientRect().height ?? 650)); navigate(change);
@@ -72,7 +73,14 @@ export function OverviewDashboard({ workspaceId, dataset, canManage, location, n
         </section>
         <section className={BI_PANEL} aria-label="经营提醒"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="flex items-center gap-2 text-lg font-semibold"><CircleAlert className="h-5 w-5 text-primary" />值得查看的变化</h3><Button size="sm" variant="outline" onClick={() => go({ detailDimension: 'line', detailChannelId: undefined, detailStoreId: undefined, detailPage: 1, detailSearch: '' })}>查看全部来源明细<ArrowUpRight className="h-4 w-4" /></Button></div>
           <p className="mt-2 text-sm text-muted-foreground">下面是由记录触发的提醒，原因还需要结合交易、退款、成本与费用核对。</p>
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">{data.attention.rows.map((item) => <article key={item.id} className="rounded-xl border border-border bg-muted/20 p-4"><h4 className="font-medium">{item.title}</h4><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p><p className="mt-3 text-xs text-muted-foreground">出现条件：{item.rule}</p></article>)}</div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">{data.attention.rows.map((item) => {
+            const source = qualityKey.safeParse(item.evidence.quality_key);
+            return <article key={item.id} className="rounded-xl border border-border bg-muted/20 p-4"><h4 className="font-medium">{item.title}</h4><p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p><p className="mt-3 text-xs text-muted-foreground">出现条件：{item.rule}</p>
+              {source.success && <Button className="mt-3" size="sm" variant="outline" onClick={() => go({ qualityKey: source.data, evidencePage: 1, evidenceSearch: '', evidenceRecord: undefined })}>查看触发提醒的记录</Button>}
+              {item.id === 'sales_decline' && data.previous && <p className="mt-3 text-sm">本期净销售额 {decimalLabel(data.summary.metrics.net_sales)} 元；前期（{data.previous.range.start} 至 {data.previous.range.end}）{decimalLabel(data.previous.summary.metrics.net_sales)} 元。差额 {decimalLabel(data.comparison.net_sales?.difference)} 元。</p>}
+              {!source.success && <Button className="mt-3" size="sm" variant="outline" onClick={() => go({ detailDimension: 'line', detailChannelId: undefined, detailStoreId: undefined, detailPage: 1, detailSearch: '' })}>查看本期来源明细</Button>}
+            </article>;
+          })}</div>
           {!data.attention.total && <p className="mt-4 rounded-xl bg-muted/30 p-4 text-sm text-muted-foreground">{data.trend.rows.some((row) => row.state === 'recorded') ? '当前记录未触发上述提醒；这不代表所有经营问题都已排除。' : '当前范围没有经营记录，暂不判断经营变化。'}</p>}
         </section>
         <section className={BI_PANEL} aria-label="月度经营目标"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="flex items-center gap-2 text-lg font-semibold"><Target className="h-5 w-5 text-primary" />月度经营目标</h3><p className="mt-2 text-sm text-muted-foreground">{data.targets?.scope_note ?? '选择月份，查看所有店铺的整月目标与完成情况。'}</p></div>
@@ -89,6 +97,7 @@ export function OverviewDashboard({ workspaceId, dataset, canManage, location, n
       </>}
     </div>
     {location.filterKind && <ReferencePicker workspaceId={workspaceId} dataset={dataset} location={location} navigate={go} restoreFocus={restoreFocus} />}
+    {data && location.qualityKey && <QualityEvidence workspaceId={workspaceId} dataset={dataset} location={location} overview={data} navigate={go} restoreFocus={restoreFocus} />}
     {data && location.detailDimension && <OverviewSources workspaceId={workspaceId} dataset={dataset} location={location} range={data.range} navigate={go} restoreFocus={restoreFocus} />}
     {data && month && location.editStoreId && <TargetEditor key={`${dataset.dataset_id}:${dataset.version}:${month}:${location.editStoreId}`} workspaceId={workspaceId} dataset={dataset} storeId={location.editStoreId} month={month} initial={data.targets?.rows.find((row) => row.store_id === location.editStoreId)} canManage={canManage} close={() => go({ editStoreId: undefined })} restoreFocus={restoreFocus} committed={() => { setNotice('目标已保存。'); onCommitted(); }} />}
   </>;

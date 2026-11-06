@@ -10,6 +10,7 @@ from test_ledger_exchange_postgres import commit, manual_records
 
 from shopgate_commerce_data.ledger import query as query_module
 from shopgate_commerce_data.ledger.datasets import DatasetPlan, create_dataset
+from shopgate_commerce_data.ledger.evidence import EvidenceRequest, quality_evidence
 from shopgate_commerce_data.ledger.migrations import migrate_all
 from shopgate_commerce_data.ledger.operations import OperationConflict, create_preview
 from shopgate_commerce_data.ledger.overview import OverviewRequest, overview
@@ -90,6 +91,98 @@ def test_directory_includes_all_idle_products_skus_and_stores_and_literal_search
         assert all(row["state"] == "no_records" for row in idle["trend"]["rows"])
         unchanged = query_ledger(connection, scope, Query())
         assert unchanged["summary"]["metrics"]["accounted_contribution"] == "121.00"
+
+
+def test_exact_quality_evidence_deduplicates_lines_and_paginates_every_refund(context):
+    records = manual_records()
+    records["costs"] = []
+    records["fx_rates"] = []
+    records["orders"][0]["fx_rate"] = None
+    records["orders"][0]["fx_source"] = None
+    records["mappings"][0]["name"] = "100%棉服"
+    for i in range(23):
+        records["order_lines"].append({
+            **records["order_lines"][0], "line_id": f"extra-{i:03}",
+        })
+    for i in range(25):
+        records["refunds"].append({
+            **records["refunds"][0], "refund_id": f"refund-{i:03}", "amount": "0.10",
+        })
+    scope, _, _ = commit(context, records)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        current = overview(connection, scope, OverviewRequest())
+        pages = [quality_evidence(connection, scope, EvidenceRequest(page=page))
+                 for page in (1, 2)]
+        assert [len(page["rows"]) for page in pages] == [20, 5]
+        assert all(page["total"] == page["scope_total"] == 25 for page in pages)
+        assert len({row["key"] for page in pages for row in page["rows"]}) == 25
+        assert current["summary"]["quality"]["unknown_cost_lines"] == 25
+        literal = quality_evidence(connection, scope, EvidenceRequest(search="%"))
+        assert literal["total"] == 24 and literal["scope_total"] == 25
+        refund_request = EvidenceRequest(quality_key="unknown_refund_lines", record_key="line-o1")
+        first = quality_evidence(connection, scope, refund_request)
+        second = quality_evidence(connection, scope, replace(refund_request, event_page=2))
+        assert first["scope_total"] == current["summary"]["quality"]["unknown_refund_lines"] == 1
+        assert first["rows"][0]["event_count"] == 27
+        assert first["events"]["total"] == second["events"]["total"] == 27
+        assert [len(first["events"]["rows"]), len(second["events"]["rows"])] == [20, 7]
+        details = first["events"]["rows"] + second["events"]["rows"]
+        assert {row["refund_id"] for row in details} == {"r1", "r2"} | {
+            f"refund-{i:03}" for i in range(25)
+        }
+        assert all(row["currency"] == "USD" and row["amount_cny"] is None for row in details)
+        assert all(row["paid_at"].startswith("2026-07-01") for row in details)
+        assert all(row["occurred_at"].startswith("2026-07-02") for row in details)
+        assert all("汇率" in row["reason"] for row in details)
+        for selected, expected in (
+            (Query(start="2026-07-02", end="2026-07-02"), 0),
+            (Query(start="2026-07-02", end="2026-07-02", refund_basis="occurred"), 1),
+            (Query(store_ids=("002",)), 0),
+        ):
+            narrowed = quality_evidence(connection, scope, replace(refund_request, query=selected))
+            assert narrowed["scope_total"] == expected
+            if not expected:
+                assert narrowed["events"]["total"] == 0
+        empty_search = quality_evidence(
+            connection, scope, replace(refund_request, search="foreign")
+        )
+        assert empty_search["scope_total"] == 1 and empty_search["events"]["rows"] == []
+        with pytest.raises(OperationConflict):
+            quality_evidence(connection, replace(scope, version=1), refund_request)
+        for denied in (replace(scope, workspace_id="foreign"), replace(scope, dataset_id="foreign"),
+                       replace(scope, capabilities=frozenset())):
+            with pytest.raises(ScopeError):
+                quality_evidence(connection, denied, refund_request)
+
+
+def test_expense_evidence_never_assigns_full_source_amount_to_selected_product(context):
+    records = manual_records()
+    records["expenses"][1]["currency"] = "EUR"  # No known conversion rate.
+    for product in records["products"]:
+        product["category"] = ""
+    scope, _, _ = commit(context, records)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        result = quality_evidence(connection, scope, EvidenceRequest(
+            quality_key="unknown_expenses", record_key="e2"
+        ))
+        assert result["scope_total"] == 1
+        event = result["events"]["rows"][0]
+        assert event["original_amount"] == "6.00" and event["currency"] == "EUR"
+        assert event["source_amount_cny"] is None and event["amount_cny"] is None
+        for selected in (Query(product_ids=("p001",)), Query(category="")):
+            current = overview(connection, scope, OverviewRequest(query=selected))
+            evidence = quality_evidence(connection, scope, EvidenceRequest(
+                quality_key="unknown_attribution_expenses", query=selected, record_key="e2"
+            ))
+            assert evidence["scope_total"] == current["summary"]["quality"][
+                "unknown_attribution_expenses"
+            ] == 1
+            assert all(row["amount_cny"] is None for row in evidence["events"]["rows"])
+            assert all("不等于" in row["reason"] for row in evidence["events"]["rows"])
+        # Read-only evidence did not manufacture a conversion rate or change the version.
+        unchanged = query_ledger(connection, scope, Query())
+        assert unchanged["version"] == 2
+        assert unchanged["summary"]["metrics"]["net_sales"] == "164.00"
 
 
 def test_directory_parent_restrictions_names_permissions_and_stale_scope(context):

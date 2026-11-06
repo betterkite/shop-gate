@@ -36,6 +36,7 @@ from shopgate_commerce_data.ledger.datasets import (
     dataset_metadata,
     list_datasets,
 )
+from shopgate_commerce_data.ledger.evidence import EvidenceRequest, quality_evidence
 from shopgate_commerce_data.ledger.exchange import batch_history, download_errors
 from shopgate_commerce_data.ledger.job_scope import verify_job_scope
 from shopgate_commerce_data.ledger.jobs import (
@@ -530,6 +531,27 @@ def create_bi_router(settings: BiSettings | None = None):
         def execute():
             with config.connection() as connection:
                 return confirm_target(connection, verify_scope_token(token, config.secret), **body)
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.post("/evidence")
+    async def evidence_records(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.read")
+        body = await read_json(request)
+        if request.query_params or not isinstance(body, dict) or set(body) - {
+            f.name for f in fields(EvidenceRequest)
+        }:
+            raise BiInputError()
+        selected = EvidenceRequest(**{**body, "query": query_input(body.get("query", {}))})
+        selected.validate()
+
+        def execute():
+            with config.connection() as connection:
+                return quality_evidence(
+                    connection, verify_scope_token(token, config.secret), selected
+                )
 
         return {"success": True, "data": await run_in_threadpool(execute)}
 

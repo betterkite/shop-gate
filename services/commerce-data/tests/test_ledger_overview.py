@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 
+from shopgate_commerce_data.ledger.evidence import EvidenceRequest
 from shopgate_commerce_data.ledger.overview import OverviewRequest, compare_value
 
 
@@ -52,3 +53,13 @@ def test_comparison_is_exact_and_does_not_invent_growth(
 def test_overview_options_are_validated_without_silent_truncation(change):
     with pytest.raises(ValueError):
         replace(OverviewRequest(), **change).validate()
+
+
+@pytest.mark.parametrize("change", [
+    {"quality_key": "sql"}, {"quality_key": []}, {"page": True}, {"page": 0},
+    {"event_page": 1000000}, {"page_size": 100}, {"sort": []}, {"descending": 1},
+    {"search": "x" * 201}, {"record_key": "../foreign"}, {"record_key": []},
+])
+def test_evidence_rejects_unbounded_or_unregistered_inputs(change):
+    with pytest.raises(ValueError):
+        replace(EvidenceRequest(), **change).validate()

@@ -2,6 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { overviewLoginReturnPath, overviewQuery, overviewUrl, readOverviewLocation, referenceOptions, referenceSelection, scopeMatches } from './overview-contracts';
 
 describe('overview URL scope isolation and restore', () => {
+  it('restores exact alert, source and both pages without changing accounting filters', () => {
+    const href = overviewLoginReturnPath({ dataset_id: 'official', store_id: '001', quality: 'unknown_refund_lines', evidence_page: '2',
+      evidence_record: 'line-001', evidence_event_page: '3', evidence_search: '棉服', evidence_sort: 'date', evidence_descending: 'true' });
+    const location = readOverviewLocation(href.split('?')[1]);
+    expect(location).toMatchObject({ qualityKey: 'unknown_refund_lines', evidencePage: 2, evidenceEventPage: 3, evidenceRecord: 'line-001', evidenceSearch: '棉服', evidenceSort: 'date', evidenceDescending: true });
+    expect(overviewQuery(location)).toEqual(overviewQuery(readOverviewLocation('dataset_id=official&store_id=001')));
+    const sorted = readOverviewLocation(overviewUrl(href, { evidenceSort: 'name' }).split('?')[1]);
+    expect(sorted).toMatchObject({ evidencePage: 1, evidenceEventPage: 1, evidenceRecord: undefined });
+    expect(readOverviewLocation(overviewUrl(href, { filterKind: 'store' }).split('?')[1]).qualityKey).toBeUndefined();
+    expect(readOverviewLocation(overviewUrl(href, { datasetId: 'new' }).split('?')[1]).qualityKey).toBeUndefined();
+    expect(() => readOverviewLocation('quality=sql')).toThrow();
+    expect(() => readOverviewLocation('quality=unknown_cost_lines&quality=unknown_expenses')).toThrow();
+  });
   it('keeps directory pages/search/order without transaction dates in the directory request', () => {
     const href = overviewLoginReturnPath({ dataset_id: 'official', channel_id: 'pdd', store_id: '001', start: '2026-07-01', filter: 'listing', filter_page: '2', filter_search: '棉服', filter_sort: 'key', filter_descending: 'true' });
     const location = readOverviewLocation(href.split('?')[1]);

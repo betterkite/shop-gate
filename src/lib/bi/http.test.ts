@@ -8,6 +8,7 @@ import { GET as datasets, POST as create } from '@/app/api/bi/datasets/route';
 import { POST as query } from '@/app/api/bi/query/route';
 import { POST as overview } from '@/app/api/bi/overview/route';
 import { POST as references } from '@/app/api/bi/references/route';
+import { POST as evidence } from '@/app/api/bi/evidence/route';
 import { POST as targetPreview } from '@/app/api/bi/targets/preview/route';
 import { POST as targetConfirm } from '@/app/api/bi/targets/confirm/route';
 import { GET as catalog } from '@/app/api/bi/catalog/route';
@@ -67,6 +68,30 @@ describe('same-origin BI gateway with real scope issuer', () => {
     }
     const before = mocks.fetch.mock.calls.length;
     expect((await references(post('references', { dataset_id: 'official', version: 2, options: { ...options, sql: 'SELECT private' } }))).status).toBe(422);
+    expect(mocks.fetch.mock.calls).toHaveLength(before);
+  });
+
+  it('binds exact alert evidence to read-only identity, version and quality type', async () => {
+    const envelope = { workspace_id: record.workspace_id, dataset_id: 'official', version: 2, accounting_revision: 2,
+      quality_key: 'unknown_cost_lines', scope_total: 25, total: 25, page: 2, page_size: 20, rows: [], events: { rows: [], total: 0 } };
+    const options = { quality_key: 'unknown_cost_lines', query: { store_ids: ['001'] }, page: 2 };
+    const request = () => post('evidence', { dataset_id: 'official', version: 2, options });
+    upstream({ ...envelope, service_token: SECRET });
+    const response = await evidence(request());
+    expect(response.status).toBe(200); expect((await response.json()).data).toEqual(envelope);
+    const [url, init] = mocks.fetch.mock.calls[0];
+    expect(String(url)).toBe('http://127.0.0.1:8000/api/v1/bi/evidence');
+    expect(JSON.parse(init.body)).toEqual(options);
+    const claims = JSON.parse(Buffer.from(init.headers.authorization.slice(7).split('.')[0], 'base64url').toString());
+    expect(claims.capabilities).toEqual(['ledger.read']); expect(claims.actor_id).toBe('member-a');
+    for (const invalid of [{ workspace_id: 'account:other' }, { version: 1 }, { accounting_revision: 1 }, { quality_key: 'unknown_expenses' }]) {
+      upstream({ ...envelope, ...invalid }); expect((await evidence(request())).status).toBe(503);
+    }
+    const before = mocks.fetch.mock.calls.length;
+    expect((await evidence(post('evidence', { dataset_id: 'official', version: 2, options: { ...options, sql: 'private' } }))).status).toBe(422);
+    expect(mocks.fetch.mock.calls).toHaveLength(before);
+    mocks.requireAction.mockRejectedValueOnce(new AuthorizationError('FORBIDDEN', 403, 'permission lost'));
+    expect((await evidence(request())).status).toBe(403);
     expect(mocks.fetch.mock.calls).toHaveLength(before);
   });
 

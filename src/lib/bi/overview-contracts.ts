@@ -81,12 +81,31 @@ export type SourceDimension = keyof typeof DIMENSION_LABELS;
 export const QUALITY_LABELS = { unknown_revenue_lines: '缺少付款金额依据的订单明细', unknown_refund_lines: '缺少退款金额依据的订单明细',
   unknown_cost_lines: '缺少商品成本依据的订单明细', unknown_expenses: '尚未核算完整的费用',
   unknown_attribution_expenses: '尚未明确归属的费用', unknown_quantity_lines: '尚未明确标准数量的订单明细' } as const;
+export type QualityKey = keyof typeof QUALITY_LABELS;
+export const qualityKey = z.enum(['unknown_revenue_lines', 'unknown_refund_lines', 'unknown_cost_lines',
+  'unknown_expenses', 'unknown_attribution_expenses', 'unknown_quantity_lines']);
+export const qualityEvidenceSchema = z.object({ workspace_id: identifier, dataset_id: identifier, version,
+  accounting_revision: version, quality_key: qualityKey, range, data_cutoff: z.string().nullable(),
+  scope_total: z.number().int().nonnegative(), ...page,
+  rows: z.array(z.object({ key: identifier, kind: z.enum(['line', 'expense']), name: z.string(),
+    store_name: z.string().nullable(), order_id: identifier.nullable(), date: z.string(),
+    event_count: z.number().int().positive(), reasons: z.array(z.string()) })),
+  events: z.object({ ...page, record_key: identifier.nullable(), rows: z.array(z.object({
+    key: z.string(), kind: z.enum(['sale', 'refund', 'expense']), source_id: identifier, date: z.string(),
+    order_id: identifier.nullable(), line_id: identifier.nullable(), refund_id: identifier.nullable(), expense_id: identifier.nullable(),
+    store_name: z.string().nullable(), listing_name: z.string().nullable(), paid_at: z.string().nullable(), occurred_at: z.string().nullable(),
+    currency: z.string(), original_amount: decimal, amount_cny: decimal.nullable(), cost_cny: decimal.nullable(),
+    source_amount_cny: decimal.nullable(), reason: z.string(),
+  })) }) });
+export type QualityEvidence = z.infer<typeof qualityEvidenceSchema>;
 
 export type OverviewLocation = { workspaceId?: string; datasetId?: string; datasetPage: number;
   start?: string; end?: string; channelId?: string; storeId?: string; productId?: string; skuId?: string; listingId?: string; category?: string;
   interval: 'day' | 'week'; refundBasis: 'payment' | 'occurred'; channelMetric: 'net_sales' | 'accounted_contribution';
   channelPage: number; trendPage: number; targetPage: number; targetMonth?: string; editStoreId?: string;
   filterKind?: ReferenceKind; filterPage: number; filterSearch: string; filterSort: 'name' | 'key'; filterDescending: boolean;
+  qualityKey?: QualityKey; evidencePage: number; evidenceSearch: string; evidenceSort: 'key' | 'name' | 'date'; evidenceDescending: boolean;
+  evidenceRecord?: string; evidenceEventPage: number;
   detailDimension?: SourceDimension; detailChannelId?: string; detailStoreId?: string; detailPage: number;
   detailSearch: string; detailSort: 'key' | 'net_sales' | 'accounted_contribution' | 'order_count'; detailDescending: boolean };
 const FIELDS = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPage: 'dataset_page', start: 'start', end: 'end',
@@ -94,6 +113,8 @@ const FIELDS = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPa
   interval: 'interval', refundBasis: 'refund_basis', channelMetric: 'channel_metric', channelPage: 'channel_page', trendPage: 'trend_page', targetPage: 'target_page',
   targetMonth: 'target_month', editStoreId: 'edit_store_id', detailDimension: 'detail', detailChannelId: 'detail_channel_id',
   filterKind: 'filter', filterPage: 'filter_page', filterSearch: 'filter_search', filterSort: 'filter_sort', filterDescending: 'filter_descending',
+  qualityKey: 'quality', evidencePage: 'evidence_page', evidenceSearch: 'evidence_search', evidenceSort: 'evidence_sort', evidenceDescending: 'evidence_descending',
+  evidenceRecord: 'evidence_record', evidenceEventPage: 'evidence_event_page',
   detailStoreId: 'detail_store_id', detailPage: 'detail_page', detailSearch: 'detail_search', detailSort: 'detail_sort', detailDescending: 'detail_descending' } as const;
 function validDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return false;
@@ -117,10 +138,15 @@ export function readOverviewLocation(search: string): OverviewLocation {
   if (detail !== null && !Object.hasOwn(DIMENSION_LABELS, detail)) throw new Error('明细查看方式无效。');
   const filter = p.get('filter');
   if (filter !== null && !Object.hasOwn(REFERENCE_LABELS, filter)) throw new Error('筛选目录无效。');
+  const quality = p.get('quality');
+  if (quality !== null && !qualityKey.safeParse(quality).success) throw new Error('核算提醒类型无效。');
   return { workspaceId: id('workspace_id'), datasetId: id('dataset_id'), datasetPage: page('dataset_page'), start, end,
     channelId: id('channel_id'), storeId: id('store_id'), productId: id('product_id'), skuId: id('sku_id'), listingId: id('listing_id'), category: p.has('category') ? text('category') : undefined,
     filterKind: filter ? filter as ReferenceKind : undefined, filterPage: page('filter_page'), filterSearch: text('filter_search'),
     filterSort: choice('filter_sort', ['name', 'key'], 'name'), filterDescending: choice('filter_descending', ['true', 'false'], 'false') === 'true',
+    qualityKey: quality ? quality as QualityKey : undefined, evidencePage: page('evidence_page'), evidenceSearch: text('evidence_search'),
+    evidenceSort: choice('evidence_sort', ['key', 'name', 'date'], 'key'), evidenceDescending: choice('evidence_descending', ['true', 'false'], 'false') === 'true',
+    evidenceRecord: id('evidence_record'), evidenceEventPage: page('evidence_event_page'),
     interval: choice('interval', ['day', 'week'], 'day'), refundBasis: choice('refund_basis', ['payment', 'occurred'], 'payment'),
     channelMetric: choice('channel_metric', ['net_sales', 'accounted_contribution'], 'net_sales'),
     channelPage: page('channel_page'), trendPage: page('trend_page'), targetPage: page('target_page'), targetMonth, editStoreId: id('edit_store_id'),
@@ -139,7 +165,7 @@ export function overviewUrl(current: string, change: Partial<OverviewLocation>) 
     url.search = ''; if (workspaceId) url.searchParams.set('workspace_id', workspaceId);
   } else {
     if (['start', 'end', 'channelId', 'storeId', 'productId', 'skuId', 'listingId', 'category', 'refundBasis'].some((key) => key in change)) {
-      for (const key of ['channel_page', 'trend_page', 'target_page', 'detail_page', 'filter_page', 'edit_store_id', 'detail_channel_id', 'detail_store_id']) url.searchParams.delete(key);
+      for (const key of ['channel_page', 'trend_page', 'target_page', 'detail_page', 'filter_page', 'edit_store_id', 'detail_channel_id', 'detail_store_id', 'evidence_page', 'evidence_record', 'evidence_event_page']) url.searchParams.delete(key);
     }
     if ('channelId' in change && change.channelId !== before.channelId && !('storeId' in change)) url.searchParams.delete('store_id');
     if ((('channelId' in change && change.channelId !== before.channelId) || ('storeId' in change && change.storeId !== before.storeId)) && !('listingId' in change)) url.searchParams.delete('listing_id');
@@ -152,6 +178,12 @@ export function overviewUrl(current: string, change: Partial<OverviewLocation>) 
     if (change.filterKind) { url.searchParams.delete('detail'); url.searchParams.delete('edit_store_id'); }
     if (change.detailDimension) { url.searchParams.delete('filter'); url.searchParams.delete('edit_store_id'); }
     if (change.editStoreId) { url.searchParams.delete('filter'); url.searchParams.delete('detail'); }
+    if (change.filterKind || change.detailDimension || change.editStoreId) url.searchParams.delete('quality');
+    if (change.qualityKey) for (const key of ['filter', 'detail', 'edit_store_id']) url.searchParams.delete(key);
+    if (['qualityKey', 'evidenceSearch', 'evidenceSort', 'evidenceDescending'].some((key) => key in change)) {
+      for (const key of ['evidence_page', 'evidence_record', 'evidence_event_page']) url.searchParams.delete(key);
+    }
+    if ('evidenceRecord' in change) url.searchParams.delete('evidence_event_page');
     if ('detailDimension' in change || 'detailSearch' in change || 'detailSort' in change || 'detailDescending' in change) url.searchParams.delete('detail_page');
     if ('targetMonth' in change) { url.searchParams.delete('target_page'); url.searchParams.delete('edit_store_id'); }
     if ('interval' in change) url.searchParams.delete('trend_page');
@@ -159,7 +191,7 @@ export function overviewUrl(current: string, change: Partial<OverviewLocation>) 
   }
   for (const [field, key] of Object.entries(FIELDS)) if (field in change) {
     const value = change[field as keyof OverviewLocation];
-    const defaults: Record<string, unknown> = { interval: 'day', refundBasis: 'payment', channelMetric: 'net_sales', detailSort: 'net_sales', detailDescending: true, filterSort: 'name', filterDescending: false };
+    const defaults: Record<string, unknown> = { interval: 'day', refundBasis: 'payment', channelMetric: 'net_sales', detailSort: 'net_sales', detailDescending: true, filterSort: 'name', filterDescending: false, evidenceSort: 'key', evidenceDescending: false };
     if (value === undefined || (value === '' && field !== 'category') || (field.endsWith('Page') && value === 1) || defaults[field] === value) url.searchParams.delete(key);
     else url.searchParams.set(key, String(value));
   }

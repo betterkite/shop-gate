@@ -233,6 +233,26 @@ def test_signed_overview_reads_fixed_manual_ledger_and_refuses_foreign_scope(cli
     assert browser.post(PREFIX + "/overview", json={}).status_code == 403
     denied = browser.post(PREFIX + "/overview?actor=foreign", headers=auth, json={})
     assert denied.status_code == 422
+    evidence = browser.post(PREFIX + "/evidence", headers=auth, json={
+        "quality_key": "unknown_attribution_expenses", "query": {"product_ids": ["p001"]},
+        "record_key": "e2",
+    })
+    assert evidence.status_code == 200, evidence.text
+    assert evidence.json()["data"]["scope_total"] == 1
+    assert evidence.json()["data"]["events"]["rows"][0]["original_amount"] == "6.00"
+    for bad in ({"sql": "SELECT private"}, {"actor_id": "foreign"}, {"quality_key": []},
+                {"query": {"sql": "SELECT private"}}, {"page": True}, {"page_size": 100}):
+        response = browser.post(PREFIX + "/evidence", headers=auth, json=bad)
+        assert response.status_code == 422
+        assert SECRET not in response.text and "SELECT private" not in response.text
+    assert browser.post(PREFIX + "/evidence", json={}).status_code == 403
+    assert browser.post(
+        PREFIX + "/evidence?actor=foreign", headers=auth, json={}
+    ).status_code == 422
+    for invalid, status in ((headers(workspace), 403),
+                            (headers("foreign", directory=False, version=2), 403),
+                            (headers(workspace, directory=False, version=1), 409)):
+        assert browser.post(PREFIX + "/evidence", headers=invalid, json={}).status_code == status
     directory = browser.post(
         PREFIX + "/references", headers=auth, json={"kind": "store", "channel_id": "pdd"}
     )

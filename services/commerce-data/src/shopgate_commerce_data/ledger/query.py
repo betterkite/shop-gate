@@ -187,56 +187,68 @@ def _group(event: dict, dimension: str) -> tuple[str, str]:
     )
 
 
+QUALITY_KEYS = (
+    "unknown_revenue_lines", "unknown_refund_lines", "unknown_cost_lines",
+    "unknown_expenses", "unknown_attribution_expenses", "unknown_quantity_lines",
+)
+
+
+def quality_keys(event):
+    """Shared predicates for summary counters and their source evidence."""
+    if event["kind"] == "sale":
+        return tuple(key for field, key in (
+            ("revenue", "unknown_revenue_lines"), ("cost", "unknown_cost_lines"),
+            ("quantity", "unknown_quantity_lines"),
+        ) if event[field] is None)
+    if event["kind"] == "refund":
+        return tuple(key for field, key in (
+            ("refund", "unknown_refund_lines"), ("recovery", "unknown_cost_lines"),
+        ) if event[field] is None)
+    if event["kind"] == "expense" and event["expense"] is None:
+        return ("unknown_attribution_expenses" if event.get("attribution_marker")
+                else "unknown_expenses",)
+    return ()
+
+
 def aggregate(events: list[dict], query: Query) -> dict:
     sales = refunds = costs = expenses = covered = contribution = ZERO
-    missing_revenue = set()
-    missing_refund = set()
-    missing_cost = set()
-    missing_expense = set()
-    missing_attribution = set()
+    gaps = {key: set() for key in QUALITY_KEYS}
+    for event in events:
+        for key in quality_keys(event):
+            gaps[key].add(event["expense_id" if event["kind"] == "expense" else "line_id"])
+    missing_revenue = gaps["unknown_revenue_lines"]
+    missing_refund = gaps["unknown_refund_lines"]
+    missing_cost = gaps["unknown_cost_lines"]
+    missing_expense = gaps["unknown_expenses"]
+    missing_attribution = gaps["unknown_attribution_expenses"]
     orders = set()
     refund_orders = set()
     units = defaultdict(lambda: ZERO)
-    missing_quantity = set()
+    missing_quantity = gaps["unknown_quantity_lines"]
     unallocated = ZERO
     for event in events:
         kind = event["kind"]
         if kind == "sale":
             orders.add(event["order_id"])
-            if event["revenue"] is None:
-                missing_revenue.add(event["line_id"])
-            else:
+            if event["revenue"] is not None:
                 sales += event["revenue"]
-            if event["cost"] is None:
-                missing_cost.add(event["line_id"])
-            else:
+            if event["cost"] is not None:
                 costs += event["cost"]
-            if event["quantity"] is None:
-                missing_quantity.add(event["line_id"])
-            else:
+            if event["quantity"] is not None:
                 units[event["unit"]] += event["quantity"]
             if event["complete"]:
                 covered += event["revenue"]
                 contribution += event["revenue"] - event["cost"]
         elif kind == "refund":
             refund_orders.add(event["order_id"])
-            if event["refund"] is None:
-                missing_refund.add(event["line_id"])
-            else:
+            if event["refund"] is not None:
                 refunds += event["refund"]
-            if event["recovery"] is None:
-                missing_cost.add(event["line_id"])
-            else:
+            if event["recovery"] is not None:
                 costs -= event["recovery"]
             if event["complete"]:
                 contribution += event["recovery"] - event["refund"]
         elif kind == "expense":
-            if event["expense"] is None:
-                if event.get("attribution_marker"):
-                    missing_attribution.add(event["expense_id"])
-                else:
-                    missing_expense.add(event["expense_id"])
-            else:
+            if event["expense"] is not None:
                 expenses += event["expense"]
                 if event.get("unallocated"):
                     unallocated += event["expense"]
@@ -408,6 +420,14 @@ class LedgerReadSnapshot:
                 "category": sku.get("category"),
                 "unit": sku.get("unit", "未知单位"),
                 "complete": not snapshot.missing,
+                "source": {
+                    "paid_at": line["paid_at"].isoformat(),
+                    "currency": line["currency"],
+                    "paid_amount": decimal_text(line["paid_amount"], "money"),
+                    "missing": snapshot.missing,
+                    "revenue_fx_missing": snapshot.revenue_fx_rate is None,
+                    "cost_fx_missing": snapshot.cost_fx_rate is None,
+                },
                 "search_text": " ".join(
                     str(value)
                     for value in (
@@ -440,6 +460,12 @@ class LedgerReadSnapshot:
                     {
                         **dims,
                         "kind": "refund",
+                        "refund_id": result.refund_id,
+                        "source": {
+                            **dims["source"], "occurred_at": row.occurred_at.isoformat(),
+                            "original_amount": decimal_text(row.amount, "money"),
+                            "refund_type": row.refund_type,
+                        },
                         "date": business_date(day),
                         "refund": result.amount_cny,
                         "recovery": result.recovered_cost_cny,
@@ -462,6 +488,14 @@ class LedgerReadSnapshot:
             allocations[row["expense_id"]].append(row)
         for expense in expenses.values():
             day = business_date(expense["occurred_at"])
+            source = {
+                "occurred_at": expense["occurred_at"].isoformat(),
+                "original_amount": decimal_text(expense["amount"], "money"),
+                "currency": expense["currency"], "note": expense["note"],
+                "source_amount_cny": decimal_text(expense["amount_cny"], "money"),
+                "accounting_status": expense["accounting_status"],
+                "allocation_method": expense["allocation_method"],
+            }
             if expense["accounting_status"] == "allocated":
                 for allocation in allocations[expense["expense_id"]]:
                     dims = dimensions[allocation["line_id"]]
@@ -469,6 +503,7 @@ class LedgerReadSnapshot:
                         {
                             **dims,
                             "kind": "expense",
+                            "source": source,
                             "date": day,
                             "expense_id": expense["expense_id"],
                             "expense": allocation["amount_cny"],
@@ -479,6 +514,7 @@ class LedgerReadSnapshot:
                 events.append(
                     {
                         "kind": "expense",
+                        "source": source,
                         "date": day,
                         "expense_id": expense["expense_id"],
                         "expense": expense["amount_cny"],
@@ -518,6 +554,7 @@ class LedgerReadSnapshot:
                             {
                                 **dimensions[line["line_id"]],
                                 "kind": "expense",
+                                "source": source,
                                 "date": day,
                                 "expense_id": expense["expense_id"],
                                 "expense": None,
@@ -542,10 +579,10 @@ class LedgerReadSnapshot:
         self._event_sets[event_key] = (events, latest_business_day)
         return events, latest_business_day
 
-    def query(self, query: Query) -> dict[str, Any]:
+    def selected_events(self, query: Query):
+        """One range resolver shared by aggregates and exact source evidence."""
         self._check_active()
         query.validate()
-        scope = self._scope
         events, latest_business_day = self._events(query)
         end = date.fromisoformat(query.end) if query.end else latest_business_day
         start = (
@@ -562,6 +599,22 @@ class LedgerReadSnapshot:
             and (end is None or event["date"] <= end)
             and _selected(event, query)
         ]
+        has_item_filter = bool(
+            query.product_ids or query.sku_ids or query.listing_ids
+            or query.category is not None or query.search
+        )
+        summary_events = filtered if has_item_filter else [
+            event for event in filtered if not event.get("attribution_marker")
+        ]
+        return filtered, summary_events, {
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat() if end else None,
+            "refund_basis": query.refund_basis, "timezone": "Asia/Shanghai",
+        }, latest_business_day.isoformat() if latest_business_day else None
+
+    def query(self, query: Query) -> dict[str, Any]:
+        filtered, summary_events, selected_range, cutoff = self.selected_events(query)
+        scope = self._scope
         groups = defaultdict(list)
         names = {}
         for event in filtered:
@@ -592,18 +645,6 @@ class LedgerReadSnapshot:
                 (row for row in results if values[row["key"]] is None), key=lambda row: row["key"]
             )
         offset = (query.page - 1) * query.page_size
-        has_item_filter = bool(
-            query.product_ids
-            or query.sku_ids
-            or query.listing_ids
-            or query.category is not None
-            or query.search
-        )
-        summary_events = (
-            filtered
-            if has_item_filter
-            else [event for event in filtered if not event.get("attribution_marker")]
-        )
         return {
             "workspace_id": scope.workspace_id,
             "dataset_id": scope.dataset_id,
@@ -611,13 +652,8 @@ class LedgerReadSnapshot:
             "accounting_revision": self._run["revision"],
             "algorithm_version": ALGORITHM_VERSION,
             "cache_key": query.cache_key(scope),
-            "range": {
-                "start": start.isoformat() if start else None,
-                "end": end.isoformat() if end else None,
-                "refund_basis": query.refund_basis,
-                "timezone": "Asia/Shanghai",
-            },
-            "data_cutoff": latest_business_day.isoformat() if latest_business_day else None,
+            "range": selected_range,
+            "data_cutoff": cutoff,
             "summary": aggregate(summary_events, query),
             "rows": results[offset : offset + query.page_size],
             "total": len(results),

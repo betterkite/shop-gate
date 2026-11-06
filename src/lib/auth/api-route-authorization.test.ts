@@ -68,6 +68,7 @@ describe('API route authorization coverage', () => {
       'src/app/api/bi/query/route.ts': ['commerce.data.read'],
       'src/app/api/bi/overview/route.ts': ['commerce.data.read'],
       'src/app/api/bi/references/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/evidence/route.ts': ['commerce.data.read'],
       'src/app/api/bi/targets/preview/route.ts': ['commerce.operation.manage'],
       'src/app/api/bi/targets/confirm/route.ts': ['commerce.operation.manage'],
       'src/app/api/bi/catalog/route.ts': ['commerce.data.read'],

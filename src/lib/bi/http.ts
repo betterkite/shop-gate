@@ -238,6 +238,21 @@ export async function postQuery(request: NextRequest) {
     'page', 'page_size', 'query']));
 }
 
+export async function postEvidence(request: NextRequest) {
+  const body = await input(request);
+  keys(body, ['workspace_id', 'dataset_id', 'version', 'options']);
+  const wanted = jobInputScope(body);
+  const options = object(body.options);
+  keys(options, ['quality_key', 'query', 'search', 'sort', 'descending', 'page', 'page_size', 'record_key', 'event_page']);
+  const scope = await issueLedgerScope({ headers: request.headers, ...wanted });
+  const data = decoded((await upstream('evidence', scope.token, options)).bytes);
+  if (data.workspace_id !== scope.workspaceId || data.dataset_id !== scope.datasetId
+      || data.version !== scope.version || data.accounting_revision !== scope.version
+      || data.quality_key !== (options.quality_key ?? 'unknown_cost_lines')) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return success(picked(data, ['workspace_id', 'dataset_id', 'version', 'accounting_revision',
+    'quality_key', 'range', 'data_cutoff', 'scope_total', 'rows', 'total', 'page', 'page_size', 'events']));
+}
+
 export async function postReferences(request: NextRequest) {
   const body = await input(request);
   keys(body, ['workspace_id', 'dataset_id', 'version', 'options']);

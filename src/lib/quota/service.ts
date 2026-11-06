@@ -1132,7 +1132,7 @@ export const consumeQuota = quotaService.consume;
 export async function cleanupExpiredQuotaReservations(
   options: { now?: Date; batchSize?: number; client?: QuotaClient } = {},
 ): Promise<{ scanned: number; expired: number }> {
-  const client = options.client ?? prisma;
+  const client: QuotaClient = options.client ?? prisma;
   const now = options.now ?? new Date();
   const batchSize = Math.min(1_000, Math.max(1, options.batchSize ?? 200));
   return client.$transaction(async (tx) => {

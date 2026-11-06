@@ -40,6 +40,8 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
         if (['_prisma_migrations', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers'].includes(table)) continue;
         if (!/^[a-z_]+$/.test(table)) throw new Error('Unexpected rehearsal table identifier');
         const row = table === 'agent_runs' ? "to_jsonb(t) - 'execution_scope_id' - 'bi_request_id' - 'cancel_requested_at'"
+          : table === 'agent_worker_instances' ? "to_jsonb(t) - 'worker_kind'"
+          : table === 'agent_worker_slots' ? "to_jsonb(t) - 'active_run_id'"
           : table === 'agent_workspace_leases' ? "to_jsonb(t) - 'execution_scope_id'" : 'to_jsonb(t)';
         snapshots[table] = await client.$queryRawUnsafe(
           `SELECT coalesce(jsonb_agg(${row} ORDER BY (${row})::text), '[]'::jsonb) AS rows FROM "${schema}"."${table}" t`);
@@ -73,6 +75,15 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
       await client.agentCheckpoint.create({ data: { runId, sequence: 1, turn: 1,
         boundary: 'model_turn_completed', publicState: { note: 'Keep this checkpoint' },
         stateHash: key, stateVersion: 1, fencingToken: 7 } });
+      const workerId = randomUUID(), jobId = randomUUID();
+      await client.$executeRawUnsafe(`INSERT INTO agent_worker_instances
+        (id, pool_key, hostname, process_id, process_concurrency, global_concurrency,
+         status, lease_expires_at, last_heartbeat_at, started_at, updated_at)
+        VALUES ($1::uuid, 'legacy-pool', 'legacy-host', 42, 1, 2, 'running',
+          NOW() + INTERVAL '10 minutes', NOW(), NOW(), NOW())`, workerId);
+      await client.$executeRawUnsafe(`INSERT INTO agent_worker_slots
+        (pool_key, slot_number, status, active_job_id, lease_owner, lease_expires_at, fencing_token, version, updated_at)
+        VALUES ('legacy-pool', 1, 'held', $1::uuid, 'legacy-owner', NOW() + INTERVAL '10 minutes', 8, 9, NOW())`, jobId);
       const before = await priorFacts();
       expect(Object.keys(before).length).toBeGreaterThan(50);
       for (const next of (await readdir(path.join(process.cwd(), 'prisma/migrations'))).filter((name) => name >= migration)) {
@@ -81,6 +92,10 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
       }
       deploy();
       expect(await priorFacts()).toEqual(before);
+      expect(await client.agentWorkerInstance.findUnique({ where: { id: workerId } }))
+        .toMatchObject({ workerKind: 'project_generation', status: 'running', globalConcurrency: 2 });
+      expect(await client.agentWorkerSlot.findUnique({ where: { poolKey_slotNumber: { poolKey: 'legacy-pool', slotNumber: 1 } } }))
+        .toMatchObject({ activeJobId: jobId, activeRunId: null, fencingToken: 8, version: 9 });
       expect(await client.biAgentResult.count()).toBe(0);
       expect(await client.biAgentResultPage.count()).toBe(0);
       expect(await client.biAgentAnswer.count()).toBe(0);

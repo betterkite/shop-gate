@@ -219,7 +219,7 @@ PI Agent loop 直接采用上游开源运行时，Shop Gate 只在明确的 Prov
 
 仓库 `.pi/skills` 是受 registry/lock/hash 校验的唯一 PI Agent Skill 编译输入；不读取其他 Agent 的 Skill 源目录或别名。历史数据库事实只用于审计，不参与当前 PI Agent 执行控制流。
 
-PI Agent 执行前必须把 `prisma/schema.prisma` 中的 durable Agent runtime 表、项目级 generation lease、generation job/outbox 和三张 Mission/evidence 表、`user_requests(id, project_id)` 复合唯一约束、每项目唯一 active Mission/job slot、AgentRun `build_revision`、严格 workspace identity 以及全部关联外键一并应用到 PostgreSQL，并生成对应 Prisma Client。只读 catalog readiness 的当前契约版本是 `20261107000300_bi_agent_results`；它检查经营执行空间、私有会话请求及归属保护触发器，并继续要求 `agent_runs.workspace_key` 没有默认值、存在已验证的 `sha256:<64 hex>` check constraint。升级边界见[经营助手运行归属](review/v01/agent-scopes.md)。启动通过 readiness 后才接收运行；不得在请求中自动修复或重置数据库。
+PI Agent 执行前必须把 `prisma/schema.prisma` 中的 durable Agent runtime 表、项目级 generation lease、generation job/outbox 和三张 Mission/evidence 表、`user_requests(id, project_id)` 复合唯一约束、每项目唯一 active Mission/job slot、AgentRun `build_revision`、严格 workspace identity 以及全部关联外键一并应用到 PostgreSQL，并生成对应 Prisma Client。只读 catalog readiness 的当前契约版本是 `20261107000400_bi_worker_capacity`；它检查经营执行空间、私有会话请求及归属保护触发器，并继续要求 `agent_runs.workspace_key` 没有默认值、存在已验证的 `sha256:<64 hex>` check constraint。升级边界见[经营助手运行归属](review/v01/agent-scopes.md)。启动通过 readiness 后才接收运行；不得在请求中自动修复或重置数据库。
 
 PostgreSQL 并发契约有独立、不可静默跳过的验收入口。测试工具会对目标执行隔离 schema 同步，因此必须指向全新或可销毁的隔离测试数据库，绝不能指向开发共享库或业务库：
 

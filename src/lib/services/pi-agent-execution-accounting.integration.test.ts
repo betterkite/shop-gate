@@ -7,6 +7,8 @@ import { biAgentPageScopeSchema } from '@/lib/bi/agent/contracts';
 import { createQuotaService } from '@/lib/quota/service';
 import { PiAgentDurableRunSession } from './pi-agent-run-store';
 import { biAgentTokenReservationKey, settleAgentRunUsage } from './pi-agent-usage-settlement';
+import { claimPiAgentWorkerSlot, heartbeatPiAgentWorkerSlot, releasePiAgentWorkerSlot } from './pi-agent-worker-capacity';
+import { registerPiAgentWorkerInstance, stopPiAgentWorkerInstance, hasLivePiAgentWorker } from './pi-agent-worker-registry';
 import { claimPiAgentGenerationJob } from './pi-agent-generation-dispatch-store';
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
@@ -59,12 +61,69 @@ describe.skipIf(!databaseUrl)('Shared BI execution accounting (real PostgreSQL)'
   });
   afterAll(async () => {
     try {
+      await a.agentWorkerSlot.deleteMany({ where: { poolKey: { startsWith: prefix } } });
+      await a.agentWorkerInstance.deleteMany({ where: { poolKey: { startsWith: prefix } } });
       await a.agentExecutionScope.deleteMany({ where: { ownerUserId: { in: users } } });
       await a.agentGenerationJob.deleteMany({ where: { projectId: { in: projects } } });
       await a.project.deleteMany({ where: { id: { in: projects } } });
       await a.usageEvent.deleteMany({ where: { actorUserId: { in: users } } });
       await a.authUser.deleteMany({ where: { id: { in: users } } });
     } finally { vi.unstubAllEnvs(); await Promise.allSettled([a.$disconnect(), b.$disconnect()]); }
+  });
+
+  it('shares real global capacity between BI and legacy jobs and fences replaced owners', async () => {
+    const actor = await identity(), run = await claim(await pending(actor)), poolKey = unique();
+    const input = { poolKey, capacity: 1, leaseOwner: unique(), leaseTtlMs: 60_000 };
+    const biSlot = await claimPiAgentWorkerSlot({ ...input, activeRunId: run.id });
+    expect(biSlot).not.toBeNull();
+    const legacyInput = { ...input, leaseOwner: unique(), activeJobId: randomUUID() };
+    expect(await claimPiAgentWorkerSlot(legacyInput)).toBeNull();
+    await a.agentWorkerSlot.updateMany({ where: { poolKey }, data: { leaseExpiresAt: new Date(0) } });
+    // Expired slot heartbeat alone does not prove its independently leased run is dead.
+    expect(await claimPiAgentWorkerSlot(legacyInput)).toBeNull();
+    await finish(run, 0);
+    const replacement = await claimPiAgentWorkerSlot(legacyInput);
+    expect(replacement!.fencingToken).toBeGreaterThan(biSlot!.fencingToken);
+    await expect(heartbeatPiAgentWorkerSlot({ fence: biSlot!, leaseTtlMs: 60_000 }))
+      .rejects.toMatchObject({ code: 'WORKER_SLOT_LEASE_LOST' });
+    await expect(releasePiAgentWorkerSlot(biSlot!)).rejects.toMatchObject({ code: 'WORKER_SLOT_LEASE_LOST' });
+    await releasePiAgentWorkerSlot(replacement!);
+  });
+
+  it('keeps live legacy dispatch capacity and enforces one slot per BI run', async () => {
+    const actor = await identity(), job = await legacy(actor), poolKey = unique();
+    const dispatch = await claimPiAgentGenerationJob(job);
+    expect(dispatch).not.toBeNull();
+    const row = await a.agentGenerationJob.findUniqueOrThrow({ where: { requestId_projectId: {
+      projectId: job.projectId, requestId: job.requestId } } });
+    const input = { poolKey, capacity: 1, leaseOwner: unique(), leaseTtlMs: 60_000 };
+    const legacySlot = await claimPiAgentWorkerSlot({ ...input, activeJobId: row.id });
+    expect(legacySlot).not.toBeNull();
+    await a.agentWorkerSlot.updateMany({ where: { poolKey }, data: { leaseExpiresAt: new Date(0) } });
+    const biRunId = await pending(await identity());
+    expect(await claimPiAgentWorkerSlot({ ...input, activeRunId: biRunId })).toBeNull();
+    await a.agentGenerationJob.update({ where: { id: row.id }, data: { status: 'completed', completedAt: new Date() } });
+    const replacement = await claimPiAgentWorkerSlot({ ...input, activeRunId: biRunId });
+    expect(replacement).not.toBeNull();
+    expect(await claimPiAgentWorkerSlot({ ...input, capacity: 2, activeRunId: biRunId })).toBeNull();
+    await expect(a.agentWorkerSlot.updateMany({ where: { poolKey, slotNumber: replacement!.slotNumber },
+      data: { activeJobId: randomUUID() } })).rejects.toThrow();
+    await releasePiAgentWorkerSlot(replacement!);
+  });
+
+  it('advertises BI availability only for a live BI consumer in the same configured pool', async () => {
+    const poolKey = unique(), input = { poolKey, processConcurrency: 1, globalConcurrency: 2, leaseTtlMs: 60_000 };
+    const legacyWorker = await registerPiAgentWorkerInstance(input);
+    expect(await hasLivePiAgentWorker('project_generation', poolKey)).toBe(true);
+    expect(await hasLivePiAgentWorker('bi_analysis', poolKey)).toBe(false);
+    await expect(registerPiAgentWorkerInstance({ ...input, workerKind: 'bi_analysis', globalConcurrency: 3 }))
+      .rejects.toMatchObject({ code: 'WORKER_POOL_CONFIG_MISMATCH' });
+    const bi = await registerPiAgentWorkerInstance({ ...input, workerKind: 'bi_analysis' });
+    expect(await hasLivePiAgentWorker('bi_analysis', poolKey)).toBe(true);
+    await a.agentWorkerInstance.update({ where: { id: bi.id }, data: { leaseExpiresAt: new Date(0) } });
+    expect(await hasLivePiAgentWorker('bi_analysis', poolKey)).toBe(false);
+    await stopPiAgentWorkerInstance(legacyWorker);
+    expect(await hasLivePiAgentWorker('project_generation', poolKey)).toBe(false);
   });
 
   it.each(['normal', 'expired', 'underreserved'])('settles %s reservations once across concurrent worker/maintenance clients', async (mode) => {

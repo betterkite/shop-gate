@@ -8,7 +8,7 @@
  */
 
 export const PI_AGENT_SCHEMA_CONTRACT_VERSION =
-  '20261107000300_bi_agent_results' as const;
+  '20261107000400_bi_worker_capacity' as const;
 
 export interface PiAgentSchemaQueryClient {
   $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): PromiseLike<T>;
@@ -272,6 +272,7 @@ const EXPECTED_COLUMN_DEFINITIONS = {
     slot_number: ['integer', false],
     status: ['text', false],
     active_job_id: ['uuid', true],
+    active_run_id: ['text', true],
     lease_owner: ['text', true],
     lease_expires_at: ['timestamp without time zone', true],
     last_heartbeat_at: ['timestamp without time zone', true],
@@ -283,6 +284,7 @@ const EXPECTED_COLUMN_DEFINITIONS = {
     updated_at: ['timestamp without time zone', false],
   },
   agent_worker_instances: {
+    worker_kind: ['text', false],
     id: ['uuid', false],
     pool_key: ['text', false],
     hostname: ['text', false],
@@ -429,6 +431,7 @@ const EXPECTED_COLUMNS: ExpectedColumn[] = Object.entries(
 );
 
 const EXPECTED_INDEXES: readonly ExpectedIndex[] = [
+  { tableName: 'agent_worker_slots', columns: ['active_run_id'], unique: true },
   { tableName: 'bi_agent_results', columns: ['run_id', 'operation_id'], unique: true },
   { tableName: 'bi_agent_result_pages', columns: ['result_id', 'page'], unique: true },
   { tableName: 'bi_agent_answers', columns: ['run_id'], unique: true },
@@ -714,6 +717,9 @@ const EXPECTED_FOREIGN_KEYS: readonly ExpectedForeignKey[] = [
 ];
 
 const EXPECTED_CHECK_CONSTRAINTS: readonly ExpectedCheckConstraint[] = [
+  { tableName: 'agent_worker_instances', constraintName: 'agent_worker_kind_check', definitionIncludes: ['worker_kind', 'project_generation', 'bi_analysis'] },
+  { tableName: 'agent_worker_slots', constraintName: 'agent_worker_slots_owner_state_check', definitionIncludes: ['active_job_id', 'active_run_id', 'lease_owner', 'lease_expires_at', 'free', 'held', '<>'] },
+  { tableName: 'agent_worker_slots', constraintName: 'agent_worker_slot_identity_check', definitionIncludes: ['active_job_id', 'active_run_id', 'IS NULL', 'OR'] },
   { tableName: 'bi_agent_results', constraintName: 'bi_agent_results_bounds', definitionIncludes: ['collected', 'total', 'complete', 'octet_length'] },
   { tableName: 'bi_agent_result_pages', constraintName: 'bi_agent_result_pages_bounds', definitionIncludes: ['jsonb_array_length', 'digest', 'octet_length'] },
   { tableName: 'bi_agent_answers', constraintName: 'bi_agent_answers_bounds', definitionIncludes: ['jsonb_typeof', 'octet_length'] },
@@ -914,7 +920,7 @@ JOIN pg_catalog.pg_namespace AS table_namespace
   ON table_namespace.oid = table_info.relnamespace
 WHERE constraint_info.contype = 'c'
   AND table_namespace.nspname = 'public'
-  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers')
+  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers', 'agent_worker_instances', 'agent_worker_slots')
 ORDER BY table_info.relname, constraint_info.conname
 `;
 

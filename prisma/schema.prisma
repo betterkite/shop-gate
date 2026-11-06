@@ -672,6 +672,7 @@ model AgentWorkerSlot {
   slotNumber      Int       @map("slot_number")
   status          String    @default("free")
   activeJobId     String?   @unique @map("active_job_id") @db.Uuid
+  activeRunId     String?   @unique @map("active_run_id")
   leaseOwner      String?   @map("lease_owner")
   leaseExpiresAt  DateTime? @map("lease_expires_at")
   lastHeartbeatAt DateTime? @map("last_heartbeat_at")
@@ -691,6 +692,7 @@ model AgentWorkerSlot {
 /// from execution slots: one Worker process may own several slots, while its
 /// own heartbeat proves that queued work still has a live consumer.
 model AgentWorkerInstance {
+  workerKind         String    @default("project_generation") @map("worker_kind")
   id                 String    @id @default(uuid()) @db.Uuid
   poolKey            String    @map("pool_key")
   hostname           String

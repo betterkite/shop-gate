@@ -263,3 +263,24 @@ def test_metric_catalog_and_version_scope_cache_are_complete():
     assert query.cache_key(scope) != query.cache_key(replace(scope, version=2))
     assert query.cache_key(scope) != query.cache_key(replace(scope, dataset_id="other"))
     assert query.cache_key(scope) != replace(query, sku_ids=("001",)).cache_key(scope)
+
+
+def test_profit_definition_covers_negative_adjustments_and_shared_unallocated_fees():
+    events = [
+        {"kind": "sale", "line_id": "a", "order_id": "o", "revenue": D("100"),
+         "cost": D("40"), "quantity": D(1), "unit": "件", "complete": True},
+        {"kind": "expense", "expense_id": "credit", "expense": D("-50"),
+         "unallocated": True, "complete": True},
+    ]
+    result = aggregate(events, Query())
+    assert result["metrics"]["net_sales"] == "100.00"
+    assert result["metrics"]["contribution_profit"] == "110.00"
+    assert result["metrics"]["accounted_contribution"] == "110.00"
+    assert result["quality"]["unallocated_expenses_cny"] == "-50.00"
+    events[0].update(cost=None, complete=False)
+    partial = aggregate(events, Query())
+    assert partial["metrics"]["contribution_profit"] is None
+    assert partial["metrics"]["accounted_contribution"] == "50.00"
+    definitions = {row["id"]: row for row in metric_catalog()}
+    assert "可能高于净销售额" in definitions["contribution_profit"]["aggregation"]
+    assert "完整利润也会计入" in definitions["accounted_contribution"]["aggregation"]

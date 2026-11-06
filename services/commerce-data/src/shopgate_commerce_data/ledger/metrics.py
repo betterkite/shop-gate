@@ -77,6 +77,19 @@ METRICS = {
 
 
 def aggregation_description(metric: str) -> str:
+    if metric == "contribution_profit":
+        return (
+            "按所选范围汇总金额后计算差额。成本净额和费用允许负调整，"
+            "经营贡献利润可能高于净销售额，不能假定它一定更小。"
+            "完整利润与已核算范围贡献都计入同范围的未分摊已知费用，"
+            "不能把两者的差异归因于未分摊费用"
+        )
+    if metric == "accounted_contribution":
+        return (
+            "按已具备完整依据的记录汇总金额，再计入相应已知费用；"
+            "同范围未分摊已知费用只计入一次，完整利润也会计入。"
+            "有核算缺项时，完整利润可能未知，本指标只代表已核算部分"
+        )
     if metric == "order_count":
         return "在所选范围内按订单去重，同一订单只计一次；不同分组的订单数不能直接相加"
     if metric == "standard_quantity":

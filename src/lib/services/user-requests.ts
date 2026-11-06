@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db/client';
 import { Prisma } from '@prisma/client';
-import { assertStructuralQuotaCapacity } from '@/lib/quota';
+import { assertAgentPendingCapacity } from './agent-request-admission';
 
 export interface ActiveRequestSummary {
   hasActiveRequests: boolean;
@@ -292,34 +292,7 @@ export async function claimUserRequest({
 }: UpsertUserRequestOptions) {
   const create = () => prisma.$transaction(async (tx) => {
     if (actorUserId) {
-      const actors = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT "id"
-        FROM "auth_users"
-        WHERE "id" = ${actorUserId}
-        FOR UPDATE
-      `);
-      if (!actors[0]) {
-        throw new Error('The request actor no longer exists.');
-      }
-      const pendingCount = await tx.userRequest.count({
-        where: {
-          actorUserId,
-          status: { in: ACTIVE_STATUSES },
-          OR: [
-            { generationJob: null },
-            {
-              generationJob: {
-                is: { status: { in: ['pending', 'retry_wait'] } },
-              },
-            },
-          ],
-        },
-      });
-      await assertStructuralQuotaCapacity(tx, {
-        actorUserId,
-        metric: 'agent.pending',
-        current: pendingCount,
-      });
+      await assertAgentPendingCapacity(tx, actorUserId);
     }
     return tx.userRequest.create({
       data: {

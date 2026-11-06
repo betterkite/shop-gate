@@ -90,7 +90,7 @@ async function boundedBytes(stream: ReadableStream<Uint8Array> | null, limit: nu
   return Buffer.concat(chunks, size);
 }
 
-async function input(request: NextRequest, limit = MAX_INPUT) {
+export async function input(request: NextRequest, limit = MAX_INPUT) {
   sameOrigin(request);
   if (request.headers.get('content-type')?.split(';')[0].trim() !== 'application/json'
       || (request.headers.get('content-encoding') ?? 'identity') !== 'identity') {

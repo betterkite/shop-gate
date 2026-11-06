@@ -2,6 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { overviewLoginReturnPath, overviewQuery, overviewUrl, readOverviewLocation, referenceOptions, referenceSelection, scopeMatches } from './overview-contracts';
 
 describe('overview URL scope isolation and restore', () => {
+  it('restores private conversation pages and clears them when changing dataset or workspace', () => {
+    const id = '10000000-0000-4000-8000-000000000001';
+    const href = overviewLoginReturnPath({ dataset_id: 'official', conversation: id, conversation_page: '2', question_page: '3' });
+    expect(readOverviewLocation(href.split('?')[1])).toMatchObject({ conversationId: id, conversationPage: 2, questionPage: 3 });
+    expect(readOverviewLocation(overviewUrl(href, { start: '2026-07-01' }).split('?')[1]).conversationId).toBe(id);
+    for (const change of [{ datasetId: 'other' }, { workspaceId: 'other' }]) {
+      expect(readOverviewLocation(overviewUrl(href, change).split('?')[1])).toMatchObject({ conversationId: undefined, conversationPage: 1, questionPage: 1 });
+    }
+    expect(() => readOverviewLocation('conversation=bad')).toThrow();
+  });
   it('restores exact alert, source and both pages without changing accounting filters', () => {
     const href = overviewLoginReturnPath({ dataset_id: 'official', store_id: '001', quality: 'unknown_refund_lines', evidence_page: '2',
       evidence_record: 'line-001', evidence_event_page: '3', evidence_search: '棉服', evidence_sort: 'date', evidence_descending: 'true' });

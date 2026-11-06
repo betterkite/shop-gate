@@ -137,9 +137,9 @@ describe.skipIf(!databaseUrl)('Shared BI execution accounting (real PostgreSQL)'
     await finish(run);
     await Promise.all([settleAgentRunUsage(a, run.id), settleAgentRunUsage(b, run.id)]);
     await settleAgentRunUsage(b, run.id);
-    const events = await a.usageEvent.findMany({ where: { actorUserId: actor.actorId } });
+    const events = await a.usageEvent.findMany({ where: { actorUserId: actor.actorId, metric: 'llm.total_tokens.monthly' } });
     expect(events).toHaveLength(1); expect(events[0].quantity).toBe(11n); expect(events[0].projectId).toBeNull();
-    const buckets = await a.usageBucket.findMany({ where: { actorUserId: actor.actorId } });
+    const buckets = await a.usageBucket.findMany({ where: { actorUserId: actor.actorId, metric: 'llm.total_tokens.monthly' } });
     expect(buckets.reduce((n, row) => n + row.used, 0n)).toBe(11n);
     expect(buckets.reduce((n, row) => n + row.reserved, 0n)).toBe(0n);
     expect((await a.quotaReservation.findUniqueOrThrow({ where: { id: reserved.reservation!.id } })).status).not.toBe('active');
@@ -151,7 +151,7 @@ describe.skipIf(!databaseUrl)('Shared BI execution accounting (real PostgreSQL)'
       metric: 'llm.total_tokens.monthly', quantity: 20, idempotencyKey: biAgentTokenReservationKey(run.id) });
     await expect(settleAgentRunUsage(b, run.id)).rejects.toThrow('terminal');
     await finish(run, 0); await settleAgentRunUsage(a, run.id); await settleAgentRunUsage(b, run.id);
-    expect(await a.usageEvent.count({ where: { actorUserId: actor.actorId } })).toBe(0);
+    expect(await a.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'llm.total_tokens.monthly' } })).toBe(0);
     expect((await a.quotaReservation.findUniqueOrThrow({ where: { id: reserved.reservation!.id } })).status).toBe('released');
   });
 

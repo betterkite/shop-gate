@@ -4,8 +4,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PiAgentDurableRunSession } from '@/lib/services/pi-agent-run-store';
 import { PrismaAgentRuntimeRepository } from '@/lib/agent/runtime/prisma-repository';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
-import { authorizeBiAgentRun, cancelBiAgentQuestion, listBiAgentQuestions, submitBiAgentQuestion } from './requests';
+import { authorizeBiAgentRun, cancelBiAgentQuestion, listBiAgentConversations, listBiAgentQuestions, submitBiAgentQuestion } from './requests';
 import { biAgentPageScopeSchema } from './contracts';
+import { assertAgentPendingCapacity } from '@/lib/services/agent-request-admission';
+import { createTransactionalQuotaService } from '@/lib/quota/service';
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
 const prefix = `bi_inbox_${randomUUID().replaceAll('-', '')}`;
@@ -36,6 +38,7 @@ describe.skipIf(!databaseUrl)('BI assistant durable inbox (real PostgreSQL)', ()
     try {
       await a.agentExecutionScope.deleteMany({ where: { OR: [{ ownerUserId: { in: users } }, { sharedProjectId: { in: projects } }] } });
       await a.project.deleteMany({ where: { id: { in: projects } } });
+      await a.usageEvent.deleteMany({ where: { actorUserId: { in: users } } });
       await a.authUser.deleteMany({ where: { id: { in: users } } });
     } finally { vi.unstubAllEnvs(); await Promise.allSettled([a.$disconnect(), b.$disconnect()]); }
   });
@@ -66,6 +69,7 @@ describe.skipIf(!databaseUrl)('BI assistant durable inbox (real PostgreSQL)', ()
     resolver.mockClear();
     expect((await submitBiAgentQuestion(actor, q, deps())).replayed).toBe(true);
     expect(resolver).not.toHaveBeenCalled();
+    expect(await a.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'agent.requests.daily' } })).toBe(1);
   });
 
   it('rejects key/content, stale-version and active-turn conflicts without inserting another run', async () => {
@@ -78,11 +82,89 @@ describe.skipIf(!databaseUrl)('BI assistant durable inbox (real PostgreSQL)', ()
     await expect(submitBiAgentQuestion(actor, { ...q, expected_conversation_version: 1, idempotency_key: unique() }, deps()))
       .rejects.toMatchObject({ code: 'BI_AGENT_BUSY' });
     expect(await a.biAgentRequest.count({ where: { conversationId: q.conversation_id } })).toBe(1);
+    expect(await a.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'agent.requests.daily' } })).toBe(1);
+  });
+
+  it('atomically enforces the daily limit across independent conversations and rolls back the loser', async () => {
+    const actor = await identity();
+    await a.userQuotaOverride.create({ data: { userId: actor.actorId, metric: 'agent.requests.daily',
+      limit: 1n, enforcement: 'hard', windowType: 'day' } });
+    const questions = [question({ dataset_id: unique() }), question({ dataset_id: unique() })];
+    const outcomes = await Promise.allSettled(questions.map((q, i) => submitBiAgentQuestion(actor, q,
+      { client: i ? b : a, resolvePage: resolver })));
+    expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(outcomes.find((r) => r.status === 'rejected')).toMatchObject({ reason: { code: 'QUOTA_EXCEEDED' } });
+    expect(await a.biAgentRequest.count({ where: { actorUserId: actor.actorId } })).toBe(1);
+    expect(await a.biAgentConversation.count({ where: { actorUserId: actor.actorId } })).toBe(1);
+    expect(await a.agentExecutionScope.count({ where: { ownerUserId: actor.actorId } })).toBe(1);
+    expect(await a.agentRun.count({ where: { actorUserId: actor.actorId } })).toBe(1);
+    const events = await a.usageEvent.findMany({ where: { actorUserId: actor.actorId } });
+    expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ quantity: 1n, projectId: null, sourceType: 'bi_agent_request' });
+    const buckets = await a.usageBucket.findMany({ where: { actorUserId: actor.actorId } });
+    expect(buckets).toHaveLength(1); expect(buckets[0]).toMatchObject({ used: 1n, reserved: 0n });
+  });
+
+  it('rolls back consumed quota when the enclosing business transaction fails', async () => {
+    const actor = await identity();
+    await expect(a.$transaction(async (tx) => {
+      await createTransactionalQuotaService(tx).consume({ actorUserId: actor.actorId,
+        metric: 'agent.requests.daily', quantity: 1, idempotencyKey: unique(),
+        sourceType: 'owned_rollback_test', sourceId: unique() });
+      throw new Error('owned transaction rollback');
+    })).rejects.toThrow('owned transaction rollback');
+    expect(await a.usageEvent.count({ where: { actorUserId: actor.actorId } })).toBe(0);
+    expect(await a.quotaReservation.count({ where: { actorUserId: actor.actorId } })).toBe(0);
+    expect(await a.usageBucket.count({ where: { actorUserId: actor.actorId } })).toBe(0);
+  });
+
+  it('preserves unlimited administrator policy while recording accepted requests once', async () => {
+    const actor = await identity();
+    await a.authUser.update({ where: { id: actor.actorId }, data: { role: 'admin' } });
+    await a.userQuotaOverride.create({ data: { userId: actor.actorId, metric: 'agent.requests.daily',
+      limit: 0n, enforcement: 'hard', windowType: 'day' } });
+    const q = question();
+    await submitBiAgentQuestion(actor, q, deps()); await submitBiAgentQuestion(actor, q, deps());
+    const events = await a.usageEvent.findMany({ where: { actorUserId: actor.actorId } });
+    expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ quantity: 1n, enforcementExempt: true });
+  });
+
+  it.each(['legacy-first', 'bi-first', 'concurrent'])('shares pending admission across both inboxes: %s', async (order) => {
+    const actor = await identity(), projectId = unique(); projects.push(projectId);
+    await a.project.create({ data: { id: projectId, name: 'Owned inbox admission', ownerId: actor.actorId } });
+    await a.userQuotaOverride.create({ data: { userId: actor.actorId, metric: 'agent.pending',
+      limit: 1n, enforcement: 'hard', windowType: 'lifetime' } });
+    const legacy = () => b.$transaction(async (tx) => {
+      await assertAgentPendingCapacity(tx, actor.actorId);
+      return tx.userRequest.create({ data: { projectId, actorUserId: actor.actorId, instruction: 'Owned legacy inbox' } });
+    });
+    const bi = () => submitBiAgentQuestion(actor, question(), deps());
+    if (order === 'legacy-first') {
+      const accepted = await legacy();
+      await expect(bi()).rejects.toMatchObject({ code: 'QUOTA_EXCEEDED' });
+      await a.userRequest.update({ where: { id: accepted.id }, data: { status: 'cancelled' } });
+      await bi();
+    } else if (order === 'bi-first') {
+      const accepted = await bi();
+      await expect(legacy()).rejects.toMatchObject({ code: 'QUOTA_EXCEEDED' });
+      await cancelBiAgentQuestion(actor, accepted.request.runs[0].id, a);
+      await legacy();
+    } else {
+      const outcomes = await Promise.allSettled([bi(), legacy()]);
+      expect(outcomes.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(outcomes.find((r) => r.status === 'rejected')).toMatchObject({ reason: { code: 'QUOTA_EXCEEDED' } });
+    }
+    const biCount = await a.agentRun.count({ where: { actorUserId: actor.actorId, status: 'pending' } });
+    const oldCount = await a.userRequest.count({ where: { actorUserId: actor.actorId, status: 'pending' } });
+    expect(biCount + oldCount).toBe(1);
+    expect(await a.quotaReservation.count({ where: { actorUserId: actor.actorId, status: 'active' } })).toBe(0);
   });
 
   it('isolates same-name datasets and denies guessed conversations, runs and account identities', async () => {
     const first = await identity(), second = await identity(), q = question();
     const accepted = await submitBiAgentQuestion(first, q, deps());
+    expect((await listBiAgentConversations(first, q.dataset_id, 1, a)).total).toBe(1);
+    expect((await listBiAgentConversations(second, q.dataset_id, 1, a)).total).toBe(0);
+    expect((await listBiAgentConversations(first, 'other-dataset', 1, a)).total).toBe(0);
     await expect(submitBiAgentQuestion(second, q, deps())).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
     await expect(listBiAgentQuestions(second, q.conversation_id, 1, a)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
     await expect(cancelBiAgentQuestion(second, accepted.request.runs[0].id, a)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
@@ -115,6 +197,8 @@ describe.skipIf(!databaseUrl)('BI assistant durable inbox (real PostgreSQL)', ()
       memberships: { create: { userId: second.actorId, role: 'viewer' } } } });
     const owner = { ...first, workspaceId: workspace }, viewer = { ...second, workspaceId: workspace };
     const accepted = await submitBiAgentQuestion(viewer, question(), deps());
+    expect((await listBiAgentConversations(owner, 'identical-dataset', 1, a)).total).toBe(0);
+    expect((await listBiAgentConversations(viewer, 'identical-dataset', 1, a)).total).toBe(1);
     await expect(listBiAgentQuestions(owner, accepted.conversation_id, 1, a)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
     await expect(recheckBiAgentSession(viewer.sessionId, workspace, 'manage', a)).rejects.toMatchObject({ status: 403 });
     await a.projectMembership.deleteMany({ where: { projectId: workspace, userId: second.actorId } });

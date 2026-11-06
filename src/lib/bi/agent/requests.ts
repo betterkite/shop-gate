@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
+import { createTransactionalQuotaService } from '@/lib/quota/service';
+import { assertAgentPendingCapacity } from '@/lib/services/agent-request-admission';
 import { biAgentProvenance } from './provenance';
 import { getProjectLlmConfig } from '@/lib/config/llm';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
@@ -19,6 +21,7 @@ const requestSelect = { id: true, instruction: true, model: true, datasetVersion
 type Dependencies = {
   client?: PrismaClient;
   resolvePage?: typeof resolveBiAgentPage;
+  assertAvailable?: () => Promise<void>;
 };
 
 /**
@@ -47,6 +50,7 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
     void _hash;
     return { conversation_id: input.conversation_id, conversation_version: conversation.version, replayed: true, request };
   }
+  await dependencies.assertAvailable?.();
   const config = getProjectLlmConfig(input.model);
   if (!config.agent.enabled || !process.env[config.credentialEnv]?.trim()) {
     throw new BiAgentProblem('BI_AGENT_MODEL_UNAVAILABLE', 503, '当前模型尚未配置或已停用；经营页面仍可正常使用。');
@@ -88,6 +92,7 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
     if (await tx.agentRun.findFirst({ where: { biRequest: { conversationId: conversation.id }, status: { in: ACTIVE } }, select: { id: true } })) {
       throw new BiAgentProblem('BI_AGENT_BUSY', 409, '上一条问题仍在处理中，请等待结果或先取消。');
     }
+    await assertAgentPendingCapacity(tx, current.actorId);
     const request = await tx.biAgentRequest.create({ data: {
       conversationId: conversation.id, executionScopeId: scope.id, actorUserId: current.actorId,
       sessionId: current.sessionId, idempotencyKey: input.idempotency_key, inputHash,
@@ -99,6 +104,12 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
       workspaceKey, status: 'pending', provider: config.provider, model: input.model,
       ...biAgentProvenance(config, input.instruction, pageScope, current.workspaceId, input.dataset_id, input.dataset_version),
     } });
+    await createTransactionalQuotaService(tx).consume({
+      actorUserId: current.actorId, projectId: null, metric: 'agent.requests.daily', quantity: 1,
+      idempotencyKey: `bi-request:${request.id}:daily`,
+      usageEventIdempotencyKey: `bi-request:${request.id}:daily`,
+      sourceType: 'bi_agent_request', sourceId: request.id, now: request.createdAt, occurredAt: request.createdAt,
+    });
     const updated = await tx.biAgentConversation.update({ where: { id: conversation.id }, data: { version: { increment: 1 } } });
     return { conversation_id: conversation.id, conversation_version: updated.version, replayed: false,
       request: await tx.biAgentRequest.findUniqueOrThrow({ where: { id: request.id }, select: requestSelect }) };
@@ -122,6 +133,22 @@ export async function listBiAgentQuestions(authority: BiAgentAuthority, conversa
     const rows = await tx.biAgentRequest.findMany({ where, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       skip: (page - 1) * 20, take: 20, select: requestSelect });
     return { conversation, rows, total, page, page_size: 20 };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
+
+export async function listBiAgentConversations(authority: BiAgentAuthority, datasetId: string,
+  page = 1, client: PrismaClient = prisma) {
+  if (!Number.isSafeInteger(page) || page < 1 || page > 1_000_000) throw conflict();
+  const current = await recheckBiAgentSession(authority.sessionId, authority.workspaceId, 'read', client);
+  if (current.actorId !== authority.actorId) throw notFound();
+  return client.$transaction(async (tx) => {
+    const where = { actorUserId: current.actorId, scope: {
+      workspaceId: current.workspaceId, datasetId, kind: 'bi_dataset' } };
+    return { workspace_id: current.workspaceId, dataset_id: datasetId, page, page_size: 20,
+      total: await tx.biAgentConversation.count({ where }),
+      rows: await tx.biAgentConversation.findMany({ where, skip: (page - 1) * 20, take: 20,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { id: true, title: true, version: true, createdAt: true } }) };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }
 

@@ -106,9 +106,11 @@ export type OverviewLocation = { workspaceId?: string; datasetId?: string; datas
   filterKind?: ReferenceKind; filterPage: number; filterSearch: string; filterSort: 'name' | 'key'; filterDescending: boolean;
   qualityKey?: QualityKey; evidencePage: number; evidenceSearch: string; evidenceSort: 'key' | 'name' | 'date'; evidenceDescending: boolean;
   evidenceRecord?: string; evidenceEventPage: number;
+  conversationId?: string; conversationPage?: number; questionPage?: number;
   detailDimension?: SourceDimension; detailChannelId?: string; detailStoreId?: string; detailPage: number;
   detailSearch: string; detailSort: 'key' | 'net_sales' | 'accounted_contribution' | 'order_count'; detailDescending: boolean };
 const FIELDS = { workspaceId: 'workspace_id', datasetId: 'dataset_id', datasetPage: 'dataset_page', start: 'start', end: 'end',
+  conversationId: 'conversation', conversationPage: 'conversation_page', questionPage: 'question_page',
   channelId: 'channel_id', storeId: 'store_id', productId: 'product_id', skuId: 'sku_id', listingId: 'listing_id', category: 'category',
   interval: 'interval', refundBasis: 'refund_basis', channelMetric: 'channel_metric', channelPage: 'channel_page', trendPage: 'trend_page', targetPage: 'target_page',
   targetMonth: 'target_month', editStoreId: 'edit_store_id', detailDimension: 'detail', detailChannelId: 'detail_channel_id',
@@ -139,8 +141,11 @@ export function readOverviewLocation(search: string): OverviewLocation {
   const filter = p.get('filter');
   if (filter !== null && !Object.hasOwn(REFERENCE_LABELS, filter)) throw new Error('筛选目录无效。');
   const quality = p.get('quality');
+  const conversationId = p.get('conversation') ?? undefined;
+  if (conversationId && !z.string().uuid().safeParse(conversationId).success) throw new Error('对话链接无效，请重新选择对话。');
   if (quality !== null && !qualityKey.safeParse(quality).success) throw new Error('核算提醒类型无效。');
   return { workspaceId: id('workspace_id'), datasetId: id('dataset_id'), datasetPage: page('dataset_page'), start, end,
+    conversationId, conversationPage: page('conversation_page'), questionPage: page('question_page'),
     channelId: id('channel_id'), storeId: id('store_id'), productId: id('product_id'), skuId: id('sku_id'), listingId: id('listing_id'), category: p.has('category') ? text('category') : undefined,
     filterKind: filter ? filter as ReferenceKind : undefined, filterPage: page('filter_page'), filterSearch: text('filter_search'),
     filterSort: choice('filter_sort', ['name', 'key'], 'name'), filterDescending: choice('filter_descending', ['true', 'false'], 'false') === 'true',

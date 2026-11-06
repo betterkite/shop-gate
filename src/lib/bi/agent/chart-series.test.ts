@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { chartSeries } from './chart-series';
+import { chartAxis } from '../chart-axis';
 const row = (key: string, value: string | null) => ({ key, name: key, metrics: { net_sales: value }, quality: {} });
 describe('verified chart coordinates', () => {
+  it('gives all-zero results distinct ascending ticks without changing zero data', () => {
+    const series = chartSeries([row('2026-07-01', '0'), row('2026-07-02', '0')], 'net_sales', true);
+    expect(series.rows.map((r) => r.value)).toEqual([0, 0]);
+    expect(chartAxis(series.min, series.max)).toEqual({ min: 0, max: 1, spread: 1, ticks: [0, 0.5, 1] });
+    expect(chartAxis(-6, 72)).toEqual({ min: -6, max: 72, spread: 78, ticks: [-6, 33, 72] });
+  });
   it('sorts time, preserves unknown and negative values and breaks unrecorded dates', () => {
     const result = chartSeries([row('2026-07-05', '10.10'), row('2026-07-01', '-3.25'), row('2026-07-02', null)], 'net_sales', true);
     expect(result.min).toBe(-3.25); expect(result.max).toBe(10.1);

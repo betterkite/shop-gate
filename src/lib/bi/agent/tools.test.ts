@@ -16,9 +16,18 @@ describe('BI assistant controlled tool registration', () => {
     expect(tools.filter((t) => t.terminal).map((t) => t.name)).toEqual(['submit_answer']);
   });
   it('passes the framework operation ID and abort signal to complete result collection', async () => {
-    mocks.collect.mockResolvedValue({ evidence_id: 'opaque', total: 25, preview: [], complete: true });
-    expect(await createBiAgentTools(fence)[1].execute({ dimension: 'store' }, context)).toMatchObject({ ok: true, data: { total: 25 } });
+    mocks.collect.mockResolvedValue({ evidence_id: 'opaque', total: 25, preview: [{ key: 's', name: '店铺',
+      metrics: { contribution_margin: '0.91666667', product_cost: null }, quality: {} }],
+      metadata: { summary: { metrics: { contribution_margin: '0.91666667' }, quality: {} } }, complete: true });
+    expect(await createBiAgentTools(fence)[1].execute({ dimension: 'store' }, context)).toMatchObject({ ok: true, data: { total: 25,
+      display_summary: { contribution_margin: '91.67%' }, display_preview: [{ key: 's', metrics: { contribution_margin: '91.67%', product_cost: '待核算' } }] } });
     expect(mocks.collect).toHaveBeenCalledWith(fence, 'owned-operation', { dimension: 'store' }, context.signal, {});
+  });
+  it('formats subsequent evidence pages by the same rules without changing their raw decimals', async () => {
+    mocks.inspect.mockResolvedValue({ rows: [{ key: 'last', name: '末项', metrics: { contribution_margin: '-0.91666667' }, quality: {} }] });
+    expect(await createBiAgentTools(fence)[2].execute({ evidence_id: 'de305d54-75b4-431b-adb2-eb6b9e546014', page: 2 }, context))
+      .toMatchObject({ ok: true, data: { rows: [{ metrics: { contribution_margin: '-0.91666667' } }],
+        display_rows: [{ metrics: { contribution_margin: '-91.67%' } }] } });
   });
   it('keeps full display text out of public terminal receipts', async () => {
     mocks.save.mockResolvedValue({ kind: 'answer', text: 'User private answer', evidence_ids: ['owned-evidence'] });

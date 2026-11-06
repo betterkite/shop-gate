@@ -74,6 +74,13 @@ describe('data center scope, exact values and confirmation contracts', () => {
     expect(JOB_ERROR_LABELS.BI_JOB_INPUT_INVALID).toContain('尚未写入');
     expect(JOB_ERROR_LABELS.BI_JOB_CONFLICT).toContain('重新预览');
   });
+  it('rounds percentage labels identically for evidence and model, preserving exact carry and sign', () => {
+    for (const [raw, display] of [['0.91666667', '91.67%'], ['0.12344999', '12.34%'],
+      ['0.12345000', '12.35%'], ['-0.12345000', '-12.35%'], ['0.99995000', '100.00%'],
+      ['-0.00004999', '0.00%'], ['-0.00005', '-0.01%'], ['9999999999999999.99995', '1000000000000000000.00%']]) {
+      expect(decimalLabel(raw, true)).toBe(display);
+    }
+  });
   it('names new and historical CSV error fields in Chinese while retaining exact source columns', () => {
     expect(csvErrorField({ field: 'paid_amount', field_label: '商品实收原币金额' })).toBe('商品实收原币金额（paid_amount）');
     const catalog = catalogSchema.parse({ metrics: [], templates: [{ resource: 'order_lines', version: '1', notice: '',

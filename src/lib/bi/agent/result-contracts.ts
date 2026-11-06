@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { ledgerRowSchema, ledgerTableSchema } from '../overview-contracts';
 import { biAgentPageScopeSchema } from './contracts';
+import { previousBiPeriod } from './period';
 
 export const BI_AGENT_CHART_MAX_ROWS = 2000;
 export const BI_METRICS = ['sales_amount', 'refund_amount', 'net_sales', 'order_count', 'average_order_value',
@@ -16,11 +17,13 @@ export const biAgentQuerySchema = z.object({
     .refine((values) => new Set(values).size === values.length).default([...BI_METRICS]),
   sort: z.union([biMetric, z.literal('key')]).default('net_sales'), descending: z.boolean().default(true),
   // An explicitly described comparison period; all selected entities stay bound.
-  period: z.object({ start: z.string(), end: z.string(), reason: safeText(200) }).strict().optional(),
+  period: z.union([z.literal('previous'), z.object({ start: z.string(), end: z.string(), reason: safeText(200) }).strict()]).optional(),
 }).strict();
 export function scopedBiAgentQuery(page: unknown, raw: unknown) {
   const { module: _module, ...scope } = biAgentPageScopeSchema.parse(page); void _module;
-  const { period, ...selection } = biAgentQuerySchema.parse(raw);
+  const { period: requested, ...selection } = biAgentQuerySchema.parse(raw);
+  const period = requested === 'previous' ? previousBiPeriod(scope) : requested;
+  if (requested === 'previous' && !period) throw new Error('当前页面没有可比较的完整日期范围。');
   if (period) biAgentPageScopeSchema.parse({ ...scope, module: 'overview', start: period.start, end: period.end });
   return { ...scope, ...selection, ...(period ? { start: period.start, end: period.end } : {}) };
 }

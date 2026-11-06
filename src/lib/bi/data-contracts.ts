@@ -169,8 +169,11 @@ export function decimalLabel(value: unknown, percent = false): string {
   if (percent) {
     const negative = value.startsWith('-');
     const [whole, fraction = ''] = value.replace(/^-/, '').split('.');
-    const hundredths = `${whole}${fraction.padEnd(2, '0').slice(0, 2)}`.replace(/^0+(?=\d)/, '');
-    return `${negative ? '-' : ''}${hundredths}.${fraction.slice(2, 4).padEnd(2, '0')}%`;
+    // Ratios remain exact strings. Round half away from zero to two percent
+    // decimals without binary floating point, including carry and large values.
+    const scaled = BigInt(`${whole}${fraction.padEnd(4, '0').slice(0, 4)}`)
+      + (Number(fraction[4] ?? '0') >= 5 ? 1n : 0n);
+    return `${negative && scaled !== 0n ? '-' : ''}${scaled / 100n}.${String(scaled % 100n).padStart(2, '0')}%`;
   }
   const [whole, fraction] = value.split('.');
   return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${fraction === undefined ? '' : `.${fraction}`}`;

@@ -21,6 +21,15 @@ describe('BI analysis display and query boundaries', () => {
     expect(biAgentAnswerSchema.parse({ kind: 'data_unavailable', text: '当前范围没有完整成本记录。', evidence_ids: [] }).kind)
       .toBe('data_unavailable');
   });
+  it('resolves the previous inclusive window instead of trusting model date arithmetic', () => {
+    expect(scopedBiAgentQuery({ ...scope, start: '2026-05-03', end: '2026-07-02' }, { period: 'previous' }))
+      .toMatchObject({ start: '2026-03-03', end: '2026-05-02', channel_ids: ['a'], category: '' });
+    expect(scopedBiAgentQuery({ ...scope, start: '2024-03-01', end: '2024-03-01' }, { period: 'previous' }))
+      .toMatchObject({ start: '2024-02-29', end: '2024-02-29' });
+    for (const page of [{ module: 'overview' }, { ...scope, start: '0001-01-01', end: '0001-01-01' }]) {
+      expect(() => scopedBiAgentQuery(page, { period: 'previous' })).toThrow();
+    }
+  });
   it('only attaches chart/table views to listed evidence IDs', () => {
     expect(biAgentAnswerSchema.safeParse({ kind: 'clarification', text: '说明', evidence_ids: [],
       views: [{ result_id: 'de305d54-75b4-431b-adb2-eb6b9e546014', kind: 'table', metric: 'net_sales' }] }).success).toBe(false);

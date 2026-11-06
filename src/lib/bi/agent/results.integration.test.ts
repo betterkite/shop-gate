@@ -103,6 +103,23 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
     expect(await readBiAgentResultPage(actor, fence.runId, result.evidence_id, 101, b)).toMatchObject({ total: 2001, rows: [{ key: 'p2000' }] });
   }, 20_000);
 
+  it('persists deterministic previous-period bounds and original ratio decimals for replay', async () => {
+    const { actor, fence, repository } = await running(); const source = read(1);
+    const ledger = vi.fn(async (...args: Parameters<typeof source>) => {
+      const data = await source(...args);
+      return { ...data, range: { ...data.range, start: args[3].start, end: args[3].end },
+        rows: data.rows.map((r) => ({ ...r, metrics: { ...r.metrics, contribution_margin: '0.91666667' } })) };
+    });
+    const result = await collectBiAgentResult(fence, unique(), { dimension: 'store', period: 'previous' }, signal(), { client: a, read: ledger });
+    expect(result.query).toMatchObject({ start: '2026-08-02', end: '2026-08-31' });
+    expect(result.query).not.toHaveProperty('period');
+    await saveBiAgentAnswer(fence, answer(result.evidence_id), a); await complete(fence, repository);
+    const stored = await readBiAgentResultPage(actor, fence.runId, result.evidence_id, 1, b);
+    expect(stored.rows).toMatchObject([{ metrics: { contribution_margin: '0.91666667' } }]);
+    expect(stored.metadata).toMatchObject({ range: { start: '2026-08-02', end: '2026-08-31' } });
+    expect(ledger).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a version change midway and never promotes a first-page-only answer', async () => {
     const { fence } = await running(); const source = read();
     const changed: typeof source = vi.fn(async (...args) => {

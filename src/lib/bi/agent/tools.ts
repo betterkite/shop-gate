@@ -7,6 +7,8 @@ import { authorizeBiAgentRun } from './requests';
 import { readBiAgentMetricCatalog } from './ledger';
 import { BiAgentProblem } from './contracts';
 import { BI_METRICS } from './result-contracts';
+import { ledgerRowSchema, ledgerTableSchema } from '../overview-contracts';
+import { displayBiMetrics, displayBiRows } from './presentation';
 import { collectBiAgentResult, inspectBiAgentResultPage, saveBiAgentAnswer, assertBiAgentResultFence, type BiAgentResultFence } from './results';
 
 /** Product tools only. No generated source files, shell, arbitrary network,
@@ -28,11 +30,15 @@ export function createBiAgentTools(fence: BiAgentResultFence, dependencies: BiAg
           return { ok: true, data: { metrics: data.filter((metric) => (BI_METRICS as readonly string[]).includes(metric.id)) } };
         }
         if (name === 'query_ledger') {
-          return { ok: true, data: await collectBiAgentResult(fence, context.operationId, raw, context.signal, dependencies) };
+          const result = await collectBiAgentResult(fence, context.operationId, raw, context.signal, dependencies);
+          const summary = ledgerTableSchema.shape.summary.parse((result.metadata as Record<string, unknown>).summary);
+          return { ok: true, data: { ...result, display_summary: displayBiMetrics(summary.metrics),
+            display_preview: displayBiRows(z.array(ledgerRowSchema).parse(result.preview)) } };
         }
         if (name === 'read_result_page') {
           const input = resultPage.parse(raw);
-          return { ok: true, data: await inspectBiAgentResultPage(fence, input.evidence_id, input.page, dependencies.client) };
+          const result = await inspectBiAgentResultPage(fence, input.evidence_id, input.page, dependencies.client);
+          return { ok: true, data: { ...result, display_rows: displayBiRows(z.array(ledgerRowSchema).parse(result.rows)) } };
         }
         const content = await saveBiAgentAnswer(fence, raw, dependencies.client);
         // Public durable tool receipts contain IDs and bounded status only.

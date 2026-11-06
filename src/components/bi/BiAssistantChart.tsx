@@ -6,6 +6,7 @@ import { decimalLabel } from '@/lib/bi/data-contracts';
 import { agentChartSchema, AGENT_METRIC_LABELS, readAgent } from '@/lib/bi/agent/browser';
 import type { BiAgentAnswerContent } from '@/lib/bi/agent/result-contracts';
 import { chartSeries } from '@/lib/bi/agent/chart-series';
+import { chartAxis } from '@/lib/bi/chart-axis';
 
 export function BiAssistantChart({ workspaceId, datasetId, version, runId, view }: {
   workspaceId: string; datasetId: string; version: number; runId: string; view: BiAgentAnswerContent['views'][number];
@@ -27,9 +28,11 @@ export function BiAssistantChart({ workspaceId, datasetId, version, runId, view 
   if (!data) return <p role="status" className="text-sm text-muted-foreground">正在读取完整图表依据…</p>;
   if (data.state === 'table_only') return <BiNotice>共有 {data.total} 项，逐项绘图过于密集。请通过下方依据表查看全部记录；答案不受影响。</BiNotice>;
   const series = chartSeries(data.rows, view.metric, view.kind === 'line', data.query.dimension === 'week' ? 7 : 1);
-  const { rows, min, max } = series, spread = max - min || 1;
+  const { rows } = series, { min, max, spread, ticks } = chartAxis(series.min, series.max);
   if (!rows.some((r) => r.value !== null)) return <BiNotice>没有可绘制的已知数值。缺失值未按零绘制，请查看下方依据。</BiNotice>;
   const metric = AGENT_METRIC_LABELS[view.metric], percent = view.metric.endsWith('_ratio') || view.metric === 'contribution_margin';
+  const tickLabel = (v: number) => new Intl.NumberFormat('zh-CN', percent
+    ? { style: 'percent', maximumFractionDigits: 2 } : { notation: 'compact' }).format(v);
   const label = (r: typeof rows[number]) => `${r.name}：${decimalLabel(r.raw, percent)}`;
   const visible = view.kind === 'bar' ? rows.slice((page - 1) * 20, page * 20) : rows;
   const y = (v: number) => 230 - (v - min) / spread * 190;
@@ -47,14 +50,14 @@ export function BiAssistantChart({ workspaceId, datasetId, version, runId, view 
       <svg viewBox={`0 0 1024 ${view.kind === 'bar' ? 45 + visible.length * 32 : 280}`} className="w-full min-w-[640px]" role="img" aria-label={`${metric}；${view.kind === 'bar' ? '当前页对比' : '完整期间趋势'}，可核对下方依据表`}>
         {view.kind === 'bar' ? <>
           <line x1={barX(0)} x2={barX(0)} y1="25" y2={30 + visible.length * 32} stroke="currentColor" opacity="0.4" />
-          {[min, max].map((v, i) => <text key={i} x={barX(v)} y="15" fontSize="11" textAnchor={i ? 'end' : 'start'} fill="currentColor">{v}</text>)}
+          {[min, max].map((v, i) => <text key={i} x={barX(v)} y="15" fontSize="11" textAnchor={i ? 'end' : 'start'} fill="currentColor">{tickLabel(v)}</text>)}
           {visible.map((r, i) => <g key={r.key}>
             <text x="215" y={49 + i * 32} textAnchor="end" fontSize="12" fill="currentColor">{r.name.length > 18 ? `${r.name.slice(0, 18)}…` : r.name}<title>{r.name}</title></text>
-            {r.value !== null && <rect x={Math.min(barX(0), barX(r.value))} y={32 + i * 32} width={Math.max(1, Math.abs(barX(r.value) - barX(0)))} height="23" rx="3" fill="hsl(var(--primary))"><title>{label(r)}</title></rect>}
+            {r.value !== null && <rect x={Math.min(barX(0), barX(r.value))} y={32 + i * 32} width={Math.abs(barX(r.value) - barX(0))} height="23" rx="3" fill="hsl(var(--primary))"><title>{label(r)}</title></rect>}
             <text x="895" y={49 + i * 32} fontSize="12" fill="currentColor">{decimalLabel(r.raw, percent)}</text>
           </g>)}
         </> : <>
-          {[min, min + spread / 2, max].map((v, i) => <g key={i}><line x1="72" x2="952" y1={y(v)} y2={y(v)} stroke="currentColor" opacity="0.15" /><text x="62" y={y(v) + 4} textAnchor="end" fontSize="11" fill="currentColor">{new Intl.NumberFormat('zh-CN', { notation: 'compact' }).format(v)}</text></g>)}
+          {ticks.map((v, i) => <g key={i}><line x1="72" x2="952" y1={y(v)} y2={y(v)} stroke="currentColor" opacity="0.15" /><text x="62" y={y(v) + 4} textAnchor="end" fontSize="11" fill="currentColor">{tickLabel(v)}</text></g>)}
           <path d={path} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" />
           {rows.map((r, i) => r.value === null ? null : <circle key={r.key} cx={x(i)} cy={y(r.value)} r={rows.length <= 90 ? 3 : 1.5} fill="hsl(var(--primary))"><title>{label(r)}</title></circle>)}
           <text x="72" y="267" fontSize="12" fill="currentColor">{rows[0]?.name}</text><text x="952" y="267" textAnchor="end" fontSize="12" fill="currentColor">{rows.at(-1)?.name}</text>

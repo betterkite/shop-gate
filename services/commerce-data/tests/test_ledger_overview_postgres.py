@@ -252,6 +252,14 @@ def test_overview_manual121_one_transaction_no_model_and_recordless_days_are_not
     assert result["trend"]["rows"][1]["state"] == "no_records"
     assert result["targets"]["rows"][0]["net_sales"] == "104.00"
     assert result["targets"]["rows"][0]["completion_ratio"] == "0.10400000"
+    # Same 61-day example as the Agent's controlled "previous" query. A
+    # calendar-month subtraction would silently compare unequal periods.
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        extended = overview(
+            connection, scope, OverviewRequest(query=Query(start="2026-05-03", end="2026-07-02"))
+        )
+    assert extended["previous"]["range"]["start"] == "2026-03-03"
+    assert extended["previous"]["range"]["end"] == "2026-05-02"
 
 
 def test_comparable_previous_window_and_week_boundary_have_independent_amounts(context):

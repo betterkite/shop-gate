@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { BI_PANEL, BI_SELECT, BiPagination } from '@/components/bi/BiPrimitives';
 import { decimalLabel } from '@/lib/bi/data-contracts';
+import { chartAxis } from '@/lib/bi/chart-axis';
 import type { Overview, OverviewLocation } from '@/lib/bi/overview-contracts';
 import type { OverviewNavigate } from './OverviewWorkspace';
 
@@ -15,7 +16,7 @@ export function OverviewTrend({ trend, page, navigate, onSelect }: {
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const values = trend.rows.flatMap((row) => series.flatMap(({ key }) => row.metrics?.[key] == null ? [] : [Number(row.metrics[key])])).filter(Number.isFinite);
-  const max = Math.max(0, ...values), min = Math.min(0, ...values), spread = max - min || 1;
+  const { min, spread, ticks } = chartAxis(Math.min(0, ...values), Math.max(0, ...values));
   const y = (value: number) => 230 - ((value - min) / spread) * 190;
   const x = (index: number) => 72 + index * (880 / Math.max(1, trend.rows.length - 1));
   const point = trend.rows.find((row) => row.key === selected);
@@ -26,7 +27,7 @@ export function OverviewTrend({ trend, page, navigate, onSelect }: {
     <div className="mt-4 flex flex-wrap gap-5 text-xs">{series.map((entry) => <span className="flex items-center gap-2" key={entry.key}><span className="h-1 w-6 rounded" style={{ backgroundColor: entry.color }} />{entry.label}</span>)}<span className="text-muted-foreground">金额：元；缺少记录或待核算的位置留空</span></div>
     {values.length > 0 ? <div className="mt-3 overflow-hidden rounded-xl bg-muted/20">
       <svg viewBox="0 0 1000 285" className="min-h-[220px] w-full" role="img" aria-label="净销售额与已核算经营贡献趋势，具体金额见下方可分页明细">
-        {[min, min + spread / 2, max].map((value, index) => <g key={index}><line x1="72" x2="952" y1={y(value)} y2={y(value)} stroke="currentColor" opacity="0.1" /><text x="62" y={y(value) + 4} textAnchor="end" fontSize="11" fill="currentColor" opacity="0.65">{new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}</text></g>)}
+        {ticks.map((value, index) => <g key={index}><line x1="72" x2="952" y1={y(value)} y2={y(value)} stroke="currentColor" opacity="0.1" /><text x="62" y={y(value) + 4} textAnchor="end" fontSize="11" fill="currentColor" opacity="0.65">{new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}</text></g>)}
         <line x1="72" x2="952" y1={y(0)} y2={y(0)} stroke="currentColor" opacity="0.35" strokeDasharray="4 4" />
         {series.map((entry) => {
           let continuous = false;

@@ -15,6 +15,7 @@ import { createBiAgentTools, type BiAgentToolDependencies } from './tools';
 import { assertBiAgentResultFence } from './results';
 import { BI_AGENT_SYSTEM_PROMPT, biAgentProvenance } from './provenance';
 import { publishBiAgentAnswer } from './completion';
+import { previousBiPeriod } from './period';
 
 export const BI_AGENT_BUDGET = { turns: 8, output: 12_000, input: 96_000, perTurnOutput: 3_000,
   timeoutMs: 180_000, toolCalls: 24 } as const;
@@ -30,7 +31,7 @@ async function messagesFor(authorized: Awaited<ReturnType<typeof authorizeBiAgen
     runs: { where: { status: 'completed' }, select: { id: true }, take: 1 } } });
   const messages: PiAgentMessage[] = [{ role: 'system', content: BI_AGENT_SYSTEM_PROMPT },
     { role: 'system', content: `可信当前页面范围：${JSON.stringify({ dataset_id: authorized.datasetId,
-      version: request.datasetVersion, ...authorized.pageScope })}\n最多带入最近8轮历史；${prior.length > 8 ? '更早的对话未带入，不要假定其细节。' : '以下是已有对话。'}` }];
+      version: request.datasetVersion, ...authorized.pageScope, previous_equal_length_period: previousBiPeriod(authorized.pageScope) })}\n最多带入最近8轮历史；${prior.length > 8 ? '更早的对话未带入，不要假定其细节。' : '以下是已有对话。'}` }];
   for (const previous of prior.slice(0, 8).reverse()) {
     const answer = previous.runs[0] && await client.biAgentAnswer.findUnique({ where: { runId: previous.runs[0].id } });
     messages.push({ role: 'user', content: JSON.stringify({ question: previous.instruction,

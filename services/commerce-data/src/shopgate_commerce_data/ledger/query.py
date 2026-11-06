@@ -429,7 +429,8 @@ class LedgerReadSnapshot:
                     "paid_amount": decimal_text(line["paid_amount"], "money"),
                     "missing": snapshot.missing,
                     "revenue_fx_missing": snapshot.revenue_fx_rate is None,
-                    "cost_fx_missing": snapshot.cost_fx_rate is None,
+                    "cost_fx_missing": snapshot.cost_id is not None
+                    and snapshot.cost_fx_rate is None,
                 },
                 "search_text": " ".join(
                     str(value)

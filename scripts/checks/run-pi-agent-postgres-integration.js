@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
@@ -13,10 +15,10 @@ if (!databaseUrl) {
 
 const prismaPackage = require.resolve('prisma/package.json');
 const prismaBin = path.join(path.dirname(prismaPackage), 'build', 'index.js');
-console.log('[pi-agent-postgres] Provisioning the disposable database schema...');
+console.log('[pi-agent-postgres] Applying real migrations to the disposable database...');
 const provision = spawnSync(
   process.execPath,
-  [prismaBin, 'db', 'push', '--skip-generate'],
+  [prismaBin, 'migrate', 'deploy'],
   {
     cwd: process.cwd(),
     env: { ...process.env, DATABASE_URL: databaseUrl },
@@ -42,18 +44,32 @@ const testFiles = [
   'src/lib/agent/runtime/prisma-repository.integration.test.ts',
   'src/lib/services/pi-agent-tool-approval-store.integration.test.ts',
 ];
-const result = spawnSync(process.execPath, [vitestBin, 'run', ...testFiles], {
-  cwd: process.cwd(),
-  env: { ...process.env, DATABASE_URL: databaseUrl },
-  stdio: 'inherit',
-});
-
-if (result.error) {
-  console.error(`[pi-agent-postgres] Failed to start Vitest: ${result.error.message}`);
-  process.exit(1);
+const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'shopgate-agent-pg-report-'));
+let exitCode = 1;
+try {
+  const reportPath = path.join(reports, 'result.json');
+  const result = spawnSync(process.execPath, [vitestBin, 'run', ...testFiles,
+    '--reporter=default', '--reporter=json', `--outputFile=${reportPath}`], {
+    cwd: process.cwd(),
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+    stdio: 'inherit',
+  });
+  if (result.error) throw result.error;
+  if (result.signal || result.status !== 0) {
+    throw new Error(`Vitest failed: ${result.signal ?? result.status}`);
+  }
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  if (report.success !== true || !Number.isInteger(report.numTotalTests)
+      || report.numTotalTests < 23 || report.numPendingTests !== 0
+      || report.numTodoTests !== 0 || report.numFailedTests !== 0
+      || report.numPassedTests !== report.numTotalTests) {
+    throw new Error('The required PostgreSQL checks did not all execute and pass.');
+  }
+  console.log(`[pi-agent-postgres] ${report.numPassedTests} real PostgreSQL tests passed; none skipped.`);
+  exitCode = 0;
+} catch (error) {
+  console.error(`[pi-agent-postgres] ${error.message}`);
+} finally {
+  fs.rmSync(reports, { recursive: true, force: true });
 }
-if (result.signal) {
-  console.error(`[pi-agent-postgres] Vitest exited on signal ${result.signal}.`);
-  process.exit(1);
-}
-process.exit(result.status ?? 1);
+process.exitCode = exitCode;

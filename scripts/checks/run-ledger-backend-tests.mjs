@@ -71,7 +71,28 @@ try {
     child.once('error', reject);
     child.once('exit', (code) => resolve(code ?? 1));
   });
+  if (exitCode === 0) {
+    // The Agent lease/approval tests must actually run, not remain conditional
+    // skips in the ordinary unit gate. Use a separate DB in this same owned
+    // cluster so its migrations and cleanup cannot touch ledger fixtures.
+    execFileSync('uv', ['run', '--project', 'services/commerce-data', 'python', '-c',
+      'import os, psycopg\nwith psycopg.connect(os.environ["SHOPGATE_LEDGER_TEST_DATABASE_URL"], autocommit=True) as c:\n c.execute("CREATE DATABASE pi_agent_acceptance")'],
+    { cwd: root, env: testEnvironment, stdio: 'inherit' });
+    const agentEnvironment = Object.fromEntries(['PATH', 'HOME', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'TMPDIR']
+      .filter((key) => environment[key] !== undefined).map((key) => [key, environment[key]]));
+    agentEnvironment.NODE_ENV = 'test';
+    agentEnvironment.PI_AGENT_TEST_DATABASE_URL = `postgresql://ledger_test_admin@127.0.0.1:${port}/pi_agent_acceptance`;
+    console.log('[agent] Running durable runtime and approval checks on the owned PostgreSQL 18 cluster.');
+    exitCode = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, ['scripts/checks/run-pi-agent-postgres-integration.js'], {
+        cwd: root, env: agentEnvironment, stdio: 'inherit',
+      });
+      child.once('error', reject);
+      child.once('exit', (code) => resolve(code ?? 1));
+    });
+  }
 } catch (error) {
+  exitCode = 1;
   console.error('[ledger] Verification setup or execution failed:', error.message);
   const log = await readFile(logFile, 'utf8').catch(() => '');
   if (log) console.error(log.slice(-2500));

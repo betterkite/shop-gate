@@ -117,6 +117,10 @@ def test_exact_quality_evidence_deduplicates_lines_and_paginates_every_refund(co
         assert all(page["total"] == page["scope_total"] == 25 for page in pages)
         assert len({row["key"] for page in pages for row in page["rows"]}) == 25
         assert current["summary"]["quality"]["unknown_cost_lines"] == 25
+        # No cost version means its currency is unknown. A missing payment FX
+        # rate must not invent a second, cost-currency explanation.
+        assert all(row["reasons"] == ["缺少付款时适用的商品成本。"]
+                   for page in pages for row in page["rows"])
         literal = quality_evidence(connection, scope, EvidenceRequest(search="%"))
         assert literal["total"] == 24 and literal["scope_total"] == 25
         refund_request = EvidenceRequest(quality_key="unknown_refund_lines", record_key="line-o1")

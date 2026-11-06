@@ -165,6 +165,8 @@ function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, n
   state: Extract<AssistantViewState, { kind: 'evidence' }>; changeView: (next: AssistantViewState) => void;
 }) {
   const { page, open } = state;
+  const body = useRef<HTMLDivElement>(null);
+  const [bodyHeight, setBodyHeight] = useState(0);
   const [data, setData] = useState<z.infer<typeof agentResultSchema> | null>(null), [error, setError] = useState('');
   useEffect(() => {
     if (!open) return;
@@ -176,11 +178,16 @@ function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, n
       }).catch((e) => { if (!controller.signal.aborted) setError(message(e)); });
     return () => controller.abort();
   }, [workspaceId, datasetId, version, runId, resultId, page, open]);
+  useEffect(() => {
+    if (open && data && body.current) setBodyHeight((height) => Math.max(height, body.current!.getBoundingClientRect().height));
+  }, [data, open]);
   return <details className="min-w-0 rounded-lg border border-border p-3" open={open}><summary onClick={(event) => { event.preventDefault(); changeView({ ...state, open: !open }); }} className="cursor-pointer text-sm font-medium">查看依据 {number}{data ? ` · 共 ${data.total} 项` : ''}</summary>
+    <div ref={body} style={{ minHeight: bodyHeight }} aria-busy={open && !data && !error}>
     {error && <BiNotice error>{error}</BiNotice>}{!data && !error && <p className="mt-3 text-sm">正在读取依据…</p>}
     {data && <><p className="mt-3 text-xs text-muted-foreground">版本 {version} · {data.metadata.range.start ?? '无日期'} 至 {data.metadata.range.end ?? '无日期'} · {data.metadata.range.refund_basis === 'payment' ? '按原付款日期统计退款' : '按退款发生日期统计退款'}。保留提问时的查询结果。</p>
       <BiEvidenceTable data={data} />
       {page > Math.max(1, Math.ceil(data.total / 20)) && <Button size="sm" variant="link" onClick={() => changeView({ ...state, page: 1 })}>返回依据第一页</Button>}
       <BiPagination label={`分析依据 ${number} 分页`} page={page} total={data.total} change={(page) => changeView({ ...state, page })} /></>}
+    </div>
   </details>;
 }

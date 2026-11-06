@@ -49,7 +49,7 @@ export function BiAssistantChart({ workspaceId, datasetId, version, runId, view,
     <h4 className="font-medium">{metric}</h4>
     <p className="mt-2 text-xs leading-6 text-muted-foreground">数据版本 {version} · {data.metadata.range.start ?? '无日期'} 至 {data.metadata.range.end ?? '无日期'} · 共 {data.total} 项。{view.kind === 'bar' ? `当前展示第 ${(page - 1) * 20 + 1}–${Math.min(page * 20, rows.length)} 项，刻度按全部记录确定。` : '按时间排列全部记录，缺失值及无记录日期不连线。'} 原始精确数值见下方依据表。</p>
     <div className="mt-3 overflow-x-auto">
-      <svg viewBox={`0 0 1024 ${view.kind === 'bar' ? 45 + visible.length * 32 : 280}`} className="w-full min-w-[640px]" role="img" aria-label={`${metric}；${view.kind === 'bar' ? '当前页对比' : '完整期间趋势'}，可核对下方依据表`}>
+      <svg viewBox={`0 0 1024 ${view.kind === 'bar' ? 45 + Math.min(20, rows.length) * 32 : 280}`} className="w-full min-w-[640px]" role="img" aria-label={`${metric}；${view.kind === 'bar' ? '当前页对比' : '完整期间趋势'}，可核对下方依据表`}>
         {view.kind === 'bar' ? <>
           <line x1={barX(0)} x2={barX(0)} y1="25" y2={30 + visible.length * 32} stroke="currentColor" opacity="0.4" />
           {[min, max].map((v, i) => <text key={i} x={barX(v)} y="15" fontSize="11" textAnchor={i ? 'end' : 'start'} fill="currentColor">{tickLabel(v)}</text>)}

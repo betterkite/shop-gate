@@ -11,9 +11,9 @@ import { dataErrorMessage, readBi } from '@/lib/bi/data-browser';
 import { overviewSchema, scopeMatches, targetCommitSchema, targetPreviewSchema, type TargetPreview, type TargetRow } from '@/lib/bi/overview-contracts';
 
 /** Parent keys this editor by dataset version, store and month; a new scope ends the old draft. */
-export function TargetEditor({ workspaceId, dataset, storeId, month, initial, canManage, close, committed }: {
+export function TargetEditor({ workspaceId, dataset, storeId, month, initial, canManage, close, committed, restoreFocus }: {
   workspaceId: string; dataset: Dataset; storeId: string; month: string; initial?: TargetRow;
-  canManage: boolean; close: () => void; committed: () => void;
+  canManage: boolean; close: () => void; committed: () => void; restoreFocus: (event: Event) => void;
 }) {
   const [row, setRow] = useState<TargetRow | null>(initial ?? null);
   const [sales, setSales] = useState(initial?.sales_target ?? ''); const [profit, setProfit] = useState(initial?.profit_target ?? '');
@@ -21,6 +21,7 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, ca
   const [problem, setProblem] = useState(''); const [pending, setPending] = useState(false); const [clock, setClock] = useState(Date.now());
   const keys = useRef(new StableRequestKeys()); const active = useRef(true); const inFlight = useRef(false);
   const controller = useRef<AbortController | null>(null);
+  const previewButton = useRef<HTMLButtonElement>(null);
   const scope = { workspace_id: workspaceId, dataset_id: dataset.dataset_id, version: dataset.version };
   useEffect(() => { active.current = true; return () => { active.current = false; controller.current?.abort(); }; }, []);
   useEffect(() => { const timer = window.setInterval(() => setClock(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
@@ -66,7 +67,7 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, ca
     } catch (error) { if (active.current) { setConfirmation(false); setProblem(`${dataErrorMessage(error)} 若提交结果不确定，请先刷新目标检查；重试本次确认会使用原提交标识。`); } }
     finally { inFlight.current = false; if (active.current) setPending(false); }
   };
-  return <Sheet open onOpenChange={(open) => { if (!open && !pending) close(); }}><SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+  return <Sheet open onOpenChange={(open) => { if (!open && !pending) close(); }}><SheetContent onCloseAutoFocus={restoreFocus} className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
     <SheetHeader className="border-b border-border p-6 pr-12"><SheetTitle>月度经营目标</SheetTitle><SheetDescription>{row?.store_name ?? '正在读取所选店铺'} · {month.slice(0, 7)} · 数据版本 {dataset.version}</SheetDescription></SheetHeader>
     <div className="flex-1 space-y-5 overflow-y-auto p-6">
       {problem && <BiNotice error>{problem}</BiNotice>}
@@ -86,11 +87,11 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, ca
             return <tr className="border-t border-border" key={key}><th className="p-2 font-normal">{label}</th><td className="p-2 tabular-nums">{before == null ? '未设定' : decimalLabel(before)}</td><td className="p-2 tabular-nums">{after == null ? '未设定' : decimalLabel(after)}</td></tr>;
           })}</tbody></table></div><p className="mt-3 text-xs leading-6 text-muted-foreground">{preview.impact.notice} {preview.impact.changed ? `确认后预计变为版本 ${preview.impact.expected_version_after}。` : '目标与原值相同，确认不会增加数据版本。'}</p>
           <p className="mt-2 text-xs text-muted-foreground">预览有效至 {new Date(preview.expires_at).toLocaleTimeString('zh-CN')}。{!allowed && '预览已失效或无修改权限，请重新预览。'}</p>
-          <Button className="mt-4" disabled={pending || !allowed} onClick={() => setConfirmation(true)}>检查完成，确认修改</Button>
+          <Button ref={previewButton} className="mt-4" disabled={pending || !allowed} onClick={() => setConfirmation(true)}>检查完成，确认修改</Button>
         </section>}
       </>}
     </div>
-    <AlertDialog open={confirmation} onOpenChange={(open) => { if (!pending) setConfirmation(open); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>确认保存这次目标变更？</AlertDialogTitle><AlertDialogDescription>修改{row?.store_name} {month.slice(0, 7)}的目标。提交前会再次检查当前权限、数据版本与预览期限；订单和历史成本不变。</AlertDialogDescription></AlertDialogHeader>
+    <AlertDialog open={confirmation} onOpenChange={(open) => { if (!pending) setConfirmation(open); }}><AlertDialogContent onCloseAutoFocus={(event) => { event.preventDefault(); previewButton.current?.focus({ preventScroll: true }); }}><AlertDialogHeader><AlertDialogTitle>确认保存这次目标变更？</AlertDialogTitle><AlertDialogDescription>修改{row?.store_name} {month.slice(0, 7)}的目标。提交前会再次检查当前权限、数据版本与预览期限；订单和历史成本不变。</AlertDialogDescription></AlertDialogHeader>
       <AlertDialogFooter><AlertDialogCancel disabled={pending}>返回检查</AlertDialogCancel><Button disabled={pending || !allowed} onClick={() => { void confirm(); }}>{pending ? '正在保存…' : '确认保存目标'}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </SheetContent></Sheet>;
 }

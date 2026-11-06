@@ -238,6 +238,21 @@ export async function postQuery(request: NextRequest) {
     'page', 'page_size', 'query']));
 }
 
+export async function postReferences(request: NextRequest) {
+  const body = await input(request);
+  keys(body, ['workspace_id', 'dataset_id', 'version', 'options']);
+  const wanted = jobInputScope(body);
+  const options = object(body.options);
+  keys(options, ['kind', 'search', 'sort', 'descending', 'page', 'page_size', 'channel_id', 'store_id', 'product_id', 'category']);
+  const scope = await issueLedgerScope({ headers: request.headers, ...wanted });
+  const data = decoded((await upstream('references', scope.token, options)).bytes);
+  if (data.workspace_id !== scope.workspaceId || data.dataset_id !== scope.datasetId
+      || data.version !== scope.version || data.accounting_revision !== scope.version
+      || data.kind !== (options.kind ?? 'product')) throw new BiProblem('BI_UNAVAILABLE', 503);
+  return success(picked(data, ['workspace_id', 'dataset_id', 'version', 'accounting_revision',
+    'kind', 'rows', 'total', 'page', 'page_size']));
+}
+
 export async function postOverview(request: NextRequest) {
   const body = await input(request);
   keys(body, ['workspace_id', 'dataset_id', 'version', 'options']);
@@ -252,7 +267,7 @@ export async function postOverview(request: NextRequest) {
   }
   return success(picked(data, ['workspace_id', 'dataset_id', 'version', 'accounting_revision',
     'algorithm_version', 'range', 'data_cutoff', 'recorded_start', 'summary', 'state',
-    'previous', 'comparison', 'trend', 'channels', 'attention', 'targets', 'notes']));
+    'previous', 'comparison', 'trend', 'channels', 'attention', 'targets', 'notes', 'scope_names']));
 }
 
 export async function postTarget(request: NextRequest, operation: 'preview' | 'confirm') {

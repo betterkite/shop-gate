@@ -9,6 +9,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from shopgate_commerce_data.ledger.metrics import METRICS
 from shopgate_commerce_data.ledger.query import Query, ledger_read_snapshot
+from shopgate_commerce_data.ledger.references import reference_names
 
 DAY = timedelta(days=1)
 KPI_METRICS = (
@@ -319,6 +320,7 @@ def overview(connection, scope, request: OverviewRequest):
                 "summary",
             )
         }
+        base["scope_names"] = reference_names(read, selected)
         if start_text is None or end_text is None or current["data_cutoff"] is None:
             return {
                 **base,

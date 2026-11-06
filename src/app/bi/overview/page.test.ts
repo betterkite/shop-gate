@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Overview } from '@/lib/bi/overview-contracts';
+import { readOverviewLocation, type Overview } from '@/lib/bi/overview-contracts';
 const mocks = vi.hoisted(() => ({ access: vi.fn(), redirect: vi.fn(), search: vi.fn(), push: vi.fn() }));
 vi.mock('@/lib/bi/gateway-scope', () => ({ getBiWorkspaceAccess: mocks.access }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
@@ -10,7 +10,7 @@ vi.mock('@/components/auth/AuthUserMenu', () => ({ AuthUserMenu: () => React.cre
 vi.mock('@/components/ui/theme-toggle', () => ({ ThemeToggle: () => React.createElement('button', null, '切换主题') }));
 import Page from './page';
 import { AuthorizationError } from '@/lib/auth/authorization';
-import { OverviewCoverage, OverviewIndicators } from './OverviewDashboard';
+import { OverviewCoverage, OverviewFilters, OverviewIndicators } from './OverviewDashboard';
 import { OverviewTrend } from './OverviewTrend';
 
 function manual(): Overview {
@@ -27,6 +27,15 @@ function manual(): Overview {
 }
 
 describe('real authenticated overview entry and accounting presentation', () => {
+  it('offers all six master directories and names selected scopes including uncategorized', () => {
+    const data = manual(); data.scope_names = [{ kind: 'store', key: '001', name: '华东旗舰店' }, { kind: 'category', key: '', name: '未分类' }];
+    const html = renderToStaticMarkup(React.createElement(OverviewFilters, { data, location: readOverviewLocation('store_id=001&category='), navigate: vi.fn() }));
+    for (const name of ['选择销售平台', '选择店铺', '选择商品', '选择标准规格', '选择平台商品', '选择类目', '华东旗舰店', '未分类', '尚无交易']) expect(html).toContain(name);
+    expect(html).not.toContain('店铺：001');
+    data.scope_names[0].name = null;
+    const missing = renderToStaticMarkup(React.createElement(OverviewFilters, { data, location: readOverviewLocation('store_id=001'), navigate: vi.fn() }));
+    expect(missing).toContain('未找到所选对象');
+  });
   beforeEach(() => { mocks.search.mockReset().mockReturnValue(new URLSearchParams()); mocks.access.mockReset().mockResolvedValue({ workspaceId: 'account:a', canManage: true });
     mocks.redirect.mockReset().mockImplementation((href: string) => { throw new Error(`REDIRECT:${href}`); }); });
   it('offers a real data selection, retained theme and data center without invented live values', async () => {

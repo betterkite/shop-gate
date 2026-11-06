@@ -342,7 +342,7 @@ class LedgerReadSnapshot:
             raise ValueError("所选店铺不属于所选销售平台，请调整筛选范围。")
         item_scope = bool(
             query.dimension in {"product", "sku", "listing", "order", "line"}
-            or query.product_ids or query.sku_ids or query.listing_ids or query.category
+            or query.product_ids or query.sku_ids or query.listing_ids or query.category is not None
         )
         event_key = (query.refund_basis, item_scope)
         if event_key in self._event_sets:
@@ -494,7 +494,8 @@ class LedgerReadSnapshot:
                 # Unknown/unallocated attribution must not look like a SKU has zero fees.
                 # Overall/store/channel still carries the actual source expense once.
                 item_scope = query.dimension in {"product", "sku", "listing", "order", "line"} or (
-                    query.product_ids or query.sku_ids or query.listing_ids or query.category
+                    query.product_ids or query.sku_ids or query.listing_ids
+                    or query.category is not None
                 )
                 if item_scope:
                     for line in lines:
@@ -595,7 +596,7 @@ class LedgerReadSnapshot:
             query.product_ids
             or query.sku_ids
             or query.listing_ids
-            or query.category
+            or query.category is not None
             or query.search
         )
         summary_events = (

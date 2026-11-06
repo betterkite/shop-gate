@@ -14,6 +14,7 @@ from shopgate_commerce_data.ledger.migrations import migrate_all
 from shopgate_commerce_data.ledger.operations import OperationConflict, create_preview
 from shopgate_commerce_data.ledger.overview import OverviewRequest, overview
 from shopgate_commerce_data.ledger.query import Query, ledger_read_snapshot, query_ledger
+from shopgate_commerce_data.ledger.references import ReferenceRequest, reference_names, references
 from shopgate_commerce_data.ledger.scope import DirectoryScope, LedgerScope, ScopeError
 from shopgate_commerce_data.ledger.targets import TargetChange, confirm_target, preview_target
 
@@ -56,6 +57,78 @@ def context(overview_database):
         app,
         admin,
     )
+
+
+def test_directory_includes_all_idle_products_skus_and_stores_and_literal_search(context):
+    records = manual_records()
+    for i in range(23):
+        key = f"idle-{i:03}"
+        records["products"].append({
+            "product_id": key, "name": "100%纯棉" if i == 22 else "无交易商品",
+            "category": "" if i == 0 else "家居", "series": "基础款",
+        })
+        records["skus"].append({"sku_id": key, "product_id": key, "name": "规格", "unit": "件"})
+        records["stores"].append({**records["stores"][0], "store_id": key, "name": "未开单店铺"})
+    scope, _, _ = commit(context, records)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        for kind in ("product", "sku", "store"):
+            pages = [references(connection, scope, ReferenceRequest(kind=kind, page=n))
+                     for n in (1, 2)]
+            assert [len(page["rows"]) for page in pages] == [20, 5]
+            assert all(page["total"] == 25 for page in pages)
+            assert len({row["key"] for page in pages for row in page["rows"]}) == 25
+            assert all(page["version"] == page["accounting_revision"] == 2 for page in pages)
+        literal = references(connection, scope, ReferenceRequest(search="%"))
+        assert [row["key"] for row in literal["rows"]] == ["idle-022"]
+        categories = references(connection, scope, ReferenceRequest(kind="category"))
+        assert {row["key"] for row in categories["rows"]} == {"", "家居", "日用品"}
+        empty_category = references(connection, scope, ReferenceRequest(category=""))
+        assert [row["key"] for row in empty_category["rows"]] == ["idle-000"]
+        assert references(connection, scope, ReferenceRequest(page=3))["rows"] == []
+        idle = overview(connection, scope, OverviewRequest(query=Query(product_ids=("idle-000",))))
+        assert idle["scope_names"] == [{"kind": "product", "key": "idle-000", "name": "无交易商品"}]
+        assert all(row["state"] == "no_records" for row in idle["trend"]["rows"])
+        unchanged = query_ledger(connection, scope, Query())
+        assert unchanged["summary"]["metrics"]["accounted_contribution"] == "121.00"
+
+
+def test_directory_parent_restrictions_names_permissions_and_stale_scope(context):
+    scope, _, _ = commit(context)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        stores = references(connection, scope, ReferenceRequest(kind="store", channel_id="pdd"))
+        assert {row["key"] for row in stores["rows"]} == {"001", "002"}
+        assert {row["channel_name"] for row in stores["rows"]} == {"拼多多"}
+        listings = references(connection, scope, ReferenceRequest(kind="listing", store_id="002"))
+        assert [row["key"] for row in listings["rows"]] == ["l002"]
+        assert references(connection, scope, ReferenceRequest(
+            kind="listing", store_id="002", channel_id="foreign"
+        ))["total"] == 0
+        skus = references(connection, scope, ReferenceRequest(kind="sku", product_id="p001"))
+        assert [row["key"] for row in skus["rows"]] == ["001"]
+        with ledger_read_snapshot(connection, scope) as snapshot:
+            names = reference_names(snapshot, Query(store_ids=("001", "missing")))
+            assert names == [{"kind": "store", "key": "001", "name": "店铺001"},
+                             {"kind": "store", "key": "missing", "name": None}]
+        with pytest.raises(ValueError, match="快照已结束"):
+            reference_names(snapshot, Query(store_ids=("001",)))
+        with pytest.raises(OperationConflict):
+            references(connection, replace(scope, version=1), ReferenceRequest())
+        for denied in (replace(scope, workspace_id="foreign"), replace(scope, dataset_id="foreign"),
+                       replace(scope, capabilities=frozenset())):
+            with pytest.raises(ScopeError):
+                references(connection, denied, ReferenceRequest())
+
+
+def test_uncategorized_filter_keeps_unknown_expense_attribution(context):
+    records = manual_records()
+    for product in records["products"]:
+        product["category"] = ""
+    scope, _, _ = commit(context, records)
+    with psycopg.connect(context[1], autocommit=True) as connection:
+        result = overview(connection, scope, OverviewRequest(query=Query(category="")))
+        assert result["scope_names"] == [{"kind": "category", "key": "", "name": "未分类"}]
+        assert result["summary"]["quality"]["unknown_attribution_expenses"] > 0
+        assert result["summary"]["metrics"]["contribution_profit"] is None
 
 
 def test_overview_manual121_one_transaction_no_model_and_recordless_days_are_not_zero(context):

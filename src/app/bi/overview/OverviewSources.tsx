@@ -10,8 +10,8 @@ import { DIMENSION_LABELS, QUALITY_LABELS, ledgerTableSchema, overviewQuery, sco
   type LedgerTable, type OverviewLocation, type Overview } from '@/lib/bi/overview-contracts';
 import type { OverviewNavigate } from './OverviewWorkspace';
 
-export function OverviewSources({ workspaceId, dataset, location, range, navigate }: {
-  workspaceId: string; dataset: Dataset; location: OverviewLocation; range: Overview['range']; navigate: OverviewNavigate;
+export function OverviewSources({ workspaceId, dataset, location, range, navigate, restoreFocus }: {
+  workspaceId: string; dataset: Dataset; location: OverviewLocation; range: Overview['range']; navigate: OverviewNavigate; restoreFocus: (event: Event) => void;
 }) {
   const [response, setResponse] = useState<{ key: string; data: LedgerTable } | null>(null);
   const [problem, setProblem] = useState(''); const [retry, setRetry] = useState(0);
@@ -38,7 +38,7 @@ export function OverviewSources({ workspaceId, dataset, location, range, navigat
   useEffect(() => { if (data && content.current) setHeight(Math.max(520, content.current.getBoundingClientRect().height)); }, [data]);
   const close = () => navigate({ detailDimension: undefined, detailChannelId: undefined, detailStoreId: undefined, detailPage: 1, detailSearch: '' });
   const dimension = location.detailDimension ?? 'line';
-  return <Sheet open onOpenChange={(open) => { if (!open) close(); }}><SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-4xl">
+  return <Sheet open onOpenChange={(open) => { if (!open) close(); }}><SheetContent onCloseAutoFocus={restoreFocus} className="flex w-full flex-col gap-0 p-0 sm:max-w-4xl">
     <SheetHeader className="border-b border-border p-6 pr-12"><SheetTitle>查看{DIMENSION_LABELS[dimension]}</SheetTitle><SheetDescription>{range.start ?? '尚无日期'} 至 {range.end ?? '尚无日期'} · {dataset.name} · 版本 {dataset.version}。沿用当前页面范围，金额以元计。</SheetDescription></SheetHeader>
     <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-3"><label className="text-sm">查看方式 <select className={BI_SELECT} value={dimension} onChange={(e) => navigate({ detailDimension: e.target.value as typeof dimension })}>

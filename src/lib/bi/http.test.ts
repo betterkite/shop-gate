@@ -7,6 +7,7 @@ vi.mock('@/lib/auth/action', () => ({ requireAction: mocks.requireAction }));
 import { GET as datasets, POST as create } from '@/app/api/bi/datasets/route';
 import { POST as query } from '@/app/api/bi/query/route';
 import { POST as overview } from '@/app/api/bi/overview/route';
+import { POST as references } from '@/app/api/bi/references/route';
 import { POST as targetPreview } from '@/app/api/bi/targets/preview/route';
 import { POST as targetConfirm } from '@/app/api/bi/targets/confirm/route';
 import { GET as catalog } from '@/app/api/bi/catalog/route';
@@ -47,6 +48,27 @@ describe('same-origin BI gateway with real scope issuer', () => {
     vi.stubGlobal('fetch', mocks.fetch);
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('reads master directories with signed read scope and rejects stale or foreign responses', async () => {
+    const envelope = { workspace_id: record.workspace_id, dataset_id: 'official', version: 2, accounting_revision: 2,
+      kind: 'store', rows: [{ key: '001', name: '未开单店铺' }], total: 25, page: 2, page_size: 20 };
+    const options = { kind: 'store', channel_id: 'pdd', search: '店铺', page: 2 };
+    const request = () => post('references', { dataset_id: 'official', version: 2, options });
+    upstream({ ...envelope, service_token: SECRET });
+    const response = await references(request());
+    expect(response.status).toBe(200); expect((await response.json()).data).toEqual(envelope);
+    const [url, init] = mocks.fetch.mock.calls[0];
+    expect(String(url)).toBe('http://127.0.0.1:8000/api/v1/bi/references');
+    expect(JSON.parse(init.body)).toEqual(options);
+    const token = init.headers.authorization.slice(7).split('.')[0];
+    expect(JSON.parse(Buffer.from(token, 'base64url').toString()).capabilities).toEqual(['ledger.read']);
+    for (const invalid of [{ workspace_id: 'account:other' }, { version: 1 }, { accounting_revision: 1 }, { kind: 'product' }]) {
+      upstream({ ...envelope, ...invalid }); expect((await references(request())).status).toBe(503);
+    }
+    const before = mocks.fetch.mock.calls.length;
+    expect((await references(post('references', { dataset_id: 'official', version: 2, options: { ...options, sql: 'SELECT private' } }))).status).toBe(422);
+    expect(mocks.fetch.mock.calls).toHaveLength(before);
+  });
 
   it('issues manage scope for a target preview and exposes only the current dataset result', async () => {
     upstream({ workspace_id: record.workspace_id, dataset_id: 'official', version: 2,

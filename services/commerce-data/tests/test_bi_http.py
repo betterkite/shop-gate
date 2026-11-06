@@ -233,6 +233,30 @@ def test_signed_overview_reads_fixed_manual_ledger_and_refuses_foreign_scope(cli
     assert browser.post(PREFIX + "/overview", json={}).status_code == 403
     denied = browser.post(PREFIX + "/overview?actor=foreign", headers=auth, json={})
     assert denied.status_code == 422
+    directory = browser.post(
+        PREFIX + "/references", headers=auth, json={"kind": "store", "channel_id": "pdd"}
+    )
+    assert directory.status_code == 200, directory.text
+    assert {row["key"] for row in directory.json()["data"]["rows"]} == {"001", "002"}
+    assert directory.json()["data"]["version"] == 2
+    for bad in ({"sql": "SELECT private"}, {"actor_id": "foreign"}, {"kind": []},
+                {"kind": "order"}, {"page": True}, {"page_size": 100}, {"sort": []}):
+        rejected = browser.post(PREFIX + "/references", headers=auth, json=bad)
+        assert rejected.status_code == 422
+        assert SECRET not in rejected.text and "SELECT private" not in rejected.text
+    assert browser.post(PREFIX + "/references", json={}).status_code == 403
+    assert browser.post(
+        PREFIX + "/references?actor=foreign", headers=auth, json={}
+    ).status_code == 422
+    assert browser.post(
+        PREFIX + "/references", headers=headers(workspace), json={}
+    ).status_code == 403  # Dataset-directory token is a different purpose.
+    assert browser.post(
+        PREFIX + "/references", headers=headers(workspace, directory=False, version=1), json={}
+    ).status_code == 409
+    assert browser.post(
+        PREFIX + "/references", headers=headers("foreign", directory=False, version=2), json={}
+    ).status_code == 403
 
 
 def test_selected_dataset_metadata_cannot_be_forged_or_read_across_workspaces(client):

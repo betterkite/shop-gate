@@ -48,6 +48,7 @@ from shopgate_commerce_data.ledger.metrics import metric_catalog
 from shopgate_commerce_data.ledger.operations import OperationConflict, PrivateFileExpired
 from shopgate_commerce_data.ledger.overview import OverviewRequest, overview
 from shopgate_commerce_data.ledger.query import Query, query_ledger
+from shopgate_commerce_data.ledger.references import ReferenceRequest, references
 from shopgate_commerce_data.ledger.scope import (
     ScopeError,
     verify_directory_token,
@@ -529,6 +530,25 @@ def create_bi_router(settings: BiSettings | None = None):
         def execute():
             with config.connection() as connection:
                 return confirm_target(connection, verify_scope_token(token, config.secret), **body)
+
+        return {"success": True, "data": await run_in_threadpool(execute)}
+
+    @router.post("/references")
+    async def reference_directory(request: Request):
+        config = configured()
+        token = config.token(request)
+        verify_scope_token(token, config.secret).require("ledger.read")
+        if request.query_params:
+            raise BiInputError()
+        body = await read_json(request)
+        if not isinstance(body, dict) or set(body) - {f.name for f in fields(ReferenceRequest)}:
+            raise BiInputError()
+        selected = ReferenceRequest(**body)
+        selected.validate()
+
+        def execute():
+            with config.connection() as connection:
+                return references(connection, verify_scope_token(token, config.secret), selected)
 
         return {"success": True, "data": await run_in_threadpool(execute)}
 

@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { AuthorizationError } from '@/lib/auth/authorization';
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), submit: vi.fn(), cancel: vi.fn(), conversations: vi.fn(), questions: vi.fn(), answer: vi.fn(), result: vi.fn(), live: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), submit: vi.fn(), cancel: vi.fn(), conversations: vi.fn(), questions: vi.fn(), answer: vi.fn(), result: vi.fn(), chart: vi.fn(), live: vi.fn() }));
 vi.mock('./authorization', () => ({ authenticateBiAgent: mocks.auth }));
 vi.mock('./requests', () => ({ submitBiAgentQuestion: mocks.submit, cancelBiAgentQuestion: mocks.cancel,
   listBiAgentConversations: mocks.conversations, listBiAgentQuestions: mocks.questions }));
-vi.mock('./results', () => ({ readBiAgentAnswer: mocks.answer, readBiAgentResultPage: mocks.result }));
+vi.mock('./results', () => ({ readBiAgentAnswer: mocks.answer, readBiAgentResultPage: mocks.result, readBiAgentChart: mocks.chart }));
 vi.mock('@/lib/services/pi-agent-worker-registry', () => ({ hasLivePiAgentWorker: mocks.live }));
 import { GET, POST } from '@/app/api/bi/assistant/route';
 const auth = { actorId: 'member-a', sessionId: 'private-session', workspaceId: 'account:member-a' };
@@ -50,6 +50,9 @@ describe('BI assistant HTTP boundary', () => {
     expect((await GET(get(`action=answer&run_id=${run}`))).status).toBe(200);
     expect((await GET(get(`action=result&run_id=${run}&result_id=${result}&page=2`))).status).toBe(200);
     expect(mocks.result).toHaveBeenCalledWith(auth, run, result, 2);
+    mocks.chart.mockResolvedValue({ rows: [] });
+    expect((await GET(get(`action=chart&run_id=${run}&result_id=${result}`))).status).toBe(200);
+    expect(mocks.chart).toHaveBeenCalledWith(auth, run, result);
     expect((await POST(post({ action: 'cancel', run_id: run }))).status).toBe(200);
     expect(mocks.auth).toHaveBeenLastCalledWith(expect.any(Headers), undefined, 'read');
     expect(mocks.submit).not.toHaveBeenCalled();

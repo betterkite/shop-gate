@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ledgerRowSchema, ledgerTableSchema } from '../overview-contracts';
 import { biAgentPageScopeSchema } from './contracts';
 
+export const BI_AGENT_CHART_MAX_ROWS = 2000;
 export const BI_METRICS = ['sales_amount', 'refund_amount', 'net_sales', 'order_count', 'average_order_value',
   'standard_quantity', 'product_cost', 'expense_amount', 'contribution_profit', 'accounted_contribution',
   'contribution_margin', 'refund_ratio', 'accounted_revenue', 'coverage_ratio'] as const;

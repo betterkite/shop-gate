@@ -10,7 +10,7 @@ import { biFailure, input as boundedBiInput } from '../http';
 import { authenticateBiAgent } from './authorization';
 import { BiAgentProblem, biAgentIdentifier, biAgentSubmissionSchema } from './contracts';
 import { cancelBiAgentQuestion, listBiAgentConversations, listBiAgentQuestions, submitBiAgentQuestion } from './requests';
-import { readBiAgentAnswer, readBiAgentResultPage } from './results';
+import { readBiAgentAnswer, readBiAgentResultPage, readBiAgentChart } from './results';
 
 const headers = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' };
 const workspace = { workspace_id: biAgentIdentifier.optional() };
@@ -20,6 +20,7 @@ const queries = z.discriminatedUnion('action', [
   z.object({ action: z.literal('conversations'), ...workspace, dataset_id: biAgentIdentifier, page: paging }).strict(),
   z.object({ action: z.literal('questions'), ...workspace, conversation_id: z.string().uuid(), page: paging }).strict(),
   z.object({ action: z.literal('answer'), ...workspace, run_id: z.string().uuid() }).strict(),
+  z.object({ action: z.literal('chart'), ...workspace, run_id: z.string().uuid(), result_id: z.string().uuid() }).strict(),
   z.object({ action: z.literal('result'), ...workspace, run_id: z.string().uuid(), result_id: z.string().uuid(), page: paging }).strict(),
 ]);
 const mutations = z.discriminatedUnion('action', [
@@ -68,6 +69,7 @@ export async function getBiAgent(request: NextRequest) {
       case 'conversations': return json(await listBiAgentConversations(auth, q.dataset_id, q.page));
       case 'questions': return json(await listBiAgentQuestions(auth, q.conversation_id, q.page));
       case 'answer': return json(await readBiAgentAnswer(auth, q.run_id));
+      case 'chart': return json(await readBiAgentChart(auth, q.run_id, q.result_id));
       case 'result': return json(await readBiAgentResultPage(auth, q.run_id, q.result_id, q.page));
     }
   } catch (error) { return failure(error); }

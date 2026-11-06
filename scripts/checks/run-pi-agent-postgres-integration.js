@@ -67,7 +67,7 @@ try {
   }
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   if (report.success !== true || !Number.isInteger(report.numTotalTests)
-      || report.numTotalTests < 79 || report.numPendingTests !== 0
+      || report.numTotalTests < 80 || report.numPendingTests !== 0
       || report.numTodoTests !== 0 || report.numFailedTests !== 0
       || report.numPassedTests !== report.numTotalTests) {
     throw new Error('The required PostgreSQL checks did not all execute and pass.');

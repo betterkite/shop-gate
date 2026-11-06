@@ -62,3 +62,9 @@ pg_restore --exit-on-error --single-transaction --dbname "$RESTORE_DATABASE" "$B
 上述说明的是R2已有数据及真实备份/进程恢复。重启后的真实网页再次登录、导出与剩余页面交互仍需浏览器验收；八模块/32助手真实模型/100000订单性能及最终CI也未由此证明完成。用户日常数据库未执行迁移、清理或覆盖，没有生产部署证据。
 
 官方运维依据：[PostgreSQL18 pg_dumpall](https://www.postgresql.org/docs/18/app-pg-dumpall.html)、[GRANT](https://www.postgresql.org/docs/18/sql-grant.html)。
+
+## 分离迁移账号与应用账号时的助手表权限
+
+R3四项Prisma迁移由迁移账号创建新表。若应用账号只获得原有public表权限，新表不会自动继承授权，Worker的结构检查会拒绝启动。迁移后应按部署中的应用角色，对以下六张表授予其运行所需的SELECT、INSERT、UPDATE、DELETE：`agent_execution_scopes`、`bi_agent_conversations`、`bi_agent_requests`、`bi_agent_results`、`bi_agent_result_pages`、`bi_agent_answers`。部署工具应引用实际角色标识，不拼接外部输入，不对所有角色/PUBLIC开放，不改用superuser或BYPASSRLS，不变更BI账本策略。原有表和角色权限须保持，并将具体变更列入部署审计。
+
+先用实际应用连接完成结构检查，再确认BI Worker在线；不能仅以迁移命令成功判断服务可用。原数据库备份、旧列内容核对与恢复演练仍是升级前后必需证据。嵌入式PostgreSQL发行包不一定包含pg_dump；可使用与数据库兼容、固定版本的官方PostgreSQL客户端制作并恢复备份，格式可读不等于实际恢复通过。

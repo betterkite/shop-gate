@@ -14,6 +14,7 @@ import { OverviewSources } from './OverviewSources';
 import { TargetEditor } from './TargetEditor';
 import { ReferencePicker } from './ReferencePicker';
 import { QualityEvidence } from './QualityEvidence';
+import { BiAssistant } from '@/components/bi/BiAssistant';
 
 type Props = { workspaceId: string; dataset: Dataset; canManage: boolean; location: OverviewLocation;
   navigate: OverviewNavigate; refresh: number; onCommitted: () => void };
@@ -97,6 +98,7 @@ export function OverviewDashboard({ workspaceId, dataset, canManage, location, n
       </>}
     </div>
     {location.filterKind && <ReferencePicker workspaceId={workspaceId} dataset={dataset} location={location} navigate={go} restoreFocus={restoreFocus} />}
+    <BiAssistant workspaceId={workspaceId} dataset={dataset} location={location} navigate={navigate} resolvedRange={data?.range ?? null} />
     {data && location.qualityKey && <QualityEvidence workspaceId={workspaceId} dataset={dataset} location={location} overview={data} navigate={go} restoreFocus={restoreFocus} />}
     {data && location.detailDimension && <OverviewSources workspaceId={workspaceId} dataset={dataset} location={location} range={data.range} navigate={go} restoreFocus={restoreFocus} />}
     {data && month && location.editStoreId && <TargetEditor key={`${dataset.dataset_id}:${dataset.version}:${month}:${location.editStoreId}`} workspaceId={workspaceId} dataset={dataset} storeId={location.editStoreId} month={month} initial={data.targets?.rows.find((row) => row.store_id === location.editStoreId)} canManage={canManage} close={() => go({ editStoreId: undefined })} restoreFocus={restoreFocus} committed={() => { setNotice('目标已保存。'); onCommitted(); }} />}
@@ -104,14 +106,15 @@ export function OverviewDashboard({ workspaceId, dataset, canManage, location, n
 }
 
 export function OverviewFilters({ location, data, navigate }: { location: OverviewLocation; data: Overview | null; navigate: OverviewNavigate }) {
-  const [start, setStart] = useState(location.start ?? ''); const [end, setEnd] = useState(location.end ?? ''); const [error, setError] = useState('');
+  const [start, setStart] = useState<string | undefined>(location.start); const [end, setEnd] = useState<string | undefined>(location.end);
+  const visibleStart = start ?? data?.range.start ?? '', visibleEnd = end ?? data?.range.end ?? ''; const [error, setError] = useState('');
   const selections = [
     ['channelId', '平台'], ['storeId', '店铺'], ['productId', '商品'], ['skuId', '规格'], ['listingId', '平台商品'], ['category', '类目'],
   ] as const;
   return <section className={BI_PANEL} aria-label="经营分析范围"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="flex items-center gap-2 font-semibold"><CalendarDays className="h-4 w-4 text-primary" />当前分析范围</h3><span className="text-xs text-muted-foreground">{data ? `${data.range.start ?? '无日期'} 至 ${data.range.end ?? '无日期'} · 截止 ${data.data_cutoff ?? '尚无记录'}` : '正在确认日期范围'}</span></div>
-    <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); if (start && end && start > end) { setError('开始日期不能晚于结束日期。'); return; } setError(''); navigate({ start: start || undefined, end: end || undefined }); }}>
-      <label className="grid gap-2 text-xs text-muted-foreground">开始日期<Input type="date" aria-label="分析开始日期" value={start} onChange={(e) => setStart(e.target.value)} /></label><label className="grid gap-2 text-xs text-muted-foreground">结束日期<Input type="date" aria-label="分析结束日期" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
-      <Button variant="outline" type="submit">应用日期</Button><Button variant="ghost" type="button" onClick={() => { setStart(''); setEnd(''); setError(''); navigate({ start: undefined, end: undefined }); }}>恢复最近30天</Button>
+    <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); if (visibleStart && visibleEnd && visibleStart > visibleEnd) { setError('开始日期不能晚于结束日期。'); return; } setError(''); navigate({ start: visibleStart || undefined, end: visibleEnd || undefined }); }}>
+      <label className="grid gap-2 text-xs text-muted-foreground">开始日期<Input type="date" aria-label="分析开始日期" value={visibleStart} onChange={(e) => setStart(e.target.value)} /></label><label className="grid gap-2 text-xs text-muted-foreground">结束日期<Input type="date" aria-label="分析结束日期" value={visibleEnd} onChange={(e) => setEnd(e.target.value)} /></label>
+      <Button variant="outline" type="submit">应用日期</Button><Button variant="ghost" type="button" onClick={() => { setStart(undefined); setEnd(undefined); setError(''); navigate({ start: undefined, end: undefined }); }}>恢复最近30天</Button>
       <label className="grid gap-2 text-xs text-muted-foreground">退款统计方式<select className={BI_SELECT} value={location.refundBasis} onChange={(e) => navigate({ refundBasis: e.target.value as OverviewLocation['refundBasis'] })}><option value="payment">按原订单付款日期</option><option value="occurred">按退款发生日期</option></select></label>
     </form>
     <div className="mt-4 flex flex-wrap gap-2">{Object.entries(REFERENCE_LABELS).map(([kind, name]) => <Button key={kind} size="sm" variant="outline" onClick={() => navigate({ filterKind: kind as keyof typeof REFERENCE_LABELS, filterSearch: '', filterPage: 1 })}>选择{name}</Button>)}</div>

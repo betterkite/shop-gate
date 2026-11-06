@@ -4,16 +4,18 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { BI_PANEL, BI_SELECT, BiNotice, BiPagination } from './BiPrimitives';
 import { decimalLabel, type Dataset } from '@/lib/bi/data-contracts';
-import { overviewQuery, type OverviewLocation } from '@/lib/bi/overview-contracts';
+import { overviewQuery, type Overview, type OverviewLocation } from '@/lib/bi/overview-contracts';
 import { biAgentSubmissionSchema, type BiAgentSubmission } from '@/lib/bi/agent/contracts';
 import { type BiAgentAnswerContent } from '@/lib/bi/agent/result-contracts';
+import { BiAnswerMarkdown } from './BiAnswerMarkdown';
+import { BiAssistantChart } from './BiAssistantChart';
 import { AgentRequestError, ACTIVE_AGENT_STATUSES, AGENT_METRIC_LABELS, AGENT_STATUS_LABELS, agentAcceptedSchema, agentAnswerSchema,
   agentAvailabilitySchema, agentConversationsSchema, agentQuestionsSchema, agentResultSchema, readAgent } from '@/lib/bi/agent/browser';
 
 type Navigate = (change: Partial<OverviewLocation>) => void;
 const message = (error: unknown) => error instanceof Error ? error.message : '请求未完成，请稍后重试。';
-export function BiAssistant({ workspaceId, dataset, location, navigate }: {
-  workspaceId: string; dataset: Dataset; location: OverviewLocation; navigate: Navigate;
+export function BiAssistant({ workspaceId, dataset, location, navigate, resolvedRange }: {
+  workspaceId: string; dataset: Dataset; location: OverviewLocation; navigate: Navigate; resolvedRange: Overview['range'] | null;
 }) {
   const [availability, setAvailability] = useState<z.infer<typeof agentAvailabilitySchema> | null>(null);
   const [directory, setDirectory] = useState<z.infer<typeof agentConversationsSchema> | null>(null);
@@ -62,12 +64,12 @@ export function BiAssistant({ workspaceId, dataset, location, navigate }: {
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [workspaceId, dataset.dataset_id, conversationId, questionPage, refresh]);
   async function send() {
-    if (sendingLock.current) return; sendingLock.current = true; setSending(true); setError('');
+    if (sendingLock.current || (!intent && !resolvedRange)) return; sendingLock.current = true; setSending(true); setError('');
     try {
       const submission = intent ?? biAgentSubmissionSchema.parse({ workspace_id: workspaceId, dataset_id: dataset.dataset_id,
         dataset_version: dataset.version, conversation_id: conversationId ?? crypto.randomUUID(),
         expected_conversation_version: history?.conversation.version ?? 0, idempotency_key: crypto.randomUUID(),
-        instruction: text, model, page_scope: { module: 'overview', ...overviewQuery(location) } });
+        instruction: text, model, page_scope: { module: 'overview', ...overviewQuery({ ...location, start: resolvedRange?.start ?? undefined, end: resolvedRange?.end ?? undefined }) } });
       setIntent(submission);
       const accepted = await readAgent({}, agentAcceptedSchema, { method: 'POST', body: JSON.stringify({ action: 'submit', question: submission }) });
       if (!alive.current) return;
@@ -88,7 +90,7 @@ export function BiAssistant({ workspaceId, dataset, location, navigate }: {
       setRefresh((n) => n + 1);
     } catch (e) { setError(message(e)); }
   }
-  const ready = availability?.can_run && availability.worker_available && availability.models.some((m) => m.id === model);
+  const ready = Boolean(resolvedRange) && availability?.can_run && availability.worker_available && availability.models.some((m) => m.id === model);
   return <section className={`${BI_PANEL} border-primary/25`} aria-label="经营助手">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-semibold">经营助手</h3>
       <p className="mt-2 text-sm text-muted-foreground">围绕当前数据提问，答案附上可查看的依据。对话仅自己可见。</p></div>
@@ -115,14 +117,14 @@ export function BiAssistant({ workspaceId, dataset, location, navigate }: {
     </article>)}</div>
     {history && <BiPagination label="助手问题分页" page={questionPage} total={history.total} change={(page) => navigate({ questionPage: page })} />}
     <form className="mt-5 rounded-xl bg-primary/5 p-4" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-      <p className="mb-3 text-xs leading-6 text-muted-foreground">下一次提问使用：{dataset.name} · 版本 {dataset.version} · {location.start ?? '数据集可用起始日期'} 至 {location.end ?? '最新可用日期'}，并继承上方已选平台、店铺和商品。仅点击发送会调用模型。</p>
+      <p className="mb-3 text-xs leading-6 text-muted-foreground">下一次提问使用：{dataset.name} · 版本 {dataset.version} · {resolvedRange ? `${resolvedRange.start ?? '暂无经营日期'} 至 ${resolvedRange.end ?? '暂无经营日期'}` : '正在确认与总览一致的日期范围'}，并继承上方已选平台、店铺和商品。仅点击发送会调用模型。</p>
       <label className="block text-sm font-medium" htmlFor="bi-assistant-question">你想了解什么？</label>
       <textarea id="bi-assistant-question" className="mt-2 min-h-28 w-full rounded-lg border border-input bg-background p-3 text-sm" maxLength={8000}
         value={text} disabled={Boolean(intent)} onChange={(e) => setText(e.target.value)} placeholder="例如：当前范围的净销售额是多少？哪些店铺贡献较多？" />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><label className="text-sm">分析模型 <select className={BI_SELECT} value={model} disabled={Boolean(intent)} onChange={(e) => setModel(biAgentSubmissionSchema.shape.model.parse(e.target.value))}>
         {!availability?.models.length && <option value={model}>尚无可用模型</option>}{availability?.models.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
         <Button type="submit" disabled={sending || (!intent && (!ready || !text.trim() || Boolean(conversationId && !history) || Boolean(historyError)))}>{sending ? '正在提交…' : intent ? '重试原问题' : '发送问题'}</Button></div>
-      {availability && !ready && <p className="mt-3 text-sm text-muted-foreground">{!availability.can_run ? '当前账号没有发起分析的权限。' : !availability.worker_available ? '助手处理服务暂未启动。' : '尚未配置可用模型。'}经营页面和已有分析仍可查看。</p>}
+      {availability && !ready && <p className="mt-3 text-sm text-muted-foreground">{!resolvedRange ? '正在确认页面数据范围。' : !availability.can_run ? '当前账号没有发起分析的权限。' : !availability.worker_available ? '助手处理服务暂未启动。' : '尚未配置可用模型。'}经营页面和已有分析仍可查看。</p>}
       {intent && !sending && <div className="mt-3 text-xs text-muted-foreground"><p>提交结果尚未确认，原问题已保留；重试不会重复创建分析。</p><Button size="sm" variant="link" onClick={() => navigate({ conversationId: intent.conversation_id, questionPage: Math.max(1, Math.ceil((intent.expected_conversation_version + 1) / 20)) })}>查看原对话状态</Button></div>}
     </form>
     {error && <div className="mt-3"><BiNotice error>{error}</BiNotice></div>}
@@ -142,7 +144,8 @@ function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp }:
   }, [workspaceId, version, runId]);
   if (error) return <BiNotice error>{error}</BiNotice>;
   if (!answer) return <p className="mt-3 text-sm">正在读取答案…</p>;
-  return <div className="mt-4 space-y-4"><p className="whitespace-pre-wrap break-words text-sm leading-7">{answer.text}</p>
+  return <div className="mt-4 space-y-4"><BiAnswerMarkdown text={answer.text} />
+    {answer.views.filter((view) => view.kind !== 'table').map((view, i) => <BiAssistantChart key={`${view.result_id}:${view.metric}:${i}`} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} view={view} />)}
     {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} />)}
     {answer.follow_up.length > 0 && <div className="flex flex-wrap gap-2">{answer.follow_up.map((value) => <Button key={value} size="sm" variant="outline" className="h-auto whitespace-normal text-left" onClick={() => onFollowUp(value)}>{value}</Button>)}</div>}
   </div>;

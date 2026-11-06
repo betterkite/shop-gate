@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { biAgentIdentifier, biAgentPageScopeSchema, biAgentSubmissionSchema } from './contracts';
-import { biAgentAnswerSchema, biMetric, biDimension } from './result-contracts';
+import { biAgentAnswerSchema, biMetric, biDimension, BI_AGENT_CHART_MAX_ROWS } from './result-contracts';
 import { ledgerRowSchema } from '../overview-contracts';
 
 const count = z.number().int().nonnegative();
@@ -24,6 +24,9 @@ export const agentResultSchema = z.object({ ...pagination, evidence_id: z.string
   metadata: z.object({ workspace_id: biAgentIdentifier, dataset_id: biAgentIdentifier, version: count,
     range: z.object({ start: z.string().nullable(), end: z.string().nullable(), refund_basis: z.enum(['payment', 'occurred']) }) }),
   rows: z.array(ledgerRowSchema).max(20) });
+export const agentChartSchema = agentResultSchema.omit({ page: true, page_size: true, rows: true }).extend({
+  state: z.enum(['complete', 'table_only']), rows: z.array(ledgerRowSchema).max(BI_AGENT_CHART_MAX_ROWS),
+}).refine((v) => v.state === 'complete' ? v.rows.length === v.total : v.rows.length === 0);
 export const ACTIVE_AGENT_STATUSES = ['pending', 'running', 'waiting', 'reconciling', 'candidate_complete'];
 export const AGENT_STATUS_LABELS: Record<string, string> = { pending: '等待处理', running: '正在分析', waiting: '等待继续',
   reconciling: '正在恢复状态', candidate_complete: '正在核验答案', completed: '分析完成', failed: '分析未完成，请重新提问',

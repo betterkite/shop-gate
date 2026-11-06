@@ -10,7 +10,6 @@ import { datasetSchema, directorySchema, type Dataset } from '@/lib/bi/data-cont
 import { dataErrorMessage, readBi } from '@/lib/bi/data-browser';
 import { overviewUrl, readOverviewLocation, type OverviewLocation } from '@/lib/bi/overview-contracts';
 import { OverviewDashboard } from './OverviewDashboard';
-import { BiAssistant } from '@/components/bi/BiAssistant';
 
 const projectsSchema = z.array(z.object({ id: z.string(), name: z.string() }));
 export type OverviewNavigate = (change: Partial<OverviewLocation>) => void;
@@ -87,6 +86,5 @@ export function OverviewWorkspace({ workspaceId, canManage }: { workspaceId: str
       {!location.datasetId && <BiNotice>选择数据集后即可查看经营概况、销售平台贡献和月度目标。</BiNotice>}
       {location.datasetId && !selected && !selectionError && <div role="status" className="min-h-[600px] animate-pulse rounded-2xl bg-muted/40 p-6 text-sm text-muted-foreground">正在确认所选数据集与版本…</div>}
       {selected && <OverviewDashboard key={`${workspaceId}:${selected.dataset_id}`} workspaceId={workspaceId} dataset={selected} canManage={canManage} location={location} navigate={navigate} refresh={refresh} onCommitted={reload} />}
-      {selected && <BiAssistant key={`assistant:${workspaceId}:${selected.dataset_id}`} workspaceId={workspaceId} dataset={selected} location={location} navigate={navigate} />}
     </main></div>;
 }

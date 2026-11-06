@@ -1,10 +1,12 @@
+import { z } from 'zod';
+import { ledgerRowSchema } from '../overview-contracts';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
 import { authorizeBiAgentRun } from './requests';
 import { BiAgentProblem } from './contracts';
-import { biAgentAnswerSchema, biAgentLedgerPageSchema, scopedBiAgentQuery, type BiAgentLedgerPage } from './result-contracts';
+import { BI_AGENT_CHART_MAX_ROWS, biAgentAnswerSchema, biAgentLedgerPageSchema, scopedBiAgentQuery, type BiAgentLedgerPage } from './result-contracts';
 import { readBiAgentLedger } from './ledger';
 
 export type BiAgentResultFence = { runId: string; leaseOwner: string; fencingToken: number; workspaceFencingToken: number };
@@ -171,4 +173,30 @@ async function storedPage(runId: string, resultId: string, page: number, client:
   if (offset < result.total && (!chunk || hashPiAgentProvenance(chunk.rows) !== chunk.digest)) throw problem();
   return { evidence_id: result.id, query: result.query, metadata: result.metadata,
     total: result.total, page, page_size: 20, rows: Array.isArray(chunk?.rows) ? chunk.rows.slice(offset % 100, offset % 100 + 20) : [] };
+}
+
+/** Chart reads never call the model or current ledger, and never call a preview
+ * the full distribution. Larger snapshots retain their full paged evidence. */
+export async function readBiAgentChart(authority: BiAgentAuthority, runId: string, resultId: string,
+  client: PrismaClient = prisma) {
+  await readBiAgentResultPage(authority, runId, resultId, 1, client);
+  const result = await client.biAgentResult.findFirst({ where: { id: resultId, runId, complete: true } });
+  if (!result || result.collected !== result.total) throw problem();
+  const base = { evidence_id: result.id, query: result.query, metadata: result.metadata, total: result.total };
+  if (result.total > BI_AGENT_CHART_MAX_ROWS) return { ...base, state: 'table_only' as const, rows: [] };
+  const chunks = await client.biAgentResultPage.findMany({ where: { resultId }, orderBy: { page: 'asc' },
+    take: Math.ceil(BI_AGENT_CHART_MAX_ROWS / 100) + 1 });
+  const rows: z.infer<typeof ledgerRowSchema>[] = [];
+  if (chunks.length !== Math.ceil(result.total / 100)) throw problem();
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    if (chunk.page !== i + 1 || hashPiAgentProvenance(chunk.rows) !== chunk.digest) throw problem();
+    const values = z.array(ledgerRowSchema).parse(chunk.rows);
+    if (values.length !== Math.min(100, result.total - rows.length)) throw problem();
+    rows.push(...values);
+  }
+  if (rows.length !== result.total || new Set(rows.map((r) => r.key)).size !== rows.length) throw problem();
+  // A long read must not disclose an answer after the session has been revoked.
+  await readableRun(authority, runId, client);
+  return { ...base, state: 'complete' as const, rows };
 }

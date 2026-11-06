@@ -6,7 +6,7 @@ import { PrismaAgentRuntimeRepository } from '@/lib/agent/runtime/prisma-reposit
 import { submitBiAgentQuestion, cancelBiAgentQuestion } from './requests';
 import { biAgentPageScopeSchema } from './contracts';
 import { collectBiAgentResult, saveBiAgentAnswer, readBiAgentAnswer, readBiAgentResultPage,
-  inspectBiAgentResultPage, type BiAgentResultFence } from './results';
+  readBiAgentChart, inspectBiAgentResultPage, type BiAgentResultFence } from './results';
 import type { BiAgentAuthority } from './authorization';
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
@@ -86,11 +86,22 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
         expect(resultPage.page_size).toBe(20); expect(resultPage.total).toBe(125);
         expect(resultPage.metadata).toMatchObject({ version: 2, accounting_revision: 2 }); all.push(...resultPage.rows);
       }
+      const chart = await readBiAgentChart(actor, fence.runId, result.evidence_id, fresh);
+      expect(chart.state).toBe('complete'); expect(chart.rows).toHaveLength(125);
+      expect(chart.rows.at(-1)).toMatchObject({ key: 'p124' });
       expect(all).toHaveLength(125); expect(all.at(-1)).toMatchObject({ key: 'p124' });
       expect(await readBiAgentAnswer(actor, fence.runId, fresh)).toMatchObject({ dataset_version: 2, answer: { kind: 'answer' } });
       expect(ledger).toHaveBeenCalledTimes(2);
     } finally { await fresh.$disconnect(); }
   });
+
+  it('keeps oversized charts available as full paged evidence instead of a truncated distribution', async () => {
+    const { actor, fence, repository } = await running();
+    const result = await collectBiAgentResult(fence, unique(), { dimension: 'product' }, signal(), { client: a, read: read(2001) });
+    await saveBiAgentAnswer(fence, answer(result.evidence_id), a); await complete(fence, repository);
+    expect(await readBiAgentChart(actor, fence.runId, result.evidence_id, b)).toMatchObject({ state: 'table_only', total: 2001, rows: [] });
+    expect(await readBiAgentResultPage(actor, fence.runId, result.evidence_id, 101, b)).toMatchObject({ total: 2001, rows: [{ key: 'p2000' }] });
+  }, 20_000);
 
   it('rejects a version change midway and never promotes a first-page-only answer', async () => {
     const { fence } = await running(); const source = read();
@@ -151,8 +162,10 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
     await saveBiAgentAnswer(fence, answer(result.evidence_id), a); await complete(fence, repository);
     await expect(readBiAgentAnswer(other, fence.runId, b)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
     await expect(readBiAgentResultPage(other, fence.runId, result.evidence_id, 1, b)).rejects.toThrow();
+    await expect(readBiAgentChart(other, fence.runId, result.evidence_id, b)).rejects.toThrow();
     await a.authSession.delete({ where: { id: actor.sessionId } });
     await expect(readBiAgentAnswer(actor, fence.runId, b)).rejects.toMatchObject({ status: 403 });
+    await expect(readBiAgentChart(actor, fence.runId, result.evidence_id, b)).rejects.toMatchObject({ status: 403 });
   });
 
   it('does not expose a shared-space conversation to a different current member', async () => {
@@ -165,6 +178,7 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
     await saveBiAgentAnswer(fence, answer(result.evidence_id), a); await complete(fence, repository);
     await expect(readBiAgentAnswer(other, fence.runId, b)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
     await expect(readBiAgentResultPage(other, fence.runId, result.evidence_id, 1, b)).rejects.toThrow();
+    await expect(readBiAgentChart(other, fence.runId, result.evidence_id, b)).rejects.toThrow();
   });
 
   it('retains a genuine zero-row result and rejects model inspection after lease expiry', async () => {

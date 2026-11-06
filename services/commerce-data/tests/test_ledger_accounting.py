@@ -248,7 +248,9 @@ def test_controlled_query_rejects_invalid_inputs(query):
 def test_metric_catalog_and_version_scope_cache_are_complete():
     catalog = {row["id"]: row for row in metric_catalog()}
     assert set(catalog) == set(METRICS)
-    for metric in ["net_sales", "sales_amount", "refund_amount", "contribution_profit", "expense_amount"]:
+    for metric in [
+        "net_sales", "sales_amount", "refund_amount", "contribution_profit", "expense_amount"
+    ]:
         assert "汇总金额" in catalog[metric]["aggregation"]
         assert "分母" not in catalog[metric]["aggregation"]
     assert "去重" in catalog["order_count"]["aggregation"]

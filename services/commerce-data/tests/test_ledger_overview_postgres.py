@@ -239,6 +239,8 @@ def test_overview_manual121_one_transaction_no_model_and_recordless_days_are_not
     assert result["previous"]["history_sufficient"] is False
     assert all(value["state"] == "history_insufficient" for value in result["comparison"].values())
     assert result["channels"]["rows"][0]["metrics"]["net_sales"] == "164.00"
+    # A channel-wide expense without a store must not overwrite the actual platform name.
+    assert result["channels"]["rows"][0]["name"] == "拼多多"
     assert result["channels"]["rows"][0]["shares"]["net_sales"] == "1.00000000"
     assert result["channels"]["share_states"]["net_sales"] == "comparable"
     assert result["trend"]["rows"][0]["metrics"]["accounted_contribution"] == "121.00"

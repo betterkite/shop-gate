@@ -339,6 +339,9 @@ class LedgerReadSnapshot:
 
     def _events(self, query):
         connection, scope, rows = self._connection, self._scope, self._rows
+        channels = {row["channel_id"]: row["name"] for row in rows(
+            connection, "SELECT channel_id,name FROM bi.channels"
+        )}
         stores = {
             row["store_id"]: row
             for row in rows(
@@ -519,7 +522,7 @@ class LedgerReadSnapshot:
                         "expense_id": expense["expense_id"],
                         "expense": expense["amount_cny"],
                         "channel_id": expense["channel_id"],
-                        "channel_name": store.get("channel_name"),
+                        "channel_name": channels.get(expense["channel_id"]),
                         "store_id": expense["store_id"],
                         "store_name": store.get("name"),
                         "complete": False,

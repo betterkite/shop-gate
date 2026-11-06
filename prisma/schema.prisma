@@ -57,6 +57,8 @@ model Project {
   agentRuns                      AgentRun[]
   agentMissions                  AgentMission[]
   agentWorkspaceLease            AgentWorkspaceLease?
+  agentExecutionScope            AgentExecutionScope?            @relation("LegacyAgentScope")
+  biExecutionScopes              AgentExecutionScope[]           @relation("SharedBiScope")
   agentGenerationLease           AgentGenerationLease?
   agentGenerationJobs            AgentGenerationJob[]
   owner                          AuthUser?                       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -373,13 +375,81 @@ model PersonalMemoryControl {
 // PiAgent Durable Runtime
 // ============================================================
 
+/// A real ownership boundary, independent of a filesystem project. Dataset
+/// ownership is verified against the ledger service before creating a BI scope.
+model AgentExecutionScope {
+  id              String   @id @default(uuid())
+  kind            String
+  workspaceId     String   @map("workspace_id")
+  datasetId       String?  @map("dataset_id")
+  projectId       String?  @unique @map("project_id")
+  ownerUserId     String?  @map("owner_user_id")
+  sharedProjectId String?  @map("shared_project_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  project       Project? @relation("LegacyAgentScope", fields: [projectId], references: [id], onDelete: Cascade)
+  owner         AuthUser? @relation("PersonalBiScope", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  sharedProject Project? @relation("SharedBiScope", fields: [sharedProjectId], references: [id], onDelete: Cascade)
+  runs          AgentRun[]
+  lease         AgentWorkspaceLease?
+  conversations BiAgentConversation[]
+
+  @@unique([kind, workspaceId, datasetId])
+  @@map("agent_execution_scopes")
+}
+
+/// Conversations remain private to the initiating actor even in a shared scope.
+model BiAgentConversation {
+  id               String   @id @default(uuid())
+  executionScopeId String   @map("execution_scope_id")
+  actorUserId      String   @map("actor_user_id")
+  title            String
+  version          Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  scope    AgentExecutionScope @relation(fields: [executionScopeId], references: [id], onDelete: Cascade)
+  actor    AuthUser @relation("BiConversationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  requests BiAgentRequest[]
+
+  @@unique([id, executionScopeId, actorUserId])
+  @@index([actorUserId, executionScopeId, updatedAt])
+  @@map("bi_agent_conversations")
+}
+
+/// One user-authorized request. No provider reasoning or credential is stored.
+/// Each physical retry is a separate AgentRun linked to this immutable envelope.
+model BiAgentRequest {
+  id               String   @id @default(uuid())
+  conversationId   String   @map("conversation_id")
+  executionScopeId String   @map("execution_scope_id")
+  actorUserId      String   @map("actor_user_id")
+  idempotencyKey   String   @map("idempotency_key")
+  instruction     String
+  inputHash       String   @map("input_hash")
+  pageScope       Json     @map("page_scope")
+  datasetVersion  Int      @map("dataset_version")
+  model           String
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  conversation BiAgentConversation @relation(fields: [conversationId, executionScopeId, actorUserId], references: [id, executionScopeId, actorUserId], onDelete: Cascade)
+  runs AgentRun[]
+
+  @@unique([conversationId, idempotencyKey])
+  @@unique([id, executionScopeId, actorUserId])
+  @@index([conversationId, createdAt])
+  @@map("bi_agent_requests")
+}
+
 /// One physical PiAgent execution. `id` preserves the provider-neutral runtime
 /// identifier while `runInstanceId` is an immutable UUID for durable identity.
 model AgentRun {
   id            String  @id
   runInstanceId String  @unique @default(uuid()) @map("run_instance_id") @db.Uuid
-  projectId     String  @map("project_id")
+  projectId     String? @map("project_id")
   requestId     String? @map("request_id")
+  executionScopeId String @default(dbgenerated("NULL::text")) @map("execution_scope_id")
+  biRequestId   String? @map("bi_request_id")
   actorUserId   String? @map("actor_user_id")
   workspaceKey  String  @map("workspace_key")
 
@@ -418,7 +488,9 @@ model AgentRun {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scope          AgentExecutionScope  @relation(fields: [executionScopeId], references: [id], onDelete: Cascade)
+  biRequest      BiAgentRequest?      @relation(fields: [biRequestId, executionScopeId, actorUserId], references: [id, executionScopeId, actorUserId], onDelete: Cascade)
   request        UserRequest?         @relation(fields: [requestId, projectId], references: [id, projectId], onDelete: Restrict)
   actor          AuthUser?            @relation("AgentRunActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   events         AgentEvent[]
@@ -429,14 +501,17 @@ model AgentRun {
   @@index([projectId, createdAt])
   @@index([requestId, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([executionScopeId, createdAt])
+  @@index([biRequestId, createdAt])
   @@index([status, leaseExpiresAt])
   @@map("agent_runs")
 }
 
-/// One long-lived lease row per project/workspace. It serializes physical
-/// workspace mutation across runs and processes; fencingToken only increases.
+/// One long-lived lease per execution scope. It serializes runs and governed
+/// mutations across processes; fencingToken only increases.
 model AgentWorkspaceLease {
-  projectId       String    @id @map("project_id")
+  executionScopeId String   @id @default(dbgenerated("NULL::text")) @map("execution_scope_id")
+  projectId       String?   @unique @map("project_id")
   workspaceKey    String    @unique @map("workspace_key")
   status          String    @default("free")
   activeRunId     String?   @unique @map("active_run_id")
@@ -450,7 +525,8 @@ model AgentWorkspaceLease {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scope AgentExecutionScope @relation(fields: [executionScopeId], references: [id], onDelete: Cascade)
 
   @@index([status, leaseExpiresAt])
   @@map("agent_workspace_leases")
@@ -1106,6 +1182,8 @@ model AuthUser {
   quotaReservations     QuotaReservation[]
   initiatedRequests     UserRequest[]            @relation("UserRequestActor")
   initiatedAgentRuns    AgentRun[]               @relation("AgentRunActor")
+  personalBiScopes      AgentExecutionScope[]     @relation("PersonalBiScope")
+  biConversations       BiAgentConversation[]     @relation("BiConversationActor")
   resolvedToolApprovals AgentToolApproval[]      @relation("AgentToolApprovalResolver")
 
   @@index([role])

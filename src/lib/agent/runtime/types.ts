@@ -92,7 +92,9 @@ export interface AgentRunRecord extends AgentRunProvenance, AgentTokenUsage {
   id: string;
   /** Immutable UUID identifying this physical execution instance. */
   runInstanceId: string;
-  projectId: string;
+  projectId: string | null;
+  executionScopeId: string;
+  biRequestId: string | null;
   requestId: string | null;
   /** Stable hash of deployment namespace + canonical workspace realpath. */
   workspaceKey: string;
@@ -115,7 +117,8 @@ export interface AgentRunRecord extends AgentRunProvenance, AgentTokenUsage {
 }
 
 export interface AgentWorkspaceLeaseRecord {
-  projectId: string;
+  projectId: string | null;
+  executionScopeId: string;
   workspaceKey: string;
   status: 'free' | 'held' | 'reconciling';
   activeRunId: string | null;
@@ -201,7 +204,9 @@ export interface AgentWriteFence {
 export interface CreateAgentRunInput extends AgentRunProvenance {
   id: string;
   runInstanceId?: string;
-  projectId: string;
+  /** Exactly one of a real legacy project or a persisted BI request is required. */
+  projectId?: string;
+  biRequestId?: string;
   workspaceKey: string;
   requestId?: string;
   status?: ActiveAgentRunStatus;
@@ -326,6 +331,7 @@ export interface CompleteAgentRunInput extends AgentWriteFence {
 export interface ReconciliationQuery {
   now?: Date;
   projectId?: string;
+  executionScopeId?: string;
   limit?: number;
 }
 

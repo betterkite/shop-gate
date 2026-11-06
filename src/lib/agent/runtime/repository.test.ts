@@ -113,7 +113,7 @@ describe('InMemoryAgentRuntimeRepository', () => {
       status: 'interrupted',
       errorCode: 'WORKSPACE_LEASE_EXPIRED_REPLAN_REQUIRED',
     });
-    expect(await clock.repository.getWorkspaceLease(first.projectId)).toMatchObject({
+    expect(await clock.repository.getExecutionScopeLease(first.executionScopeId)).toMatchObject({
       status: 'held',
       activeRunId: replacement.id,
       fencingToken: 2,
@@ -129,7 +129,7 @@ describe('InMemoryAgentRuntimeRepository', () => {
       leaseExpiresAt: extendedExpiry,
     });
     expect(heartbeated.leaseExpiresAt).toEqual(extendedExpiry);
-    expect(await clock.repository.getWorkspaceLease(run.projectId)).toMatchObject({
+    expect(await clock.repository.getExecutionScopeLease(run.executionScopeId)).toMatchObject({
       leaseExpiresAt: extendedExpiry,
       activeRunId: run.id,
     });
@@ -147,7 +147,7 @@ describe('InMemoryAgentRuntimeRepository', () => {
         reasoningTokens: 0,
       },
     });
-    expect(await clock.repository.getWorkspaceLease(run.projectId)).toMatchObject({
+    expect(await clock.repository.getExecutionScopeLease(run.executionScopeId)).toMatchObject({
       status: 'free',
       activeRunId: null,
       leaseOwner: null,
@@ -697,7 +697,7 @@ describe('InMemoryAgentRuntimeRepository', () => {
       leaseOwner: null,
       leaseExpiresAt: null,
     });
-    expect(await clock.repository.getWorkspaceLease(run.projectId)).toMatchObject({
+    expect(await clock.repository.getExecutionScopeLease(run.executionScopeId)).toMatchObject({
       status: 'free',
       activeRunId: null,
     });

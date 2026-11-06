@@ -43,6 +43,8 @@ const vitestBin = path.join(path.dirname(vitestPackage), 'vitest.mjs');
 const testFiles = [
   'src/lib/agent/runtime/prisma-repository.integration.test.ts',
   'src/lib/services/pi-agent-tool-approval-store.integration.test.ts',
+  'src/lib/agent/runtime/bi-scope.integration.test.ts',
+  'src/lib/agent/runtime/bi-scope-migration.integration.test.ts',
 ];
 const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'shopgate-agent-pg-report-'));
 let exitCode = 1;
@@ -60,7 +62,7 @@ try {
   }
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   if (report.success !== true || !Number.isInteger(report.numTotalTests)
-      || report.numTotalTests < 23 || report.numPendingTests !== 0
+      || report.numTotalTests < 33 || report.numPendingTests !== 0
       || report.numTodoTests !== 0 || report.numFailedTests !== 0
       || report.numPassedTests !== report.numTotalTests) {
     throw new Error('The required PostgreSQL checks did not all execute and pass.');

@@ -8,7 +8,7 @@
  */
 
 export const PI_AGENT_SCHEMA_CONTRACT_VERSION =
-  '20260723000400_worker_registry_and_observability' as const;
+  '20261107000100_agent_execution_scopes' as const;
 
 export interface PiAgentSchemaQueryClient {
   $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): PromiseLike<T>;
@@ -53,6 +53,7 @@ export interface PiAgentSchemaCatalog {
   indexes: readonly PiAgentCatalogIndex[];
   foreignKeys: readonly PiAgentCatalogForeignKey[];
   checkConstraints: readonly PiAgentCatalogCheckConstraint[];
+  triggers?: readonly { tableName: string; triggerName: string; enabled: boolean }[];
 }
 
 export type PiAgentSchemaIssueCode =
@@ -67,7 +68,8 @@ export type PiAgentSchemaIssueCode =
   | 'UNVALIDATED_FOREIGN_KEY'
   | 'MISSING_CHECK_CONSTRAINT'
   | 'INVALID_CHECK_CONSTRAINT'
-  | 'UNVALIDATED_CHECK_CONSTRAINT';
+  | 'UNVALIDATED_CHECK_CONSTRAINT'
+  | 'MISSING_OR_DISABLED_TRIGGER';
 
 export interface PiAgentSchemaIssue {
   code: PiAgentSchemaIssueCode;
@@ -113,6 +115,39 @@ interface ExpectedCheckConstraint {
 type ColumnDefinition = readonly [dataType: string, nullable: boolean];
 
 const EXPECTED_COLUMN_DEFINITIONS = {
+  auth_users: { id: ['text', false] },
+  agent_execution_scopes: {
+    id: ['text', false],
+    kind: ['text', false],
+    workspace_id: ['text', false],
+    dataset_id: ['text', true],
+    project_id: ['text', true],
+    owner_user_id: ['text', true],
+    shared_project_id: ['text', true],
+    created_at: ['timestamp without time zone', false],
+  },
+  bi_agent_conversations: {
+    id: ['text', false],
+    execution_scope_id: ['text', false],
+    actor_user_id: ['text', false],
+    title: ['text', false],
+    version: ['integer', false],
+    created_at: ['timestamp without time zone', false],
+    updated_at: ['timestamp without time zone', false],
+  },
+  bi_agent_requests: {
+    id: ['text', false],
+    conversation_id: ['text', false],
+    execution_scope_id: ['text', false],
+    actor_user_id: ['text', false],
+    idempotency_key: ['text', false],
+    instruction: ['text', false],
+    input_hash: ['text', false],
+    page_scope: ['jsonb', false],
+    dataset_version: ['integer', false],
+    model: ['text', false],
+    created_at: ['timestamp without time zone', false],
+  },
   projects: {
     id: ['text', false],
     agent_profile_id: ['text', false],
@@ -125,7 +160,10 @@ const EXPECTED_COLUMN_DEFINITIONS = {
   agent_runs: {
     id: ['text', false],
     run_instance_id: ['uuid', false],
-    project_id: ['text', false],
+    project_id: ['text', true],
+    execution_scope_id: ['text', false],
+    bi_request_id: ['text', true],
+    actor_user_id: ['text', true],
     request_id: ['text', true],
     workspace_key: ['text', false],
     status: ['text', false],
@@ -161,7 +199,8 @@ const EXPECTED_COLUMN_DEFINITIONS = {
     updated_at: ['timestamp without time zone', false],
   },
   agent_workspace_leases: {
-    project_id: ['text', false],
+    project_id: ['text', true],
+    execution_scope_id: ['text', false],
     workspace_key: ['text', false],
     status: ['text', false],
     active_run_id: ['text', true],
@@ -381,6 +420,16 @@ const EXPECTED_COLUMNS: ExpectedColumn[] = Object.entries(
 );
 
 const EXPECTED_INDEXES: readonly ExpectedIndex[] = [
+  { tableName: 'agent_execution_scopes', columns: ['id'], unique: true },
+  { tableName: 'agent_execution_scopes', columns: ['project_id'], unique: true },
+  { tableName: 'agent_execution_scopes', columns: ['kind', 'workspace_id', 'dataset_id'], unique: true },
+  { tableName: 'bi_agent_conversations', columns: ['id', 'execution_scope_id', 'actor_user_id'], unique: true },
+  { tableName: 'bi_agent_conversations', columns: ['actor_user_id', 'execution_scope_id', 'updated_at'] },
+  { tableName: 'bi_agent_requests', columns: ['id', 'execution_scope_id', 'actor_user_id'], unique: true },
+  { tableName: 'bi_agent_requests', columns: ['conversation_id', 'idempotency_key'], unique: true },
+  { tableName: 'bi_agent_requests', columns: ['conversation_id', 'created_at'] },
+  { tableName: 'agent_runs', columns: ['execution_scope_id', 'created_at'] },
+  { tableName: 'agent_workspace_leases', columns: ['execution_scope_id'], unique: true },
   { tableName: 'user_requests', columns: ['id', 'project_id'], unique: true },
   { tableName: 'agent_runs', columns: ['id'], unique: true },
   { tableName: 'agent_runs', columns: ['run_instance_id'], unique: true },
@@ -517,6 +566,22 @@ const EXPECTED_INDEXES: readonly ExpectedIndex[] = [
 ] as const;
 
 const EXPECTED_FOREIGN_KEYS: readonly ExpectedForeignKey[] = [
+  ...([
+    ['agent_execution_scopes', ['project_id'], 'projects', ['id']],
+    ['agent_execution_scopes', ['shared_project_id'], 'projects', ['id']],
+    ['agent_execution_scopes', ['owner_user_id'], 'auth_users', ['id']],
+    ['bi_agent_conversations', ['execution_scope_id'], 'agent_execution_scopes', ['id']],
+    ['bi_agent_conversations', ['actor_user_id'], 'auth_users', ['id']],
+    ['bi_agent_requests', ['conversation_id', 'execution_scope_id', 'actor_user_id'],
+      'bi_agent_conversations', ['id', 'execution_scope_id', 'actor_user_id']],
+    ['agent_runs', ['execution_scope_id'], 'agent_execution_scopes', ['id']],
+    ['agent_runs', ['bi_request_id', 'execution_scope_id', 'actor_user_id'],
+      'bi_agent_requests', ['id', 'execution_scope_id', 'actor_user_id']],
+    ['agent_workspace_leases', ['execution_scope_id'], 'agent_execution_scopes', ['id']],
+  ] as const).map(([tableName, columns, referencedTableName, referencedColumns]) => ({
+    tableName, columns, referencedTableName, referencedColumns,
+    deleteAction: 'CASCADE', updateAction: 'CASCADE',
+  })),
   {
     tableName: 'agent_runs',
     columns: ['project_id'],
@@ -635,11 +700,30 @@ const EXPECTED_FOREIGN_KEYS: readonly ExpectedForeignKey[] = [
 
 const EXPECTED_CHECK_CONSTRAINTS: readonly ExpectedCheckConstraint[] = [
   {
+    tableName: 'agent_execution_scopes',
+    constraintName: 'agent_execution_scopes_identity',
+    definitionIncludes: ['project_workspace', 'bi_dataset', 'owner_user_id', 'shared_project_id'],
+  },
+  {
+    tableName: 'agent_runs',
+    constraintName: 'agent_runs_request_kind',
+    definitionIncludes: ['project_id IS NOT NULL', 'bi_request_id IS NOT NULL', 'actor_user_id IS NOT NULL'],
+  },
+  {
     tableName: 'agent_runs',
     constraintName: 'agent_runs_workspace_key_sha256_check',
     definitionIncludes: ['workspace_key', '^sha256:[0-9a-f]{64}$'],
   },
 ];
+
+const EXPECTED_TRIGGERS = [
+  { tableName: 'agent_execution_scopes', triggerName: 'agent_execution_scopes_identity' },
+  { tableName: 'bi_agent_conversations', triggerName: 'bi_agent_conversations_owner' },
+  { tableName: 'bi_agent_requests', triggerName: 'bi_agent_requests_immutable' },
+  { tableName: 'agent_runs', triggerName: 'agent_runs_scope_binding' },
+  { tableName: 'agent_runs', triggerName: 'agent_runs_bi_identity' },
+  { tableName: 'agent_workspace_leases', triggerName: 'agent_workspace_leases_scope_binding' },
+] as const;
 
 /** Exposed for deterministic contract tests and operator-facing diagnostics. */
 export const PI_AGENT_SCHEMA_EXPECTATIONS = {
@@ -647,6 +731,7 @@ export const PI_AGENT_SCHEMA_EXPECTATIONS = {
   indexes: EXPECTED_INDEXES,
   foreignKeys: EXPECTED_FOREIGN_KEYS,
   checkConstraints: EXPECTED_CHECK_CONSTRAINTS,
+  triggers: EXPECTED_TRIGGERS,
 } as const;
 
 const CATALOG_COLUMNS_SQL = `
@@ -659,6 +744,7 @@ SELECT
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND table_name IN (
+    'auth_users', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests',
     'projects',
     'user_requests',
     'agent_runs',
@@ -700,6 +786,7 @@ JOIN pg_catalog.pg_attribute AS column_info
 WHERE table_namespace.nspname = 'public'
   AND key_column.ordinality <= index_info.indnkeyatts
   AND table_class.relname IN (
+    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests',
     'user_requests',
     'agent_runs',
     'agent_workspace_leases',
@@ -766,6 +853,7 @@ JOIN pg_catalog.pg_attribute AS parent_column
 WHERE constraint_info.contype = 'f'
   AND child_namespace.nspname = 'public'
   AND child_table.relname IN (
+    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests',
     'agent_runs',
     'agent_workspace_leases',
     'agent_generation_leases',
@@ -803,8 +891,19 @@ JOIN pg_catalog.pg_namespace AS table_namespace
   ON table_namespace.oid = table_info.relnamespace
 WHERE constraint_info.contype = 'c'
   AND table_namespace.nspname = 'public'
-  AND table_info.relname IN ('agent_runs')
+  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes')
 ORDER BY table_info.relname, constraint_info.conname
+`;
+
+const CATALOG_TRIGGERS_SQL = `
+SELECT c.relname AS "tableName", t.tgname AS "triggerName",
+  (t.tgenabled IN ('O', 'A')) AS enabled
+FROM pg_catalog.pg_trigger t
+JOIN pg_catalog.pg_class c ON c.oid = t.tgrelid
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND NOT t.tgisinternal
+  AND c.relname IN ('agent_runs', 'agent_workspace_leases',
+    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests')
 `;
 
 function sameColumns(actual: readonly string[], expected: readonly string[]): boolean {
@@ -835,7 +934,10 @@ export async function readPiAgentSchemaCatalog(
   const checkConstraints = await client.$queryRawUnsafe<PiAgentCatalogCheckConstraint[]>(
     CATALOG_CHECK_CONSTRAINTS_SQL
   );
-  return { columns, indexes, foreignKeys, checkConstraints };
+  const triggers = await client.$queryRawUnsafe<NonNullable<PiAgentSchemaCatalog['triggers']>>(
+    CATALOG_TRIGGERS_SQL
+  );
+  return { columns, indexes, foreignKeys, checkConstraints, triggers };
 }
 
 export function evaluatePiAgentSchemaCatalog(
@@ -988,6 +1090,15 @@ export function evaluatePiAgentSchemaCatalog(
     }
   }
 
+  for (const expected of EXPECTED_TRIGGERS) {
+    if (!actualTables.has(expected.tableName)) continue;
+    if (!catalog.triggers?.some((trigger) => trigger.tableName === expected.tableName
+      && trigger.triggerName === expected.triggerName && trigger.enabled)) {
+      issues.push({ code: 'MISSING_OR_DISABLED_TRIGGER',
+        objectName: `public.${expected.tableName}.${expected.triggerName}`,
+        expected: 'enabled ownership guard trigger' });
+    }
+  }
   issues.sort((left, right) => issueSortKey(left).localeCompare(issueSortKey(right)));
   return {
     ready: issues.length === 0,

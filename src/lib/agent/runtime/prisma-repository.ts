@@ -7,6 +7,7 @@ import type {
   PrismaClient,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { AgentRuntimeRepositoryError } from './errors';
 import {
   assertBoundedIdentifier,
@@ -242,8 +243,8 @@ function fenceWhere(input: AgentWriteFence, now: Date): Prisma.AgentRunWhereInpu
     workspaceFencingToken: input.workspaceFencingToken,
     leaseExpiresAt: { gt: now },
     status: { in: [...ACTIVE_STATUSES] },
-    project: {
-      agentWorkspaceLease: {
+    scope: {
+      lease: {
         is: {
           status: 'held',
           activeRunId: input.runId,
@@ -263,7 +264,7 @@ async function requireWorkspaceFence(
   now: Date
 ): Promise<PrismaAgentWorkspaceLease> {
   const lease = await client.agentWorkspaceLease.findUnique({
-    where: { projectId: run.projectId },
+    where: { executionScopeId: run.executionScopeId },
   });
   if (
     !lease ||
@@ -337,10 +338,11 @@ async function assertReplayLease(
 
 async function lockWorkspaceLease(
   tx: RuntimeTransactionClient,
-  projectId: string
+  executionScopeId: string
 ): Promise<PrismaAgentWorkspaceLease> {
   const rows = await tx.$queryRaw<PrismaAgentWorkspaceLease[]>(Prisma.sql`
     SELECT
+      execution_scope_id AS "executionScopeId",
       project_id AS "projectId",
       workspace_key AS "workspaceKey",
       status,
@@ -355,7 +357,7 @@ async function lockWorkspaceLease(
       created_at AS "createdAt",
       updated_at AS "updatedAt"
     FROM agent_workspace_leases
-    WHERE project_id = ${projectId}
+    WHERE execution_scope_id = ${executionScopeId}
     FOR UPDATE
   `);
   const lease = rows[0];
@@ -416,7 +418,8 @@ async function lockToolExecution(
 async function acquireWorkspaceLease(
   tx: RuntimeTransactionClient,
   input: {
-    projectId: string;
+    projectId: string | null;
+    executionScopeId: string;
     workspaceKey: string;
     runId: string;
     leaseOwner: string;
@@ -431,6 +434,7 @@ async function acquireWorkspaceLease(
   // either unique conflict also lets us map workspace aliases deliberately.
   await tx.$executeRaw(Prisma.sql`
     INSERT INTO agent_workspace_leases (
+      execution_scope_id,
       project_id,
       workspace_key,
       status,
@@ -439,6 +443,7 @@ async function acquireWorkspaceLease(
       created_at,
       updated_at
     ) VALUES (
+      ${input.executionScopeId},
       ${input.projectId},
       ${input.workspaceKey},
       'free',
@@ -451,7 +456,7 @@ async function acquireWorkspaceLease(
   `);
   let current: PrismaAgentWorkspaceLease;
   try {
-    current = await lockWorkspaceLease(tx, input.projectId);
+    current = await lockWorkspaceLease(tx, input.executionScopeId);
   } catch (error) {
     // A conflict on workspace_key suppresses the insert but cannot create a
     // row for this project. Treat that state as an explicit canonical binding
@@ -484,7 +489,7 @@ async function acquireWorkspaceLease(
   if (input.blockUnresolvedMutations) {
     const unresolved = await tx.agentToolExecution.findFirst({
       where: {
-        run: { projectId: input.projectId },
+        run: { executionScopeId: input.executionScopeId },
         status: { in: UNRESOLVED_TOOL_STATUSES },
         effect: { in: ['workspace_write', 'external_write'] },
       },
@@ -517,7 +522,7 @@ async function acquireWorkspaceLease(
   }
 
   return tx.agentWorkspaceLease.update({
-    where: { projectId: input.projectId },
+    where: { executionScopeId: input.executionScopeId },
     data: {
       status: 'held',
       activeRunId: input.runId,
@@ -540,7 +545,12 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
 
   async createRun(input: CreateAgentRunInput): Promise<AgentRunRecord> {
     assertBoundedIdentifier(input.id, 'run.id');
-    assertBoundedIdentifier(input.projectId, 'run.projectId');
+    if ((input.projectId === undefined) === (input.biRequestId === undefined)
+        || (input.biRequestId !== undefined && input.requestId !== undefined)) {
+      throw new AgentRuntimeRepositoryError('INVALID_STATE', 'Choose a real project or a persisted BI request.');
+    }
+    if (input.projectId !== undefined) assertBoundedIdentifier(input.projectId, 'run.projectId');
+    if (input.biRequestId !== undefined) assertBoundedIdentifier(input.biRequestId, 'run.biRequestId');
     assertHash(input.workspaceKey, 'run.workspaceKey');
     if (input.requestId !== undefined) {
       assertBoundedIdentifier(input.requestId, 'run.requestId');
@@ -584,6 +594,28 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     try {
       const record = await runtimeTransaction(this.client, async (tx) => {
         let actorUserId: string | null = null;
+        let executionScopeId: string;
+        if (input.biRequestId !== undefined) {
+          const request = await tx.biAgentRequest.findUnique({
+            where: { id: input.biRequestId },
+            include: { conversation: { include: { scope: true } } },
+          });
+          if (!request || request.conversation.scope.kind !== 'bi_dataset'
+              || request.model !== input.model) {
+            throw new AgentRuntimeRepositoryError('INVALID_STATE', 'BI request/model binding is invalid.');
+          }
+          executionScopeId = request.executionScopeId;
+          actorUserId = request.actorUserId;
+          const expectedKey = `sha256:${createHash('sha256').update(`bi-runtime:${executionScopeId}`).digest('hex')}`;
+          if (input.workspaceKey !== expectedKey) {
+            throw new AgentRuntimeRepositoryError('WORKSPACE_BINDING_CONFLICT', 'BI execution scope key does not match.');
+          }
+        } else {
+          const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+            SELECT ensure_agent_project_scope(${input.projectId!}) AS id
+          `);
+          executionScopeId = rows[0].id;
+        }
         if (input.requestId !== undefined) {
           const request = await tx.userRequest.findUnique({
             where: { id: input.requestId },
@@ -599,7 +631,8 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
         }
         const workspaceLease = hasLeaseOwner
           ? await acquireWorkspaceLease(tx, {
-              projectId: input.projectId,
+              projectId: input.projectId ?? null,
+              executionScopeId,
               workspaceKey: input.workspaceKey,
               runId: input.id,
               leaseOwner: input.leaseOwner!,
@@ -613,7 +646,9 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
             ...(input.runInstanceId !== undefined
               ? { runInstanceId: input.runInstanceId }
               : {}),
-            projectId: input.projectId,
+            projectId: input.projectId ?? null,
+            executionScopeId,
+            biRequestId: input.biRequestId ?? null,
             requestId: input.requestId ?? null,
             actorUserId,
             workspaceKey: input.workspaceKey,
@@ -662,6 +697,11 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     return record ? mapWorkspaceLease(record) : null;
   }
 
+  async getExecutionScopeLease(executionScopeId: string): Promise<AgentWorkspaceLeaseRecord | null> {
+    const record = await this.client.agentWorkspaceLease.findUnique({ where: { executionScopeId } });
+    return record ? mapWorkspaceLease(record) : null;
+  }
+
   async assertWorkspaceLease(input: AgentWriteFence): Promise<void> {
     const now = await databaseNow(this.client);
     const run = await this.client.agentRun.findFirst({ where: fenceWhere(input, now) });
@@ -698,6 +738,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
       }
       const workspaceLease = await acquireWorkspaceLease(tx, {
         projectId: current.projectId,
+        executionScopeId: current.executionScopeId,
         workspaceKey: current.workspaceKey,
         runId: current.id,
         leaseOwner: input.leaseOwner,
@@ -764,12 +805,12 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     return runtimeTransaction(this.client, async (tx) => {
       const binding = await tx.agentRun.findUnique({
         where: { id: input.runId },
-        select: { projectId: true },
+        select: { executionScopeId: true },
       });
       if (!binding) {
         throw new AgentRuntimeRepositoryError('NOT_FOUND', 'Agent run was not found.');
       }
-      await lockWorkspaceLease(tx, binding.projectId);
+      await lockWorkspaceLease(tx, binding.executionScopeId);
       await lockAgentRun(tx, input.runId);
       const now = await databaseNow(tx);
       const leaseExpiresAt = databaseLeaseExpiry(now, leaseTtlMs);
@@ -971,20 +1012,23 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
 
     try {
       return await runtimeTransaction(this.client, async (tx) => {
-        let projectId: string | undefined;
+        let executionScopeId: string | undefined;
         if (input.effect === 'workspace_write' || input.effect === 'external_write') {
           const binding = await tx.agentRun.findUnique({
             where: { id: input.runId },
-            select: { projectId: true },
+            select: { executionScopeId: true, projectId: true },
           });
           if (!binding) {
             throw new AgentRuntimeRepositoryError('NOT_FOUND', 'Agent run was not found.');
           }
-          projectId = binding.projectId;
+          executionScopeId = binding.executionScopeId;
+          if (binding.projectId === null && input.effect === 'workspace_write') {
+            throw new AgentRuntimeRepositoryError('INVALID_STATE', 'BI runs cannot mutate a filesystem workspace.');
+          }
           // Mutating preparation and workspace takeover must contend on the
           // same row. If preparation wins, takeover observes the unresolved
           // ledger; if takeover wins, the stale fence below is rejected.
-          await lockWorkspaceLease(tx, binding.projectId);
+          await lockWorkspaceLease(tx, binding.executionScopeId);
         }
         const now = await databaseNow(tx);
         const result = await tx.agentRun.updateMany({
@@ -996,7 +1040,7 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
           const unresolved = await tx.agentToolExecution.findFirst({
             where: {
               operationId: { not: input.operationId },
-              run: { projectId: projectId! },
+              run: { executionScopeId: executionScopeId! },
               status: { in: UNRESOLVED_TOOL_STATUSES },
               effect: { in: ['workspace_write', 'external_write'] },
             },
@@ -1164,12 +1208,15 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     await runtimeTransaction(this.client, async (tx) => {
       const binding = await tx.agentRun.findUnique({
         where: { id: input.runId },
-        select: { projectId: true },
+        select: { executionScopeId: true, projectId: true },
       });
       if (!binding) {
         throw new AgentRuntimeRepositoryError('NOT_FOUND', 'Agent run was not found.');
       }
-      const lease = await lockWorkspaceLease(tx, binding.projectId);
+      if (binding.projectId === null) {
+        throw new AgentRuntimeRepositoryError('INVALID_STATE', 'BI runs cannot authorize filesystem mutations.');
+      }
+      const lease = await lockWorkspaceLease(tx, binding.executionScopeId);
       const run = await lockAgentRun(tx, input.runId);
       const execution = await lockToolExecution(tx, input.operationId);
       const now = await databaseNow(tx);
@@ -1247,14 +1294,14 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     return runtimeTransaction(this.client, async (tx) => {
       const binding = await tx.agentRun.findUnique({
         where: { id: input.runId },
-        select: { projectId: true },
+        select: { executionScopeId: true },
       });
       if (!binding) {
         throw new AgentRuntimeRepositoryError('NOT_FOUND', 'Agent run was not found.');
       }
       // Keep lock order consistent with acquire/heartbeat/final commit:
       // workspace lease first, then the run row.
-      await lockWorkspaceLease(tx, binding.projectId);
+      await lockWorkspaceLease(tx, binding.executionScopeId);
       await lockAgentRun(tx, input.runId);
       const now = await databaseNow(tx);
       const finishedAt = input.finishedAt ?? now;
@@ -1316,6 +1363,8 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
     const records = await this.client.agentRun.findMany({
       where: {
         ...(query.projectId ? { projectId: query.projectId } : {}),
+        ...(query.executionScopeId ? { executionScopeId: query.executionScopeId }
+          : { projectId: query.projectId ?? { not: null } }),
         OR: [
           {
             status: { in: [...ACTIVE_STATUSES] },

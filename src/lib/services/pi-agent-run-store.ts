@@ -52,7 +52,8 @@ export interface PiAgentRunStoreScheduler {
 export interface PiAgentDurableRunInput extends AgentRunProvenance {
   runId: string;
   runInstanceId?: string;
-  projectId: string;
+  projectId?: string;
+  biRequestId?: string;
   workspaceKey: string;
   requestId?: string;
   startedAt?: Date;
@@ -326,6 +327,7 @@ export class PiAgentDurableRunSession {
       id: options.run.runId,
       ...(options.run.runInstanceId ? { runInstanceId: options.run.runInstanceId } : {}),
       projectId: options.run.projectId,
+      biRequestId: options.run.biRequestId,
       workspaceKey: options.run.workspaceKey,
       ...(options.run.requestId ? { requestId: options.run.requestId } : {}),
       provider: options.run.provider,

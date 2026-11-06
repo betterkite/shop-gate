@@ -1,3 +1,4 @@
+import { assertAgentExecutionCapacity } from '@/lib/services/pi-agent-concurrency';
 import type {
   AgentCheckpoint as PrismaAgentCheckpoint,
   AgentEvent as PrismaAgentEvent,
@@ -735,6 +736,10 @@ export class PrismaAgentRuntimeRepository implements AgentRuntimeRepository {
         }) !== null;
       if (!currentIsActive && !terminalReconciliationAllowed) {
         throw new AgentRuntimeRepositoryError('INVALID_STATE', 'Terminal run cannot be leased.');
+      }
+      if (current.biRequestId && current.status === 'pending') {
+        if (!current.actorUserId) throw new AgentRuntimeRepositoryError('INVALID_STATE', 'BI actor is required.');
+        await assertAgentExecutionCapacity(tx, current.actorUserId, { biRunId: current.id }, callerNow);
       }
       const workspaceLease = await acquireWorkspaceLease(tx, {
         projectId: current.projectId,

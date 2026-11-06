@@ -139,7 +139,8 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
     await expect(collectBiAgentResult({ ...first.fence, fencingToken: 99 }, unique(), {}, signal(), { client: a, read: read(1) })).rejects.toThrow();
     const second = await running(); const source = read(1);
     await expect(collectBiAgentResult(second.fence, unique(), {}, signal(), { client: a, read: async (...args) => {
-      await cancelBiAgentQuestion(second.actor, second.fence.runId, b); return source(...args);
+      await cancelBiAgentQuestion(second.actor, second.fence.runId, b);
+      return source(args[0], args[1], args[2], args[3]);
     } })).rejects.toThrow();
     expect(await a.biAgentResult.count({ where: { runId: { in: [first.fence.runId, second.fence.runId] } } })).toBe(0);
   });

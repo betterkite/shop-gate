@@ -4,11 +4,11 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { config as loadEnv } from 'dotenv';
 
 import { listUnmeteredAgentRuns } from '../../src/lib/services/pi-agent-usage-reconciliation';
+import { settleAgentRunUsage } from '../../src/lib/services/pi-agent-usage-settlement';
 
 import { getProjectAuthConfig } from '../../src/lib/config/auth';
 import {
   cleanupExpiredQuotaReservations,
-  createQuotaService,
 } from '../../src/lib/quota/service';
 import { cleanupExpiredApiOperations } from '../../src/lib/server/api-idempotency';
 import { reconcileApiOperationQuotaSettlements } from '../../src/lib/server/api-idempotency-reconciliation';
@@ -18,7 +18,6 @@ loadEnv({ path: path.join(root, '.env'), quiet: true });
 loadEnv({ path: path.join(root, '.env.local'), override: true, quiet: true });
 
 const prisma = new PrismaClient();
-const quota = createQuotaService(prisma);
 const dryRun = process.argv.includes('--dry-run');
 
 
@@ -108,23 +107,7 @@ async function main() {
   while (true) {
     const runs = await listUnmeteredAgentRuns(prisma, 500);
     for (const run of runs) {
-      await quota.recordUsage({
-        actorUserId: run.actorUserId,
-        projectId: run.projectId,
-        metric: 'llm.total_tokens.monthly',
-        quantity: run.totalTokens,
-        idempotencyKey: `agent-run:${run.id}:total-tokens`,
-        sourceType: 'agent_run',
-        sourceId: run.id,
-        occurredAt: run.finishedAt,
-        metadata: {
-          reconciled: true,
-          provider: run.provider,
-          model: run.model,
-          inputTokens: run.inputTokens,
-          outputTokens: run.outputTokens,
-        },
-      });
+      await settleAgentRunUsage(prisma, run.id);
       agentRunUsageEvents += 1;
     }
     if (runs.length < 500) break;

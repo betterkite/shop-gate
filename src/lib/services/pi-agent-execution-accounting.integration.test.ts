@@ -9,7 +9,7 @@ import { PiAgentDurableRunSession } from './pi-agent-run-store';
 import { biAgentTokenReservationKey, settleAgentRunUsage } from './pi-agent-usage-settlement';
 import { claimPiAgentWorkerSlot, heartbeatPiAgentWorkerSlot, releasePiAgentWorkerSlot } from './pi-agent-worker-capacity';
 import { registerPiAgentWorkerInstance, stopPiAgentWorkerInstance, hasLivePiAgentWorker } from './pi-agent-worker-registry';
-import { claimPiAgentGenerationJob } from './pi-agent-generation-dispatch-store';
+import { claimPiAgentGenerationJob, finishPiAgentGenerationJob } from './pi-agent-generation-dispatch-store';
 
 const databaseUrl = process.env.PI_AGENT_TEST_DATABASE_URL?.trim();
 const prefix = `bi_accounting_${randomUUID().replaceAll('-', '')}`;
@@ -102,7 +102,8 @@ describe.skipIf(!databaseUrl)('Shared BI execution accounting (real PostgreSQL)'
     await a.agentWorkerSlot.updateMany({ where: { poolKey }, data: { leaseExpiresAt: new Date(0) } });
     const biRunId = await pending(await identity());
     expect(await claimPiAgentWorkerSlot({ ...input, activeRunId: biRunId })).toBeNull();
-    await a.agentGenerationJob.update({ where: { id: row.id }, data: { status: 'completed', completedAt: new Date() } });
+    await finishPiAgentGenerationJob({ projectId: job.projectId, requestId: job.requestId,
+      status: 'completed', fence: dispatch! });
     const replacement = await claimPiAgentWorkerSlot({ ...input, activeRunId: biRunId });
     expect(replacement).not.toBeNull();
     expect(await claimPiAgentWorkerSlot({ ...input, capacity: 2, activeRunId: biRunId })).toBeNull();

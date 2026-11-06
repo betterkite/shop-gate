@@ -76,6 +76,16 @@ METRICS = {
 }
 
 
+def aggregation_description(metric: str) -> str:
+    if metric == "order_count":
+        return "在所选范围内按订单去重，同一订单只计一次；不同分组的订单数不能直接相加"
+    if metric == "standard_quantity":
+        return "只汇总相同标准单位的数量，不把不同单位直接相加"
+    if metric in {"average_order_value", "contribution_margin", "refund_ratio", "coverage_ratio"}:
+        return "先分别汇总所选范围的分子与分母，再相除；不平均各条明细或各分组的比率"
+    return "按所选范围汇总金额；明细已处理退款、成本冲回与费用分摊，不重复计入"
+
+
 def metric_catalog() -> list[dict]:
     return [
         {
@@ -85,8 +95,8 @@ def metric_catalog() -> list[dict]:
             "formula": value[2],
             "missing_policy": value[3],
             "dimensions": sorted(DIMENSIONS),
-            "source": "bi订单/付款快照、已完成退款、历史费用分摊",
-            "aggregation": "分子分母先按全范围合计，最后计算比例，不平均单行比率",
+            "source": "订单及付款记录、已完成退款记录、历史成本与费用分摊记录",
+            "aggregation": aggregation_description(key),
         }
         for key, value in METRICS.items()
     ]

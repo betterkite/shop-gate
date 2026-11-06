@@ -246,7 +246,16 @@ def test_controlled_query_rejects_invalid_inputs(query):
 
 
 def test_metric_catalog_and_version_scope_cache_are_complete():
-    assert {row["id"] for row in metric_catalog()} == set(METRICS)
+    catalog = {row["id"]: row for row in metric_catalog()}
+    assert set(catalog) == set(METRICS)
+    for metric in ["net_sales", "sales_amount", "refund_amount", "contribution_profit", "expense_amount"]:
+        assert "汇总金额" in catalog[metric]["aggregation"]
+        assert "分母" not in catalog[metric]["aggregation"]
+    assert "去重" in catalog["order_count"]["aggregation"]
+    assert "不同单位" in catalog["standard_quantity"]["aggregation"]
+    for metric in ["average_order_value", "contribution_margin", "refund_ratio", "coverage_ratio"]:
+        assert "分子与分母" in catalog[metric]["aggregation"]
+        assert "不平均" in catalog[metric]["aggregation"]
     scope = LedgerScope("account:a", "d", "a", 1, frozenset({"ledger.read"}))
     query = Query()
     assert query.cache_key(scope) != query.cache_key(replace(scope, version=2))

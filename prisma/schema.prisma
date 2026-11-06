@@ -427,6 +427,7 @@ model BiAgentRequest {
   idempotencyKey   String   @map("idempotency_key")
   instruction     String
   inputHash       String   @map("input_hash")
+  sessionId        String?  @map("session_id") // Private reference; revoked sessions remain auditable.
   pageScope       Json     @map("page_scope")
   datasetVersion  Int      @map("dataset_version")
   model           String
@@ -485,6 +486,7 @@ model AgentRun {
   errorMessage String?   @map("error_message")
   startedAt    DateTime? @map("started_at")
   finishedAt   DateTime? @map("finished_at")
+  cancelRequestedAt DateTime? @map("cancel_requested_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 

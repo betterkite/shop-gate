@@ -56,7 +56,7 @@ describe('PI Agent schema readiness', () => {
       issues: [],
     });
     expect(PI_AGENT_SCHEMA_CONTRACT_VERSION).toBe(
-      '20261107000100_agent_execution_scopes'
+      '20261107000200_bi_agent_dispatch'
     );
   });
 

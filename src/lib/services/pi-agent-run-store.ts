@@ -286,7 +286,7 @@ export class PiAgentDurableRunSession {
   private readonly completedOperationIdSet = new Set<string>();
 
   private constructor(
-    options: CreatePiAgentDurableRunSessionOptions,
+    options: Omit<CreatePiAgentDurableRunSessionOptions, 'run'>,
     run: AgentRunRecord,
     leaseOwner: string,
     leaseTtlMs: number,
@@ -352,6 +352,33 @@ export class PiAgentDurableRunSession {
       leaseTtlMs,
       heartbeatIntervalMs
     );
+  }
+
+  /** Claim an existing durable inbox row once. Expired runs require recovery,
+   * never a second provider turn or a recreated run with the same request. */
+  static async claimPending(
+    options: Omit<CreatePiAgentDurableRunSessionOptions, 'run'> & { runId: string; expectedVersion: number }
+  ): Promise<PiAgentDurableRunSession> {
+    const clock = options.clock ?? (() => new Date());
+    const leaseTtlMs = positiveSafeInteger(options.leaseTtlMs ?? DEFAULT_LEASE_TTL_MS, 'leaseTtlMs');
+    const heartbeatIntervalMs = positiveSafeInteger(
+      options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS, 'heartbeatIntervalMs');
+    if (options.heartbeatEnabled !== false && heartbeatIntervalMs >= leaseTtlMs) {
+      throw new Error('heartbeatIntervalMs must be smaller than leaseTtlMs.');
+    }
+    const pending = await options.repository.getRun(options.runId);
+    if (!pending || pending.status !== 'pending' || pending.version !== options.expectedVersion
+        || pending.fencingToken !== 0 || pending.lastEventSequence !== 0 || pending.startedAt
+        || pending.leaseOwner || pending.leaseExpiresAt) {
+      throw new Error('Only an unstarted pending run may begin a provider execution.');
+    }
+    const now = clock();
+    const leaseOwner = options.leaseOwner ?? `worker:${process.pid}:${randomUUID()}`;
+    const run = await options.repository.claimLease({ runId: pending.id,
+      expectedVersion: options.expectedVersion, leaseOwner, now,
+      leaseExpiresAt: new Date(now.getTime() + leaseTtlMs) });
+    if (run.status !== 'running') throw new Error('A reconciled run cannot resume provider execution.');
+    return new PiAgentDurableRunSession({ ...options, clock }, run, leaseOwner, leaseTtlMs, heartbeatIntervalMs);
   }
 
   get run(): AgentRunRecord {

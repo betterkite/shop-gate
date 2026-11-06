@@ -39,7 +39,7 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
       for (const { table_name: table } of tables) {
         if (['_prisma_migrations', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests'].includes(table)) continue;
         if (!/^[a-z_]+$/.test(table)) throw new Error('Unexpected rehearsal table identifier');
-        const row = table === 'agent_runs' ? "to_jsonb(t) - 'execution_scope_id' - 'bi_request_id'"
+        const row = table === 'agent_runs' ? "to_jsonb(t) - 'execution_scope_id' - 'bi_request_id' - 'cancel_requested_at'"
           : table === 'agent_workspace_leases' ? "to_jsonb(t) - 'execution_scope_id'" : 'to_jsonb(t)';
         snapshots[table] = await client.$queryRawUnsafe(
           `SELECT coalesce(jsonb_agg(${row} ORDER BY (${row})::text), '[]'::jsonb) AS rows FROM "${schema}"."${table}" t`);
@@ -48,7 +48,7 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
     }
     try {
       await cp(path.join(process.cwd(), 'prisma'), prismaDirectory, { recursive: true,
-        filter: (source) => path.basename(source) !== migration });
+        filter: (source) => !/^\d{14}_/.test(path.basename(source)) || path.basename(source) < migration });
       const migrations = await readdir(path.join(prismaDirectory, 'migrations'));
       expect(migrations).not.toContain(migration);
       deploy();
@@ -75,8 +75,10 @@ describe.skipIf(!databaseUrl)('BI execution scope migration (real PostgreSQL)', 
         stateHash: key, stateVersion: 1, fencingToken: 7 } });
       const before = await priorFacts();
       expect(Object.keys(before).length).toBeGreaterThan(50);
-      await cp(path.join(process.cwd(), 'prisma/migrations', migration),
-        path.join(prismaDirectory, 'migrations', migration), { recursive: true });
+      for (const next of (await readdir(path.join(process.cwd(), 'prisma/migrations'))).filter((name) => name >= migration)) {
+        await cp(path.join(process.cwd(), 'prisma/migrations', next),
+          path.join(prismaDirectory, 'migrations', next), { recursive: true });
+      }
       deploy();
       expect(await priorFacts()).toEqual(before);
       const repository = new PrismaAgentRuntimeRepository(client);

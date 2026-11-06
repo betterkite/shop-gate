@@ -8,7 +8,7 @@
  */
 
 export const PI_AGENT_SCHEMA_CONTRACT_VERSION =
-  '20261107000100_agent_execution_scopes' as const;
+  '20261107000200_bi_agent_dispatch' as const;
 
 export interface PiAgentSchemaQueryClient {
   $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): PromiseLike<T>;
@@ -143,6 +143,7 @@ const EXPECTED_COLUMN_DEFINITIONS = {
     idempotency_key: ['text', false],
     instruction: ['text', false],
     input_hash: ['text', false],
+    session_id: ['text', true],
     page_scope: ['jsonb', false],
     dataset_version: ['integer', false],
     model: ['text', false],
@@ -167,6 +168,7 @@ const EXPECTED_COLUMN_DEFINITIONS = {
     request_id: ['text', true],
     workspace_key: ['text', false],
     status: ['text', false],
+    cancel_requested_at: ['timestamp without time zone', true],
     lease_owner: ['text', true],
     lease_expires_at: ['timestamp without time zone', true],
     last_heartbeat_at: ['timestamp without time zone', true],
@@ -699,6 +701,8 @@ const EXPECTED_FOREIGN_KEYS: readonly ExpectedForeignKey[] = [
 ];
 
 const EXPECTED_CHECK_CONSTRAINTS: readonly ExpectedCheckConstraint[] = [
+  { tableName: 'bi_agent_requests', constraintName: 'bi_agent_requests_session_reference',
+    definitionIncludes: ['session_id', 'IS NULL', '~'] },
   {
     tableName: 'agent_execution_scopes',
     constraintName: 'agent_execution_scopes_identity',

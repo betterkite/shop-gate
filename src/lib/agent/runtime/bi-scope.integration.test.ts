@@ -254,4 +254,16 @@ describe.skipIf(!databaseUrl)('BI execution scopes (real PostgreSQL)', () => {
     })).rejects.toThrow('rollback-test-only');
     expect((await inspectPiAgentSchemaReadiness(a)).ready).toBe(true);
   });
+  it('reads and enforces the real session-reference check rather than only synthetic catalog fixtures', async () => {
+    await expect(a.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('ALTER TABLE bi_agent_requests DROP CONSTRAINT bi_agent_requests_session_reference');
+      const report = await inspectPiAgentSchemaReadiness(tx);
+      expect(report.ready).toBe(false);
+      expect(report.issues).toContainEqual(expect.objectContaining({ code: 'MISSING_CHECK_CONSTRAINT',
+        objectName: 'public.bi_agent_requests.bi_agent_requests_session_reference' }));
+      throw new Error('rollback-session-check-test');
+    })).rejects.toThrow('rollback-session-check-test');
+    expect((await inspectPiAgentSchemaReadiness(a)).ready).toBe(true);
+  });
+
 });

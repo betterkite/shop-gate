@@ -895,7 +895,7 @@ JOIN pg_catalog.pg_namespace AS table_namespace
   ON table_namespace.oid = table_info.relnamespace
 WHERE constraint_info.contype = 'c'
   AND table_namespace.nspname = 'public'
-  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes')
+  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes', 'bi_agent_requests')
 ORDER BY table_info.relname, constraint_info.conname
 `;
 

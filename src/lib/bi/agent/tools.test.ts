@@ -18,7 +18,7 @@ describe('BI assistant controlled tool registration', () => {
   it('passes the framework operation ID and abort signal to complete result collection', async () => {
     mocks.collect.mockResolvedValue({ evidence_id: 'opaque', total: 25, preview: [], complete: true });
     expect(await createBiAgentTools(fence)[1].execute({ dimension: 'store' }, context)).toMatchObject({ ok: true, data: { total: 25 } });
-    expect(mocks.collect).toHaveBeenCalledWith(fence, 'owned-operation', { dimension: 'store' }, context.signal);
+    expect(mocks.collect).toHaveBeenCalledWith(fence, 'owned-operation', { dimension: 'store' }, context.signal, {});
   });
   it('keeps full display text out of public terminal receipts', async () => {
     mocks.save.mockResolvedValue({ kind: 'answer', text: 'User private answer', evidence_ids: ['owned-evidence'] });

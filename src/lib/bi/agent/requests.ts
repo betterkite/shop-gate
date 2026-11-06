@@ -1,21 +1,20 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
-import { PI_AGENT_BUILD_REVISION, PI_AGENT_FRAMEWORK_VERSION } from '@/lib/agent/framework-identity';
+import { biAgentProvenance } from './provenance';
 import { getProjectLlmConfig } from '@/lib/config/llm';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
 import { biAgentSubmissionSchema, biAgentPageScopeSchema, BiAgentProblem } from './contracts';
 import { resolveBiAgentPage } from './ledger';
 
-const ACTIVE = ['pending', 'running', 'reconciling', 'waiting'];
+const ACTIVE = ['pending', 'running', 'reconciling', 'waiting', 'candidate_complete'];
 const notFound = () => new BiAgentProblem('BI_AGENT_NOT_FOUND', 404, '对话不存在或当前账号无权查看。');
 const conflict = () => new BiAgentProblem('BI_AGENT_CONFLICT', 409, '对话或请求内容已变化，请刷新后重试。');
 const runSelect = { id: true, status: true, version: true, createdAt: true,
   finishedAt: true, cancelRequestedAt: true, errorCode: true } as const;
 const requestSelect = { id: true, instruction: true, model: true, datasetVersion: true,
   pageScope: true, createdAt: true, runs: { select: runSelect, orderBy: { createdAt: 'desc' as const } } } as const;
-const digest = (value: unknown) => `sha256:${hashPiAgentProvenance(value)}`;
 
 type Dependencies = {
   client?: PrismaClient;
@@ -98,14 +97,7 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
     await tx.agentRun.create({ data: { id: randomUUID(), projectId: null, requestId: null,
       executionScopeId: scope.id, biRequestId: request.id, actorUserId: current.actorId,
       workspaceKey, status: 'pending', provider: config.provider, model: input.model,
-      frameworkVersion: PI_AGENT_FRAMEWORK_VERSION, buildRevision: PI_AGENT_BUILD_REVISION,
-      profileHash: digest({ profileId: config.profileId, model: config.model, provider: config.provider }),
-      promptHash: digest({ instruction: input.instruction, pageScope }),
-      // Queue provenance describes the acceptance contract. The worker must verify
-      // this contract before claiming; it cannot silently swap in filesystem tools.
-      toolHash: digest({ contract: 'bi-controlled-tools-v1' }), skillHash: digest([]),
-      workspaceHash: digest({ workspaceId: current.workspaceId, datasetId: input.dataset_id,
-        version: input.dataset_version, pageScope }),
+      ...biAgentProvenance(config, input.instruction, pageScope, current.workspaceId, input.dataset_id, input.dataset_version),
     } });
     const updated = await tx.biAgentConversation.update({ where: { id: conversation.id }, data: { version: { increment: 1 } } });
     return { conversation_id: conversation.id, conversation_version: updated.version, replayed: false,
@@ -143,7 +135,7 @@ export async function cancelBiAgentQuestion(authority: BiAgentAuthority, runId: 
     if (ACTIVE.includes(run.status)) {
       // Pending cancellation races the existing claimLease CAS. If a worker wins,
       // persist its cancellation flag without invalidating its heartbeat fence.
-      await tx.agentRun.updateMany({ where: { id: run.id, status: 'pending', version: run.version }, data: {
+      await tx.agentRun.updateMany({ where: { id: run.id, status: { in: ['pending', 'candidate_complete'] }, version: run.version }, data: {
         status: 'cancelled', cancelRequestedAt: new Date(), finishedAt: new Date(),
         errorCode: 'RUN_CANCELLED', version: { increment: 1 },
       } });

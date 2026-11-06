@@ -75,7 +75,8 @@ function fence(run: AgentRunRecord, leaseOwner: string, now: Date) {
 
 export async function reconcileExpiredPiAgentRuns(options: {
   repository: AgentRuntimeRepository;
-  projectId: string;
+  projectId?: string;
+  executionScopeId?: string;
   now?: Date;
   ownerId?: string;
   leaseMs?: number;
@@ -83,6 +84,9 @@ export async function reconcileExpiredPiAgentRuns(options: {
   /** Canonical project workspace; required for automatic workspace-write rollback. */
   workspaceRoot?: string;
 }): Promise<PiAgentRecoveryAuditResult> {
+  if (Boolean(options.projectId) === Boolean(options.executionScopeId)) {
+    throw new Error('Recovery requires exactly one project or BI execution scope.');
+  }
   const now = options.now ?? new Date();
   const leaseMs = options.leaseMs ?? DEFAULT_RECONCILIATION_LEASE_MS;
   if (!Number.isSafeInteger(leaseMs) || leaseMs <= 0) {
@@ -91,6 +95,7 @@ export async function reconcileExpiredPiAgentRuns(options: {
   const ownerId = options.ownerId ?? `reconciler:${process.pid}:${randomUUID()}`;
   const candidates = await options.repository.listReconciliationCandidates({
     projectId: options.projectId,
+    executionScopeId: options.executionScopeId,
     now,
     limit: options.limit ?? 100,
   });
@@ -137,6 +142,9 @@ export async function reconcileExpiredPiAgentRuns(options: {
   }
 
   for (const candidate of candidates) {
+    // A durable BI inbox row without a provider attempt is not a crashed run.
+    if (candidate.run.biRequestId && candidate.run.status === 'pending' && !candidate.run.startedAt
+        && candidate.run.fencingToken === 0 && candidate.run.lastEventSequence === 0) continue;
     if (candidate.checkpoint) {
       // Version 2 records are canonical-hash verified before any reconciliation
       // side effect. A model-turn checkpoint additionally validates its bounded

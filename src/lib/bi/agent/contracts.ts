@@ -34,6 +34,6 @@ export type BiAgentSubmission = z.infer<typeof biAgentSubmissionSchema>;
 
 export class BiAgentProblem extends Error {
   constructor(readonly code: 'BI_AGENT_CONFLICT' | 'BI_AGENT_NOT_FOUND' | 'BI_AGENT_BUSY'
-    | 'BI_AGENT_MODEL_UNAVAILABLE' | 'BI_AGENT_INPUT_INVALID' | 'BI_AGENT_CANCELLED',
+    | 'BI_AGENT_RESULT_LIMIT' | 'BI_AGENT_MODEL_UNAVAILABLE' | 'BI_AGENT_INPUT_INVALID' | 'BI_AGENT_CANCELLED',
   readonly status: number, message: string) { super(message); }
 }

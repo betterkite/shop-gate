@@ -8,7 +8,7 @@
  */
 
 export const PI_AGENT_SCHEMA_CONTRACT_VERSION =
-  '20261107000200_bi_agent_dispatch' as const;
+  '20261107000300_bi_agent_results' as const;
 
 export interface PiAgentSchemaQueryClient {
   $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): PromiseLike<T>;
@@ -115,6 +115,13 @@ interface ExpectedCheckConstraint {
 type ColumnDefinition = readonly [dataType: string, nullable: boolean];
 
 const EXPECTED_COLUMN_DEFINITIONS = {
+  bi_agent_results: {
+    id: ['text', false], run_id: ['text', false], operation_id: ['text', false],
+    query: ['jsonb', false], metadata: ['jsonb', false], total: ['integer', false],
+    collected: ['integer', false], complete: ['boolean', false], created_at: ['timestamp without time zone', false],
+  },
+  bi_agent_result_pages: { result_id: ['text', false], page: ['integer', false], rows: ['jsonb', false], digest: ['text', false] },
+  bi_agent_answers: { run_id: ['text', false], content: ['jsonb', false], created_at: ['timestamp without time zone', false] },
   auth_users: { id: ['text', false] },
   agent_execution_scopes: {
     id: ['text', false],
@@ -422,6 +429,9 @@ const EXPECTED_COLUMNS: ExpectedColumn[] = Object.entries(
 );
 
 const EXPECTED_INDEXES: readonly ExpectedIndex[] = [
+  { tableName: 'bi_agent_results', columns: ['run_id', 'operation_id'], unique: true },
+  { tableName: 'bi_agent_result_pages', columns: ['result_id', 'page'], unique: true },
+  { tableName: 'bi_agent_answers', columns: ['run_id'], unique: true },
   { tableName: 'agent_execution_scopes', columns: ['id'], unique: true },
   { tableName: 'agent_execution_scopes', columns: ['project_id'], unique: true },
   { tableName: 'agent_execution_scopes', columns: ['kind', 'workspace_id', 'dataset_id'], unique: true },
@@ -568,6 +578,9 @@ const EXPECTED_INDEXES: readonly ExpectedIndex[] = [
 ] as const;
 
 const EXPECTED_FOREIGN_KEYS: readonly ExpectedForeignKey[] = [
+  { tableName: 'bi_agent_results', columns: ['run_id'], referencedTableName: 'agent_runs', referencedColumns: ['id'], deleteAction: 'CASCADE', updateAction: 'CASCADE' },
+  { tableName: 'bi_agent_result_pages', columns: ['result_id'], referencedTableName: 'bi_agent_results', referencedColumns: ['id'], deleteAction: 'CASCADE', updateAction: 'CASCADE' },
+  { tableName: 'bi_agent_answers', columns: ['run_id'], referencedTableName: 'agent_runs', referencedColumns: ['id'], deleteAction: 'CASCADE', updateAction: 'CASCADE' },
   ...([
     ['agent_execution_scopes', ['project_id'], 'projects', ['id']],
     ['agent_execution_scopes', ['shared_project_id'], 'projects', ['id']],
@@ -701,6 +714,9 @@ const EXPECTED_FOREIGN_KEYS: readonly ExpectedForeignKey[] = [
 ];
 
 const EXPECTED_CHECK_CONSTRAINTS: readonly ExpectedCheckConstraint[] = [
+  { tableName: 'bi_agent_results', constraintName: 'bi_agent_results_bounds', definitionIncludes: ['collected', 'total', 'complete', 'octet_length'] },
+  { tableName: 'bi_agent_result_pages', constraintName: 'bi_agent_result_pages_bounds', definitionIncludes: ['jsonb_array_length', 'digest', 'octet_length'] },
+  { tableName: 'bi_agent_answers', constraintName: 'bi_agent_answers_bounds', definitionIncludes: ['jsonb_typeof', 'octet_length'] },
   { tableName: 'bi_agent_requests', constraintName: 'bi_agent_requests_session_reference',
     definitionIncludes: ['session_id', 'IS NULL', '~'] },
   {
@@ -721,6 +737,9 @@ const EXPECTED_CHECK_CONSTRAINTS: readonly ExpectedCheckConstraint[] = [
 ];
 
 const EXPECTED_TRIGGERS = [
+  { tableName: 'bi_agent_results', triggerName: 'bi_agent_results_guard' },
+  { tableName: 'bi_agent_result_pages', triggerName: 'bi_agent_result_pages_guard' },
+  { tableName: 'bi_agent_answers', triggerName: 'bi_agent_answers_guard' },
   { tableName: 'agent_execution_scopes', triggerName: 'agent_execution_scopes_identity' },
   { tableName: 'bi_agent_conversations', triggerName: 'bi_agent_conversations_owner' },
   { tableName: 'bi_agent_requests', triggerName: 'bi_agent_requests_immutable' },
@@ -748,7 +767,7 @@ SELECT
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND table_name IN (
-    'auth_users', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests',
+    'auth_users', 'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers',
     'projects',
     'user_requests',
     'agent_runs',
@@ -790,7 +809,7 @@ JOIN pg_catalog.pg_attribute AS column_info
 WHERE table_namespace.nspname = 'public'
   AND key_column.ordinality <= index_info.indnkeyatts
   AND table_class.relname IN (
-    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests',
+    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers',
     'user_requests',
     'agent_runs',
     'agent_workspace_leases',
@@ -857,7 +876,7 @@ JOIN pg_catalog.pg_attribute AS parent_column
 WHERE constraint_info.contype = 'f'
   AND child_namespace.nspname = 'public'
   AND child_table.relname IN (
-    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests',
+    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers',
     'agent_runs',
     'agent_workspace_leases',
     'agent_generation_leases',
@@ -895,7 +914,7 @@ JOIN pg_catalog.pg_namespace AS table_namespace
   ON table_namespace.oid = table_info.relnamespace
 WHERE constraint_info.contype = 'c'
   AND table_namespace.nspname = 'public'
-  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes', 'bi_agent_requests')
+  AND table_info.relname IN ('agent_runs', 'agent_execution_scopes', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers')
 ORDER BY table_info.relname, constraint_info.conname
 `;
 
@@ -907,7 +926,7 @@ JOIN pg_catalog.pg_class c ON c.oid = t.tgrelid
 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND NOT t.tgisinternal
   AND c.relname IN ('agent_runs', 'agent_workspace_leases',
-    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests')
+    'agent_execution_scopes', 'bi_agent_conversations', 'bi_agent_requests', 'bi_agent_results', 'bi_agent_result_pages', 'bi_agent_answers')
 `;
 
 function sameColumns(actual: readonly string[], expected: readonly string[]): boolean {

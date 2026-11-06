@@ -47,3 +47,25 @@ describe('BI assistant scoped ledger connection', () => {
     await expect(readBiAgentLedger(authority, 'official', 2, {})).rejects.toMatchObject({ code: 'BI_AGENT_CONFLICT', status: 409 });
   });
 });
+
+describe('BI ledger cancellation', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+  it('does not authorize or fetch an already cancelled request', async () => {
+    mocks.authorize.mockReset(); const controller = new AbortController(); controller.abort();
+    await expect(readBiAgentLedger(authority, 'official', 2, {}, controller.signal)).rejects.toThrow();
+    expect(mocks.authorize).not.toHaveBeenCalled();
+  });
+  it('aborts the in-flight transport when the owning run is cancelled', async () => {
+    vi.stubEnv('SHOPGATE_COMMERCE_API_URL', 'http://127.0.0.1:9876');
+    vi.stubEnv('SHOPGATE_BI_SERVICE_SECRET', 'owned-ledger-signing-only-test-secret');
+    mocks.authorize.mockReset().mockResolvedValue(authority);
+    const controller = new AbortController();
+    vi.stubGlobal('fetch', vi.fn(async (_url, options) => {
+      const pending = new Promise<Response>((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+      });
+      controller.abort(); return pending;
+    }));
+    await expect(readBiAgentLedger(authority, 'official', 2, {}, controller.signal)).rejects.toThrow();
+  });
+});

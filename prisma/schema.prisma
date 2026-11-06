@@ -499,6 +499,8 @@ model AgentRun {
   checkpoints    AgentCheckpoint[]
   toolExecutions AgentToolExecution[]
   toolApprovals  AgentToolApproval[]
+  biResults      BiAgentResult[]
+  biAnswer       BiAgentAnswer?
 
   @@index([projectId, createdAt])
   @@index([requestId, createdAt])
@@ -507,6 +509,42 @@ model AgentRun {
   @@index([biRequestId, createdAt])
   @@index([status, leaseExpiresAt])
   @@map("agent_runs")
+}
+
+/// Private, original-version query results. Partial collections are never answers.
+model BiAgentResult {
+  id          String @id @default(uuid())
+  runId       String @map("run_id")
+  operationId String @map("operation_id")
+  query       Json
+  metadata    Json
+  total       Int
+  collected   Int @default(0)
+  complete    Boolean @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  run         AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  pages       BiAgentResultPage[]
+  @@unique([runId, operationId])
+  @@map("bi_agent_results")
+}
+
+model BiAgentResultPage {
+  resultId String @map("result_id")
+  page     Int
+  rows     Json
+  digest   String
+  result   BiAgentResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  @@id([resultId, page])
+  @@map("bi_agent_result_pages")
+}
+
+/// Display content only, never provider reasoning or engine message history.
+model BiAgentAnswer {
+  runId     String @id @map("run_id")
+  content   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  run       AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  @@map("bi_agent_answers")
 }
 
 /// One long-lived lease per execution scope. It serializes runs and governed

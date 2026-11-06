@@ -1,10 +1,12 @@
+import { z } from 'zod';
 import { signBiServiceClaims } from '../job-signatures';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
 import { BiAgentProblem, biAgentPageScopeSchema, type BiAgentPageScope } from './contracts';
 
 /** Server-only, fixed-purpose ledger calls; no model-provided URL or identity. */
 export async function readBiAgentLedger(authority: BiAgentAuthority, datasetId: string,
-  version: number, query: Record<string, unknown>): Promise<Record<string, unknown>> {
+  version: number, query: Record<string, unknown>, signal?: AbortSignal): Promise<Record<string, unknown>> {
+  signal?.throwIfAborted();
   const current = await recheckBiAgentSession(authority.sessionId, authority.workspaceId, 'run');
   if (current.actorId !== authority.actorId) throw new Error('BI identity changed.');
   const base = new URL(process.env.SHOPGATE_COMMERCE_API_URL ?? '');
@@ -15,7 +17,8 @@ export async function readBiAgentLedger(authority: BiAgentAuthority, datasetId: 
     dataset_id: datasetId, actor_id: authority.actorId, version, capabilities: ['ledger.read'],
     iat: issuedAt, exp: issuedAt + 120 });
   const response = await fetch(new URL('/api/v1/bi/query', base), {
-    method: 'POST', cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(30_000),
+    method: 'POST', cache: 'no-store', redirect: 'error',
+    signal: AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]),
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify(query),
   });
@@ -35,6 +38,7 @@ export async function readBiAgentLedger(authority: BiAgentAuthority, datasetId: 
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
+  signal?.throwIfAborted();
   const result = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, size)));
   const data = result?.data;
   if (result?.success !== true || !data || data.workspace_id !== authority.workspaceId
@@ -43,6 +47,7 @@ export async function readBiAgentLedger(authority: BiAgentAuthority, datasetId: 
   }
   const after = await recheckBiAgentSession(authority.sessionId, authority.workspaceId, 'run');
   if (after.actorId !== authority.actorId) throw new Error('BI identity changed.');
+  signal?.throwIfAborted();
   return data;
 }
 
@@ -58,3 +63,41 @@ export async function resolveBiAgentPage(authority: BiAgentAuthority, datasetId:
     start: range.start === null ? undefined : range.start,
     end: range.end === null ? undefined : range.end });
 }
+
+/** The same public dictionary used by BI, with directory-only service scope. */
+export async function readBiAgentMetricCatalog(authority: BiAgentAuthority, signal: AbortSignal) {
+  signal.throwIfAborted();
+  const current = await recheckBiAgentSession(authority.sessionId, authority.workspaceId, 'run');
+  if (current.actorId !== authority.actorId) throw new Error('BI identity changed.');
+  const base = new URL(process.env.SHOPGATE_COMMERCE_API_URL ?? '');
+  if (!['https:', 'http:'].includes(base.protocol) || base.username || base.password
+      || base.search || base.hash || base.pathname !== '/') throw new Error('BI service is not configured.');
+  const iat = Math.floor(Date.now() / 1000);
+  const token = signBiServiceClaims({ aud: 'shopgate-bi-directory-v1', workspace_id: authority.workspaceId,
+    actor_id: authority.actorId, capabilities: ['datasets.read'], iat, exp: iat + 120 });
+  const response = await fetch(new URL('/api/v1/bi/catalog', base), { method: 'GET', cache: 'no-store', redirect: 'error',
+    signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]), headers: { authorization: `Bearer ${token}` } });
+  if (!response.ok) { await response.body?.cancel(); throw new Error('Metric dictionary unavailable.'); }
+  const reader = response.body?.getReader(); if (!reader) throw new Error('Missing metric dictionary.');
+  const chunks: Uint8Array[] = []; let bytes = 0;
+  try {
+    for (;;) {
+      const part = await reader.read(); if (part.done) break;
+      bytes += part.value.byteLength;
+      if (bytes > 256 * 1024) { await reader.cancel(); throw new Error('Metric dictionary too large.'); }
+      chunks.push(part.value);
+    }
+  } finally { reader.releaseLock(); }
+  const data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)));
+  if (data?.success !== true) throw new Error('Metric dictionary unavailable.');
+  const rows = metricCatalogSchema.parse(data.data?.metrics);
+  const after = await recheckBiAgentSession(authority.sessionId, authority.workspaceId, 'run');
+  if (after.actorId !== authority.actorId) throw new Error('BI identity changed.');
+  signal.throwIfAborted(); return rows;
+}
+
+const metricCatalogSchema = z.array(z.object({
+  id: z.string().max(80), name: z.string().max(200), unit: z.string().max(80),
+  formula: z.string().max(2000), missing_policy: z.string().max(2000),
+  dimensions: z.array(z.string().max(80)).max(40), source: z.string().max(2000), aggregation: z.string().max(2000),
+})).max(100);

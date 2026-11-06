@@ -46,6 +46,7 @@ const testFiles = [
   'src/lib/agent/runtime/bi-scope.integration.test.ts',
   'src/lib/agent/runtime/bi-scope-migration.integration.test.ts',
   'src/lib/bi/agent/requests.integration.test.ts',
+  'src/lib/bi/agent/results.integration.test.ts',
   'src/lib/services/pi-agent-usage-reconciliation.integration.test.ts',
 ];
 const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'shopgate-agent-pg-report-'));
@@ -64,7 +65,7 @@ try {
   }
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   if (report.success !== true || !Number.isInteger(report.numTotalTests)
-      || report.numTotalTests < 45 || report.numPendingTests !== 0
+      || report.numTotalTests < 53 || report.numPendingTests !== 0
       || report.numTodoTests !== 0 || report.numFailedTests !== 0
       || report.numPassedTests !== report.numTotalTests) {
     throw new Error('The required PostgreSQL checks did not all execute and pass.');

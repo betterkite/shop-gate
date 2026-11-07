@@ -78,15 +78,34 @@ class _BufferedInsert:
             self.pending.clear()
 
 
-def load_lines(connection: psycopg.Connection) -> list[dict]:
-    return rows(
-        connection,
-        "SELECT l.*, o.paid_at, o.currency, o.fx_rate AS payment_fx_rate, "
-        "o.fx_source AS payment_fx_source, s.channel_id FROM bi.order_lines l "
-        "JOIN bi.orders o USING(workspace_id,dataset_id,order_id,store_id) "
-        "JOIN bi.stores s USING(workspace_id,dataset_id,store_id) "
-        "WHERE o.status='paid' ORDER BY l.line_id",
-    )
+# Import preview/confirmation can expose many new rows before ANALYZE has run.
+# Preserve one full-key lookup per line even when estimates still describe an
+# empty dataset. The unique keys make LIMIT 1 exact, not a result truncation.
+# RLS remains active on all three tables; explicit scope also bounds the scan.
+PAID_LINES_SQL = """
+SELECT l.*,o.paid_at,o.currency,o.fx_rate AS payment_fx_rate,
+       o.fx_source AS payment_fx_source,s.channel_id
+FROM bi.order_lines l
+JOIN LATERAL (
+    SELECT o.paid_at,o.currency,o.fx_rate,o.fx_source
+    FROM bi.orders o
+    WHERE o.workspace_id=l.workspace_id AND o.dataset_id=l.dataset_id
+      AND o.order_id=l.order_id AND o.store_id=l.store_id AND o.status='paid'
+    LIMIT 1
+) o ON true
+JOIN LATERAL (
+    SELECT s.channel_id FROM bi.stores s
+    WHERE s.workspace_id=l.workspace_id AND s.dataset_id=l.dataset_id
+      AND s.store_id=l.store_id
+    LIMIT 1
+) s ON true
+WHERE l.workspace_id=%s AND l.dataset_id=%s
+ORDER BY l.line_id
+"""
+
+
+def load_lines(connection: psycopg.Connection, scope: LedgerScope) -> list[dict]:
+    return rows(connection, PAID_LINES_SQL, (scope.workspace_id, scope.dataset_id))
 
 
 def snapshot_from_row(row: dict) -> Snapshot:
@@ -124,7 +143,7 @@ def rebuild_accounting(
     dataset = rows(connection, "SELECT reporting_currency FROM bi.datasets")[0]
     if dataset["reporting_currency"] != "CNY":
         raise ValueError("当前统一核算币种为人民币，其他原币需提供汇率。")
-    lines = load_lines(connection)
+    lines = load_lines(connection, scope)
     line_map = {row["line_id"]: row for row in lines}
     selected_ids = set(line_ids) if line_ids is not None else None
     if line_ids is not None and not set(line_ids).issubset(line_map):
@@ -426,7 +445,7 @@ def preview_recalculation(
     with connection.transaction():
         bind_scope(connection, scope)
         checked_dataset(connection, scope, lock=True)
-        lines = load_lines(connection)
+        lines = load_lines(connection, scope)
         if line_ids is not None and not set(line_ids).issubset({line["line_id"] for line in lines}):
             raise ValueError("重算对象不存在或当前用户无权访问。")
         # Savepoint rollback provides an actual numerical preview without leaving facts/version.

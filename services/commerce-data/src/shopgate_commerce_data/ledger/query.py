@@ -363,7 +363,7 @@ class LedgerReadSnapshot:
         if event_key in self._event_sets:
             return self._event_sets[event_key]
         if self._lines is None:
-            self._lines = load_lines(connection)
+            self._lines = load_lines(connection, scope)
         lines = self._lines
         snapshots = {
             row["line_id"]: row

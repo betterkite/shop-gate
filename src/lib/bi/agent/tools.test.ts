@@ -5,6 +5,8 @@ vi.mock('./metric-sources', () => ({ collectBiAgentMetricSource: mocks.catalog }
 vi.mock('./results', () => ({ collectBiAgentResult: mocks.collect, inspectBiAgentResultPage: mocks.inspect,
   saveBiAgentAnswer: mocks.save, assertBiAgentResultFence: mocks.fence }));
 import { createBiAgentTools } from './tools';
+import { biAgentQuerySchema } from './result-contracts';
+import { BI_RESULT_READING_GUIDE } from './presentation';
 const fence = { runId: 'owned-run', leaseOwner: 'owned-worker', fencingToken: 1, workspaceFencingToken: 2 };
 const context = { runId: fence.runId, turn: 1, toolCallId: 'call', operationId: 'owned-operation', signal: new AbortController().signal };
 describe('BI assistant controlled tool registration', () => {
@@ -28,6 +30,29 @@ describe('BI assistant controlled tool registration', () => {
     expect(await createBiAgentTools(fence)[2].execute({ evidence_id: 'de305d54-75b4-431b-adb2-eb6b9e546014', page: 2 }, context))
       .toMatchObject({ ok: true, data: { rows: [{ metrics: { contribution_margin: '-0.91666667' } }],
         display_rows: [{ metrics: { contribution_margin: '-91.67%' } }] } });
+  });
+  it('labels unassigned evidence and exposes supported actions without altering the total', async () => {
+    const row = { key: '__unattributed__', name: '未归属项',
+      metrics: { net_sales: '69090.60', accounted_contribution: '-4615.44' },
+      quality: { unknown_cost_lines: 51, unknown_expenses: 29, unknown_quantity_lines: null } };
+    const metadata = { summary: { metrics: { accounted_contribution: '783245.88' }, quality: {} } };
+    mocks.collect.mockResolvedValue({ evidence_id: 'opaque', total: 363, preview: [row], metadata, complete: true });
+    const result = await createBiAgentTools(fence)[1].execute({ dimension: 'product' }, context);
+    expect(result).toMatchObject({ ok: true, data: { total: 363, metadata, preview: [row],
+      reading_guide: BI_RESULT_READING_GUIDE, display_summary: { accounted_contribution: '783,245.88' },
+      display_preview: [{ is_unattributed: true, quality: [
+        { key: 'unknown_cost_lines', label: '缺少商品成本依据的订单明细', count: 51 },
+        { key: 'unknown_expenses', label: '尚未核算完整的费用', count: 29 },
+      ] }] } });
+    for (const sort of BI_RESULT_READING_GUIDE.allowed_sort_fields) {
+      expect(biAgentQuerySchema.safeParse({ sort }).success).toBe(true);
+    }
+    expect(biAgentQuerySchema.safeParse({ sort: 'unknown_cost_lines' }).success).toBe(false);
+    expect(biAgentQuerySchema.safeParse({ contribution_positive: true }).success).toBe(false);
+    mocks.inspect.mockResolvedValue({ rows: [row] });
+    expect(await createBiAgentTools(fence)[2].execute({ evidence_id: 'de305d54-75b4-431b-adb2-eb6b9e546014', page: 19 }, context))
+      .toMatchObject({ ok: true, data: { reading_guide: BI_RESULT_READING_GUIDE,
+        display_rows: [{ is_unattributed: true, metrics: { net_sales: '69,090.60' } }] } });
   });
   it('keeps full display text out of public terminal receipts', async () => {
     mocks.save.mockResolvedValue({ kind: 'answer', text: 'User private answer', evidence_ids: ['owned-evidence'] });

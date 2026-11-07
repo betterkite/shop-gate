@@ -38,6 +38,25 @@ describe('readable BI assistant evidence', () => {
     const html = renderToStaticMarkup(<BiEvidenceTable data={data} />);
     expect(html).toContain('此页没有记录'); expect(html).not.toContain('此范围没有');
   });
+  it('shows real missing-data counts without adding overlapping causes or inventing zeroes', () => {
+    const data = agentResultSchema.parse({ evidence_id: randomUUID(), page: 1, page_size: 20, total: 2,
+      query: { dimension: 'product', metrics: ['accounted_contribution'] },
+      metadata: { workspace_id: 'account:test', dataset_id: 'data', version: 2,
+        range: { start: '2026-01-01', end: '2026-01-31', refund_basis: 'payment' } },
+      rows: [{ key: 'product1', name: '棉袜', metrics: { accounted_contribution: '121.00' },
+        quality: { unknown_cost_lines: 2, unknown_revenue_lines: 2, unknown_refund_lines: 0,
+          unknown_expenses: null, unknown_quantity_lines: '3', unknown_attribution_expenses: -1 } },
+      { key: '__unattributed__', name: '未归属对象的费用/待映射交易',
+        metrics: { accounted_contribution: '-6.00' }, quality: { unknown_quantity_lines: 1 } }] });
+    const html = renderToStaticMarkup(<BiEvidenceTable data={data} />);
+    expect(html).toContain('缺少商品成本依据的订单明细：2 项');
+    expect(html).toContain('缺少付款金额依据的订单明细：2 项');
+    expect(html).not.toContain('缺少退款金额依据的订单明细');
+    expect(html).not.toContain('尚未核算完整的费用'); expect(html).not.toContain('：4 项');
+    expect(html).toContain('不能把这些条数相加'); expect(html).toContain('可能包含待映射交易及费用');
+    expect(html).toContain('121.00'); expect(html).toContain('-6.00');
+    expect(html).not.toContain('unknown_cost_lines');
+  });
   it('requires matching saved definitions and retains the separate factual evidence requirement', () => {
     const answer = { kind: 'definition', text: '净销售额的含义', evidence_ids: [],
       definition_source_id: source.source_id, definition_ids: ['net_sales'] };

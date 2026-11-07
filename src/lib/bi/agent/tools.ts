@@ -7,7 +7,7 @@ import type { readBiAgentMetricCatalog } from './ledger';
 import { BiAgentProblem } from './contracts';
 import { collectBiAgentMetricSource } from './metric-sources';
 import { ledgerRowSchema, ledgerTableSchema } from '../overview-contracts';
-import { displayBiMetrics, displayBiRows } from './presentation';
+import { BI_RESULT_READING_GUIDE, displayBiMetrics, displayBiRows } from './presentation';
 import { collectBiAgentResult, inspectBiAgentResultPage, saveBiAgentAnswer, assertBiAgentResultFence, type BiAgentResultFence } from './results';
 
 /** Product tools only. No generated source files, shell, arbitrary network,
@@ -29,13 +29,13 @@ export function createBiAgentTools(fence: BiAgentResultFence, dependencies: BiAg
         if (name === 'query_ledger') {
           const result = await collectBiAgentResult(fence, context.operationId, raw, context.signal, dependencies);
           const summary = ledgerTableSchema.shape.summary.parse((result.metadata as Record<string, unknown>).summary);
-          return { ok: true, data: { ...result, display_summary: displayBiMetrics(summary.metrics),
+          return { ok: true, data: { ...result, reading_guide: BI_RESULT_READING_GUIDE, display_summary: displayBiMetrics(summary.metrics),
             display_preview: displayBiRows(z.array(ledgerRowSchema).parse(result.preview)) } };
         }
         if (name === 'read_result_page') {
           const input = resultPage.parse(raw);
           const result = await inspectBiAgentResultPage(fence, input.evidence_id, input.page, dependencies.client);
-          return { ok: true, data: { ...result, display_rows: displayBiRows(z.array(ledgerRowSchema).parse(result.rows)) } };
+          return { ok: true, data: { ...result, reading_guide: BI_RESULT_READING_GUIDE, display_rows: displayBiRows(z.array(ledgerRowSchema).parse(result.rows)) } };
         }
         const content = await saveBiAgentAnswer(fence, raw, dependencies.client);
         // Public durable tool receipts contain IDs and bounded status only.

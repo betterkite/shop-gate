@@ -4,6 +4,7 @@ import { decimalLabel } from '@/lib/bi/data-contracts';
 import { DIMENSION_LABELS } from '@/lib/bi/overview-contracts';
 import { AGENT_METRIC_LABELS, type agentResultSchema } from '@/lib/bi/agent/browser';
 import type { definitionEvidenceSchema } from '@/lib/bi/agent/metric-contracts';
+import { displayBiQuality } from '@/lib/bi/agent/presentation';
 
 export function BiDefinitionEvidence({ evidence, open, onOpenChange }: { evidence: z.infer<typeof definitionEvidenceSchema>; open?: boolean; onOpenChange?: (open: boolean) => void }) {
   const dimensions: Record<string, string> = { overall: '全部范围', ...DIMENSION_LABELS };
@@ -25,7 +26,12 @@ export function BiEvidenceTable({ data }: { data: z.infer<typeof agentResultSche
   return <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr>
     <th className="min-w-36 whitespace-nowrap p-2 text-left">对象 / 日期</th>
     {data.query.metrics.map((m) => <th key={m} className="whitespace-nowrap p-2 text-right">{AGENT_METRIC_LABELS[m]}</th>)}
-  </tr></thead><tbody>{data.rows.map((r) => <tr key={r.key} className="border-t border-border"><td className="min-w-36 p-2">{r.name}</td>
+  </tr></thead><tbody>{data.rows.map((r) => <tr key={r.key} className="border-t border-border"><td className="min-w-36 p-2">{r.name}
+    {r.key === '__unattributed__' && <p className="mt-1 text-xs text-muted-foreground">未归属项，可能包含待映射交易及费用，不属于单个商品或店铺。</p>}
+    {displayBiQuality(r.quality).length > 0 && <div className="mt-2 text-xs"><p className="font-medium text-muted-foreground">待核算原因</p>
+      <ul className="mt-2 space-y-1">{displayBiQuality(r.quality).map(({ key, label, count }) => <li key={key}>{label}：{count} 项</li>)}</ul>
+      <p className="mt-2 text-muted-foreground">同一条记录可能有多项缺失，请分别查看，不能把这些条数相加。</p>
+    </div>}</td>
     {data.query.metrics.map((m) => <td key={m} className="whitespace-nowrap p-2 text-right tabular-nums">{decimalLabel(r.metrics[m], ['contribution_margin', 'refund_ratio', 'coverage_ratio'].includes(m))}</td>)}
   </tr>)}</tbody></table></div>;
 }

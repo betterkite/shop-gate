@@ -286,6 +286,64 @@ def test_preview_does_not_change_sources_and_confirm_is_manually_reproducible(em
         assert len(list_batches(connection, current)["rows"]) == 1
 
 
+def test_first_paid_line_read_is_bounded_before_bulk_rows_have_statistics(empty):
+    from shopgate_commerce_data.ledger.recalculation import PAID_LINES_SQL, load_lines
+
+    scope, _, _ = commit(empty)
+    with psycopg.connect(empty[1], autocommit=True) as connection:
+        with connection.transaction(force_rollback=True):
+            bind_scope(connection, scope)
+            connection.execute("SET LOCAL statement_timeout='15000'")
+            # Uncommitted fixture rows cannot be seen by auto-ANALYZE. Keep the
+            # same IDs/keys, RLS, and constraints as the actual application.
+            connection.execute(
+                "INSERT INTO bi.orders(workspace_id,dataset_id,order_id,store_id,"
+                "platform_order_id,paid_at,status,fulfillment_status,currency,"
+                "fx_rate,fx_source) "
+                "SELECT workspace_id,dataset_id,'cold-'||n,store_id,'cold-'||n,"
+                "CASE WHEN n%29=0 THEN NULL ELSE paid_at END,"
+                "CASE WHEN n%29=0 THEN 'unpaid' WHEN n%47=0 THEN 'cancelled' "
+                "ELSE 'paid' END,fulfillment_status,currency,fx_rate,fx_source "
+                "FROM bi.orders CROSS JOIN generate_series(0,11999) n WHERE order_id='o1'"
+            )
+            connection.execute(
+                "INSERT INTO bi.order_lines(workspace_id,dataset_id,line_id,order_id,"
+                "store_id,listing_id,quantity,paid_amount) "
+                "SELECT workspace_id,dataset_id,'cold-line-'||n,'cold-'||n,store_id,"
+                "listing_id,quantity,paid_amount FROM bi.order_lines "
+                "CROSS JOIN generate_series(0,11999) n WHERE line_id='line-o1'"
+            )
+            actual = load_lines(connection, scope)
+            expected = {f"cold-line-{n}" for n in range(12000) if n % 29 and n % 47}
+            assert {row["line_id"] for row in actual} == expected | {"line-o1", "line-o2"}
+            assert len(actual) == 11341
+            assert all(row["payment_fx_rate"] == Decimal("8")
+                       and row["channel_id"] == "pdd" and row["store_id"] == "001"
+                       for row in actual if row["line_id"] in expected)
+            # An explicit argument cannot escape the transaction's RLS binding.
+            assert load_lines(connection, replace(scope, workspace_id="foreign")) == []
+            assert load_lines(connection, replace(scope, dataset_id="foreign")) == []
+            plan = connection.execute(
+                "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + PAID_LINES_SQL,
+                (scope.workspace_id, scope.dataset_id),
+            ).fetchone()[0][0]["Plan"]
+
+            def nodes(node):
+                yield node
+                for child in node.get("Plans", []):
+                    yield from nodes(child)
+
+            order_reads = [node for node in nodes(plan) if node.get("Relation Name") == "orders"]
+            assert order_reads
+            assert all(node["Actual Rows"] <= 1 and "Index" in node["Node Type"]
+                       and "order_id" in node["Index Cond"] for node in order_reads)
+        # The bulk fixtures were rolled back; no hidden import/version changes.
+        with connection.transaction():
+            bind_scope(connection, scope)
+            assert len(load_lines(connection, scope)) == 2
+            assert connection.execute("SELECT version FROM bi.datasets").fetchone() == (2,)
+
+
 def test_all_twelve_export_import_roundtrip_exact_duplicate_no_version_bump(empty):
     current, _, _ = commit(empty)
     with psycopg.connect(empty[1], autocommit=True) as connection:
@@ -880,6 +938,9 @@ def test_full_1000_spec_180_day_demo_imports_and_queries_on_real_pg_without_repl
         )
         assert result["version"] == 2
         scope = replace(scope, version=2)
+        # Match ordinary HTTP reads, not the longer import trial limit. No
+        # ANALYZE or retry is allowed between confirmation and this first read.
+        connection.execute("SET statement_timeout='15000'")
         full_period = Query(
             start=generated["manifest"]["start_date"], end=generated["manifest"]["end_date"]
         )

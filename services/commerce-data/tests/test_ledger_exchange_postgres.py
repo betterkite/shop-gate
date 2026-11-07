@@ -286,8 +286,21 @@ def test_preview_does_not_change_sources_and_confirm_is_manually_reproducible(em
         assert len(list_batches(connection, current)["rows"]) == 1
 
 
-def test_first_paid_line_read_is_bounded_before_bulk_rows_have_statistics(empty):
-    from shopgate_commerce_data.ledger.recalculation import PAID_LINES_SQL, load_lines
+def test_first_paid_line_read_is_bounded_before_bulk_rows_have_statistics(empty, monkeypatch):
+    from time import monotonic
+
+    from shopgate_commerce_data.ledger import recalculation
+    from shopgate_commerce_data.ledger.recalculation import load_lines
+
+    original_rows = recalculation.rows
+    statements = []
+
+    def observed_rows(connection, query, params=()):
+        records = original_rows(connection, query, params)
+        statements.append((query, params, len(records)))
+        return records
+
+    monkeypatch.setattr(recalculation, "rows", observed_rows)
 
     scope, _, _ = commit(empty)
     with psycopg.connect(empty[1], autocommit=True) as connection:
@@ -313,7 +326,15 @@ def test_first_paid_line_read_is_bounded_before_bulk_rows_have_statistics(empty)
                 "listing_id,quantity,paid_amount FROM bi.order_lines "
                 "CROSS JOIN generate_series(0,11999) n WHERE line_id='line-o1'"
             )
+            statements.clear()
+            started = monotonic()
             actual = load_lines(connection, scope)
+            # End-to-end budget as well as PostgreSQL's per-statement limit.
+            assert monotonic() - started < 15
+            assert len(statements) == 3
+            assert all(params == (scope.workspace_id, scope.dataset_id)
+                       for _, params, _ in statements)
+            assert sum(count for _, _, count in statements) == 23347
             expected = {f"cold-line-{n}" for n in range(12000) if n % 29 and n % 47}
             assert {row["line_id"] for row in actual} == expected | {"line-o1", "line-o2"}
             assert len(actual) == 11341
@@ -323,24 +344,6 @@ def test_first_paid_line_read_is_bounded_before_bulk_rows_have_statistics(empty)
             # An explicit argument cannot escape the transaction's RLS binding.
             assert load_lines(connection, replace(scope, workspace_id="foreign")) == []
             assert load_lines(connection, replace(scope, dataset_id="foreign")) == []
-            plan = connection.execute(
-                "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + PAID_LINES_SQL,
-                (scope.workspace_id, scope.dataset_id),
-            ).fetchone()[0][0]["Plan"]
-
-            def nodes(node):
-                yield node
-                for child in node.get("Plans", []):
-                    yield from nodes(child)
-
-            order_reads = [node for node in nodes(plan) if node.get("Relation Name") == "orders"]
-            assert order_reads
-            # A bitmap heap node keeps its index condition on the child probe.
-            # Both forms must use the order key, not scan a whole scoped dataset.
-            for node in order_reads:
-                assert node["Actual Rows"] <= 1, node
-                probes = [part for part in nodes(node) if "Index Cond" in part]
-                assert any("order_id" in part["Index Cond"] for part in probes), node
         # The bulk fixtures were rolled back; no hidden import/version changes.
         with connection.transaction():
             bind_scope(connection, scope)

@@ -78,34 +78,43 @@ class _BufferedInsert:
             self.pending.clear()
 
 
-# Import preview/confirmation can expose many new rows before ANALYZE has run.
-# Preserve one full-key lookup per line even when estimates still describe an
-# empty dataset. The unique keys make LIMIT 1 exact, not a result truncation.
-# RLS remains active on all three tables; explicit scope also bounds the scan.
-PAID_LINES_SQL = """
-SELECT l.*,o.paid_at,o.currency,o.fx_rate AS payment_fx_rate,
-       o.fx_source AS payment_fx_source,s.channel_id
-FROM bi.order_lines l
-JOIN LATERAL (
-    SELECT o.paid_at,o.currency,o.fx_rate,o.fx_source
-    FROM bi.orders o
-    WHERE o.workspace_id=l.workspace_id AND o.dataset_id=l.dataset_id
-      AND o.order_id=l.order_id AND o.store_id=l.store_id AND o.status='paid'
-    LIMIT 1
-) o ON true
-JOIN LATERAL (
-    SELECT s.channel_id FROM bi.stores s
-    WHERE s.workspace_id=l.workspace_id AND s.dataset_id=l.dataset_id
-      AND s.store_id=l.store_id
-    LIMIT 1
-) s ON true
-WHERE l.workspace_id=%s AND l.dataset_id=%s
-ORDER BY l.line_id
-"""
-
-
 def load_lines(connection: psycopg.Connection, scope: LedgerScope) -> list[dict]:
-    return rows(connection, PAID_LINES_SQL, (scope.workspace_id, scope.dataset_id))
+    # First import rows may have no planner statistics. Even a full-key lateral
+    # join can choose a scoped index then re-scan it for every line. Read each
+    # scoped relation once and join by its complete key within the caller's
+    # transaction. RLS and the ordinary statement timeout apply to every read.
+    params = (scope.workspace_id, scope.dataset_id)
+    orders = {
+        (row["workspace_id"], row["dataset_id"], row["order_id"], row["store_id"]): row
+        for row in rows(
+            connection,
+            "SELECT workspace_id,dataset_id,order_id,store_id,paid_at,currency,"
+            "fx_rate AS payment_fx_rate,fx_source AS payment_fx_source FROM bi.orders "
+            "WHERE workspace_id=%s AND dataset_id=%s AND status='paid'",
+            params,
+        )
+    }
+    stores = {
+        (row["workspace_id"], row["dataset_id"], row["store_id"]): row["channel_id"]
+        for row in rows(
+            connection,
+            "SELECT workspace_id,dataset_id,store_id,channel_id FROM bi.stores "
+            "WHERE workspace_id=%s AND dataset_id=%s",
+            params,
+        )
+    }
+    result = []
+    for line in rows(
+        connection,
+        "SELECT * FROM bi.order_lines WHERE workspace_id=%s AND dataset_id=%s ORDER BY line_id",
+        params,
+    ):
+        order_key = (line["workspace_id"], line["dataset_id"], line["order_id"], line["store_id"])
+        store_key = (line["workspace_id"], line["dataset_id"], line["store_id"])
+        order = orders.get(order_key)
+        if order is not None and store_key in stores:
+            result.append({**line, **order, "channel_id": stores[store_key]})
+    return result
 
 
 def snapshot_from_row(row: dict) -> Snapshot:

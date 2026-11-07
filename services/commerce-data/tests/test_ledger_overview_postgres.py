@@ -369,9 +369,10 @@ def test_snapshot_shares_one_source_load_and_cannot_escape_its_transaction(conte
     original = query_module.load_lines
     calls = []
 
-    def counted(connection):
+    def counted(connection, selected_scope):
+        assert selected_scope == scope
         calls.append(True)
-        return original(connection)
+        return original(connection, selected_scope)
 
     monkeypatch.setattr(query_module, "load_lines", counted)
     with psycopg.connect(context[1], autocommit=True) as connection:

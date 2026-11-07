@@ -335,8 +335,12 @@ def test_first_paid_line_read_is_bounded_before_bulk_rows_have_statistics(empty)
 
             order_reads = [node for node in nodes(plan) if node.get("Relation Name") == "orders"]
             assert order_reads
-            assert all(node["Actual Rows"] <= 1 and "Index" in node["Node Type"]
-                       and "order_id" in node["Index Cond"] for node in order_reads)
+            # A bitmap heap node keeps its index condition on the child probe.
+            # Both forms must use the order key, not scan a whole scoped dataset.
+            for node in order_reads:
+                assert node["Actual Rows"] <= 1, node
+                probes = [part for part in nodes(node) if "Index Cond" in part]
+                assert any("order_id" in part["Index Cond"] for part in probes), node
         # The bulk fixtures were rolled back; no hidden import/version changes.
         with connection.transaction():
             bind_scope(connection, scope)

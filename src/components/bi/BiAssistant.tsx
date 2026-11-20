@@ -1,4 +1,5 @@
 'use client';
+import { isEntityDimension, type EvidenceSelection } from '@/lib/bi/agent/selection-contracts';
 import { BiDefinitionEvidence, BiEvidenceTable } from './BiAssistantEvidence';
 import React, { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -14,6 +15,10 @@ import { findAssistantView, updateAssistantView, type AssistantViewState } from 
 import { AgentRequestError, ACTIVE_AGENT_STATUSES, AGENT_STATUS_LABELS, agentAcceptedSchema, agentAnswerSchema,
   agentAvailabilitySchema, agentConversationsSchema, agentQuestionsSchema, agentResultSchema, readAgent } from '@/lib/bi/agent/browser';
 
+type SelectionControls = {
+  selected?: EvidenceSelection;
+  onToggle?: (resultId: string, position: number) => void;
+};
 type Navigate = (change: Partial<OverviewLocation>) => void;
 const message = (error: unknown) => error instanceof Error ? error.message : '请求未完成，请稍后重试。';
 export function BiAssistant({ workspaceId, dataset, location, navigate, resolvedRange }: {
@@ -71,13 +76,13 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
       const submission = intent ?? biAgentSubmissionSchema.parse({ workspace_id: workspaceId, dataset_id: dataset.dataset_id,
         dataset_version: dataset.version, conversation_id: conversationId ?? crypto.randomUUID(),
         expected_conversation_version: history?.conversation.version ?? 0, idempotency_key: crypto.randomUUID(),
-        instruction: text, model, page_scope: { module: 'overview', ...overviewQuery({ ...location, start: resolvedRange?.start ?? undefined, end: resolvedRange?.end ?? undefined }) } });
+        instruction: text, model, ...(location.selection ? { selection: location.selection } : {}), page_scope: { module: 'overview', ...overviewQuery({ ...location, start: resolvedRange?.start ?? undefined, end: resolvedRange?.end ?? undefined }) } });
       setIntent(submission);
       const accepted = await readAgent({}, agentAcceptedSchema, { method: 'POST', body: JSON.stringify({ action: 'submit', question: submission }) });
       if (!alive.current) return;
       if (accepted.conversation_id !== submission.conversation_id) throw new Error('提交结果的对话不一致，请使用原问题重试。');
       setIntent(null); setText(''); setRefresh((n) => n + 1);
-      navigate({ conversationId: accepted.conversation_id, questionPage: Math.max(1, Math.ceil(accepted.conversation_version / 20)) });
+      navigate({ selection: undefined, conversationId: accepted.conversation_id, questionPage: Math.max(1, Math.ceil(accepted.conversation_version / 20)) });
     } catch (e) {
       if (!alive.current) return;
       if (e instanceof AgentRequestError && ((e.status >= 400 && e.status < 500) || e.code === 'BI_AGENT_MODEL_UNAVAILABLE')) setIntent(null);
@@ -91,6 +96,17 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
         body: JSON.stringify({ action: 'cancel', workspace_id: workspaceId, run_id: runId }) });
       setRefresh((n) => n + 1);
     } catch (e) { setError(message(e)); }
+  }
+  function toggleRow(resultId: string, position: number) {
+    const selected = location.selection;
+    if (selected && selected.result_id !== resultId) {
+      setError('请先清除已选明细，再从另一张表中选择。'); return;
+    }
+    const current = selected?.positions ?? [];
+    const positions = current.includes(position) ? current.filter((p) => p !== position) : [...current, position];
+    if (positions.length > 100) { setError('一次最多可选择 100 项，请减少后再继续。'); return; }
+    setError('');
+    navigate({ selection: positions.length ? { result_id: resultId, positions } : undefined });
   }
   const changeView = (next: AssistantViewState) => {
     try { navigate({ assistantViews: updateAssistantView(location.assistantViews, next) }); }
@@ -115,15 +131,20 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
     <div className="mt-4 space-y-5">{history?.rows.map((q) => <article key={q.id} className="min-w-0 rounded-xl border border-border p-4">
       <p className="whitespace-pre-wrap break-words font-medium">{q.instruction}</p>
       <p className="mt-2 text-xs text-muted-foreground">提问时数据版本 {q.datasetVersion} · {q.pageScope.start ?? '按可用数据日期'} 至 {q.pageScope.end ?? '最新可用日期'} · {q.pageScope.refund_basis === 'payment' ? '按原付款日期统计退款' : '按退款发生日期统计'}{q.datasetVersion !== dataset.version ? ' · 历史答案，未随新数据重算' : ''}</p>
+      {q.evidenceSelection && <p className="mt-2 break-words text-sm">本轮分析对象：{q.evidenceSelection.entities.map((item) => item.name).join('、')}</p>}
       {q.runs.map((r) => <div className="mt-3" key={r.id}>
         <div className="flex items-center gap-3 text-sm text-muted-foreground"><span role="status">{AGENT_STATUS_LABELS[r.status] ?? '正在确认分析状态'}</span>
           {ACTIVE_AGENT_STATUSES.includes(r.status) && <Button size="sm" variant="outline" disabled={Boolean(r.cancelRequestedAt)} onClick={() => { void cancel(r.id); }}>{r.cancelRequestedAt ? '正在取消' : '取消分析'}</Button>}</div>
-        {r.status === 'completed' && <AssistantAnswer workspaceId={workspaceId} datasetId={dataset.dataset_id} version={q.datasetVersion} runId={r.id} viewStates={location.assistantViews} changeView={changeView} onFollowUp={(value) => { if (!intent) setText(value); }} />}
+        {r.status === 'completed' && <AssistantAnswer workspaceId={workspaceId} datasetId={dataset.dataset_id} version={q.datasetVersion} runId={r.id} selected={location.selection} onToggle={q.datasetVersion === dataset.version && !intent && ready ? toggleRow : undefined} viewStates={location.assistantViews} changeView={changeView} onFollowUp={(value) => { if (!intent) setText(value); }} />}
       </div>)}
     </article>)}</div>
     {history && <BiPagination label="助手问题分页" page={questionPage} total={history.total} change={(page) => navigate({ questionPage: page })} />}
     <form className="mt-5 rounded-xl bg-primary/5 p-4" onSubmit={(e) => { e.preventDefault(); void send(); }}>
       <p className="mb-3 text-xs leading-6 text-muted-foreground">下一次提问使用：{dataset.name} · 版本 {dataset.version} · {resolvedRange ? `${resolvedRange.start ?? '暂无经营日期'} 至 ${resolvedRange.end ?? '暂无经营日期'}` : '正在确认与总览一致的日期范围'}，并继承上方已选平台、店铺和商品。仅点击发送会调用模型。</p>
+      {location.selection && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        <span>已从依据表选择 {location.selection.positions.length} 项，本次仅分析其中符合当前筛选的对象。</span>
+        <Button type="button" size="sm" variant="outline" disabled={Boolean(intent)} onClick={() => navigate({ selection: undefined })}>清除选择</Button>
+      </div>}
       <label className="block text-sm font-medium" htmlFor="bi-assistant-question">你想了解什么？</label>
       <textarea id="bi-assistant-question" className="mt-2 min-h-28 w-full rounded-lg border border-input bg-background p-3 text-sm" maxLength={8000}
         value={text} disabled={Boolean(intent)} onChange={(e) => setText(e.target.value)} placeholder="例如：当前范围的净销售额是多少？哪些店铺贡献较多？" />
@@ -137,7 +158,7 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
   </section>;
 }
 
-function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, viewStates, changeView }: {
+function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, viewStates, changeView, ...selection }: SelectionControls & {
   workspaceId: string; datasetId: string; version: number; runId: string; onFollowUp: (value: string) => void;
   viewStates?: AssistantViewState[]; changeView: (next: AssistantViewState) => void;
 }) {
@@ -156,11 +177,11 @@ function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, v
   return <div className="mt-4 space-y-4"><BiAnswerMarkdown text={answer.text} />
     {definitions && <BiDefinitionEvidence evidence={definitions} open={definition.open} onOpenChange={(open) => changeView({ ...definition, open })} />}
     {answer.views.filter((view) => view.kind !== 'table').map((view, i) => <BiAssistantChart key={`${view.result_id}:${view.metric}:${i}`} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} view={view} page={findAssistantView(viewStates, { kind: 'chart', run: runId, result: view.result_id, metric: view.metric, page: 1 }).page} onPageChange={(page) => changeView({ kind: 'chart', run: runId, result: view.result_id, metric: view.metric, page })} />)}
-    {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} state={findAssistantView(viewStates, { kind: 'evidence', run: runId, result: id, page: 1, open: false })} changeView={changeView} />)}
+    {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} {...selection} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} state={findAssistantView(viewStates, { kind: 'evidence', run: runId, result: id, page: 1, open: false })} changeView={changeView} />)}
     {answer.follow_up.length > 0 && <div className="flex flex-wrap gap-2">{answer.follow_up.map((value) => <Button key={value} size="sm" variant="outline" className="h-auto whitespace-normal text-left" onClick={() => onFollowUp(value)}>{value}</Button>)}</div>}
   </div>;
 }
-function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, number, state, changeView }: {
+function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, number, state, changeView, selected, onToggle }: SelectionControls & {
   workspaceId: string; datasetId: string; version: number; runId: string; resultId: string; number: number;
   state: Extract<AssistantViewState, { kind: 'evidence' }>; changeView: (next: AssistantViewState) => void;
 }) {
@@ -185,7 +206,9 @@ function AssistantEvidence({ workspaceId, datasetId, version, runId, resultId, n
     <div ref={body} style={{ minHeight: bodyHeight }} aria-busy={open && !data && !error}>
     {error && <BiNotice error>{error}</BiNotice>}{!data && !error && <p className="mt-3 text-sm">正在读取依据…</p>}
     {data && <><p className="mt-3 text-xs text-muted-foreground">版本 {version} · {data.metadata.range.start ?? '无日期'} 至 {data.metadata.range.end ?? '无日期'} · {data.metadata.range.refund_basis === 'payment' ? '按原付款日期统计退款' : '按退款发生日期统计退款'}。保留提问时的查询结果。</p>
-      <BiEvidenceTable data={data} />
+      <BiEvidenceTable data={data} selected={selected?.result_id === resultId ? selected.positions : []}
+        onToggle={onToggle && isEntityDimension(data.query.dimension) && data.page === page
+          ? (position) => onToggle(resultId, position) : undefined} />
       {page > Math.max(1, Math.ceil(data.total / 20)) && <Button size="sm" variant="link" onClick={() => changeView({ ...state, page: 1 })}>返回依据第一页</Button>}
       <BiPagination label={`分析依据 ${number} 分页`} page={page} total={data.total} change={(page) => changeView({ ...state, page })} /></>}
     </div>

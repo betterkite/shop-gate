@@ -8,7 +8,7 @@
  */
 
 export const PI_AGENT_SCHEMA_CONTRACT_VERSION =
-  '20261107000500_bi_agent_metric_sources' as const;
+  '20261120000100_bi_agent_selection' as const;
 
 export interface PiAgentSchemaQueryClient {
   $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): PromiseLike<T>;
@@ -153,6 +153,7 @@ const EXPECTED_COLUMN_DEFINITIONS = {
     instruction: ['text', false],
     input_hash: ['text', false],
     session_id: ['text', true],
+    evidence_selection: ['jsonb', true],
     page_scope: ['jsonb', false],
     dataset_version: ['integer', false],
     model: ['text', false],
@@ -729,6 +730,8 @@ const EXPECTED_CHECK_CONSTRAINTS: readonly ExpectedCheckConstraint[] = [
   { tableName: 'bi_agent_results', constraintName: 'bi_agent_results_bounds', definitionIncludes: ['collected', 'total', 'complete', 'octet_length'] },
   { tableName: 'bi_agent_result_pages', constraintName: 'bi_agent_result_pages_bounds', definitionIncludes: ['jsonb_array_length', 'digest', 'octet_length'] },
   { tableName: 'bi_agent_answers', constraintName: 'bi_agent_answers_bounds', definitionIncludes: ['jsonb_typeof', 'octet_length'] },
+  { tableName: 'bi_agent_requests', constraintName: 'bi_agent_requests_selection_bounds',
+    definitionIncludes: ['positions', 'jsonb_array_length', 'octet_length'] },
   { tableName: 'bi_agent_requests', constraintName: 'bi_agent_requests_session_reference',
     definitionIncludes: ['session_id', 'IS NULL', '~'] },
   {

@@ -428,6 +428,7 @@ model BiAgentRequest {
   instruction     String
   inputHash       String   @map("input_hash")
   sessionId        String?  @map("session_id") // Private reference; revoked sessions remain auditable.
+  evidenceSelection Json?   @map("evidence_selection")
   pageScope       Json     @map("page_scope")
   datasetVersion  Int      @map("dataset_version")
   model           String

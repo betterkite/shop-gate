@@ -8,6 +8,7 @@ import { getProjectLlmConfig } from '@/lib/config/llm';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
 import { biAgentSubmissionSchema, biAgentPageScopeSchema, BiAgentProblem } from './contracts';
+import { resolveEvidenceSelection } from './selection';
 import { resolveBiAgentPage } from './ledger';
 
 const ACTIVE = ['pending', 'running', 'reconciling', 'waiting', 'candidate_complete'];
@@ -16,7 +17,7 @@ const conflict = () => new BiAgentProblem('BI_AGENT_CONFLICT', 409, '对话或�
 const runSelect = { id: true, status: true, version: true, createdAt: true,
   finishedAt: true, cancelRequestedAt: true, errorCode: true } as const;
 const requestSelect = { id: true, instruction: true, model: true, datasetVersion: true,
-  pageScope: true, createdAt: true, runs: { select: runSelect, orderBy: { createdAt: 'desc' as const } } } as const;
+  pageScope: true, evidenceSelection: true, createdAt: true, runs: { select: runSelect, orderBy: { createdAt: 'desc' as const } } } as const;
 
 type Dependencies = {
   client?: PrismaClient;
@@ -55,7 +56,7 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
   if (!config.agent.enabled || !process.env[config.credentialEnv]?.trim()) {
     throw new BiAgentProblem('BI_AGENT_MODEL_UNAVAILABLE', 503, '当前模型尚未配置或已停用；经营页面仍可正常使用。');
   }
-  const pageScope = await (dependencies.resolvePage ?? resolveBiAgentPage)(checked,
+  const resolvedPage = await (dependencies.resolvePage ?? resolveBiAgentPage)(checked,
     input.dataset_id, input.dataset_version, input.page_scope);
   return client.$transaction(async (tx) => {
     // Serialize first-message creation and subsequent versions, even before the
@@ -93,17 +94,19 @@ export async function submitBiAgentQuestion(authority: BiAgentAuthority, raw: un
     if (await tx.agentRun.findFirst({ where: { biRequest: { conversationId: conversation.id }, status: { in: ACTIVE } }, select: { id: true } })) {
       throw new BiAgentProblem('BI_AGENT_BUSY', 409, '上一条问题仍在处理中，请等待结果或先取消。');
     }
+    const selected = input.selection && await resolveEvidenceSelection(tx, input.selection, input, scope.id, current.actorId, resolvedPage);
+    const pageScope = selected?.page ?? resolvedPage;
     await assertAgentPendingCapacity(tx, current.actorId);
     const request = await tx.biAgentRequest.create({ data: {
       conversationId: conversation.id, executionScopeId: scope.id, actorUserId: current.actorId,
       sessionId: current.sessionId, idempotencyKey: input.idempotency_key, inputHash,
-      instruction: input.instruction, pageScope, datasetVersion: input.dataset_version, model: input.model,
+      evidenceSelection: selected?.selection, instruction: input.instruction, pageScope, datasetVersion: input.dataset_version, model: input.model,
     } });
     const workspaceKey = `sha256:${createHash('sha256').update(`bi-runtime:${scope.id}`).digest('hex')}`;
     await tx.agentRun.create({ data: { id: randomUUID(), projectId: null, requestId: null,
       executionScopeId: scope.id, biRequestId: request.id, actorUserId: current.actorId,
       workspaceKey, status: 'pending', provider: config.provider, model: input.model,
-      ...biAgentProvenance(config, input.instruction, pageScope, current.workspaceId, input.dataset_id, input.dataset_version),
+      ...biAgentProvenance(config, input.instruction, pageScope, current.workspaceId, input.dataset_id, input.dataset_version, selected?.selection),
     } });
     await createTransactionalQuotaService(tx).consume({
       actorUserId: current.actorId, projectId: null, metric: 'agent.requests.daily', quantity: 1,

@@ -22,11 +22,11 @@ export const BI_AGENT_SYSTEM_PROMPT = `你是嵌入Shop Gate经营页面的分�
 
 const digest = (value: unknown) => `sha256:${hashPiAgentProvenance(value)}`;
 export function biAgentProvenance(config: ProjectLlmConfig, instruction: string, pageScope: BiAgentPageScope,
-  workspaceId: string, datasetId: string, version: number) {
+  workspaceId: string, datasetId: string, version: number, selection?: unknown) {
   return {
     frameworkVersion: PI_AGENT_FRAMEWORK_VERSION, buildRevision: PI_AGENT_BUILD_REVISION,
     profileHash: digest({ profileId: config.profileId, model: config.model, provider: config.provider }),
-    promptHash: digest({ system: BI_AGENT_SYSTEM_PROMPT, instruction, pageScope }),
+    promptHash: digest({ system: BI_AGENT_SYSTEM_PROMPT, instruction, pageScope, ...(selection ? { selection } : {}) }),
     toolHash: digest(BI_AGENT_TOOL_DEFINITIONS.map(({ name, description, schema }) => ({ name, description,
       inputSchema: z.toJSONSchema(schema, { io: 'input' }), effect: 'read', idempotency: 'intrinsic', terminal: name === 'submit_answer' }))),
     skillHash: digest([]), workspaceHash: digest({ workspaceId, datasetId, version, pageScope }),

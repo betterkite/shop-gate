@@ -12,6 +12,17 @@ describe('overview URL scope isolation and restore', () => {
     }
     expect(() => readOverviewLocation('conversation=bad')).toThrow();
   });
+  it('restores selected evidence rows on reload and clears them across private conversations', () => {
+    const id = '10000000-0000-4000-8000-000000000001';
+    const other = '10000000-0000-4000-8000-000000000002';
+    const selection = { result_id: other, positions: [2, 125] };
+    const url = overviewUrl('/bi/overview', { datasetId: 'demo', conversationId: id, selection });
+    expect(readOverviewLocation(overviewUrl(url, { questionPage: 2 }).split('?')[1]).selection).toEqual(selection);
+    for (const change of [{ conversationId: other }, { datasetId: 'replacement' }, { selection: undefined }]) {
+      expect(readOverviewLocation(overviewUrl(url, change).split('?')[1]).selection).toBeUndefined();
+    }
+    expect(() => overviewUrl(url, { selection: { ...selection, positions: [0] } })).toThrow();
+  });
   it('restores exact alert, source and both pages without changing accounting filters', () => {
     const href = overviewLoginReturnPath({ dataset_id: 'official', store_id: '001', quality: 'unknown_refund_lines', evidence_page: '2',
       evidence_record: 'line-001', evidence_event_page: '3', evidence_search: '棉服', evidence_sort: 'date', evidence_descending: 'true' });

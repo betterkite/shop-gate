@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PiAgentDurableRunSession } from '@/lib/services/pi-agent-run-store';
 import { PrismaAgentRuntimeRepository } from '@/lib/agent/runtime/prisma-repository';
-import { submitBiAgentQuestion, cancelBiAgentQuestion } from './requests';
+import { authorizeBiAgentRun, submitBiAgentQuestion, cancelBiAgentQuestion } from './requests';
 import { biAgentPageScopeSchema } from './contracts';
 import { collectBiAgentResult, saveBiAgentAnswer, readBiAgentAnswer, readBiAgentResultPage,
   readBiAgentChart, inspectBiAgentResultPage, type BiAgentResultFence } from './results';
@@ -94,6 +94,38 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
       expect(await readBiAgentAnswer(actor, fence.runId, fresh)).toMatchObject({ dataset_version: 2, answer: { kind: 'answer' } });
       expect(ledger).toHaveBeenCalledTimes(2);
     } finally { await fresh.$disconnect(); }
+  });
+
+  it('binds a follow-up to the chosen rows across evidence pages before charging the actor', async () => {
+    const { actor, fence, repository } = await running();
+    const source = await collectBiAgentResult(fence, unique(), { dimension: 'product' }, signal(), { client: a, read: read() });
+    const hidden = await collectBiAgentResult(fence, unique(), { dimension: 'store' }, signal(), { client: a, read: read(1) });
+    await saveBiAgentAnswer(fence, answer(source.evidence_id), a);
+    await complete(fence, repository);
+    const previous = await b.biAgentRequest.findFirstOrThrow({ where: { runs: { some: { id: fence.runId } } } });
+    const selection = { result_id: source.evidence_id, positions: [125, 2] };
+    const q = { dataset_id: 'same-data', dataset_version: 2, conversation_id: previous.conversationId,
+      expected_conversation_version: 1, idempotency_key: unique(), model: 'deepseek-v4-flash',
+      instruction: '这两个商品在不同渠道各卖了多少？', page_scope: { module: 'overview', store_ids: ['s1'] }, selection };
+    const deps = { client: b, resolvePage: async (_actor: BiAgentAuthority, _dataset: string, _version: number,
+      page: ReturnType<typeof biAgentPageScopeSchema.parse>) => page };
+    for (const change of [{ conversation_id: randomUUID(), expected_conversation_version: 0 }, { dataset_version: 3 },
+      { page_scope: { module: 'overview', product_ids: ['p99'] } }, { selection: { ...selection, positions: [126] } },
+      { selection: { result_id: hidden.evidence_id, positions: [1] } }]) {
+      await expect(submitBiAgentQuestion(actor, { ...q, ...change }, deps)).rejects.toMatchObject({ code: 'BI_AGENT_CONFLICT' });
+    }
+    await expect(submitBiAgentQuestion(await identity(), q, deps)).rejects.toMatchObject({ code: 'BI_AGENT_NOT_FOUND' });
+    expect(await b.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'agent.requests.daily' } })).toBe(1);
+    const accepted = await submitBiAgentQuestion(actor, q, deps);
+    const authorized = await authorizeBiAgentRun(accepted.request.runs[0].id, a);
+    expect(authorized.pageScope).toMatchObject({ product_ids: ['p1', 'p124'], store_ids: ['s1'] });
+    expect(authorized.request.evidenceSelection).toEqual({ result_id: source.evidence_id, positions: [2, 125],
+      dimension: 'product', entities: [{ key: 'p1', name: '商品1' }, { key: 'p124', name: '商品124' }] });
+    const replay = await submitBiAgentQuestion(actor, { ...q, selection: { ...selection, positions: [2, 125] } }, deps);
+    expect(replay.request.id).toBe(accepted.request.id);
+    await expect(submitBiAgentQuestion(actor, { ...q, selection: { ...selection, positions: [1] } }, deps))
+      .rejects.toMatchObject({ code: 'BI_AGENT_CONFLICT' });
+    expect(await b.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'agent.requests.daily' } })).toBe(2);
   });
 
   it('keeps oversized charts available as full paged evidence instead of a truncated distribution', async () => {

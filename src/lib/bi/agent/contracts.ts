@@ -1,4 +1,5 @@
 // Browser-safe request boundary; actor/session/SQL/tool configuration are never inputs.
+import { selectionSchema } from './selection-contracts';
 import { z } from 'zod';
 import { DEEPSEEK_MODEL_ID, LOCAL_QWEN_MODEL_ID, MODELPORT_DEEPSEEK_MODEL_ID } from '@/lib/constants/models';
 
@@ -28,6 +29,7 @@ export const biAgentSubmissionSchema = z.object({
   instruction: z.string().trim().min(1).max(8000).refine((value) => !value.includes('\0') && value.isWellFormed()),
   model: z.enum([DEEPSEEK_MODEL_ID, LOCAL_QWEN_MODEL_ID, MODELPORT_DEEPSEEK_MODEL_ID]),
   page_scope: biAgentPageScopeSchema,
+  selection: selectionSchema.optional(),
 }).strict();
 export type BiAgentPageScope = z.infer<typeof biAgentPageScopeSchema>;
 export type BiAgentSubmission = z.infer<typeof biAgentSubmissionSchema>;

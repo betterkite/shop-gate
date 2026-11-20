@@ -1,3 +1,4 @@
+import { savedSelectionSchema } from './selection-contracts';
 import { z } from 'zod';
 import { biAgentIdentifier, biAgentPageScopeSchema, biAgentSubmissionSchema } from './contracts';
 import { biAgentAnswerSchema, biMetric, biDimension, BI_AGENT_CHART_MAX_ROWS } from './result-contracts';
@@ -9,7 +10,7 @@ const pagination = { total: count, page: z.number().int().positive(), page_size:
 const run = z.object({ id: z.string().uuid(), status: z.string(), version: count, createdAt: z.string(),
   finishedAt: z.string().nullable(), cancelRequestedAt: z.string().nullable(), errorCode: z.string().nullable() });
 const question = z.object({ id: z.string().uuid(), instruction: z.string(), model: z.string(), datasetVersion: count,
-  pageScope: biAgentPageScopeSchema, createdAt: z.string(), runs: z.array(run) });
+  evidenceSelection: savedSelectionSchema.nullish(), pageScope: biAgentPageScopeSchema, createdAt: z.string(), runs: z.array(run) });
 export const agentAvailabilitySchema = z.object({ workspace_id: biAgentIdentifier, can_run: z.boolean(),
   worker_available: z.boolean(), models: z.array(z.object({ id: biAgentSubmissionSchema.shape.model, name: z.string() })) });
 export const agentConversationsSchema = z.object({ ...pagination, workspace_id: biAgentIdentifier, dataset_id: biAgentIdentifier,

@@ -20,13 +20,18 @@ export function BiDefinitionEvidence({ evidence, open, onOpenChange }: { evidenc
   </details>;
 }
 
-export function BiEvidenceTable({ data }: { data: z.infer<typeof agentResultSchema> }) {
+export function BiEvidenceTable({ data, selected = [], onToggle }: { data: z.infer<typeof agentResultSchema>;
+  selected?: number[]; onToggle?: (position: number) => void }) {
   if (data.total === 0) return <p className="mt-3 text-sm text-muted-foreground">此范围没有符合条件的记录。</p>;
   if (data.rows.length === 0) return <p className="mt-3 text-sm text-muted-foreground">此页没有记录，请选择其他页码。</p>;
   return <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr>
+    {onToggle && <th className="whitespace-nowrap p-2 text-left">选入追问</th>}
     <th className="min-w-36 whitespace-nowrap p-2 text-left">对象 / 日期</th>
     {data.query.metrics.map((m) => <th key={m} className="whitespace-nowrap p-2 text-right">{AGENT_METRIC_LABELS[m]}</th>)}
-  </tr></thead><tbody>{data.rows.map((r) => <tr key={r.key} className="border-t border-border"><td className="min-w-36 p-2">{r.name}
+  </tr></thead><tbody>{data.rows.map((r, i) => <tr key={r.key} className="border-t border-border">
+    {onToggle && <td className="p-2">{r.key !== '__unattributed__' && <input type="checkbox" aria-label={`选入追问：${r.name}`}
+      checked={selected.includes((data.page - 1) * 20 + i + 1)} onChange={() => onToggle((data.page - 1) * 20 + i + 1)} />}</td>}
+    <td className="min-w-36 p-2">{r.name}
     {r.key === '__unattributed__' && <p className="mt-1 text-xs text-muted-foreground">未归属项，可能包含待映射交易及费用，不属于单个商品或店铺。</p>}
     {displayBiQuality(r.quality).length > 0 && <div className="mt-2 text-xs"><p className="font-medium text-muted-foreground">待核算原因</p>
       <ul className="mt-2 space-y-1">{displayBiQuality(r.quality).map(({ key, label, count }) => <li key={key}>{label}：{count} 项</li>)}</ul>

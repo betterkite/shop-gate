@@ -140,7 +140,9 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
       await expect(saveBiAgentAnswer(fence, { ...proposed, target_draft: changed }, a)).rejects.toThrow();
     }
     expect(await a.biAgentAnswer.count({ where: { runId: fence.runId } })).toBe(0);
-    await saveBiAgentAnswer(fence, proposed, a); await complete(fence, repository);
+    // Real provider supplied null even while its prose said to keep the current profit target.
+    await saveBiAgentAnswer(fence, { ...proposed, target_draft: { ...draft, profit_target: null } }, a);
+    await complete(fence, repository);
     const saved = await readBiAgentAnswer(actor, fence.runId, b);
     expect(saved.answer?.target_draft).toEqual(draft);
     expect(saved.answer?.target_draft).not.toHaveProperty('profit_target');

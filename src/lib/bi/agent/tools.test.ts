@@ -25,6 +25,19 @@ describe('BI assistant controlled tool registration', () => {
       display_summary: { contribution_margin: '91.67%' }, display_preview: [{ key: 's', metrics: { contribution_margin: '91.67%', product_cost: '待核算' } }] } });
     expect(mocks.collect).toHaveBeenCalledWith(fence, 'owned-operation', { dimension: 'store' }, context.signal, {});
   });
+  it('reports overlapping order counts only when all groups are present', async () => {
+    const result = { total: 2, preview: [42, 37].map((order_count, index) => ({
+      key: String(index), name: String(index), metrics: { order_count }, quality: {},
+    })), metadata: { summary: { metrics: { order_count: 78 }, quality: {} } } };
+    mocks.collect.mockResolvedValue(result);
+    const query = createBiAgentTools(fence)[1];
+    expect(await query.execute({ dimension: 'product' }, context)).toMatchObject({ data: {
+      order_count_comparison: { distinct_orders: 78, sum_of_group_counts: 79, repeated_group_appearances: 1 } } });
+    mocks.collect.mockResolvedValue({ ...result, total: 21 });
+    const partial = await query.execute({ dimension: 'product' }, context);
+    expect(partial).toMatchObject({ ok: true });
+    expect(partial).not.toHaveProperty('data.order_count_comparison');
+  });
   it('formats subsequent evidence pages by the same rules without changing their raw decimals', async () => {
     mocks.inspect.mockResolvedValue({ rows: [{ key: 'last', name: '末项', metrics: { contribution_margin: '-0.91666667' }, quality: {} }] });
     expect(await createBiAgentTools(fence)[2].execute({ evidence_id: 'de305d54-75b4-431b-adb2-eb6b9e546014', page: 2 }, context))

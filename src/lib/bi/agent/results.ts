@@ -91,6 +91,11 @@ export async function saveBiAgentAnswer(fence: BiAgentResultFence, value: unknow
     if (evidence.length !== content.evidence_ids.length) throw problem();
     if (content.target_draft) {
       const draft = content.target_draft;
+      if (draft.profit_target === null) {
+        if (!draft.clear_profit_target && draft.sales_target === undefined) throw new BiAgentProblem('BI_AGENT_INPUT_INVALID', 422,
+          '草案没有待修改的金额。明确要求清空经营贡献目标时，请使用 clear_profit_target；保持原值时请省略该字段。');
+        delete draft.profit_target;
+      }
       const run = await tx.agentRun.findUniqueOrThrow({ where: { id: fence.runId }, select: {
         biRequest: { select: { sessionId: true, actorUserId: true, pageScope: true } }, scope: { select: { workspaceId: true } },
       } });

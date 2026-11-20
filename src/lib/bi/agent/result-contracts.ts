@@ -39,9 +39,18 @@ export const targetDraftSchema = z.object({
   month: z.string().regex(/^(?!0000)\d{4}-(?:0[1-9]|1[0-2])-01$/),
   sales_target: z.string().regex(amount).refine((n) => !n.startsWith('-')).optional(),
   profit_target: z.string().regex(amount).nullable().optional(),
+  clear_profit_target: z.literal(true).optional(),
   store_evidence: z.object({ result_id: z.string().uuid(), position: z.number().int().positive().max(10_000_000) }).strict().optional(),
-}).strict().refine((value) => value.sales_target !== undefined || value.profit_target !== undefined);
+}).strict().refine((value) => value.sales_target !== undefined || value.profit_target !== undefined || value.clear_profit_target)
+  .refine((value) => !value.clear_profit_target || value.profit_target == null);
 export type TargetDraft = z.infer<typeof targetDraftSchema>;
+/** A historical null is ambiguous. Only an operator can clear the existing value in the editor. */
+export function targetDraftInputs(current: { sales_target: string | null; profit_target: string | null } | undefined, draft?: TargetDraft) {
+  return {
+    sales: draft?.sales_target ?? current?.sales_target ?? '',
+    profit: draft?.profit_target ?? current?.profit_target ?? '',
+  };
+}
 export const biAgentAnswerSchema = z.object({
   kind: z.enum(['answer', 'definition', 'clarification', 'data_unavailable', 'target_proposal']), target_draft: targetDraftSchema.optional(), text: safeText(12_000),
   evidence_ids: z.array(z.string().uuid()).max(16).refine((v) => new Set(v).size === v.length),

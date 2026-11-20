@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { biAgentAnswerSchema, scopedBiAgentQuery } from './result-contracts';
+import { biAgentAnswerSchema, scopedBiAgentQuery, targetDraftInputs } from './result-contracts';
 const scope = { module: 'overview', start: '2026-09-01', end: '2026-09-30', channel_ids: ['a'], category: '' };
 describe('BI analysis display and query boundaries', () => {
   it('inherits all page filters and never accepts a model-selected identity or raw formula', () => {
@@ -40,6 +40,13 @@ describe('BI analysis display and query boundaries', () => {
     for (const changes of [{}, { sales_target: '-1' }, { sales_target: '1.123' }, { profit_target: '0', confirmed: true }]) {
       expect(biAgentAnswerSchema.safeParse({ ...base, target_draft: { ...target, ...changes } }).success).toBe(false);
     }
+  });
+  it('preserves existing values for ambiguous historical nulls until the operator clears a field', () => {
+    const current = { sales_target: '1000.00', profit_target: '200.00' };
+    const draft = { store_id: '001', month: '2026-07-01', sales_target: '1200.00', profit_target: null };
+    expect(targetDraftInputs(current, draft)).toEqual({ sales: '1200.00', profit: '200.00' });
+    expect(targetDraftInputs(current, { ...draft, clear_profit_target: true }).profit).toBe('200.00');
+    expect(targetDraftInputs(current, { ...draft, profit_target: '0.00' }).profit).toBe('0.00');
   });
   it('only attaches chart/table views to listed evidence IDs', () => {
     expect(biAgentAnswerSchema.safeParse({ kind: 'clarification', text: '说明', evidence_ids: [],

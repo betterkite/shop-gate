@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { TargetDraft } from '@/lib/bi/agent/result-contracts';
+import { targetDraftInputs, type TargetDraft } from '@/lib/bi/agent/result-contracts';
 import { BiNotice } from '@/components/bi/BiPrimitives';
 import { decimalLabel, StableRequestKeys, type Dataset } from '@/lib/bi/data-contracts';
 import { dataErrorMessage, readBi } from '@/lib/bi/data-browser';
@@ -17,7 +17,7 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, dr
   canManage: boolean; close: () => void; committed: () => void; restoreFocus: (event: Event) => void;
 }) {
   const [row, setRow] = useState<TargetRow | null>(initial ?? null);
-  const [sales, setSales] = useState(initial?.sales_target ?? ''); const [profit, setProfit] = useState(initial?.profit_target ?? '');
+  const [sales, setSales] = useState(() => targetDraftInputs(initial, draft).sales); const [profit, setProfit] = useState(() => targetDraftInputs(initial, draft).profit);
   const [preview, setPreview] = useState<TargetPreview | null>(null); const [confirmation, setConfirmation] = useState(false);
   const [problem, setProblem] = useState(''); const [pending, setPending] = useState(false); const [clock, setClock] = useState(Date.now());
   const keys = useRef(new StableRequestKeys()); const active = useRef(true); const inFlight = useRef(false);
@@ -35,8 +35,10 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, dr
       if (!scopeMatches(workspaceId, dataset, data)) throw new Error('目标的范围或版本已变化，请刷新。');
       const selected = data.targets?.rows.find((item) => item.store_id === storeId && item.month === month);
       if (!selected) throw new Error('当前数据集没有这家店铺，请重新选择。');
-      if (!abort.signal.aborted) { setRow(selected); setSales(draft?.sales_target ?? selected.sales_target ?? '');
-        setProfit(draft?.profit_target === undefined ? selected.profit_target ?? '' : draft.profit_target ?? ''); }
+      if (!abort.signal.aborted) {
+        const values = targetDraftInputs(selected, draft);
+        setRow(selected); setSales(values.sales); setProfit(values.profit);
+      }
     }).catch((error) => { if (!abort.signal.aborted) setProblem(dataErrorMessage(error)); });
     return () => abort.abort();
   }, [workspaceId, dataset, storeId, month, initial, draft]);
@@ -81,6 +83,8 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, dr
           : <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void previewChange(); }}>
             <label className="grid gap-2 text-sm">净销售额目标（元）<Input aria-label="净销售额目标" inputMode="decimal" value={sales} maxLength={22} placeholder="例如 50000.00" required disabled={pending} onChange={(event) => { setSales(event.target.value); setPreview(null); }} /><span className="text-xs text-muted-foreground">填写非负金额，最多2位小数；明确填0与未设定不同。</span></label>
             <label className="grid gap-2 text-sm">经营贡献目标（元，可不填）<Input aria-label="经营贡献目标" inputMode="decimal" value={profit} maxLength={22} placeholder="按经营计划填写" disabled={pending} onChange={(event) => { setProfit(event.target.value); setPreview(null); }} /><span className="text-xs text-muted-foreground">可按计划填写负数；留空表示未设定该项。</span></label>
+            {draft?.clear_profit_target && profit !== '' && <Button type="button" variant="outline" disabled={pending}
+              onClick={() => { setProfit(''); setPreview(null); }}>按草案清空经营贡献目标</Button>}
             <Button type="submit" disabled={pending}>{pending ? '正在处理…' : '预览目标变更'}</Button>
           </form>}
         {preview && <section aria-label="目标变更预览" className="rounded-xl border border-primary/30 bg-primary/5 p-4"><h3 className="font-semibold">确认前，请检查这次变更</h3>

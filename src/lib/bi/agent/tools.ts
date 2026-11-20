@@ -7,7 +7,7 @@ import type { readBiAgentMetricCatalog } from './ledger';
 import { BiAgentProblem } from './contracts';
 import { collectBiAgentMetricSource } from './metric-sources';
 import { ledgerRowSchema, ledgerTableSchema } from '../overview-contracts';
-import { BI_RESULT_READING_GUIDE, displayBiMetrics, displayBiRows } from './presentation';
+import { BI_RESULT_READING_GUIDE, displayBiMetrics, displayBiRows, orderCountComparison } from './presentation';
 import { collectBiAgentResult, inspectBiAgentResultPage, saveBiAgentAnswer, assertBiAgentResultFence, type BiAgentResultFence } from './results';
 
 /** Product tools only. No generated source files, shell, arbitrary network,
@@ -29,8 +29,10 @@ export function createBiAgentTools(fence: BiAgentResultFence, dependencies: BiAg
         if (name === 'query_ledger') {
           const result = await collectBiAgentResult(fence, context.operationId, raw, context.signal, dependencies);
           const summary = ledgerTableSchema.shape.summary.parse((result.metadata as Record<string, unknown>).summary);
+          const rows = z.array(ledgerRowSchema).parse(result.preview);
+          const comparison = orderCountComparison(summary.metrics.order_count, result.total, rows);
           return { ok: true, data: { ...result, reading_guide: BI_RESULT_READING_GUIDE, display_summary: displayBiMetrics(summary.metrics),
-            display_preview: displayBiRows(z.array(ledgerRowSchema).parse(result.preview)) } };
+            ...(comparison ? { order_count_comparison: comparison } : {}), display_preview: displayBiRows(rows) } };
         }
         if (name === 'read_result_page') {
           const input = resultPage.parse(raw);

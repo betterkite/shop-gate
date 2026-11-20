@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { PrismaClient, type AgentExecutionScope } from '@prisma/client';
+import { Prisma, PrismaClient, type AgentExecutionScope } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inspectPiAgentSchemaReadiness } from '@/lib/db/pi-agent-schema-readiness';
 import { PrismaAgentRuntimeRepository } from './prisma-repository';
@@ -130,7 +130,7 @@ describe.skipIf(!databaseUrl)('BI execution scopes (real PostgreSQL)', () => {
     const first = await request(shared, actor);
     const second = await request(shared, otherActor);
     const personal = await scope(actor);
-    const data = { ...first, id: undefined, pageScope };
+    const data = { ...first, id: undefined, pageScope, evidenceSelection: Prisma.DbNull };
     await expect(a.biAgentRequest.create({ data: { ...data, id: unique(),
       idempotencyKey: unique(), actorUserId: otherActor } })).rejects.toThrow();
     await expect(a.biAgentRequest.create({ data: { ...data, id: unique(),
@@ -149,7 +149,7 @@ describe.skipIf(!databaseUrl)('BI execution scopes (real PostgreSQL)', () => {
     const envelope = await request(owned, actor);
     await expect(a.biAgentRequest.update({ where: { id: envelope.id }, data: { datasetVersion: 3 } }))
       .rejects.toThrow();
-    const data = { ...envelope, id: undefined, pageScope };
+    const data = { ...envelope, id: undefined, pageScope, evidenceSelection: Prisma.DbNull };
     await expect(a.biAgentRequest.create({ data })).rejects.toMatchObject({ code: 'P2002' });
     await expect(repository.createRun(input(owned.id, envelope.id, { model: 'different-model' })))
       .rejects.toMatchObject({ code: 'INVALID_STATE' });

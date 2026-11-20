@@ -266,7 +266,9 @@ def test_preview_does_not_change_sources_and_confirm_is_manually_reproducible(em
     with zipfile.ZipFile(example_path) as example:
         expected = files()
         assert sorted(example.namelist()) == sorted(item.filename for item in expected)
-        published = [CsvFile(item.resource, item.filename, example.read(item.filename)) for item in expected]
+        published = [
+            CsvFile(item.resource, item.filename, example.read(item.filename)) for item in expected
+        ]
         assert published == expected
     with psycopg.connect(app_url, autocommit=True) as connection:
         preview = preview_import(connection, scope, published)

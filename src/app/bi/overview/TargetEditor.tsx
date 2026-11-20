@@ -5,14 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import type { TargetDraft } from '@/lib/bi/agent/result-contracts';
 import { BiNotice } from '@/components/bi/BiPrimitives';
 import { decimalLabel, StableRequestKeys, type Dataset } from '@/lib/bi/data-contracts';
 import { dataErrorMessage, readBi } from '@/lib/bi/data-browser';
 import { overviewSchema, scopeMatches, targetCommitSchema, targetPreviewSchema, type TargetPreview, type TargetRow } from '@/lib/bi/overview-contracts';
 
 /** Parent keys this editor by dataset version, store and month; a new scope ends the old draft. */
-export function TargetEditor({ workspaceId, dataset, storeId, month, initial, canManage, close, committed, restoreFocus }: {
-  workspaceId: string; dataset: Dataset; storeId: string; month: string; initial?: TargetRow;
+export function TargetEditor({ workspaceId, dataset, storeId, month, initial, draft, canManage, close, committed, restoreFocus }: {
+  workspaceId: string; dataset: Dataset; storeId: string; month: string; initial?: TargetRow; draft?: TargetDraft;
   canManage: boolean; close: () => void; committed: () => void; restoreFocus: (event: Event) => void;
 }) {
   const [row, setRow] = useState<TargetRow | null>(initial ?? null);
@@ -34,10 +35,11 @@ export function TargetEditor({ workspaceId, dataset, storeId, month, initial, ca
       if (!scopeMatches(workspaceId, dataset, data)) throw new Error('目标的范围或版本已变化，请刷新。');
       const selected = data.targets?.rows.find((item) => item.store_id === storeId && item.month === month);
       if (!selected) throw new Error('当前数据集没有这家店铺，请重新选择。');
-      if (!abort.signal.aborted) { setRow(selected); setSales(selected.sales_target ?? ''); setProfit(selected.profit_target ?? ''); }
+      if (!abort.signal.aborted) { setRow(selected); setSales(draft?.sales_target ?? selected.sales_target ?? '');
+        setProfit(draft?.profit_target === undefined ? selected.profit_target ?? '' : draft.profit_target ?? ''); }
     }).catch((error) => { if (!abort.signal.aborted) setProblem(dataErrorMessage(error)); });
     return () => abort.abort();
-  }, [workspaceId, dataset, storeId, month, initial]);
+  }, [workspaceId, dataset, storeId, month, initial, draft]);
   const previewChange = async () => {
     if (!canManage || !row || inFlight.current) return;
     inFlight.current = true; setPending(true); setProblem(''); setPreview(null);

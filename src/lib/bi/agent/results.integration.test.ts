@@ -128,6 +128,24 @@ describe.skipIf(!databaseUrl)('BI original-version results (real PostgreSQL)', (
     expect(await b.usageEvent.count({ where: { actorUserId: actor.actorId, metric: 'agent.requests.daily' } })).toBe(2);
   });
 
+  it('grounds a monthly target draft in a cited store and persists only the proposal', async () => {
+    const { actor, fence, repository } = await running();
+    await a.authUser.update({ where: { id: actor.actorId }, data: { role: 'admin' } });
+    const result = await collectBiAgentResult(fence, unique(), { dimension: 'store' }, signal(), { client: a, read: read(2) });
+    const draft = { store_id: 'p1', month: '2026-09-01', sales_target: '600.00',
+      store_evidence: { result_id: result.evidence_id, position: 2 } };
+    const proposed = { kind: 'target_proposal', text: '请核对九月的净销售额目标草案。', evidence_ids: [result.evidence_id], target_draft: draft };
+    for (const changed of [{ ...draft, store_id: 'p0' }, { ...draft, store_evidence: undefined },
+      { ...draft, store_evidence: { ...draft.store_evidence, position: 3 } }]) {
+      await expect(saveBiAgentAnswer(fence, { ...proposed, target_draft: changed }, a)).rejects.toThrow();
+    }
+    expect(await a.biAgentAnswer.count({ where: { runId: fence.runId } })).toBe(0);
+    await saveBiAgentAnswer(fence, proposed, a); await complete(fence, repository);
+    const saved = await readBiAgentAnswer(actor, fence.runId, b);
+    expect(saved.answer?.target_draft).toEqual(draft);
+    expect(saved.answer?.target_draft).not.toHaveProperty('profit_target');
+  });
+
   it('keeps oversized charts available as full paged evidence instead of a truncated distribution', async () => {
     const { actor, fence, repository } = await running();
     const result = await collectBiAgentResult(fence, unique(), { dimension: 'product' }, signal(), { client: a, read: read(2001) });

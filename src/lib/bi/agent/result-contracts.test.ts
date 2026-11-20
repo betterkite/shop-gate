@@ -30,6 +30,17 @@ describe('BI analysis display and query boundaries', () => {
       expect(() => scopedBiAgentQuery(page, { period: 'previous' })).toThrow();
     }
   });
+  it('distinguishes keeping a target, clearing the optional target, and setting a zero amount', () => {
+    const base = { kind: 'target_proposal', text: '核对草案', evidence_ids: [] };
+    const target = { store_id: 's1', month: '2026-03-01' };
+    for (const changes of [{ profit_target: null }, { sales_target: '0.00' }, { profit_target: '-22' }]) {
+      expect(biAgentAnswerSchema.parse({ ...base, target_draft: { ...target, ...changes } }).target_draft)
+        .toEqual({ ...target, ...changes });
+    }
+    for (const changes of [{}, { sales_target: '-1' }, { sales_target: '1.123' }, { profit_target: '0', confirmed: true }]) {
+      expect(biAgentAnswerSchema.safeParse({ ...base, target_draft: { ...target, ...changes } }).success).toBe(false);
+    }
+  });
   it('only attaches chart/table views to listed evidence IDs', () => {
     expect(biAgentAnswerSchema.safeParse({ kind: 'clarification', text: '说明', evidence_ids: [],
       views: [{ result_id: 'de305d54-75b4-431b-adb2-eb6b9e546014', kind: 'table', metric: 'net_sales' }] }).success).toBe(false);

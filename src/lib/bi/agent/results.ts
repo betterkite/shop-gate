@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/client';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
 import { recheckBiAgentSession, type BiAgentAuthority } from './authorization';
 import { authorizeBiAgentRun } from './requests';
-import { BiAgentProblem } from './contracts';
+import { BiAgentProblem, biAgentPageScopeSchema } from './contracts';
 import { BI_AGENT_CHART_MAX_ROWS, biAgentAnswerSchema, biAgentLedgerPageSchema, scopedBiAgentQuery, type BiAgentLedgerPage } from './result-contracts';
 import { readBiAgentLedger } from './ledger';
 
@@ -89,6 +89,27 @@ export async function saveBiAgentAnswer(fence: BiAgentResultFence, value: unknow
     await definitionsForAnswer(tx, fence.runId, content);
     const evidence = await tx.biAgentResult.findMany({ where: { id: { in: content.evidence_ids }, runId: fence.runId, complete: true } });
     if (evidence.length !== content.evidence_ids.length) throw problem();
+    if (content.target_draft) {
+      const draft = content.target_draft;
+      const run = await tx.agentRun.findUniqueOrThrow({ where: { id: fence.runId }, select: {
+        biRequest: { select: { sessionId: true, actorUserId: true, pageScope: true } }, scope: { select: { workspaceId: true } },
+      } });
+      if (!run.biRequest?.sessionId || !run.scope) throw problem();
+      const authority = await recheckBiAgentSession(run.biRequest.sessionId, run.scope.workspaceId, 'manage', tx);
+      if (authority.actorId !== run.biRequest.actorUserId) throw problem();
+      const stores = biAgentPageScopeSchema.parse(run.biRequest.pageScope).store_ids;
+      if (stores.length && !stores.includes(draft.store_id)) throw problem();
+      if (draft.store_evidence) {
+        const { result_id, position } = draft.store_evidence;
+        const result = evidence.find((item) => item.id === result_id);
+        if (!result || (result.query as { dimension?: string }).dimension !== 'store' || position > result.total) throw problem();
+        const chunk = await tx.biAgentResultPage.findUnique({ where: { resultId_page: {
+          resultId: result_id, page: Math.ceil(position / 100) } } });
+        if (!chunk || !Array.isArray(chunk.rows) || hashPiAgentProvenance(chunk.rows) !== chunk.digest
+            || ledgerRowSchema.parse(chunk.rows[(position - 1) % 100]).key !== draft.store_id) throw problem();
+      } else if (!stores.includes(draft.store_id)) throw new BiAgentProblem('BI_AGENT_INPUT_INVALID', 422,
+        '请先查询当前范围的店铺明细，引用所选店铺所在行，或请用户先选择店铺。');
+    }
     for (const view of content.views) {
       const query = evidence.find((e) => e.id === view.result_id)!.query as { dimension: string; metrics: string[] };
       if (!query.metrics.includes(view.metric) || (view.kind === 'line' && !['day', 'week'].includes(query.dimension))) throw problem();

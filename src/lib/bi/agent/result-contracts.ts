@@ -33,8 +33,17 @@ export const biAgentLedgerPageSchema = ledgerTableSchema.extend({
   data_cutoff: z.string().nullable(), notes: z.array(z.string()).default([]),
 });
 export type BiAgentLedgerPage = z.infer<typeof biAgentLedgerPageSchema>;
+const amount = /^-?(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
+export const targetDraftSchema = z.object({
+  store_id: z.string().regex(/^[A-Za-z0-9_.:-]{1,120}$/).refine((id) => id !== '__unattributed__'),
+  month: z.string().regex(/^(?!0000)\d{4}-(?:0[1-9]|1[0-2])-01$/),
+  sales_target: z.string().regex(amount).refine((n) => !n.startsWith('-')).optional(),
+  profit_target: z.string().regex(amount).nullable().optional(),
+  store_evidence: z.object({ result_id: z.string().uuid(), position: z.number().int().positive().max(10_000_000) }).strict().optional(),
+}).strict().refine((value) => value.sales_target !== undefined || value.profit_target !== undefined);
+export type TargetDraft = z.infer<typeof targetDraftSchema>;
 export const biAgentAnswerSchema = z.object({
-  kind: z.enum(['answer', 'definition', 'clarification', 'data_unavailable']), text: safeText(12_000),
+  kind: z.enum(['answer', 'definition', 'clarification', 'data_unavailable', 'target_proposal']), target_draft: targetDraftSchema.optional(), text: safeText(12_000),
   evidence_ids: z.array(z.string().uuid()).max(16).refine((v) => new Set(v).size === v.length),
   definition_source_id: z.string().uuid().optional(),
   definition_ids: z.array(biMetric).max(BI_METRICS.length).default([])
@@ -42,7 +51,9 @@ export const biAgentAnswerSchema = z.object({
   views: z.array(z.object({ result_id: z.string().uuid(), kind: z.enum(['table', 'line', 'bar']),
     metric: biMetric }).strict()).max(6).default([]),
   follow_up: z.array(safeText(300)).max(3).default([]),
-}).strict().refine((answer) => answer.kind !== 'answer' || answer.evidence_ids.length > 0)
+}).strict().refine((answer) => (answer.kind === 'target_proposal') === Boolean(answer.target_draft))
+  .refine((answer) => !answer.target_draft?.store_evidence || answer.evidence_ids.includes(answer.target_draft.store_evidence.result_id))
+  .refine((answer) => answer.kind !== 'answer' || answer.evidence_ids.length > 0)
   .refine((answer) => Boolean(answer.definition_source_id) === (answer.definition_ids.length > 0))
   .refine((answer) => answer.kind !== 'definition' || (answer.definition_ids.length > 0
     && answer.evidence_ids.length === 0 && answer.views.length === 0))

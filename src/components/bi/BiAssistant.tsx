@@ -10,6 +10,8 @@ import { overviewQuery, type Overview, type OverviewLocation } from '@/lib/bi/ov
 import { biAgentSubmissionSchema, type BiAgentSubmission } from '@/lib/bi/agent/contracts';
 import { type BiAgentAnswerContent } from '@/lib/bi/agent/result-contracts';
 import { BiAnswerMarkdown } from './BiAnswerMarkdown';
+import { TargetEditor } from '@/app/bi/overview/TargetEditor';
+import type { TargetDraft } from '@/lib/bi/agent/result-contracts';
 import { BiAssistantChart } from './BiAssistantChart';
 import { findAssistantView, updateAssistantView, type AssistantViewState } from '@/lib/bi/agent/view-location';
 import { AgentRequestError, ACTIVE_AGENT_STATUSES, AGENT_STATUS_LABELS, agentAcceptedSchema, agentAnswerSchema,
@@ -21,8 +23,8 @@ type SelectionControls = {
 };
 type Navigate = (change: Partial<OverviewLocation>) => void;
 const message = (error: unknown) => error instanceof Error ? error.message : '请求未完成，请稍后重试。';
-export function BiAssistant({ workspaceId, dataset, location, navigate, resolvedRange }: {
-  workspaceId: string; dataset: Dataset; location: OverviewLocation; navigate: Navigate; resolvedRange: Overview['range'] | null;
+export function BiAssistant({ workspaceId, dataset, location, navigate, resolvedRange, canManage, onTargetSaved }: {
+  workspaceId: string; dataset: Dataset; location: OverviewLocation; navigate: Navigate; resolvedRange: Overview['range'] | null; canManage: boolean; onTargetSaved: () => void;
 }) {
   const [availability, setAvailability] = useState<z.infer<typeof agentAvailabilitySchema> | null>(null);
   const [directory, setDirectory] = useState<z.infer<typeof agentConversationsSchema> | null>(null);
@@ -31,6 +33,8 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
   const [text, setText] = useState(''), [model, setModel] = useState<BiAgentSubmission['model']>('deepseek-v4-flash');
   const [intent, setIntent] = useState<BiAgentSubmission | null>(null), [sending, setSending] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [proposal, setProposal] = useState<{ draft: TargetDraft; version: number; conversation: string } | null>(null);
+  const proposalOpener = useRef<HTMLButtonElement | null>(null);
   const alive = useRef(true), sendingLock = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const conversationId = location.conversationId, questionPage = location.questionPage ?? 1, directoryPage = location.conversationPage ?? 1;
@@ -135,7 +139,10 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
       {q.runs.map((r) => <div className="mt-3" key={r.id}>
         <div className="flex items-center gap-3 text-sm text-muted-foreground"><span role="status">{AGENT_STATUS_LABELS[r.status] ?? '正在确认分析状态'}</span>
           {ACTIVE_AGENT_STATUSES.includes(r.status) && <Button size="sm" variant="outline" disabled={Boolean(r.cancelRequestedAt)} onClick={() => { void cancel(r.id); }}>{r.cancelRequestedAt ? '正在取消' : '取消分析'}</Button>}</div>
-        {r.status === 'completed' && <AssistantAnswer workspaceId={workspaceId} datasetId={dataset.dataset_id} version={q.datasetVersion} runId={r.id} selected={location.selection} onToggle={q.datasetVersion === dataset.version && !intent && ready ? toggleRow : undefined} viewStates={location.assistantViews} changeView={changeView} onFollowUp={(value) => { if (!intent) setText(value); }} />}
+        {r.status === 'completed' && <AssistantAnswer workspaceId={workspaceId} datasetId={dataset.dataset_id} version={q.datasetVersion} runId={r.id}
+          onTarget={canManage && q.datasetVersion === dataset.version && conversationId ? (draft, button) => {
+            proposalOpener.current = button; setProposal({ draft, version: dataset.version, conversation: conversationId });
+          } : undefined} selected={location.selection} onToggle={q.datasetVersion === dataset.version && !intent && ready ? toggleRow : undefined} viewStates={location.assistantViews} changeView={changeView} onFollowUp={(value) => { if (!intent) setText(value); }} />}
       </div>)}
     </article>)}</div>
     {history && <BiPagination label="助手问题分页" page={questionPage} total={history.total} change={(page) => navigate({ questionPage: page })} />}
@@ -154,12 +161,17 @@ export function BiAssistant({ workspaceId, dataset, location, navigate, resolved
       {availability && !ready && <p className="mt-3 text-sm text-muted-foreground">{!resolvedRange ? '正在确认页面数据范围。' : !availability.can_run ? '当前账号没有发起分析的权限。' : !availability.worker_available ? '助手处理服务暂未启动。' : '尚未配置可用模型。'}经营页面和已有分析仍可查看。</p>}
       {intent && !sending && <div className="mt-3 text-xs text-muted-foreground"><p>提交结果尚未确认，原问题已保留；重试不会重复创建分析。</p><Button size="sm" variant="link" onClick={() => navigate({ conversationId: intent.conversation_id, questionPage: Math.max(1, Math.ceil((intent.expected_conversation_version + 1) / 20)) })}>查看原对话状态</Button></div>}
     </form>
+    {proposal && canManage && proposal.version === dataset.version && proposal.conversation === conversationId &&
+      <TargetEditor workspaceId={workspaceId} dataset={dataset} storeId={proposal.draft.store_id} month={proposal.draft.month}
+        draft={proposal.draft} canManage={canManage} close={() => setProposal(null)} committed={onTargetSaved}
+        restoreFocus={(e) => { e.preventDefault(); proposalOpener.current?.focus({ preventScroll: true }); }} />}
     {error && <div className="mt-3"><BiNotice error>{error}</BiNotice></div>}
   </section>;
 }
 
-function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, viewStates, changeView, ...selection }: SelectionControls & {
+function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, onTarget, viewStates, changeView, ...selection }: SelectionControls & {
   workspaceId: string; datasetId: string; version: number; runId: string; onFollowUp: (value: string) => void;
+  onTarget?: (draft: TargetDraft, button: HTMLButtonElement) => void;
   viewStates?: AssistantViewState[]; changeView: (next: AssistantViewState) => void;
 }) {
   const [answer, setAnswer] = useState<BiAgentAnswerContent | null>(null), [error, setError] = useState('');
@@ -175,6 +187,8 @@ function AssistantAnswer({ workspaceId, datasetId, version, runId, onFollowUp, v
   if (!answer) return <p className="mt-3 text-sm">正在读取答案…</p>;
   const definition = findAssistantView(viewStates, { kind: 'definition', run: runId, open: false });
   return <div className="mt-4 space-y-4"><BiAnswerMarkdown text={answer.text} />
+    {answer.target_draft && (onTarget ? <Button variant="outline" onClick={(event) => onTarget(answer.target_draft!, event.currentTarget)}>核对月度目标草案</Button>
+      : <p className="text-sm text-muted-foreground">这份目标草案仅供查看。操作需要当前数据版本和维护权限。</p>)}
     {definitions && <BiDefinitionEvidence evidence={definitions} open={definition.open} onOpenChange={(open) => changeView({ ...definition, open })} />}
     {answer.views.filter((view) => view.kind !== 'table').map((view, i) => <BiAssistantChart key={`${view.result_id}:${view.metric}:${i}`} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} view={view} page={findAssistantView(viewStates, { kind: 'chart', run: runId, result: view.result_id, metric: view.metric, page: 1 }).page} onPageChange={(page) => changeView({ kind: 'chart', run: runId, result: view.result_id, metric: view.metric, page })} />)}
     {answer.evidence_ids.map((id, i) => <AssistantEvidence key={id} {...selection} workspaceId={workspaceId} datasetId={datasetId} version={version} runId={runId} resultId={id} number={i + 1} state={findAssistantView(viewStates, { kind: 'evidence', run: runId, result: id, page: 1, open: false })} changeView={changeView} />)}

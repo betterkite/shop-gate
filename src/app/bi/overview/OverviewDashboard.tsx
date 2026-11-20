@@ -98,7 +98,7 @@ export function OverviewDashboard({ workspaceId, dataset, canManage, location, n
       </>}
     </div>
     {location.filterKind && <ReferencePicker workspaceId={workspaceId} dataset={dataset} location={location} navigate={go} restoreFocus={restoreFocus} />}
-    <BiAssistant workspaceId={workspaceId} dataset={dataset} location={location} navigate={navigate} resolvedRange={data?.range ?? null} />
+    <BiAssistant canManage={canManage} onTargetSaved={() => { setNotice('目标已保存。'); onCommitted(); }} workspaceId={workspaceId} dataset={dataset} location={location} navigate={navigate} resolvedRange={data?.range ?? null} />
     {data && location.qualityKey && <QualityEvidence workspaceId={workspaceId} dataset={dataset} location={location} overview={data} navigate={go} restoreFocus={restoreFocus} />}
     {data && location.detailDimension && <OverviewSources workspaceId={workspaceId} dataset={dataset} location={location} range={data.range} navigate={go} restoreFocus={restoreFocus} />}
     {data && month && location.editStoreId && <TargetEditor key={`${dataset.dataset_id}:${dataset.version}:${month}:${location.editStoreId}`} workspaceId={workspaceId} dataset={dataset} storeId={location.editStoreId} month={month} initial={data.targets?.rows.find((row) => row.store_id === location.editStoreId)} canManage={canManage} close={() => go({ editStoreId: undefined })} restoreFocus={restoreFocus} committed={() => { setNotice('目标已保存。'); onCommitted(); }} />}

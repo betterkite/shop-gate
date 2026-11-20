@@ -1,9 +1,11 @@
 """Full CSV12 exchange on isolated real PG18; expected money is manually derived."""
 
 import os
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 from uuid import uuid4
 
 import psycopg
@@ -260,8 +262,14 @@ def count_sources(empty):
 
 def test_preview_does_not_change_sources_and_confirm_is_manually_reproducible(empty):
     scope, app_url, _ = empty
+    example_path = Path(__file__).resolve().parents[3] / "docs/examples/manual-ledger.zip"
+    with zipfile.ZipFile(example_path) as example:
+        expected = files()
+        assert sorted(example.namelist()) == sorted(item.filename for item in expected)
+        published = [CsvFile(item.resource, item.filename, example.read(item.filename)) for item in expected]
+        assert published == expected
     with psycopg.connect(app_url, autocommit=True) as connection:
-        preview = preview_import(connection, scope, files())
+        preview = preview_import(connection, scope, published)
         assert preview["state"] == "preview", preview["errors"]
         assert count_sources(empty) == (0, 0, 1)
         result = confirm_import(

@@ -37,6 +37,8 @@ export interface PiAgentContextManagerOptions {
    * available.
    */
   tokenEstimator?: PiAgentTokenEstimator;
+  /** Maximum retained prefix of an oversized tool receipt, in UTF-8 bytes. */
+  toolResultPreviewBytes?: number;
   /** Hard UTF-8 budget for the deterministic, framework-owned phase capsule. */
   contextCapsuleMaxUtf8Bytes?: number;
 }
@@ -397,12 +399,12 @@ function isToolResultSummary(content: string): boolean {
   }
 }
 
-function summarizeToolResult(message: PiAgentToolMessage): {
+function summarizeToolResult(message: PiAgentToolMessage, previewBytes = TOOL_RESULT_PREVIEW_MAX_BYTES): {
   message: PiAgentToolMessage;
   metadata: Omit<PiAgentSummarizedToolResultMetadata, 'messageIndex'>;
 } {
   const originalUtf8Bytes = utf8Bytes(message.content);
-  const preview = truncateUtf8(message.content, TOOL_RESULT_PREVIEW_MAX_BYTES);
+  const preview = truncateUtf8(message.content, previewBytes);
   const retainedPreviewUtf8Bytes = utf8Bytes(preview);
   const sha256 = createHash('sha256').update(message.content, 'utf8').digest('hex');
   const payload: ToolResultSummaryPayload = {
@@ -508,6 +510,12 @@ export class PiAgentContextManager {
   private readonly inputBudgetTokens: number;
 
   constructor(options: PiAgentContextManagerOptions) {
+    if (options.toolResultPreviewBytes !== undefined && (!Number.isSafeInteger(options.toolResultPreviewBytes) ||
+      options.toolResultPreviewBytes < 1 || options.toolResultPreviewBytes > 8192)) {
+      throw new PiAgentContextError('INVALID_CONTEXT_CONFIGURATION', 'Invalid tool result preview size.', {
+        field: 'toolResultPreviewBytes', value: options.toolResultPreviewBytes,
+      });
+    }
     requireInteger('contextWindowTokens', options.contextWindowTokens, 1);
     requireInteger('reservedOutputTokens', options.reservedOutputTokens, 0);
     requireInteger('maxInputTokens', options.maxInputTokens, 1);
@@ -649,7 +657,7 @@ export class PiAgentContextManager {
         for (const entry of group.entries) {
           if (entry.message.role !== 'tool' || isToolResultSummary(entry.message.content)) continue;
           const originalMessage = entry.message;
-          const summary = summarizeToolResult(originalMessage);
+          const summary = summarizeToolResult(originalMessage, this.options.toolResultPreviewBytes);
           entry.message = summary.message;
           const candidateTokens = estimateGroups(groups);
           if (candidateTokens < preparedInputTokens) {
@@ -714,7 +722,7 @@ export class PiAgentContextManager {
 
       for (const entry of activeResults) {
         const originalMessage = entry.message;
-        const summary = summarizeToolResult(originalMessage);
+        const summary = summarizeToolResult(originalMessage, this.options.toolResultPreviewBytes);
         entry.message = summary.message;
         const candidateTokens = estimateGroups(groups);
         if (candidateTokens < preparedInputTokens) {

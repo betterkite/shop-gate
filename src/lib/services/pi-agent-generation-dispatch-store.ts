@@ -6,7 +6,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/db/client";
-import { assertStructuralQuotaCapacity } from "@/lib/quota";
+import { assertAgentExecutionCapacity } from "./pi-agent-concurrency";
 
 const MAX_IDENTIFIER_BYTES = 256;
 const MAX_LEASE_TTL_MS = 24 * 60 * 60 * 1_000;
@@ -547,19 +547,7 @@ export async function claimPiAgentGenerationJob(input: {
           input.requestId,
         );
       }
-      const actorRunningJobs = await tx.agentGenerationJob.count({
-        where: {
-          id: { not: current.id },
-          status: "running",
-          request: { actorUserId: request.actorUserId },
-        },
-      });
-      await assertStructuralQuotaCapacity(tx, {
-        actorUserId: request.actorUserId,
-        metric: "agent.concurrent",
-        current: actorRunningJobs,
-        now,
-      });
+      await assertAgentExecutionCapacity(tx, request.actorUserId, { generationJobId: current.id }, now);
     }
     const leaseExpiresAt = new Date(now.getTime() + input.leaseTtlMs);
     try {

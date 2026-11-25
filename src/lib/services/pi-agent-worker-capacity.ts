@@ -11,7 +11,8 @@ const POOL_PATTERN = /^[a-z][a-z0-9_.:-]{0,127}$/;
 export interface PiAgentWorkerSlotFence {
   poolKey: string;
   slotNumber: number;
-  activeJobId: string;
+  activeJobId?: string;
+  activeRunId?: string;
   leaseOwner: string;
   fencingToken: number;
 }
@@ -30,7 +31,8 @@ export class PiAgentWorkerCapacityError extends Error {
 function assertInput(input: {
   poolKey: string;
   capacity: number;
-  activeJobId: string;
+  activeJobId?: string;
+  activeRunId?: string;
   leaseOwner: string;
   leaseTtlMs: number;
 }): void {
@@ -46,10 +48,11 @@ function assertInput(input: {
       `Worker pool capacity must be between 1 and ${MAX_CAPACITY}.`,
     );
   }
-  if (!input.activeJobId || !input.leaseOwner || input.leaseOwner.length > 256) {
+  if (Boolean(input.activeJobId) === Boolean(input.activeRunId) || !input.leaseOwner || input.leaseOwner.length > 256
+      || (input.activeRunId !== undefined && (!input.activeRunId || input.activeRunId.length > 256))) {
     throw new PiAgentWorkerCapacityError(
       'WORKER_POOL_INVALID',
-      'Worker slot job and owner identities are required.',
+      'Exactly one Worker job or BI run identity and an owner are required.',
     );
   }
   if (
@@ -81,7 +84,8 @@ async function databaseNow(tx: Prisma.TransactionClient): Promise<Date> {
 export async function claimPiAgentWorkerSlot(input: {
   poolKey: string;
   capacity: number;
-  activeJobId: string;
+  activeJobId?: string;
+  activeRunId?: string;
   leaseOwner: string;
   leaseTtlMs: number;
 }): Promise<PiAgentWorkerSlotClaim | null> {
@@ -118,6 +122,13 @@ export async function claimPiAgentWorkerSlot(input: {
                   AND "job"."status" = 'running'
                   AND "job"."lease_expires_at" > ${now}
               )
+              AND NOT EXISTS (
+                SELECT 1 FROM "agent_runs" AS "run"
+                WHERE "run"."id" = "agent_worker_slots"."active_run_id"
+                  AND "run"."bi_request_id" IS NOT NULL
+                  AND "run"."status" IN ('running', 'waiting', 'reconciling')
+                  AND "run"."lease_expires_at" > ${now}
+              )
             )
           )
         ORDER BY "slot_number" ASC
@@ -138,7 +149,8 @@ export async function claimPiAgentWorkerSlot(input: {
         },
         data: {
           status: 'held',
-          activeJobId: input.activeJobId,
+          activeJobId: input.activeJobId ?? null,
+          activeRunId: input.activeRunId ?? null,
           leaseOwner: input.leaseOwner,
           leaseExpiresAt,
           lastHeartbeatAt: now,
@@ -152,7 +164,7 @@ export async function claimPiAgentWorkerSlot(input: {
       return {
         poolKey: input.poolKey,
         slotNumber: available.slotNumber,
-        activeJobId: input.activeJobId,
+        ...(input.activeJobId ? { activeJobId: input.activeJobId } : { activeRunId: input.activeRunId }),
         leaseOwner: input.leaseOwner,
         fencingToken: available.fencingToken + 1,
         leaseExpiresAt: leaseExpiresAt.toISOString(),
@@ -184,7 +196,8 @@ async function mutateOwnedSlot(input: {
         poolKey: input.fence.poolKey,
         slotNumber: input.fence.slotNumber,
         status: 'held',
-        activeJobId: input.fence.activeJobId,
+        activeJobId: input.fence.activeJobId ?? null,
+        activeRunId: input.fence.activeRunId ?? null,
         leaseOwner: input.fence.leaseOwner,
         fencingToken: input.fence.fencingToken,
         leaseExpiresAt: { gt: now },
@@ -193,6 +206,7 @@ async function mutateOwnedSlot(input: {
         ? {
             status: 'free',
             activeJobId: null,
+            activeRunId: null,
             leaseOwner: null,
             leaseExpiresAt: null,
             lastHeartbeatAt: null,
@@ -223,6 +237,7 @@ export async function heartbeatPiAgentWorkerSlot(input: {
     poolKey: input.fence.poolKey,
     capacity: input.fence.slotNumber,
     activeJobId: input.fence.activeJobId,
+    activeRunId: input.fence.activeRunId,
     leaseOwner: input.fence.leaseOwner,
     leaseTtlMs: input.leaseTtlMs,
   });
@@ -266,7 +281,8 @@ export class PiAgentWorkerCapacitySession {
   static async tryClaim(input: {
     poolKey?: string;
     capacity: number;
-    activeJobId: string;
+    activeJobId?: string;
+    activeRunId?: string;
     leaseOwner?: string;
     leaseTtlMs: number;
     heartbeatIntervalMs: number;
@@ -281,6 +297,7 @@ export class PiAgentWorkerCapacitySession {
       poolKey: input.poolKey ?? 'generation.default',
       capacity: input.capacity,
       activeJobId: input.activeJobId,
+      activeRunId: input.activeRunId,
       leaseOwner: input.leaseOwner ?? `worker-slot:${process.pid}:${randomUUID()}`,
       leaseTtlMs: input.leaseTtlMs,
     });

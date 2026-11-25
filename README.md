@@ -1,185 +1,172 @@
-# Shop Gate
+# Shop Gate · 电商经营分析工作台
 
-Shop Gate 是建立在通用 Data Agent 与开源 [PI Agent](https://github.com/earendil-works/pi) 执行内核之上的零售电商经营分析应用。用户用自然语言提出经营问题，Retail Domain Pack 会组合商品/类目实体解析、真实行为数据、Skills、工具、Mission 和可视化规则，生成可运行工作空间，并通过自动验证、视觉检查、产物契约和评测链路把结果收敛到“好看、可用、可追溯”。同一套框架可以继续接入其他业务 Domain Pack，而不把业务规则写回 Agent 内核。
+从一笔成交出发，Shop Gate 可以帮你查清收到多少钱、退了多少钱、哪些商品有贡献，以及哪些成本还缺依据。经营总览和助手共用同一份订单、退款、商品成本和费用账本。你可以直接查看数字，也可以用中文提问，打开回答里的明细复核。
 
-生成内容仅用于经营复盘和辅助决策；金额为合成口径，不构成采购、定价或交易指令。
+本指南适用于 v0.1，覆盖八个经营模块、标准数据导入和经营助手。[功能对照表](docs/review/v01/feature-matrix.md)
 
-如果你是第一次打开这个项目，先选择模型与 Memory 运行方式，再把本地环境跑起来。核心链路是：真实数据进入本地库，Agent 基于 skills 生成工作空间，平台再用验证和评测把结果收紧。
+## 第一次使用：从导入到复核一笔利润
 
-## 核心能力
+从首页选择经营模块，也可以点 **独立经营对话**，选择数据后直接向助手提问。要找改版前保存的对话或下载旧文件，点 **查看历史会话与成果**，选择有权访问的会话，再打开 **成果文件**。
 
-- 通用 Data Agent：使用版本化 Task、Dataset、Connector、Domain Pack、Agent Profile、Delivery Pack 和 Execution Plan 合同组合业务能力；`DataAgentApplicationCatalog` 让 Profile Adapter 负责 workspace 初始化，项目和任务同时持久化 Profile/Domain/Delivery/capability 版本锁与 SHA-256。当前零售实现是 `retail.core`（Profile `shopgate.retail-ops`），通用 Next.js 交付实现是 `workspace.next-dashboard`。完整边界与新业务接入流程见 [Data Agent 平台与 Domain Pack 架构](docs/data-agent-architecture.md)。
-- AI 工作台：任务入口、项目聊天、工作空间预览、任务记录和自动修复链路。
-- 经营数据底座：PostgreSQL + TimescaleDB + Redis，承载应用状态、行为事件、商品/类目日聚合、合成主数据和导入任务状态。
-- 数据服务：Python/FastAPI 后端，提供经营摘要、行为漏斗、类目经营榜、商品池、库存风险、渠道口径、实体解析与数据导入接口。
-- 商品运营：商品池、品类池、渠道口径、价格带与库存风险、观察池和商品/类目实体解析。
-- 经营情报中心：围绕观察池生成证据型经营日报，沉淀类目经营榜、异动摘要、运行历史和推送回执（推送回执待通知渠道配置）。
-- LLM-first Query Rewrite：`preview` 与正式执行都由项目选中的模型生成 schema v4 语义合同，时间范围、宽域范围和 answer-only 意图必须有原文字面证据；实体 Resolver 独立确认商品/类目。模型不可用时停止规划和预取，不以关键词结果冒充成功。
-- PI Agent 执行内核 + Shop Gate 治理层：`@earendil-works/pi-agent-core` 负责完整多轮 Agent loop，模型可通过外部 OpenAI-compatible 网关接入，也可为项目显式选择 DeepSeek 官方直连；外部网关不属于本项目，Shop Gate 只依赖其公开 HTTP 协议。Shop Gate 保留上下文治理、信息增益 Observation Ledger、受信副作用工具的人工批准/编辑/拒绝、PostgreSQL generation job/事务 outbox、独立 Worker registry、数据库全局 Worker 槽位、按用户公平 claim、用户排队/运行双层结构配额、项目编排/AgentRun/Mission 分层 lease 与 fencing、共享文件系统资源锁、durable run/approval/operation ledger、预算、取消和显式结果提交。审批等待会把 AgentRun 原子切到 `waiting` 并写公开 checkpoint，决策通过后才允许 prepare/execute；Worker 丢失则关闭旧 attempt 并重新规划，不复用已批准的旧调用。Worker 启动时会持久注册进程身份与心跳，并拒绝加入全局容量配置不一致的存活集群；运行治理中心直接展示进程、槽位和队列事实。HTTP 入口只负责接收与调度，经营规划/取数由独立应用服务完成；生产 Worker 与本地 inline 模式都使用 schema v3 execution envelope，按 Profile handler 执行并核对项目、request、workspace、跨平台 scope 和组合哈希。Memory Recall 与受治理知识准备快照随任务固化，避免排队后重复检索导致 evidence 与实际输入漂移。`PiAgent*` 类型和结构化 JSON 合同由通用治理层定义，Domain Pack 只注入领域能力；内核不内置零售工具、dashboard 路径或业务 Mission。版本与边界见 [PI Agent 采用与治理边界](docs/pi-agent-migration.md)。
-- Skills 能力层：仓库 `.pi/**` 是唯一权威源，通过 registry/lock、版本与 SHA-256 完整性校验；项目初始化把参考镜像配置到 workspace `.pi/skills`，Agent 执行按 source-first/package-fallback 规则只读编译有界上下文，不从 workspace 镜像发现能力，也不解析旧 Skill ID。
-- 业务与治理：业务知识中心、评测平台和运行治理中心共同覆盖能力知识、交付契约、生成质量、工作空间健康、运行 trace 和集中日志。
-- 受治理上下文接入：通过独立 HTTP 契约组合 Memory Usage Receipt 与 AKEP ContextPack，Agent 前落无正文联合清单，Mission 验收后记录 AKEP Usage，用户明确评价后再分别回传 Memory Outcome 与 AKEP Feedback；不共享数据库或源码。
-- 生成代码隔离：build/preview 默认进入 Linux user、mount、network、PID namespace，工作区只读且不注入平台密钥；preview 只经工作区 Unix Socket 对浏览器开放，并获得一条固定目标的无凭据 commerce-data 桥接，不能访问其他宿主服务或外网。
+![经营工作台首页提供八个经营模块、数据导入和历史会话入口](docs/images/guide/business-home.jpg)
 
-## 快速启动
+### 1. 创建数据集，选择数据来源
 
-第一次启动按下面顺序来。`npm install` 的 `postinstall` 会创建缺失的 `.env` 和 `.env.local`；也可以显式执行 `ensure:env`。不要把整份 `.env.example` 复制到 `.env.local`，后者只应保存本机凭据与少量覆盖。
+登录后打开 **数据集与导入**（`/bi/data`），选择工作空间，在 **创建数据集** 填写名称。选择数据来源后，点击 **创建并选择数据集**。
+
+| 你手上的数据 | 接下来怎么做 |
+| --- | --- |
+| 想先熟悉操作 | 选 **演示：独立模拟数据**。在新建的空演示集选择业务开始日期，点击 **准备演示预览**。默认生成 3 个平台、9 家店铺、1,000 个商品规格、12,000 笔订单和 180 天的记录。随机种子控制抽样，日期控制经营期间。 |
+| 有自己的订单和费用 | 选 **正式导入**。从 **模板与字段说明** 下载所需的空白 CSV 模板，按原样保留编号中的前导零。商品、规格、订单和订单明细分别填表。上传文件后先检查预览。 |
+
+![数据集导入预览，逐项展示导入前和预计导入后的金额与订单数](docs/images/guide/import-preview.jpg)
+
+**跟着图做一遍：** [下载手算样例（12 个 CSV，ZIP）](docs/examples/manual-ledger.zip)，解压到一个文件夹。新建来源为“正式导入”的空数据集，一次选中这 12 个 CSV，点击 **检查并生成导入预览**。这些是练习记录，建议将数据集命名为“手算练习”。
+
+图中是一份方便手算的小样本。付款成交 **260 元**，退款 **96 元**，净销售额应为 **164 元**。核对文件、行数和试算金额后点击 **检查完成，确认导入**，按页面提示确认。若发现错误，点击 **下载全部校验结果**，按文件、行号和字段修正后重新预览。在批次记录中查看写入结果和新版本。
+
+想重新练习时，在已有演示集的 **准备独立演示数据** 中选择 **从头开始一份演示**，核对名称并确认。切换到新演示后选日期和随机种子，再预览、确认。原演示和分析记录仍可在列表中打开。
+
+### 2. 在经营总览确定范围
+
+从工作台首页打开 **经营总览**（`/bi/overview`），先看顶部的工作空间、数据集和版本，再选日期、平台、店铺或商品。默认最近 30 天以这份数据的最新业务日期为准。
+
+![经营总览的工作空间、数据集、日期和退款统计方式](docs/images/guide/overview-scope.jpg)
+
+用上一步的小样本复核：净销售额 **164 元**，减商品成本净额 **33 元**，再减经营费用 **10 元**，得到经营贡献 **121 元**。经营贡献用于比较这批交易覆盖的收入和支出。看到 **待核算** 时，打开对应明细查看缺少的是成本、汇率还是其他依据。
+
+#### 在渠道或店铺里核对一笔费用
+
+打开 **渠道对比** 或 **店铺分析**，选择与经营总览相同的数据集和日期。在 **搜索交易记录** 输入平台名、店铺名或平台原始订单号，然后点击 **搜索**。例如导入手算样例后，选择 2026 年 7 月 1 日至 2 日和付款日期口径，搜索“拼多多”，净销售额应为 **164 元**。
+
+展开 **查看商品成本与各项费用**。样例中拼多多共有 **10 元物流费用**，其中 **4 元**直接归属店铺 001，另有 **6 元**只归属平台。负数表示费用调减。某笔外币费用缺少汇率时，对应类别显示“待核算”，旁边列出已有金额。点击 **导出全部筛选结果** 可下载所有页，CSV 中分别列出各类费用及已核算部分。
+
+![渠道对比中展开各项费用，拼多多的净销售额为 164 元、物流费用为 10 元](docs/images/guide/channel-fees.jpg)
+
+需要核对来源时，点击 **查看付款、退款和费用**。选择记录类型，再输入来源编号。例如在上述样例中查找退款 `r1`，展开可看到平台原始订单号、人民币退款额、原币付款与退款时间。点击某家店铺行内的 **查看费用和退款**，明细会沿用这家店铺的范围。
+
+#### 从商品表现追到订单
+
+打开 **商品分析**，按商品、标准规格或平台商品查看。**按畅销程度排名** 会将净销售额最高的分组排在前面。销售与利润率分布图显示收入排名靠前的分组，展开图下的明细可以读取准确数值。
+
+用 **筛选商品表现** 找到贡献为负、利润率低于 10%、付款金额中退款超过 10% 或还有待核算记录的商品。页面写明用哪个期间和哪种商品分组进行判断。查看关联店铺、导出或向助手提问时，仍可核对同一组商品。商品排名里的平均单位售价和历史加权单位成本均以付款时的标准销量计算。查看“有成本依据的标准销量”即可判断有多少销量参与了单位成本计算。
+
+要找出哪些商品需要补资料，打开 **筛选商品表现**。选择 **付款时缺少规格成本**，可查看已有标准规格、但原订单找不到有效成本记录的商品。选择 **付款时没有对应标准规格**，列表会切换到平台商品，显示受影响的货号。两项都按订单付款时的核算记录判断。打开 **查看付款、退款和费用** 可逐笔核对；同一货号在其他订单上可能已有完整资料。
+
+要比较同一规格在不同店铺的销量，把 **查看方式** 切到 **标准规格**，在该行点击 **查看店铺** 或 **查看同款的平台表现**。在新页面可按标准销量排序，同时核对标准单位、平均单位售价、付款时的加权单位成本和有成本依据的销量。导出沿用当前对象和日期。
+
+在 **平台商品与标准规格** 中输入平台货号，例如固定核算样例的 `000001`。选择 2026 年 7 月 2 日可查看该店铺 1 包对应多少件、规则从何时生效。选择 **尚未对应** 可以找出该日期缺少换算规则的货号。目录也包含没有成交的商品，支持按编码或名称排序、每页 20 条翻页。点击行内 **查看所选期间付款明细** 可核对该货号的交易。
+
+![在商品分析中用平台货号 000001 查到商品规格 001，1 包对应 2 件](docs/images/guide/product-unit-mapping.jpg)
+
+需要修改时，在相应货号行点击 **维护规格对应**，搜索并选择标准规格，填写一份平台商品折合的标准数量及生效时间。点击 **预览规格变更** 核对原规则、新规则、有效期间和涉及的已付款明细数，再点击 **确认保存规格对应**。原订单仍可按付款时的规则核对；历史调整要另行预览并确认重算。
+
+![独立演示库中预览每包从 3 件改为 4 件，界面列出 1 条受影响的已付款明细](docs/images/guide/product-unit-preview.jpg)
+
+要核对某个货号在店铺里用的是哪笔成本，点 **查看店铺成本依据**。选好日期后，先看每件的金额、原币和来源，再查看下方列出的基础、平台和店铺成本版本。点 **查看所选期间付款明细** 可以核对订单付款时留存的成本。
+
+使用经营助手准备换算草案时，可以在目录点击 **选择此货号继续分析**，再提问“请把这个货号改为每包 4 件，标准规格是 001，从 2026 年 7 月 1 日上午 8 点开始，先给我草案”。点击答案中的 **核对商品规格换算草案**，从目录选中实际规格并核对生效时间。预览会列出原规则、新规则和受影响的已付款明细。如要生效，再点击 **确认保存规格对应**。
+
+#### 核对利润和费用
+
+打开 **利润与费用**，选择数据集和日期。每行表示该项目增加或减少了多少经营利润。以手算样例的 7 月 1 日、原订单付款日期为例，成交 260 元，退款 96 元，退货冲回后的成本为 33 元，物流费用为 10 元，经营贡献利润为 **121 元**。其中 6 元物流费用尚未分摊，在平台范围已计入总额。
+
+![手算样例的利润形成图，成交 260 元，扣除退款 96 元、商品成本 33 元和物流 10 元，经营贡献为 121 元](docs/images/guide/profit-formation.jpg)
+
+选择 **与上期相比**，可查看相同天数内每个项目带来的金额变化。上期日期覆盖不足时，只展示本期。使用 **利润分组** 比较店铺、平台或商品，点击 **导出全部筛选结果** 下载整份表。要核对来源，点击 **查看费用归属**，展开具体记录，查看来源金额和当前范围承担的金额。
+
+#### 追溯一笔退款
+
+打开 **退款与售后**。选择 **按原付款日期** 可以回答“这批订单退了多少钱”。选择 **按退款完成日期** 可以回答“今天处理了多少退款”。在手算样例中，7 月 1 日付款的两笔订单在 7 月 2 日发生三笔退款，共 96 元。退款笔数与订单数在这里有意分开。
+
+![手算样例按退款类型展开，退货退款 40 元、未发货取消 40 元、仅退款 16 元](docs/images/guide/refund-types.jpg)
+
+点击某个退款原因或类型，再展开一笔退款，可以看到原币金额、退回数量、可回收数量和冲回的商品成本。使用 **查看原单付款明细** 核对原始订单，浏览器返回即可回到先前的退款筛选。**导出全部退款** 会下载当前筛选范围内的每一笔退款。
+
+#### 查某天生效的商品成本
+
+打开 **商品成本管理**。上方经营期间决定页面汇总哪些付款、退款和费用，**成本查看日期** 决定采用哪个版本的单位成本。先选择店铺，再搜索标准规格。表格并列展示当前适用成本和基础成本，单位包含币种和标准单位。点击 **查看该规格的版本** 可按生效时间追溯来源；**导出全部当前成本** 会导出当前筛选的全部规格。
+
+![同一标准规格的三条成本记录，展示成本来源、币种和生效时间](docs/images/guide/sku-cost-history.jpg)
+
+图中的规格 001 在 7 月 2 日有三层成本。选中这家店铺时，每件采用店铺成本 3 元。切回 7 月 1 日查看，当时生效的是每件 2 美元的基础成本。历史订单使用付款时已经记录的成本。
+
+要比较一种新报价，展开规格版本，在 **试算这个规格的成本** 输入每标准单位的人民币金额，然后点击 **计算试算结果**。原账本和试算后的利润、退款冲回成本并排显示。缺少费用或汇率时，完整经营贡献会显示为「待核算」。
+
+![单位成本按每件 3 元试算后，已有依据的经营贡献从 72 元变为 94 元，完整利润仍待核算](docs/images/guide/cost-simulation.jpg)
+
+有编辑权限时，勾选一个或多个规格，选择固定金额、金额增减或百分比增减，填写生效时间、币种和原因，再点击 **预览成本调整**。核对每个规格和涉及的历史明细后，点击 **确认保存成本版本**。已有订单仍使用原核算结果。需要重新计算历史订单时，展开 **重新核算历史付款**，选择付款期间与规格，核对预览后确认。已保存的改价和重算可在 **成本维护记录** 查看。
+
+#### 将常用查询保存为报表
+
+打开 **报表中心**，选择日期、店铺和报表类型。在 **订单行明细** 输入订单编号（例如手算集的 `o1`）并点击 **搜索**。打开 **选择显示列** 勾选需要的项目，点击列名可以排序。
+
+![报表中心按订单编号 o1 搜索，显示付款成交 160 元、付款时成本 56 元和已核算经营贡献 72 元](docs/images/guide/operating-reports.jpg)
+
+点击 **导出全部匹配行** 下载当前筛选和列对应的 CSV。翻页只改变屏幕上看到的行。在 **我的报表视图与专题** 输入名称并点击 **保存当前视图**；下次登录后，点 **打开** 即可在当前数据版本重用日期、筛选、列和排序。标准模板、数据导入和批次记录可从表格下方的链接进入。
+
+要保留某次分析，在报表页向助手提问，展开回答里的依据核对数据，再点 **将这次回答保存为专题**，填写名称并确认。数据更新后，专题仍显示原回答及它使用的版本。
+
+### 3. 向助手提问并检查答案
+
+在总览下方的 **经营助手** 输入：“按当前日期范围，对比各店铺的净销售额和已核算经营贡献，列出明细并画柱状图。”选择已配置的模型，点击 **发送问题**。回答、图表和明细关联到提问时的数据版本。
+
+![助手按店铺展示经营贡献，两家店铺分别为 72 元和 55 元，未归属项为负 6 元](docs/images/guide/assistant-stores.jpg)
+
+在手算样例中，两家店铺分别贡献 **72 元**和 **55 元**，另有 **−6 元**未归属费用，三项合计 **121 元**。点击 **查看依据** 可复核每一项。导入、翻页和刷新都无需再次调用模型。
+
+![较大演示集的依据表第 19 页，包含未归属收入、费用及待核算原因](docs/images/guide/assistant-evidence.jpg)
+
+上图换用 180 天演示集。该次查询有 363 项结果，每页 20 项，最后一页仍可访问。未归属项表示部分交易或费用还无法对应到具体商品。若同一笔记录同时缺少成本与规格映射，两条原因都会显示，不能把条数相加当作订单数。
+
+### 4. 修改月度目标
+
+有维护权限的成员可以在总览的月度目标中选择店铺和月份，点击 **修改目标**。填写目标后点击 **预览目标变更**，核对原值、新值和店铺，再确认保存。
+
+![店铺月度目标变更预览，净销售额目标从未设定改为 600 元，经营贡献目标改为 100 元](docs/images/guide/target-preview.jpg)
+
+图中店铺当月净销售额是 **60 元**。将该月净销售额目标设为 **600 元**后，对应完成率为 **10%**。月份按店铺的完整自然月统计。也可以在选中店铺后告诉助手“把这家店 7 月的净销售额目标改为 1,200 元，经营贡献目标保持原值”。点击回答中的 **核对月度目标草案** 查看两项金额。若确实要取消原有的经营贡献目标，请在编辑器中清空该项，再预览和确认。
+
+### 5. 找回以前的会话和成果
+
+在首页点击 **查看历史会话与成果**，选择会话后打开 **会话内容** 或 **成果文件**。每页有 20 项，文件夹可以逐层打开。原会话书签仍可使用，会转到对应的只读记录。要复查原先按浏览、加购、购买估算的数值，请在历史页面选择 **历史行为分析**。按实付订单核对金额请打开 **经营总览**。
+
+## 本地启动
+
+准备 Node.js 22.19 或更高版本、npm、uv、Python 3.14 及 Docker。以下命令在产品仓库根目录执行。首次运行建议使用独立开发数据库。
 
 ```bash
-npm install
+npm ci
 npm run ensure:env
-```
-
-使用外部模型网关时，只需在 `.env.local` 添加该服务签发的受限客户端凭据：
-
-```dotenv
-MODELPORT_API_KEY="replace-with-scoped-external-gateway-client-key"
-```
-
-本地 Qwen 是默认模型，日常 DeepSeek 可通过外部模型网关使用。网关上游凭据只保存在外部服务；如果明确使用官方直连，则在 Shop Gate 注入 `DEEPSEEK_API_KEY`，并显式选择 `deepseek-v4-flash`。Memory 是独立可选组件，可用 `SHOPGATE_MEMORY_ENABLED=0` 完全关闭。
-
-跨平台作用域采用 Consumer + Workspace 两层隔离：外部模型网关客户端凭据固定绑定 Shop Gate 项目账本，Memory 使用 Shop Gate 独占 tenant，AKEP 每轮只查询 shared Space 与当前 `Project.id` 派生的 project Space；统一作用域摘要写入数据库和 workspace evidence。详见 [联合上下文与项目隔离](docs/context-composition.md)。
-
-| 运行方式 | `.env.local` 最小配置 | 额外动作 |
-| --- | --- | --- |
-| 推荐：Qwen + 外部网关 DeepSeek | `MODELPORT_API_KEY=...` | 在外部网关配置 Qwen 与 DeepSeek provider |
-| 只使用 Qwen | `MODELPORT_API_KEY=...` | 外部网关客户端 Key 只授权 `local_qwen` 即可 |
-| DeepSeek 官方直连 | `DEEPSEEK_API_KEY=...` | 项目/全局设置选择 `deepseek-v4-flash` |
-| 不启用 Memory | `SHOPGATE_MEMORY_ENABLED=0` | 无需启动或配置 Memory 服务 |
-
-完整的文件优先级、可复制组合、生产 secret 边界和验证命令见 [配置、模型接入与可选组件指南](docs/configuration.md)。
-
-```bash
+uv sync --project services/commerce-data
 npm run db:up
 npm run db:init
 ```
 
-如需集中日志和 Grafana 排查界面，可再启动本地可观测性组件：
+1. 按[本地认证说明](docs/authentication.md)配置登录账号及工作空间权限。按[经营接口配置](docs/review/v01/bi-http.md)分别配置 Web、经营数据服务和服务间签名。所需变量见[经营运行配置样例](deploy/examples/bi-runtime.conf.example)，工作进程、迁移和维护账号各有独立样例。
+2. 经营账本使用独立迁移入口。配置迁移连接后，执行下面的命令。已有经营数据的环境先按[备份恢复手册](docs/review/v01/backup-recovery.md)完成备份与恢复演练。
+3. 启动 Web 和经营数据服务，在第二个终端按[数据任务配置](docs/review/v01/bi-jobs.md)启动导入导出进程。若要使用演示数据，在演示环境开启 `SHOPGATE_BI_DEMO_ENABLED=1`。
 
 ```bash
-npm run obs:up
-```
-
-在项目根目录启动完整开发栈。`npm run dev` 调用 `scripts/dev/run-full.js`，先启动或复用 commerce-data，再由 `run-web.js` 完成端口选择、环境文件同步、稳定 CSS 生成、数据库 schema 检查、Next dev 缓存清理和 Web 启动：
-
-```bash
+uv run --project services/commerce-data python -m shopgate_commerce_data.ledger.migrations
 npm run dev
 ```
 
-默认访问 `http://localhost:3000`。如果 `3000` 被占用，启动器会在 `3000-3099` 内选择可用端口并同步 `.env` / `.env.local` 中的 `PORT`、`WEB_PORT` 和 `NEXT_PUBLIC_APP_URL`。生成项目预览端口池从 `4100` 开始；本地 Loki 默认映射到宿主机 `33100`，不要把主前端长期放到这些端口上。
+```bash
+# 第二个终端，使用数据任务专用的运行配置
+uv run --project services/commerce-data shopgate-bi-worker
+```
 
-不启动 Loki/Grafana 时，运行治理中心会自动降级到本地文件日志；不启动 commerce-data 后端时，商品运营与经营情报页面只能展示有限兜底信息。
+在启动日志显示的地址登录，默认端口为 3000。使用经营助手时，为 Web 和助手进程配置授权模型。使用 DeepSeek 官方直连时，通过私有环境注入 `DEEPSEEK_API_KEY`，启用 Agent，在另一个终端运行 `npm run worker:bi`，然后在页面选中 DeepSeek。查看与导入账本可独立于模型运行。[模型与服务配置](docs/configuration.md) · [助手进程说明](docs/review/v01/agent-scopes.md)
 
-## 常用入口
+## 遇到问题
 
-| 入口 | 地址 | 说明 |
-| --- | --- | --- |
-| AI 工作台 | `http://localhost:3000` | 创建任务、进入项目聊天和预览 |
-| 商品运营 | `http://localhost:3000/commerce-platform` | 商品池（分页/排序）、品类池、渠道口径与价格带库存风险 |
-| 经营情报 | `http://localhost:3000/operations-briefing` | 经营日报、类目经营榜、观察池与日报生成/持久化 |
-| Skills 管理 | `http://localhost:3000/skills` | 编辑、发布、回滚和导入核心 skills |
-| 业务知识中心 | `http://localhost:3000/business-knowledge` | 查看零售能力、典型场景、交付规范和执行依赖 |
-| 运行治理中心 | `http://localhost:3000/ops-platform` | 统一查看 Worker/队列、服务依赖、工作空间交付、生成链路和运行日志 |
-| 评测平台 | `http://localhost:3000/eval-platform` | 运行评测、管理评测集、查看队列和报告 |
-
-## 常用命令
-
-| 场景 | 命令 |
+| 页面提示或现象 | 可以怎样处理 |
 | --- | --- |
-| 完整开发环境（前端 + commerce-data） | `npm run dev` |
-| 仅启动主前端 | `npm run dev:web` |
-| 仅启动 commerce-data 后端 | `npm run dev:commerce` |
-| 指定主前端端口 | `npm run dev -- --port 3000` |
-| 单元与后端测试 | `npm test` |
-| 确定性发布质量门 | `npm run release:check` |
-| 含依赖审计与运行态诊断 | `npm run release:check:full` |
-| 数据库启动 | `npm run db:up && npm run db:init` |
-| 数据库检查 | `npm run db:doctor` |
-| 本地单次消费 generation job | `PI_AGENT_DISPATCH_MODE=worker npm run worker:generation:once` |
-| 导入或重建零售数据 | `cd services/commerce-data && uv run shopgate-commerce-import --help` |
-| 检查公开零售基准契约 | `npm run check:retail-e2e` |
-| 要求最近一次真实零售 E2E 证据 | `npm run check:retail-e2e -- --require-evidence` |
-| 初始化/维护登录管理员 | `npm run auth:bootstrap` |
-| 验证完整用户生命周期 | `npm run auth:verify` |
-| 清理过期认证数据与配额预留 | `npm run auth:cleanup` |
-| Redis CLI | `npm run redis:cli` |
-| 可观测性启动 | `npm run obs:up` |
-| 可观测性日志 | `npm run obs:logs` |
-| Skills 检查 | `npm run check:skills` |
-| 验证修复链路检查 | `npm run check:validation-repair` |
-| 首页视觉 smoke | `npm run check:homepage` |
-| 全平台响应式视觉 smoke | 启动 Web 后运行 `npm run check:platform-visuals` |
-| commerce-data 后端 | `cd services/commerce-data && uv run shopgate-commerce-api` |
-| 后端质量门 | `cd services/commerce-data && uv run ruff check . && uv run pytest` |
-| 文档本地链接检查 | `npm run check:docs` |
-| 四类生成模板真实构建 | `npm run check:scaffold-templates` |
-| 模型配置边界检查 | `npm run check:ai-provider-boundary` |
-| 模型目录与凭据连通性检查 | `npm run check:models` |
-| Qwen、外部网关 DeepSeek、Memory 基础契约联调 | `npm run check:integrations` |
-| 外部模型网关、Memory、AKEP 30 题真实体验验收 | `npm run check:triad-experience` |
-| 四组自然语言变体、共 120 题真实压力验收 | `npm run check:triad-experience:large` |
-| 50 题 Qwen + Memory + AKEP 持久闭环验收 | 先在 AKEP 运行 `pnpm seed:shopgate-acceptance-50 -- --output=<manifest>`，再运行 `npm run check:memory-knowledge-50 -- --manifest=<manifest>`；数据默认保留 |
-| 创建真实任务、生成 Workspace 并验收预览 | `npm run check:task-e2e -- --campaign=<批次>`（完整通过后自动清理测试项目） |
+| 已上传文件，经营金额还没变 | 打开处理任务详情查看状态。“预览已完成”后还要确认写入，再核对版本和批次。 |
+| 预览过期，或版本已变化 | 以当前版本重新预览，再核对新试算值。 |
+| 总览为空 | 检查数据集、业务日期及筛选，确认有已写入的订单。查看核算提醒可了解缺少哪些数据。 |
+| 可以看总览，不能发起分析 | 查看助手显示的权限、模型和处理服务状态。管理员可检查助手 Worker、模型配置及配额。 |
+| 要查看旧项目对话或维护运行环境 | 从原项目入口打开历史会话。运维命令和配置见[文档目录](docs/README.md)、[运行手册](docs/operations-runbook.md)和[发布手册](docs/release-runbook.md)。 |
 
-## 文档导航
-
-配置、架构和运行文档统一从 [docs/README.md](docs/README.md) 进入；数据库与 E2E 清理先读
-[数据生命周期与安全清理](docs/data-lifecycle.md)，不要凭表名或创建时间直接删除数据。
-
-项目知识集中放在 `docs/`。根 README 只放少量入口，完整索引看 [文档总览](docs/README.md)。
-
-| 你要做什么 | 入口 |
-| --- | --- |
-| 不知道从哪篇开始 | [文档总览与角色路径](docs/README.md) |
-| 想选择模型、关闭 Memory 或理解 `.env` | [配置、模型接入与可选组件指南](docs/configuration.md) |
-| 想系统了解项目 | [文档总览](docs/README.md) |
-| 想参与开发或判断代码放哪 | [项目结构与分层边界](docs/project-structure.md) / [模块边界](docs/module-boundaries.md) |
-| 想理解或扩展 Agent 框架 | [PI Agent 采用与治理边界](docs/pi-agent-migration.md) / [PI Agent 架构](docs/pi-agent.md) |
-| 想查接口、字段或数据源口径 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) / [零售数据接入](docs/commerce-data-ingestion.md) |
-| 想做经营日报 | [经营情报](docs/architecture.md) / [API 总览](docs/api-reference.md) |
-| 想排障或做发布前检查 | [运行手册](docs/operations-runbook.md) / [故障排查](docs/troubleshooting.md) |
-| 想启用登录或配置权限/用量配额 | [用户、权限、配额与会话管理](docs/authentication.md) |
-| 想接入、使用或排查用户记忆 | [用户记忆服务接入、使用与效果验证](docs/user-memory-integration.md) |
-| 想理解 Memory、Knowledge 与 Shop Gate 的联合归因 | [联合上下文与结果归因](docs/context-composition.md) |
-| 想看后续优先级 | [持续完善路线图](docs/ROADMAP.md) |
-
-## 推荐学习路径
-
-如果是第一次接触项目，建议按这个顺序读：
-
-| 阶段 | 文档 | 目标 |
-| --- | --- | --- |
-| 先找阅读路径 | [文档总览与角色路径](docs/README.md) | 按启动、开发、排障、策略、评测、skills 等目标选择阅读顺序 |
-| 选择运行拓扑 | [配置、模型接入与可选组件指南](docs/configuration.md) | 选择外部模型网关、官方直连和 Memory 开关 |
-| 先建立全局图 | [架构总览](docs/architecture.md) | 知道产品、数据、生成和质量四条主线 |
-| 再跑通本地环境 | [基础设施配置](docs/infrastructure.md) | 拉起数据库、后端、前端和可选观测组件 |
-| 理解内部组件 | [内部组件学习指南](docs/internal-components.md) | 把页面、服务、数据、Skills、验证和运维串起来 |
-| 学会生成链路 | [生成工作空间契约](docs/generated-workspace-contract.md) | 理解 run plan、data、evidence、validation 和 repair plan |
-| 学会数据与商品运营 | [零售数据接入](docs/commerce-data-ingestion.md) | 理解行为事件、商品池、渠道口径和合成主数据 |
-| 学会查接口和字段 | [API 总览](docs/api-reference.md) / [数据字典](docs/data-dictionary.md) | 知道页面读哪个接口、字段来自哪里 |
-| 学会 Skills | [Skills 治理规范](docs/skills-governance.md) | 知道如何修改、发布、打包和验证 skill |
-| 看后续优先级 | [持续完善路线图](docs/ROADMAP.md) | 知道哪些事该先做，哪些事暂时不该做 |
-
-文档维护也算项目能力的一部分。改代码时如果改变了页面入口、组件职责、数据字段、环境变量、SQL 或 skill 行为，请同步更新对应文档；具体写法见 [文档写作风格指南](docs/documentation-style-guide.md)。
-
-## 本地数据与 Git 边界
-
-以下内容默认不进入 Git：`.env`、`.env.local`、`.next/`、`node_modules/`、`data/`、`tmp/`、`public/uploads/`、`public/generated/`、`services/commerce-data/.venv/`、`services/**/.ruff_cache/`。
-
-首次使用需要的 PostgreSQL / TimescaleDB SQL 放在 `sqls/`。生成工作空间源码和大产物放在 `data/projects/`，平台数据库只保存索引、状态和摘要。
-
-## 本地可观测性
-
-`npm run obs:up` 会拉起 Loki、Grafana 和 Grafana Alloy。Alloy 会采集 Docker 容器日志，并读取 `tmp/runtime/*.log`、评测队列日志和 Next.js dev 日志写入 Loki。Loki 容器端口 `3100` 默认映射到宿主机 `33100`；Grafana 容器端口 `3000` 默认映射到 `http://localhost:33012`，账号密码来自 `.env`。运行治理中心的“日志”页会优先展示 Loki 集中日志，同时保留本地文件日志兜底。
-
-## 前端启动模式
-
-主前端不再接入 `next-rspack` 或自定义 bundler 切换逻辑。`npm run dev` 直接启动 `next dev`，Next.js 16 在开发态使用自己的默认链路；项目侧只保留启动前后的工程保护：
-
-- `scripts/dev/setup-env.js`：确保 `.env`、`.env.local`、`data/projects/` 存在，并写入主前端端口、应用 URL 和预览端口池。
-- `scripts/dev/run-web.js`：生成稳定 Tailwind CSS，探测降级组件恢复情况，必要时同步 Prisma schema，清理过期 Next dev lock/cache，再启动 `npx next dev`。
-- `scripts/build/run-build.js`：生产构建入口；默认跳过耗时的 per-route output tracing，需要桌面或 standalone 产物时使用 `npm run build:standalone`。
-
-## 降级模式
-
-`.env` 中的 `SHOPGATE_DEGRADATION_MODE` 控制组件缺失时的行为：`auto` 适合本地开发，可选组件缺失时自动降级；`strict` 适合 CI/生产，必需组件缺失会失败；`offline` 会跳过多项可选外部组件探测，优先使用本地兜底。只关闭一个组件应使用其 `ENABLED=0`，例如不启用 Memory 使用 `SHOPGATE_MEMORY_ENABLED=0`，不要为了关闭单一组件切到 `offline`。完整开关见 [配置指南](docs/configuration.md)。
+授权条款见 [LICENSE](LICENSE)。

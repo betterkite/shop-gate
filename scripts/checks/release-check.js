@@ -29,6 +29,8 @@ if (includeE2eEvidence) {
   }
 }
 
+const hostedLive = includeE2eEvidence && process.env.GITHUB_ACTIONS === 'true';
+const liveBenchmark = 'Generate current-build live Mission E2E evidence';
 const checks = [
   ['AI provider boundary', 'npm', ['run', 'check:ai-provider-boundary'], ROOT],
   ['PI Agent Worker runtime', 'npm', ['run', 'check:pi-agent-worker-runtime'], ROOT],
@@ -41,7 +43,7 @@ const checks = [
   ['Backend architecture', 'npm', ['run', 'check:backend-architecture'], ROOT],
   ['Module boundaries', 'npm', ['run', 'check:module-boundaries'], ROOT],
   ['Service catalog', 'npm', ['run', 'check:service-catalog'], ROOT],
-  ['Retail E2E dataset guardrails', 'npm', ['run', 'check:retail-e2e', '--', '--require-evidence'], ROOT],
+  ['Retail E2E dataset guardrails', 'npm', ['run', 'check:retail-e2e', '--', includeE2eEvidence ? '--dataset-only' : '--require-evidence'], ROOT],
   ['Benchmark coverage', 'npm', ['run', 'check:benchmark-coverage'], ROOT],
   ['Evaluation dataset and snapshot contracts', 'npm', ['run', 'check:eval-datasets'], ROOT],
   ['Evaluator mutation kill-rate', 'npm', ['run', 'check:eval-mutations'], ROOT],
@@ -50,7 +52,7 @@ const checks = [
   ['Frontend unit tests', 'npm', ['run', 'test:unit'], ROOT],
   ['Frontend types', 'npm', ['run', 'type-check'], ROOT],
   ['Backend lint', 'uv', ['run', 'ruff', 'check', 'src', 'tests'], COMMERCE_DATA_ROOT],
-  ['Backend tests', 'uv', ['run', 'pytest', '-q'], COMMERCE_DATA_ROOT],
+  ['Backend tests', 'npm', ['run', 'test:backend'], ROOT],
   ['Production build', 'npm', ['run', 'build'], ROOT],
 ];
 
@@ -96,9 +98,10 @@ if (includeE2eEvidence) {
       ROOT,
     ],
     [
-      'Generate current-build live Mission E2E evidence',
-      'npm',
+      liveBenchmark,
+      hostedLive ? 'bash' : 'npm',
       [
+        ...(hostedLive ? ['scripts/checks/hosted-release-benchmark.sh'] : []),
         'run', 'benchmark:commerce:e2e', '--',
         '--model', evidenceModel,
         '--concurrency', '1',
@@ -106,6 +109,7 @@ if (includeE2eEvidence) {
       ],
       ROOT,
     ],
+    ['Verify generated retail evidence', 'npm', ['run', 'check:retail-e2e', '--', '--require-evidence'], ROOT],
     [
       'Current-build live Mission E2E evidence',
       'npm',
@@ -131,9 +135,11 @@ const results = [];
 for (const [name, command, args, cwd] of checks) {
   console.log(`\n[release] ${name}`);
   const stepStartedAt = performance.now();
+  const env = { ...process.env };
+  if (hostedLive && name !== liveBenchmark) delete env.DEEPSEEK_API_KEY;
   const result = spawnSync(command, args, {
     cwd,
-    env: process.env,
+    env,
     shell: false,
     stdio: 'inherit',
   });

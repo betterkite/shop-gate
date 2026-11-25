@@ -536,19 +536,30 @@ async function createOrResumeCase(input: {
   };
 }
 
-async function verifyTaskDrawer(context: BrowserContext, campaign: string, expected: number): Promise<number> {
+async function verifyCampaignHistory(context: BrowserContext, campaign: string, expected: string[]): Promise<number> {
   const page = await context.newPage();
+  const found = new Set<string>();
   try {
-    await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.getByRole('button', { name: /^项目/u }).first().click();
-    const search = page.getByLabel('搜索任务记录');
-    await search.waitFor({ state: 'visible', timeout: 10_000 });
-    await search.fill(`[E2E ${campaign.toUpperCase()}/`);
-    const rows = page.locator('.task-drawer-row');
-    await rows.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
-    const count = await rows.count();
-    assert(count === expected, `Task drawer exposes ${count} campaign projects, expected ${expected}.`);
-    return count;
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('link', { name: '查看历史会话与成果', exact: true }).click();
+    const pages = page.getByRole('navigation', { name: '历史记录分页' });
+    for (let number = 1; ; number++) {
+      await pages.getByText(new RegExp(`第 ${number} /`)).waitFor();
+      const links = page.locator('main li a[href^="/history?project="]');
+      for (const href of await links.evaluateAll(items => items.map(item => item.getAttribute('href')!))) {
+        const id = new URL(href, baseUrl).searchParams.get('project');
+        if (id?.startsWith(`project-e2e-${campaign}-`)) {
+          assert(!found.has(id), `Duplicate history entry for ${id}.`);
+          found.add(id);
+        }
+      }
+      const next = pages.getByRole('button', { name: '下一页' });
+      if (await next.isDisabled()) break;
+      await next.click();
+    }
+    assert(found.size === expected.length && expected.every(id => found.has(id)),
+      `History exposes ${found.size} campaign projects, expected ${expected.length}.`);
+    return found.size;
   } finally {
     await page.close();
   }
@@ -699,10 +710,9 @@ async function main(): Promise<void> {
       }
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, selected.length) }, () => worker()));
-    const campaignProjectCount = [...knownProjects]
-      .filter((projectId) => projectId.startsWith(`project-e2e-${campaign}-`))
-      .length;
-    const drawerCount = await verifyTaskDrawer(context, campaign, campaignProjectCount);
+    const campaignProjects = [...knownProjects]
+      .filter((projectId) => projectId.startsWith(`project-e2e-${campaign}-`));
+    const drawerCount = await verifyCampaignHistory(context, campaign, campaignProjects);
     await writeReport(drawerCount);
     const ordered = selected.map((item) => results.get(item.id)!);
     const passed = ordered.filter((item) => item.passed).length;

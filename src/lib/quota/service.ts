@@ -39,7 +39,9 @@ import type {
 import { QUOTA_WINDOW_TYPES } from "./types";
 import { calculateQuotaWindow } from "./window";
 
-type QuotaClient = Pick<PrismaClient, "$transaction" | "quotaReservation">;
+type QuotaClient = Pick<PrismaClient, "quotaReservation"> & {
+  $transaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>;
+};
 type QuotaTransaction = Prisma.TransactionClient;
 type BucketCounters = Pick<UsageBucket, "used" | "reserved">;
 type DeferredQuotaFailure = { deferredQuotaError: QuotaError };
@@ -1107,6 +1109,15 @@ export function createQuotaService(client: QuotaClient = prisma) {
   };
 }
 
+/** Use only inside an existing database transaction. Quota locks, reservations
+ * and usage commit or roll back together with the accepted business operation. */
+export function createTransactionalQuotaService(tx: Prisma.TransactionClient) {
+  return createQuotaService({
+    quotaReservation: tx.quotaReservation,
+    $transaction: (callback) => callback(tx),
+  });
+}
+
 const quotaService = createQuotaService();
 
 export const resolveQuotaPolicy = quotaService.resolvePolicy;
@@ -1121,7 +1132,7 @@ export const consumeQuota = quotaService.consume;
 export async function cleanupExpiredQuotaReservations(
   options: { now?: Date; batchSize?: number; client?: QuotaClient } = {},
 ): Promise<{ scanned: number; expired: number }> {
-  const client = options.client ?? prisma;
+  const client: QuotaClient = options.client ?? prisma;
   const now = options.now ?? new Date();
   const batchSize = Math.min(1_000, Math.max(1, options.batchSize ?? 200));
   return client.$transaction(async (tx) => {

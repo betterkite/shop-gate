@@ -73,6 +73,7 @@ describe('PI Agent Worker process registry', () => {
   it('registers a live process after serializing the pool configuration', async () => {
     await expect(registerPiAgentWorkerInstance(registrationInput())).resolves.toEqual({
       id: workerId,
+      workerKind: 'project_generation',
       poolKey: 'generation.default',
       hostname: 'worker-a',
       processId: 42,
@@ -84,6 +85,17 @@ describe('PI Agent Worker process registry', () => {
     });
     expect(mocks.transactionClient.$queryRaw).toHaveBeenCalledTimes(2);
     expect(mocks.transactionClient.agentWorkerInstance.upsert).toHaveBeenCalled();
+  });
+
+  it('registers BI capability explicitly without splitting the global capacity pool', async () => {
+    const registered = await registerPiAgentWorkerInstance({ ...registrationInput(), workerKind: 'bi_analysis' });
+    expect(registered).toMatchObject({ workerKind: 'bi_analysis', poolKey: 'generation.default' });
+    expect(mocks.transactionClient.agentWorkerInstance.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ poolKey: 'generation.default', globalConcurrency: { not: 4 } }),
+    }));
+    const call = mocks.transactionClient.agentWorkerInstance.upsert.mock.calls[0][0];
+    expect(call.create.workerKind).toBe('bi_analysis');
+    expect(call.update.workerKind).toBe('bi_analysis');
   });
 
   it('fails closed when another live Worker advertises a different global capacity', async () => {

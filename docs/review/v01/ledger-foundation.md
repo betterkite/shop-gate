@@ -1,0 +1,47 @@
+# R1-A 账本底座与隔离验证
+
+对应 [#84](https://github.com/betterkite/shop-gate/issues/84)。这是底座，不是八页BI或完整核算引擎。新领域位于 `services/commerce-data/src/shopgate_commerce_data/ledger/`，旧行为分析和数据保持不变；没有新增匿名经营数据HTTP入口。
+
+## 显式迁移
+
+在产品checkout运行：
+
+先由私有系统显式提供 `SHOPGATE_BI_MIGRATION_DATABASE_URL`，明确已审核的迁移目标和管理员。命令不加载dotenv，不回退Web/日常 `DATABASE_URL`；空模板为 `deploy/examples/bi-migration.conf.example`。备份及新集群恢复步骤见[备份、恢复与重启](backup-recovery.md)。
+
+```bash
+uv run --project services/commerce-data python -m shopgate_commerce_data.ledger.migrations
+```
+
+只有操作者显式运行才迁移，API启动不自动执行DDL。目标库先备份、演练恢复，再审核迁移。006独立新增`bi`，不转换旧`commerce`数据。迁移、checksum和DDL使用一个事务与迁移锁；重复调用核对校验。已应用版本变更须新增迁移，不得改写历史。
+
+schema包含空间/数据集与版本、平台/店铺/商品/标准规格/平台商品、映射、汇率、成本版本、订单行、历史核算快照、退款、费用分摊、目标/视图/批次和预览/幂等/审计。业务外键包含同空间和数据集；订单与平台商品店铺一致。映射及同层成本生效区间不重叠；完成退款累计金额/平台数量不超过原行。历史快照、幂等结果及审计不可覆盖或删除；以新revision保留重算证据。
+
+版本化迁移位于`sqls/ledger/`，普通`db:init`与Docker首次建库的根目录SQL扫描不执行它；必须使用上述校验迁移入口。不会在日常启动时自动接管用户账本。
+
+R1-A不负责全部核算公式、批量导入或业务查询，不能把schema存在当作AC项全部通过。历史快照保留revision，后续重算需显式操作。
+
+## 精度与授权
+
+不隐式四舍五入的numeric域：金额2位、数量/单位成本4位、汇率8位；拒绝非有限值、符号违规、溢出及超精度。领域拒绝binary float；API协议用十进制字符串，未知用null，不补0/1。退款数量使用原平台单位，通过付款快照换算标准数量。
+
+网关`src/lib/bi/gateway-scope.ts`从已有登录会话和能力服务取actor；个人空间固定为当前actor的account空间，共享空间必须经project.read验证成员关系。编辑权限同时要求owner/editor角色与经营管理能力。关闭登录时的本地管理员兼容旁路不用于账本。只签发绑定空间、数据集、actor、版本和能力的两分钟授权，浏览器身份字段不参与授权。
+
+双方配置相同`SHOPGATE_BI_SERVICE_SECRET`（至少32字节），空配置拒绝签发，不能以NEXT_PUBLIC暴露。Python严格验证签名、目标、时间和字段；事务核对实际数据集及版本。token只供服务间调用，不返回页面或给模型。HTTP业务接入仍在后续阶段，本片不声称已有前端闭环。
+
+运行时独立非超级用户、NOBYPASSRLS，不能使用迁移管理员。repository拒绝绕过RLS的角色，事务内绑定范围，事务结束清空；所有业务表强制RLS。模型不获取数据库凭据、不传入SQL或代码。
+
+预览不改变经营版本。确认先验证明确用户动作，再在数据集锁下核对actor、版本、过期、是否使用和幂等。业务、版本、幂等、预览消费与审计同事务提交；失败全部回滚。相同提交重放返回原结果；同键不同预览/用户拒绝；无业务变化不递增版本。
+
+## 真实PostgreSQL验证与恢复边界
+
+```bash
+npm run test:backend
+```
+
+入口保留原有pytest全量选择，创建独立临时PostgreSQL18集群，与当前Timescale服务的PG主版本一致，完全不用日常`DATABASE_URL`；测试后只清理本次mkdtemp目录。使用正式PG二进制，不是mock/SQLite。开发依赖固定版本，锁文件记录平台包完整性；生产仍使用运维提供的PG。早期PG17兼容性结果仅是历史记录，当前revision仍须重新验证。
+
+二进制包见 [embedded-postgres官方说明](https://github.com/leinelissen/embedded-postgres)。若隔离容器的非root UID缺少passwd条目，测试子进程临时加载本项目UID解析helper；不改passwd/UID、不创建系统用户；root运行直接拒绝。helper不用于产品运行时。
+
+测试覆盖重复迁移/校验、DDL回滚、精度、复合引用、RLS、角色、预览确认、权限、过期、幂等、回滚、并发、无变化版本及真实集群重启。通过数量在执行后登记，不提前宣称通过。
+
+用户数据库未执行迁移或重启。R2已在另一私有PG18集群完成已有87表/实际权限/手算121恢复，并重启本次原集群及三个服务；范围与失败修复见[恢复记录](backup-recovery.md)。正式迁移前仍须针对真实目标演练恢复并审核权限，R3–R7新增功能还须覆盖。禁止自动删schema回滚；采用备份恢复或新前向迁移。

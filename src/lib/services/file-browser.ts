@@ -114,7 +114,7 @@ export class FileBrowserError extends Error {
 
 function resolveRepoRoot(project: Project): string {
   const repoPath =
-    project.repoPath || path.join('data', 'projects', project.id);
+    project.repoPath || path.join(process.env.PROJECTS_DIR || './data/projects', project.id);
   const absolutePath = path.isAbsolute(repoPath)
     ? repoPath
     : path.resolve(/*turbopackIgnore: true*/ process.cwd(), repoPath);

@@ -1,6 +1,6 @@
 # Shop Gate SQL Bootstrap
 
-`sqls/` 保存 Shop Gate 组件第一次使用时需要的基础数据库对象。所有 SQL 都应保持可重复执行，方便 Docker 首次建库、已有本地库补齐和后续部署检查。
+`sqls/` 根目录保存首次使用的可重复bootstrap对象；`sqls/ledger/`保存独立BI的版本化迁移，只由显式事务/校验入口执行，不进入普通初始化扫描。
 
 ## 执行顺序
 
@@ -11,6 +11,7 @@
 | `003-commerce-platform.sql` | 平台基础组件 | 数据导入任务、同步水位、数据质量扫描和通用平台任务表（已按零售 schema 落地） |
 | `004-commerce-analytics-contract.sql` | 经营分析数据契约 | 追加式扩展数据集契约，以及用户、会话、渠道、活动、订单、商品经济、库存快照、价格实验观察、用户级分组证据和用户级实验结果表；所有数据集按 `dataset_id` 隔离 |
 | `005-commerce-analytics-orchestration.sql` | 经营分析跨服务编排 | 为导入/看板任务增加 `project_id` 与幂等键，并提供可重试的分析编排事件 outbox |
+| `ledger/006-bi-ledger.sql` | v0.1独立经营账本 | 仅通过Python ledger.migrations执行，保留checksum/事务历史，不进入上面bootstrap顺序 |
 
 主业务表由 Prisma 维护，不在这里手写：
 
@@ -32,13 +33,13 @@ npm run db:init
 npm run db:doctor
 ```
 
-`npm run db:init` 会按顺序执行 `sqls/*.sql`，然后运行 `prisma db push` 同步 Prisma 管理的应用表。已有数据库也可以重复执行该命令。
+`npm run db:init`会按顺序执行根目录`sqls/*.sql`，再运行Prisma版本迁移与默认权限初始化；已有数据库可重复执行。它不执行`ledger/`子目录。BI账本的显式迁移、运行角色与恢复边界见 [账本底座说明](../docs/review/v01/ledger-foundation.md)。
 
 表字段、来源和页面使用位置见 [数据字典](../docs/data-dictionary.md)。真实/合成口径标注见 PRD §5；如果新增 SQL 表或字段，需要同步更新这里和数据字典。
 
 ## 规则
 
-- SQL 必须使用 `IF NOT EXISTS` 或等价方式，避免重复执行失败。
+- bootstrap SQL必须使用`IF NOT EXISTS`等方式；版本化ledger SQL由迁移器校验并只应用一次，已安装的版本不能静默改写。
 - 行为事件流与聚合表放在 `commerce` schema。
 - 真实数据（行为流、类目/商品 ID）与合成数据（价格/库存/品牌/店铺）必须在表注释和字段标注中可区分（PRD §5.3 红线）。
 - 扩展分析数据必须携带 `dataset_id`、`source`、`synthetic`；`dataset_contracts` 必须记录版本、窗口、生成规则和限制。

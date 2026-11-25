@@ -31,12 +31,14 @@ function mapPrismaMessage(message: PrismaMessage): Message {
 
 export function isRuntimeOnlyChatProjection(
   message: Pick<Message, 'role' | 'metadataJson'>,
+  checkExplicitlyHidden = false,
 ): boolean {
-  if (message.role !== 'assistant' || !message.metadataJson) return false;
+  if (!message.metadataJson || (message.role !== 'assistant' && !checkExplicitlyHidden)) return false;
   try {
     const metadata = JSON.parse(message.metadataJson) as Record<string, unknown>;
+    if (metadata?.hidden_from_ui === true) return true;
+    if (message.role !== 'assistant') return false;
     if (
-      metadata.hidden_from_ui === true ||
       metadata.isMissionIntermediate === true ||
       metadata.isPiAgentIntermediateTurn === true
     ) return true;
@@ -62,6 +64,38 @@ export async function getMessagesByProjectId(
   });
 
   return messages.map(mapPrismaMessage);
+}
+
+/** Paginate visible historical dialogue after omitting private runtime projections. */
+export async function getArchiveMessagePage(projectId: string, page: number) {
+  const offset = (page - 1) * 20;
+  return prisma.$transaction(async tx => {
+    const ids: string[] = [];
+    let total = 0;
+    let cursorId: string | undefined;
+    for (;;) {
+      const batch: Array<{ id: string; role: string; metadataJson: string | null }> =
+        await tx.message.findMany({
+          where: { projectId, role: { in: ['user', 'assistant'] }, messageType: 'chat' },
+          select: { id: true, role: true, metadataJson: true },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 300,
+          ...(cursorId && { cursor: { id: cursorId }, skip: 1 }),
+        });
+      for (const row of batch) {
+        if (isRuntimeOnlyChatProjection({ role: row.role as Message['role'], metadataJson: row.metadataJson }, true)) continue;
+        if (total >= offset && ids.length < 20) ids.push(row.id);
+        total++;
+      }
+      if (batch.length < 300) break;
+      cursorId = batch[batch.length - 1].id;
+    }
+    const rows = ids.length ? await tx.message.findMany({
+      where: { projectId, id: { in: ids } },
+      select: { id: true, role: true, createdAt: true, content: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    }) : [];
+    return { rows, total };
+  }, { isolationLevel: 'RepeatableRead' });
 }
 
 /**

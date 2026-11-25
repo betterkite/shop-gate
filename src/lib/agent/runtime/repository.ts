@@ -33,6 +33,7 @@ export interface AgentRuntimeRepository {
   createRun(input: CreateAgentRunInput): Promise<AgentRunRecord>;
   getRun(runId: string): Promise<AgentRunRecord | null>;
   getWorkspaceLease(projectId: string): Promise<AgentWorkspaceLeaseRecord | null>;
+  getExecutionScopeLease(executionScopeId: string): Promise<AgentWorkspaceLeaseRecord | null>;
   assertWorkspaceLease(input: AgentWriteFence): Promise<void>;
 
   /**

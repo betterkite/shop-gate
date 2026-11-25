@@ -1,6 +1,6 @@
 {
   "name": "shopgate",
-  "version": "2.0.0",
+  "version": "0.1.0",
   "description": "Retail commerce AI workspace powered by PI Agent and configurable model providers",
   "private": false,
   "main": "index.js",
@@ -26,7 +26,7 @@
     "test": "npm run test:unit && npm run test:backend",
     "test:unit": "vitest run",
     "test:pi-agent:postgres": "node scripts/checks/run-pi-agent-postgres-integration.js",
-    "test:backend": "uv run --project services/commerce-data pytest -q services/commerce-data/tests",
+    "test:backend": "node scripts/checks/run-ledger-backend-tests.mjs",
     "type-check": "node scripts/checks/type-check.js",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy && npm run auth:ensure-access-control",
@@ -53,6 +53,8 @@
     "db:sync-workspaces": "node scripts/db/sync-projects-from-workspaces.js",
     "db:backup:release": "node scripts/db/release-backup.js",
     "db:restore:release": "node scripts/db/release-restore.js",
+    "worker:bi": "node --import tsx scripts/workers/bi-agent-worker.ts",
+    "worker:bi:once": "node --import tsx scripts/workers/bi-agent-worker.ts --once",
     "worker:generation": "node --import tsx scripts/workers/generation-worker.ts",
     "worker:generation:once": "node --import tsx scripts/workers/generation-worker.ts --once",
     "setup": "npm install && prisma generate && npm run db:init",
@@ -124,14 +126,14 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
-    "better-auth": "^1.7.4",
+    "better-auth": "^1.7.28",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "framer-motion": "^12.40.0",
     "js-yaml": "^4.3.2",
     "lucide-react": "^1.16.0",
-    "next": "^16.3.5",
+    "next": "^16.4.6",
     "postcss": "^8.5.28",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -142,7 +144,7 @@
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "ws": "^8.21.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
@@ -151,38 +153,42 @@
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.5.0",
-    "electron": "^44.3.0",
+    "electron": "^44.11.6",
     "electron-builder": "^26.15.3",
+    "embedded-postgres": "18.4.0-beta.17",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.3.5",
+    "eslint-config-next": "^16.4.6",
     "playwright": "^1.60.0",
     "prettier": "^3.8.3",
     "prisma": "^6.19.3",
     "tailwindcss": "^3.4.19",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "overrides": {
-    "brace-expansion@2.0.0 - 2.1.1": "2.1.4",
-    "brace-expansion@3.0.0 - 5.0.6": "5.0.9",
-    "brace-expansion@1.0.0 - 1.1.17": "1.1.18",
+    "brace-expansion@2.0.0 - 2.1.6": "2.1.8",
+    "brace-expansion@3.0.0 - 5.0.11": "5.0.13",
+    "brace-expansion@1.0.0 - 1.1.20": "1.1.22",
     "minimatch@10.0.0 - 10.2.5": "10.2.6",
     "browserslist": "^4.28.9",
     "@humanfs/node": "^0.16.8",
     "@xmldom/xmldom": "^0.9.12",
     "@electron/get": {
-      "undici": "^7.29.1"
+      "undici": "^7.30.2"
     },
     "node-gyp": {
-      "undici": "^6.28.1"
+      "undici": "^6.29.1"
     },
     "tailwindcss": {
       "postcss-selector-parser": "^7.1.6"
     },
     "hono": "^4.12.30",
     "postcss": "$postcss",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "deepmerge-ts": "^8.0.2",
-    "baseline-browser-mapping": "^2.11.23"
+    "baseline-browser-mapping": "^2.11.23",
+    "@prisma/config": {
+      "effect": "3.22.5"
+    }
   },
   "engines": {
     "node": ">=22.19.0",

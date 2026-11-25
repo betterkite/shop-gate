@@ -1,9 +1,10 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { getOperationsBriefingData, type OperationsBriefingView } from '@/lib/commerce/retail-briefing';
 import { displayNumber, displayMoney, displayPercent } from '@/lib/commerce/commerce-platform';
 import { RetailPageShell } from '@/components/layout/RetailPageShell';
-import { GenerateDailyBriefButton } from './GenerateDailyBriefButton';
 
 export const metadata: Metadata = {
   title: '经营情报 · Shop Gate',
@@ -47,6 +48,7 @@ function Metric({ label, value, hint }: { label: string; value: string; hint: st
 }
 
 export default async function OperationsBriefingPage({ searchParams }: Props) {
+  if (!Object.keys(await searchParams ?? {}).length) redirect('/bi/reports');
   const params = await searchParams;
   const data = await getOperationsBriefingData({ view: params?.view });
   const { view } = data;
@@ -67,13 +69,17 @@ export default async function OperationsBriefingPage({ searchParams }: Props) {
       badge={<SyntheticBadge />}
       tabs={tabs}
     >
+      <p className="mb-5 rounded-xl border border-primary/25 bg-primary/5 p-4 text-sm">
+        此页展示旧版行为数据与当时的统计口径。按订单账本核对经营金额，请前往
+        <Link className="ml-1 font-semibold text-primary underline" href="/bi/reports">报表中心</Link>。
+      </p>
       {!data.apiEnabled ? (
         <p className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">commerce-data API 已按降级配置停用，无法读取数据。</p>
       ) : view === 'daily' ? (
         <section className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/85 p-4 shadow-sm">
             <div><p className="text-sm font-semibold">{String(data.daily?.stat_date ?? data.window.end)} 经营日报</p><p className="mt-1 text-xs text-muted-foreground">先看结果，再顺着环比和类目拆解找行动点。</p></div>
-            <div className="flex flex-wrap items-center gap-3"><GenerateDailyBriefButton /><span className="text-sm text-muted-foreground">最近生成：{data.latestReport ? new Intl.DateTimeFormat('zh-CN').format(new Date(data.latestReport.date)) : '尚未生成'}</span></div>
+            <div className="flex flex-wrap items-center gap-3"><span className="text-sm text-muted-foreground">最近生成：{data.latestReport ? new Intl.DateTimeFormat('zh-CN').format(new Date(data.latestReport.date)) : '尚未生成'}</span></div>
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
             <Metric label="成交总额（GMV）" value={displayMoney(totals?.gmv)} hint="按购买次数 × 商品价格估算" />

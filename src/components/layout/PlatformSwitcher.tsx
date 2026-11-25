@@ -7,7 +7,9 @@ import {
   Blocks,
   BookOpenCheck,
   BrainCircuit,
+  Database,
   FileChartColumn,
+  History,
   Grid2X2,
   Home,
   ShieldCheck,
@@ -26,9 +28,11 @@ import { cn } from "@/lib/utils"
 
 const PRODUCTS = [
   { href: "/", label: "经营工作台", description: "发起零售分析并管理工作空间", icon: Home, group: "research" },
-  { href: "/commerce-platform", label: "商品运营", description: "商品池、类目结构与渠道口径", icon: BarChart3, group: "research" },
-  { href: "/operations-briefing", label: "经营情报", description: "观察池、经营日报与交付", icon: FileChartColumn, group: "research" },
-  { href: "/analytics-workbench", label: "经营分析 BI", description: "用户、渠道、利润、库存与商品阶段", icon: BarChart3, group: "research" },
+  { href: "/bi/overview", label: "经营总览", description: "订单账本、经营趋势、平台贡献与月度目标", icon: BarChart3, group: "research" },
+  { href: "/bi/products", label: "商品分析", description: "商品、规格和跨店铺经营表现", icon: BarChart3, group: "research" },
+  { href: "/bi/reports", label: "报表中心", description: "经营报表、已保存专题和明细导出", icon: FileChartColumn, group: "research" },
+  { href: "/history", label: "历史会话与成果", description: "查看旧版对话和已保存文件", icon: History, group: "research" },
+  { href: "/bi/data", label: "经营数据", description: "标准经营数据集、导入预览与处理任务", icon: Database, group: "research" },
   { href: "/business-knowledge", label: "业务知识", description: "能力、规范与数据契约", icon: BookOpenCheck, group: "governance" },
   { href: "/skills", label: "能力中心", description: "Skills 市场、版本与 Studio", icon: Blocks, group: "governance" },
   { href: "/eval-platform", label: "评测平台", description: "契约、基准与端到端评测", icon: BrainCircuit, group: "governance" },
@@ -73,7 +77,7 @@ export function PlatformSwitcher({ beforeNavigate }: PlatformSwitcherProps = {})
       <SheetContent side="right" className="w-[min(92vw,420px)] overflow-y-auto border-border/70 p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-[420px]">
         <SheetHeader className="border-b border-border/60 px-5 py-5 pr-12">
           <SheetTitle>Shop Gate 产品导航</SheetTitle>
-          <SheetDescription>围绕同一经营任务，在工作台、商品、情报与治理之间切换。</SheetDescription>
+          <SheetDescription>选择经营模块、数据集或历史记录。</SheetDescription>
         </SheetHeader>
         <nav className="p-4" aria-label="Shop Gate 产品">
           {PRODUCT_GROUPS.map((group, groupIndex) => (

@@ -8,10 +8,11 @@ from fastapi.responses import JSONResponse
 
 from shopgate_commerce_data.cache import RedisJsonCache
 from shopgate_commerce_data.database_core import connect
+from shopgate_commerce_data.routers.bi import BiSettings, create_bi_router
 from shopgate_commerce_data.routers.commerce import create_commerce_router
 
 
-def create_app() -> FastAPI:
+def create_app(*, bi_settings: BiSettings | None = None) -> FastAPI:
     app = FastAPI(
         title="Shop Gate Commerce Data API",
         description="Shop Gate 零售 Data Agent 的商品与经营数据后端",
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(create_commerce_router())
+    app.include_router(create_bi_router(bi_settings))
 
     @app.get("/health")
     async def health() -> dict[str, str]:

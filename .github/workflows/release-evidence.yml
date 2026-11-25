@@ -21,9 +21,9 @@ jobs:
   evidence:
     name: Current-build PiAgent release evidence
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_type == 'tag' && format('release-{0}', github.ref_name) || 'release' }}
     timeout-minutes: 240
     env:
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       SHOPGATE_RELEASE_EVIDENCE_MODEL: deepseek-v4-flash
       DATABASE_URL: postgresql://shopgate:shopgate_dev_password@127.0.0.1:35433/shopgate?schema=public
       REDIS_URL: redis://127.0.0.1:36380/0
@@ -43,6 +43,8 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Require release evaluation secret
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
         run: |
           if [ -z "$DEEPSEEK_API_KEY" ]; then
@@ -84,6 +86,8 @@ jobs:
           exit 1
 
       - name: Enforce complete release evidence gate
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: npm run release:check:evidence
 
       - name: Upload release evidence

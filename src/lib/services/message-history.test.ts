@@ -32,6 +32,13 @@ describe('PI Agent conversation history projection filter', () => {
     })).toBe(false);
   });
 
+  it('omits explicitly hidden user input only when building the read-only archive', () => {
+    const hidden = { role: 'user' as const, metadataJson: '{"hidden_from_ui":true}' };
+    expect(isRuntimeOnlyChatProjection(hidden)).toBe(false);
+    expect(isRuntimeOnlyChatProjection(hidden, true)).toBe(true);
+    expect(isRuntimeOnlyChatProjection({ role: 'user', metadataJson: '{"isMissionIntermediate":true}' }, true)).toBe(false);
+  });
+
   it('fails open for malformed legacy metadata', () => {
     expect(isRuntimeOnlyChatProjection({
       role: 'assistant',

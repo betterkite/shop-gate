@@ -17,8 +17,9 @@ const envFile = path.join(rootDir, '.env');
 const envLocalFile = path.join(rootDir, '.env.local');
 const rootDataDir = path.join(rootDir, 'data');
 const projectsDir = path.join(rootDataDir, 'projects');
-const defaultDatabaseUrl =
-  '"postgresql://shopgate:shopgate_dev_password@127.0.0.1:5432/shopgate?schema=public"';
+// Published host ports in docker-compose.yml. Container ports remain 5432 and 6379.
+const DEFAULT_POSTGRES_PORT = '35433';
+const DEFAULT_REDIS_PORT = '36380';
 
 const MAX_PORT = 65_535;
 // Preview servers (per-project) dynamic pool
@@ -94,6 +95,22 @@ function readEnvRawValue(contents, key) {
   const pattern = new RegExp(`^${escapeRegExp(key)}=["']?([^"'\\n]+)["']?$`, 'm');
   const match = contents.match(pattern);
   return match ? match[1] : '';
+}
+
+function composeHostPort(contents, portKey, urlKey, fallback, standardPort) {
+  const configuredPort = process.env[portKey] || readEnvRawValue(contents, portKey);
+  if (/^\d{1,5}$/.test(configuredPort) && parsePortValue(configuredPort)) {
+    return configuredPort;
+  }
+  const value = process.env[urlKey] || readEnvRawValue(contents, urlKey);
+  if (value && URL.canParse(value)) {
+    const url = new URL(value);
+    const protocols = urlKey === 'DATABASE_URL' ? ['postgresql:', 'postgres:'] : ['redis:', 'rediss:'];
+    if (protocols.includes(url.protocol) && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
+      return url.port || standardPort;
+    }
+  }
+  return fallback;
 }
 
 function shouldSetPostgresDatabaseUrl(contents) {
@@ -220,8 +237,10 @@ async function ensureEnvironment(options = {}) {
   ensureDirectory(projectsDir);
 
   const envDefaults = {};
+  const postgresPort = composeHostPort(envContents, 'POSTGRES_PORT', 'DATABASE_URL', DEFAULT_POSTGRES_PORT, '5432');
+  const redisPort = composeHostPort(envContents, 'REDIS_PORT', 'REDIS_URL', DEFAULT_REDIS_PORT, '6379');
   if (shouldSetPostgresDatabaseUrl(envContents)) {
-    envDefaults.DATABASE_URL = defaultDatabaseUrl;
+    envDefaults.DATABASE_URL = `"postgresql://shopgate:shopgate_dev_password@127.0.0.1:${postgresPort}/shopgate?schema=public"`;
   }
   if (!hasEnvKey(envContents, 'TIMESCALEDB_IMAGE')) {
     envDefaults.TIMESCALEDB_IMAGE = '"timescale/timescaledb:2.27.1-pg18"';
@@ -236,16 +255,16 @@ async function ensureEnvironment(options = {}) {
     envDefaults.POSTGRES_PASSWORD = '"shopgate_dev_password"';
   }
   if (!hasEnvKey(envContents, 'POSTGRES_PORT')) {
-    envDefaults.POSTGRES_PORT = '5432';
+    envDefaults.POSTGRES_PORT = postgresPort;
   }
   if (!hasEnvKey(envContents, 'REDIS_URL')) {
-    envDefaults.REDIS_URL = '"redis://127.0.0.1:6379/0"';
+    envDefaults.REDIS_URL = `"redis://127.0.0.1:${redisPort}/0"`;
   }
   if (!hasEnvKey(envContents, 'REDIS_IMAGE')) {
     envDefaults.REDIS_IMAGE = '"redis:8-alpine"';
   }
   if (!hasEnvKey(envContents, 'REDIS_PORT')) {
-    envDefaults.REDIS_PORT = '6379';
+    envDefaults.REDIS_PORT = redisPort;
   }
   if (!hasEnvKey(envContents, 'REDIS_NAMESPACE')) {
     envDefaults.REDIS_NAMESPACE = '"shopgate"';

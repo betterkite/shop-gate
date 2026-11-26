@@ -24,8 +24,18 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const url = new URL(request.url);
     const dir = url.searchParams.get('path') ?? '.';
 
+    const archivePage = url.searchParams.get('archive_page');
+    if (archivePage !== null && !/^(?:[1-9]\d{0,5}|1000000)$/.test(archivePage)) {
+      return NextResponse.json({ success: false, error: '历史页码无效。' }, { status: 400 });
+    }
     const entries = await listProjectDirectory(project_id, dir);
 
+    if (archivePage !== null) {
+      const offset = (Number(archivePage) - 1) * 20;
+      return NextResponse.json({ success: true, data: {
+        rows: entries.slice(offset, offset + 20), total: entries.length,
+      } }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     return NextResponse.json({
       success: true,
       data: {

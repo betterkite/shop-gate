@@ -483,6 +483,7 @@ function ReplenishmentSummary({
 
 export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
   const params = await searchParams;
+  if (!params || !Object.keys(params).length) redirect('/bi/overview');
   const datasetContracts = await fetchDatasetContracts();
   const requestedDatasetId = params?.dataset_id || DEFAULT_DATASET_ID;
   const requestedContract = datasetContracts.find((contract) => text(contract.dataset_id) === requestedDatasetId);
@@ -676,22 +677,16 @@ export default async function AnalyticsWorkbenchPage({ searchParams }: Props) {
       badge={<SyntheticBadge />}
       tabs={tabs}
     >
+      <p className="mb-5 rounded-xl border border-primary/25 bg-primary/5 p-4 text-sm">
+        此页展示旧版行为数据与当时的统计口径。按订单账本核对经营金额，请前往
+        <Link className="ml-1 font-semibold text-primary underline" href="/bi/overview">经营总览</Link>。
+      </p>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/75 p-4 shadow-sm">
         <div><p className="text-sm font-semibold">从总览到商品明细</p><p className="mt-1 text-xs text-muted-foreground">先看经营结果，再按用户、渠道、利润、库存和商品阶段查看原因。</p></div>
         <div className="flex flex-wrap gap-2 text-xs"><Link href="/commerce-platform" className="rounded-lg bg-muted px-3 py-2 hover:text-foreground">商品运营</Link><Link href="/operations-briefing" className="rounded-lg bg-muted px-3 py-2 hover:text-foreground">经营情报</Link><span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">质量：{text(quality?.severity, '未扫描')}</span></div>
       </div>
 
-      <DatasetSelector
-        contracts={datasetContracts}
-        selectedDatasetId={datasetId}
-        view={params?.view === 'drilldown' ? 'drilldown' : view}
-        dimension={params?.dimension}
-        value={params?.value}
-        filterDimension={scopeDimension}
-        filterValue={scopeValue}
-        projectId={projectId}
-        apiBaseUrl={API_BASE_URL}
-      />
+      <DatasetSelector contracts={datasetContracts} selectedDatasetId={datasetId} />
 
       {scopeDimension && scopeValue && view !== 'overview' && view !== 'drilldown' ? <div className="mb-5"><ScopeNotice dimension={scopeDimension} value={scopeValue} datasetId={datasetId} projectId={projectId} /></div> : null}
 

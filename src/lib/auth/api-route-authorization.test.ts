@@ -42,7 +42,10 @@ describe('API route authorization coverage', () => {
       if (!ROUTE_HANDLER.test(source)) continue;
       const route = relative(file);
       if (PUBLIC_ROUTE_FILES.has(route)) continue;
-      if (!ROUTE_BOUNDARY.test(source)) missing.push(route);
+      if (route === 'src/app/api/internal/bi/job-authorization/route.ts') {
+        // An exact private service boundary, not an expansion of public allowlist.
+        expect(source).toMatch(/\brequireBiJobAuthorization\s*\(request.headers\)/);
+      } else if (!ROUTE_BOUNDARY.test(source)) missing.push(route);
     }
 
     expect(missing).toEqual([]);
@@ -60,6 +63,25 @@ describe('API route authorization coverage', () => {
 
   it('maps high-risk global and cross-project routes to catalogued capabilities', async () => {
     const expectedActions: Record<string, string[]> = {
+      'src/app/api/bi/datasets/route.ts': ['commerce.data.read', 'commerce.operation.manage'],
+      'src/app/api/bi/datasets/[dataset_id]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/query/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/overview/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/references/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/evidence/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/mappings/preview/route.ts': ['commerce.operation.manage'],
+      'src/app/api/bi/mappings/confirm/route.ts': ['commerce.operation.manage'],
+      'src/app/api/bi/targets/preview/route.ts': ['commerce.operation.manage'],
+      'src/app/api/bi/targets/confirm/route.ts': ['commerce.operation.manage'],
+      'src/app/api/bi/catalog/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/templates/[resource]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/[job_id]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/[job_id]/[action]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/jobs/[job_id]/files/[resource]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/batches/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/batches/[batch_id]/route.ts': ['commerce.data.read'],
+      'src/app/api/bi/batches/[batch_id]/errors/route.ts': ['commerce.data.read'],
       'src/app/api/evals/route.ts': [
         'platform.observability.read',
         'platform.settings.manage',

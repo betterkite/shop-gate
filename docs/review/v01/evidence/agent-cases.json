@@ -1,0 +1,226 @@
+[
+  {
+    "case": "A01",
+    "method": "DeepSeek",
+    "result": "164 元净销售、121 元经营贡献，读取原始账本并引用来源。",
+    "receipt_sha256": "6acdfa57deb1121c35135af3ab232abbc28f9e77cd77dafdea4b9e126beed904",
+    "receipt": "r3-real-assistant-20261107"
+  },
+  {
+    "case": "A02",
+    "method": "受控模型回放",
+    "result": "本期 25 元、上期 30 元。查询两次并核对少 5 元的金额和前期日期。",
+    "test": "src/lib/bi/agent/execution.integration.test.ts",
+    "case_filter": "routes a scoped question"
+  },
+  {
+    "case": "A03",
+    "method": "受控模型回放",
+    "result": "只问净销售额，回答附原始依据，返回的图表列表为空。",
+    "test": "src/lib/bi/agent/execution.integration.test.ts",
+    "case_filter": "routes a scoped question"
+  },
+  {
+    "case": "A04",
+    "method": "模型断开实测",
+    "result": "关闭助手执行服务仍可读到已核算经营贡献 121 元，助手显示不可用。",
+    "receipt_sha256": "98f53e1a7ebff5fc800c770a105ca6acf44949388000c5e77b0dbee768524a4b",
+    "receipt": "r5-offline-after-cost-acceptance"
+  },
+  {
+    "case": "A05",
+    "method": "DeepSeek",
+    "result": "按当前平台分别查询并比较贡献；当前样例的拼多多为 121 元。",
+    "receipt_sha256": "faf79adc0e95fa664cfb2d27861a67e75430c6020a82535dfe5219d408d59f68",
+    "receipt": "r4-channels-353842b"
+  },
+  {
+    "case": "A06",
+    "method": "受控模型回放",
+    "result": "按已选平台查询每日金额，折线图关联全部 25 个日期点。",
+    "test": "src/lib/bi/agent/execution.integration.test.ts",
+    "case_filter": "routes a scoped question"
+  },
+  {
+    "case": "A07",
+    "method": "受控模型回放",
+    "result": "接续相同会话查询该平台的店铺；底层请求保留原平台。",
+    "test": "src/lib/bi/agent/execution.integration.test.ts",
+    "case_filter": "routes a scoped question"
+  },
+  {
+    "case": "A08",
+    "method": "受控模型回放",
+    "result": "没有地理字段时返回可分页的店铺表，依据保留全部 25 项。",
+    "test": "src/lib/bi/agent/execution.integration.test.ts",
+    "case_filter": "routes a scoped question"
+  },
+  {
+    "case": "A09",
+    "method": "DeepSeek",
+    "result": "店铺 001 在指定期间净销售 104 元、已核算经营贡献 72 元。",
+    "receipt_sha256": "32f4a46220d89ae58a91fa74c9142e213237752573d41224852891b233a2652d",
+    "receipt": "r4-stores-353842b"
+  },
+  {
+    "case": "A10",
+    "method": "受控模型回放",
+    "result": "25 家店铺的排名可看第二页，末行净销售 1 元，合计 325 元。",
+    "test": "src/lib/bi/agent/execution.integration.test.ts",
+    "case_filter": "routes a scoped question"
+  },
+  {
+    "case": "A11",
+    "method": "DeepSeek 与网页",
+    "result": "草案只调整净销售额目标，预览前后经营贡献目标相同。",
+    "receipt_sha256": "fb9e2ae17cc8ab4783357b227bd6efaabf992ba45ca8a534925cb8e7fefa78fb",
+    "receipt": "r3-target-keep-retest-20261120"
+  },
+  {
+    "case": "A12",
+    "method": "浏览器与数据库",
+    "result": "明确确认后目标才写入。检查版本竞争和只读角色，并在重启后读取原目标。",
+    "receipt_sha256": "7e901d826fd5c3881acb5eb6703dadfb669798cfc322bdae2b6cc960b8f28ce0",
+    "receipt": "20261106-f011783-browser-target-restore"
+  },
+  {
+    "case": "A13",
+    "method": "DeepSeek 与网页",
+    "result": "可分页看全部有经营记录的分组，1000 项标准规格目录另核对到第 50 页。",
+    "receipt_sha256": "24c635c2d88ff10a4b62fbfed94d40fb55d2f771eab5f3ad1e779190befdfcd2",
+    "receipt": "r4-products-353842b"
+  },
+  {
+    "case": "A14",
+    "method": "DeepSeek 与网页",
+    "result": "同款在跨店铺、跨平台查询和导出中的标准销量与历史单位成本逐项核对。",
+    "receipt_sha256": "5240a6717aced835eb575a8fa4d233e5016a092e65b2b6c2004a7a3daa5e3a76",
+    "receipt": "r4-A14-products-865415b"
+  },
+  {
+    "case": "A15",
+    "method": "DeepSeek",
+    "result": "对缺少成本的原付款明细给出缺项说明及有依据的金额。",
+    "receipt_sha256": "5c2993dffd47457780ec20948f502dfb700377dec5d03ea53fe6af349642aa3c",
+    "receipt": "r4-A15-products-facb7db"
+  },
+  {
+    "case": "A16",
+    "method": "DeepSeek 与网页",
+    "result": "真实换算草案转预览，再明确确认；原订单保留付款时的换算规则。",
+    "receipt_sha256": "6ca24138b2a5406b830426a9fdcb73bc38f243fe82b3f45fa0c7b6005ee2aa3d",
+    "receipt": "r4-mapping-deepseek-045c7e7-browser"
+  },
+  {
+    "case": "A17",
+    "method": "DeepSeek",
+    "result": "利润形成金额相加为 121 元，与利润页一致。",
+    "receipt_sha256": "811ab0a0a10f730829fdbdc6898be84aba6b1f36b23daed7dadeec241950ba18",
+    "receipt": "r5-A17-model-1a6ad10"
+  },
+  {
+    "case": "A18",
+    "method": "DeepSeek",
+    "result": "按成交、退款、成本和费用拆解两个期间，净变化为负 121 元。",
+    "receipt_sha256": "d974cf55ddf750e36c314eb2d5cf9701765ec0546f586185b513440901c198e5",
+    "receipt": "r5-A18-model-1a6ad10"
+  },
+  {
+    "case": "A19",
+    "method": "DeepSeek",
+    "result": "识别平台尚未分摊的费用 6 元，仍计入平台经营贡献。",
+    "receipt_sha256": "f47e459c5cee6a5d6208bf293b7dec6afb6d5721b5243bc3950d694924a47d01",
+    "receipt": "r5-A19-model-1a6ad10"
+  },
+  {
+    "case": "A20",
+    "method": "DeepSeek",
+    "result": "多轮查询保持数据版本 2，平台依据可回到付款订单与贡献。",
+    "receipt_sha256": "375ac29202629336b1efe6ff8eb404d7b157b899e7bf7b142a94bb80bcca000a",
+    "receipt": "r5-A20-model-1a6ad10"
+  },
+  {
+    "case": "A21",
+    "method": "DeepSeek 与网页",
+    "result": "分别按原付款日期和退款完成日期查询。",
+    "receipt_sha256": "0d88e40362c6ce9147230664403067badfc7123165fa9191639321b65a833118",
+    "receipt": "r5-A21-refund-865415b"
+  },
+  {
+    "case": "A22",
+    "method": "DeepSeek",
+    "result": "仅退款保留原成本，可回收退货按原付款成本冲回。",
+    "receipt_sha256": "d0b8a861f11c0ed07acfff251eea3eeb317830190c01bb3d713b0ceaef5515b7",
+    "receipt": "r5-A22-refund-865415b"
+  },
+  {
+    "case": "A23",
+    "method": "DeepSeek 与网页",
+    "result": "从部分退款核对原始订单和冲回的成本。",
+    "receipt_sha256": "0c4c5a6f293cce4d1f9021a20a6a973e94ae62570a9013985465d062087c6860",
+    "receipt": "r5-A23-refund-865415b"
+  },
+  {
+    "case": "A24",
+    "method": "DeepSeek",
+    "result": "退款发生口径缺少对应付款分母，回答保留金额并说明原因。",
+    "receipt_sha256": "36196bd6f3e487076c7f02176ad3ae477c1a579996feb5d1bc593a2e28e85b04",
+    "receipt": "r5-A24-refund-865415b"
+  },
+  {
+    "case": "A25",
+    "method": "DeepSeek",
+    "result": "逐页查全 22 笔退款，人民币合计 17.60 元，专题数保持为零。",
+    "receipt_sha256": "4e3b4f728b102f6f52f07e280576ac9c1d6bad16f417cb393bdc6e67fac60974",
+    "receipt": "r6-report-A25-ebdb6a9"
+  },
+  {
+    "case": "A26",
+    "method": "DeepSeek 与网页",
+    "result": "接着提问复核 17.60 元，点击确认后才保存回答专题。",
+    "receipt_sha256": "6737392be80bf698421aa98fdb16cbd560ff7cd8935a8ee1edf472b3f106ce60",
+    "receipt": "r6-report-A26-A27-browser-ebdb6a9"
+  },
+  {
+    "case": "A27",
+    "method": "浏览器",
+    "result": "切换数据集后清空原会话、专题及 URL 中的原范围，没有新模型请求。",
+    "receipt_sha256": "6737392be80bf698421aa98fdb16cbd560ff7cd8935a8ee1edf472b3f106ce60",
+    "receipt": "r6-report-A26-A27-browser-ebdb6a9"
+  },
+  {
+    "case": "A28",
+    "method": "浏览器与数据库",
+    "result": "导入后数据为版本 3、23 笔，原专题仍标记版本 2 并显示 17.60 元。",
+    "receipt_sha256": "0545ad0b887bdd20d991113a087f31fe0d481eaee5ee6596c7fb0b1919f52178",
+    "receipt": "r6-report-A28-browser-ebdb6a9"
+  },
+  {
+    "case": "A29",
+    "method": "DeepSeek",
+    "result": "解析指定日期与店铺的成本优先级，并保留单位与币种。",
+    "receipt_sha256": "0903fd63ef29e46ff9e74c13f969ab593f793549553230ab24524f7647875d70",
+    "receipt": "r5-A29-cost-7af069a"
+  },
+  {
+    "case": "A30",
+    "method": "DeepSeek 与网页",
+    "result": "按假设单位成本试算，原账本金额和数据版本保持不变。",
+    "receipt_sha256": "f3e59b86de28727d48f4a0d3f554fc2d451eb1a07e9395133dee669b36795a08",
+    "receipt": "r5-A30-cost-facb7db"
+  },
+  {
+    "case": "A31",
+    "method": "DeepSeek 与数据库",
+    "result": "过期确认请求返回 409，另核对重复确认及冲突。",
+    "receipt_sha256": "cabe620ba6a25cfeb1936c6bee1d74f9bc218757897b35e6ec7e30dbc33ec68c",
+    "receipt": "r5-A31-cost-expiry"
+  },
+  {
+    "case": "A32",
+    "method": "DeepSeek 与网页",
+    "result": "显式查看重算草案，核对原付款范围后确认。",
+    "receipt_sha256": "99d21eb47bc73c0102303f05bed50062577f3454bda88ad738a527b927b7c2c7",
+    "receipt": "r5-A32-cost-browser-52d540d"
+  }
+]

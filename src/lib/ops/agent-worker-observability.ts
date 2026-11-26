@@ -134,7 +134,7 @@ export async function getAgentWorkerRuntimeDashboard(params: {
         SELECT clock_timestamp() AS "databaseNow"
       `),
       prisma.agentWorkerInstance.findMany({
-        where: { poolKey },
+        where: { poolKey, workerKind: 'project_generation' },
         orderBy: [{ startedAt: 'desc' }],
         take: 50,
       }),

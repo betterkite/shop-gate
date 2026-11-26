@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const transactionClient = {
     $queryRaw: vi.fn(),
+    agentRun: { count: vi.fn() },
     userRequest: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -53,6 +54,7 @@ describe('upsertUserRequest project scope', () => {
     vi.clearAllMocks();
     mocks.transactionClient.$queryRaw.mockResolvedValue([{ id: 'user-a' }]);
     mocks.transactionClient.userRequest.count.mockResolvedValue(0);
+    mocks.transactionClient.agentRun.count.mockResolvedValue(0);
   });
 
   it('rejects a client request ID already owned by another project before mutation', async () => {
@@ -137,6 +139,17 @@ describe('upsertUserRequest project scope', () => {
         current: 0,
       },
     );
+  });
+
+  it('includes pending BI analyses when admitting a legacy request', async () => {
+    mocks.transactionClient.userRequest.count.mockResolvedValue(1);
+    mocks.transactionClient.agentRun.count.mockResolvedValue(3);
+    mocks.assertStructuralQuotaCapacity.mockRejectedValueOnce(new Error('pending limit reached'));
+    await expect(claimUserRequest({ id: 'request-new', projectId: 'project-a', actorUserId: 'user-a', instruction: 'run' }))
+      .rejects.toThrow('pending limit reached');
+    expect(mocks.assertStructuralQuotaCapacity).toHaveBeenCalledWith(mocks.transactionClient,
+      { actorUserId: 'user-a', metric: 'agent.pending', current: 4 });
+    expect(mocks.transactionClient.userRequest.create).not.toHaveBeenCalled();
   });
 
   it('rejects an existing cross-project binding at the read-only ingress guard', async () => {

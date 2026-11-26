@@ -232,24 +232,29 @@ export async function lockProjectDataAgentComposition(params: {
   });
 }
 
-/**
- * Retrieve all projects
- */
+function projectAccessWhere(access?: { userId: string; isAdmin: boolean }) {
+  return access && !access.isAdmin ? {
+    OR: [{ ownerId: access.userId }, { memberships: { some: { userId: access.userId } } }],
+  } : {};
+}
+
+export async function getArchiveProjectPage(access: { userId: string; isAdmin: boolean } | undefined, page: number) {
+  const where = projectAccessWhere(access);
+  const [rows, total] = await prisma.$transaction([
+    prisma.project.findMany({ where, select: { id: true, name: true }, orderBy: [
+      { lastActiveAt: 'desc' }, { id: 'asc' },
+    ], skip: (page - 1) * 20, take: 20 }),
+    prisma.project.count({ where }),
+  ], { isolationLevel: 'RepeatableRead' });
+  return { rows, total };
+}
+
 export async function getAllProjects(access?: {
   userId: string;
   isAdmin: boolean;
 }): Promise<Project[]> {
   const projects = await prisma.project.findMany({
-    ...(access && !access.isAdmin
-      ? {
-          where: {
-            OR: [
-              { ownerId: access.userId },
-              { memberships: { some: { userId: access.userId } } },
-            ],
-          },
-        }
-      : {}),
+    where: projectAccessWhere(access),
     orderBy: {
       lastActiveAt: 'desc',
     },

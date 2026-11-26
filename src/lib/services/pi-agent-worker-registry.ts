@@ -11,7 +11,10 @@ const MAX_LEASE_TTL_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const POOL_PATTERN = /^[a-z][a-z0-9_.:-]{0,127}$/;
 
+export type PiAgentWorkerKind = 'project_generation' | 'bi_analysis';
+
 export interface PiAgentWorkerInstanceClaim {
+  workerKind?: PiAgentWorkerKind;
   id: string;
   poolKey: string;
   hostname: string;
@@ -33,12 +36,16 @@ export class PiAgentWorkerRegistryError extends Error {
 function assertInput(input: {
   id: string;
   poolKey: string;
+  workerKind?: PiAgentWorkerKind;
   hostname: string;
   processId: number;
   processConcurrency: number;
   globalConcurrency: number;
   leaseTtlMs: number;
 }): void {
+  if (input.workerKind !== undefined && !['project_generation', 'bi_analysis'].includes(input.workerKind)) {
+    throw new PiAgentWorkerRegistryError('WORKER_REGISTRY_INVALID', 'Unknown Worker kind.');
+  }
   if (!POOL_PATTERN.test(input.poolKey)) {
     throw new PiAgentWorkerRegistryError(
       'WORKER_REGISTRY_INVALID',
@@ -121,6 +128,7 @@ async function lockPool(
 
 export async function registerPiAgentWorkerInstance(input: {
   id?: string;
+  workerKind?: PiAgentWorkerKind;
   poolKey?: string;
   hostname?: string;
   processId?: number;
@@ -131,6 +139,7 @@ export async function registerPiAgentWorkerInstance(input: {
 }): Promise<PiAgentWorkerInstanceClaim> {
   const normalized = {
     id: input.id ?? randomUUID(),
+    workerKind: input.workerKind ?? 'project_generation',
     poolKey: input.poolKey ?? 'generation.default',
     hostname: input.hostname ?? hostname(),
     processId: input.processId ?? process.pid,
@@ -198,6 +207,7 @@ export async function registerPiAgentWorkerInstance(input: {
       create: {
         id: normalized.id,
         poolKey: normalized.poolKey,
+        workerKind: normalized.workerKind,
         hostname: normalized.hostname,
         processId: normalized.processId,
         processConcurrency: normalized.processConcurrency,
@@ -209,6 +219,7 @@ export async function registerPiAgentWorkerInstance(input: {
       },
       update: {
         poolKey: normalized.poolKey,
+        workerKind: normalized.workerKind,
         hostname: normalized.hostname,
         processId: normalized.processId,
         processConcurrency: normalized.processConcurrency,
@@ -222,6 +233,7 @@ export async function registerPiAgentWorkerInstance(input: {
     });
     return {
       id: worker.id,
+      workerKind: normalized.workerKind,
       poolKey: worker.poolKey,
       hostname: worker.hostname,
       processId: worker.processId,
@@ -249,6 +261,7 @@ export async function heartbeatPiAgentWorkerInstance(input: {
       where: {
         id: input.claim.id,
         poolKey: input.claim.poolKey,
+        workerKind: input.claim.workerKind ?? 'project_generation',
         status: 'running',
         processConcurrency: input.claim.processConcurrency,
         globalConcurrency: input.claim.globalConcurrency,
@@ -278,6 +291,7 @@ export async function stopPiAgentWorkerInstance(
       where: {
         id: claim.id,
         poolKey: claim.poolKey,
+        workerKind: claim.workerKind ?? 'project_generation',
         status: 'running',
       },
       data: {
@@ -313,6 +327,7 @@ export class PiAgentWorkerRegistrySession {
   }
 
   static async start(input: {
+    workerKind?: PiAgentWorkerKind;
     poolKey?: string;
     processConcurrency: number;
     globalConcurrency: number;
@@ -346,4 +361,14 @@ export class PiAgentWorkerRegistrySession {
     this.timer = null;
     await stopPiAgentWorkerInstance(this.claim);
   }
+}
+
+/** Database time and explicit kind prevent a legacy generator from advertising BI availability. */
+export async function hasLivePiAgentWorker(kind: PiAgentWorkerKind, poolKey = 'generation.default'): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ online: boolean }>>(Prisma.sql`
+    SELECT EXISTS (SELECT 1 FROM "agent_worker_instances"
+      WHERE "pool_key" = ${poolKey} AND "worker_kind" = ${kind}
+        AND "status" = 'running' AND "lease_expires_at" > clock_timestamp()) AS online
+  `);
+  return rows[0]?.online === true;
 }

@@ -1,0 +1,617 @@
+"""Signed HTTP boundary on actual isolated PG18; no daily credentials or model."""
+
+import base64
+import hashlib
+import hmac
+import json
+import os
+import time
+from uuid import uuid4
+
+import psycopg
+import pytest
+from fastapi.testclient import TestClient
+
+from shopgate_commerce_data.api import create_app
+from shopgate_commerce_data.ledger.csv_contract import SPECS, CsvFile, standard_csv
+from shopgate_commerce_data.ledger.demo import DemoPlan, demo_files, generate_demo
+from shopgate_commerce_data.ledger.exchange import confirm_import, preview_import
+from shopgate_commerce_data.ledger.migrations import migrate_all
+from shopgate_commerce_data.ledger.query import Query, query_ledger
+from shopgate_commerce_data.ledger.scope import LedgerScope
+from shopgate_commerce_data.routers.bi import MAX_JSON_BYTES, BiSettings
+
+SECRET = "bi-http-only-test-key-not-an-external-credential"
+PREFIX = "/api/v1/bi"
+
+
+def token(workspace, *, directory=True, manage=True, **changes):
+    now = int(time.time())
+    claims = {
+        "aud": "shopgate-bi-directory-v1" if directory else "shopgate-bi-v1",
+        "workspace_id": workspace,
+        "actor_id": "http-user",
+        "capabilities": ["datasets.read"] if directory else ["ledger.read"],
+        "iat": now,
+        "exp": now + 120,
+    }
+    if manage:
+        claims["capabilities"].append("datasets.manage" if directory else "ledger.manage")
+    if not directory:
+        claims.update(dataset_id="official", version=1)
+    claims.update(changes)
+    encoded = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    signature = (
+        base64.urlsafe_b64encode(
+            hmac.new(SECRET.encode(), encoded.encode(), hashlib.sha256).digest()
+        )
+        .decode()
+        .rstrip("=")
+    )
+    return f"{encoded}.{signature}"
+
+
+def headers(workspace, **kwargs):
+    return {"authorization": f"Bearer {token(workspace, **kwargs)}"}
+
+
+def plan(**changes):
+    return {
+        "dataset_id": "official",
+        "name": "正式导入",
+        "source_kind": "import",
+        "idempotency_key": "create-official",
+        "confirmed_by_user": True,
+        **changes,
+    }
+
+
+@pytest.fixture(scope="module")
+def http_database():
+    url = os.getenv("SHOPGATE_LEDGER_TEST_DATABASE_URL")
+    if not url:
+        pytest.fail("Use trusted isolated test:backend; do not use the daily database.")
+    assert url.startswith("postgresql://ledger_test_admin@127.0.0.1:")
+    with psycopg.connect(url, autocommit=True) as connection:
+        migrate_all(connection)
+        connection.execute("CREATE ROLE bi_http_app LOGIN NOSUPERUSER NOBYPASSRLS")
+        connection.execute("GRANT USAGE ON SCHEMA bi TO bi_http_app")
+        connection.execute("GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA bi TO bi_http_app")
+        connection.execute("REVOKE ALL ON bi.schema_migrations FROM bi_http_app")
+    return url.replace("ledger_test_admin@", "bi_http_app@"), url
+
+
+@pytest.fixture
+def client(http_database):
+    app_url, admin = http_database
+    settings = BiSettings(app_url, SECRET, True)
+    with TestClient(create_app(bi_settings=settings)) as browser:
+        yield browser, f"http-{uuid4()}", settings, admin
+
+
+def test_http_directory_creation_persisted_conflicts_and_foreign_header_cannot_grant_scope(client):
+    browser, workspace, _, _ = client
+    auth = {**headers(workspace), "x-user-id": "foreign", "x-workspace-id": "foreign"}
+    assert browser.get(PREFIX + "/datasets", headers=auth).json()["data"]["total"] == 0
+    result = browser.post(PREFIX + "/datasets", headers=auth, json=plan())
+    assert result.status_code == 200 and result.json()["data"]["workspace_id"] == workspace
+    assert result.json()["data"]["source_kind"] == "import"
+    assert "尚未导入" in result.json()["data"]["notice"]
+    assert browser.post(PREFIX + "/datasets", headers=auth, json=plan()).json() == result.json()
+    assert (
+        browser.post(PREFIX + "/datasets", headers=auth, json=plan(name="覆盖名称")).status_code
+        == 409
+    )
+    listing = browser.get(PREFIX + "/datasets", headers=auth)
+    assert listing.json()["data"]["total"] == 1
+    assert listing.json()["data"]["rows"][0]["name"] == "正式导入"
+    assert "no-store" in listing.headers["cache-control"]
+    assert listing.headers["x-content-type-options"] == "nosniff"
+    assert len(listing.headers["x-request-id"]) == 36
+    assert (
+        browser.get(PREFIX + "/datasets", headers=headers("foreign")).json()["data"]["total"] == 0
+    )
+    assert SECRET not in listing.text and auth["authorization"] not in listing.text
+
+
+def test_target_http_explicit_confirmation_and_fresh_authority_keep_fact_amounts(client):
+    from test_ledger_exchange_postgres import files
+
+    browser, workspace, config, _ = client
+    browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan())
+    scope = LedgerScope(
+        workspace, "official", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
+    with config.connection() as connection:
+        imported = preview_import(connection, scope, files())
+        confirm_import(
+            connection, scope, imported["preview_id"], "target-fixture", confirmed_by_user=True
+        )
+    auth = headers(workspace, directory=False, version=2)
+    change = {"store_id": "002", "month": "2026-07-01", "sales_target": "500", "profit_target": "0"}
+    preview = browser.post(PREFIX + "/targets/preview", headers=auth, json=change)
+    assert preview.status_code == 200
+    data = preview.json()["data"]
+    assert data["impact"]["previous"] is None and data["impact"]["changed"]
+    confirmation = {
+        "preview_id": data["preview_id"],
+        "idempotency_key": "target-http",
+        "confirmed_by_user": True,
+    }
+    assert (
+        browser.post(
+            PREFIX + "/targets/confirm",
+            headers=headers(workspace, directory=False, version=2, manage=False),
+            json=confirmation,
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.post(
+            PREFIX + "/targets/confirm",
+            headers=auth,
+            json=confirmation | {"confirmed_by_user": False},
+        ).status_code
+        == 403
+    )
+    for bad in (
+        change | {"actor_id": "forged"},
+        change | {"sales_target": 100},
+        change | {"month": "2026-07-02"},
+    ):
+        assert browser.post(PREFIX + "/targets/preview", headers=auth, json=bad).status_code == 422
+    assert (
+        browser.post(
+            PREFIX + "/targets/preview",
+            headers=headers("foreign", directory=False, version=2),
+            json=change,
+        ).status_code
+        == 403
+    )
+    confirmed = browser.post(PREFIX + "/targets/confirm", headers=auth, json=confirmation)
+    assert confirmed.status_code == 200 and confirmed.json()["data"]["version"] == 3
+    assert (
+        browser.post(PREFIX + "/targets/confirm", headers=auth, json=confirmation).json()
+        == confirmed.json()
+    )
+    result = browser.post(
+        PREFIX + "/overview", headers=headers(workspace, directory=False, version=3), json={}
+    ).json()["data"]
+    assert result["summary"]["metrics"]["contribution_profit"] == "121.00"
+    assert result["targets"]["configured_count"] == 2
+
+
+def test_signed_overview_reads_fixed_manual_ledger_and_refuses_foreign_scope(client):
+    from test_ledger_exchange_postgres import files
+
+    browser, workspace, config, _ = client
+    created = browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan())
+    assert created.status_code == 200
+    scope = LedgerScope(
+        workspace, "official", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
+    with config.connection() as connection:
+        preview = preview_import(connection, scope, files())
+        confirm_import(
+            connection, scope, preview["preview_id"], "overview-fixture", confirmed_by_user=True
+        )
+    auth = headers(workspace, directory=False, manage=False, version=2)
+    response = browser.post(
+        PREFIX + "/overview",
+        headers=auth,
+        json={"query": {"start": "2026-07-01", "end": "2026-07-02"}, "interval": "week"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["version"] == data["accounting_revision"] == 2
+    assert data["summary"]["metrics"]["accounted_contribution"] == "121.00"
+    assert data["summary"]["metrics"]["net_sales"] == "164.00"
+    assert "no-store" in response.headers["cache-control"]
+    assert (
+        browser.post(
+            PREFIX + "/overview", headers=headers("foreign", directory=False, version=2), json={}
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.post(
+            PREFIX + "/overview", headers=headers(workspace, directory=False, version=1), json={}
+        ).status_code
+        == 409
+    )
+    for bad in (
+        {"actor_id": "foreign"},
+        {"_preview_transaction": True},
+        {"query": {"sql": "SELECT private"}},
+        {"channel_page": True},
+        {"target_month": "2026-07-02"},
+        {"interval": []},
+    ):
+        rejected = browser.post(PREFIX + "/overview", headers=auth, json=bad)
+        assert rejected.status_code == 422
+        assert SECRET not in rejected.text and "SELECT private" not in rejected.text
+    assert browser.post(PREFIX + "/overview", json={}).status_code == 403
+    denied = browser.post(PREFIX + "/overview?actor=foreign", headers=auth, json={})
+    assert denied.status_code == 422
+    source = browser.post(PREFIX + "/sources", headers=auth, json={
+        "kind": "refund", "order_id": "o1", "query": {"store_ids": ["001"]},
+    })
+    assert source.status_code == 200, source.text
+    assert {row["source_id"] for row in source.json()["data"]["rows"]} == {"r1", "r2"}
+    for bad in ({}, {"kind": []}, {"kind": "expense", "page": True},
+                {"kind": "sale", "order_id": 1}, {"kind": "refund", "workspace_id": "other"}):
+        assert browser.post(PREFIX + "/sources", headers=auth, json=bad).status_code == 422
+    assert browser.post(PREFIX + "/sources", json={"kind": "sale"}).status_code == 403
+    evidence = browser.post(PREFIX + "/evidence", headers=auth, json={
+        "quality_key": "unknown_attribution_expenses", "query": {"product_ids": ["p001"]},
+        "record_key": "e2",
+    })
+    assert evidence.status_code == 200, evidence.text
+    assert evidence.json()["data"]["scope_total"] == 1
+    assert evidence.json()["data"]["events"]["rows"][0]["original_amount"] == "6.00"
+    for bad in ({"sql": "SELECT private"}, {"actor_id": "foreign"}, {"quality_key": []},
+                {"query": {"sql": "SELECT private"}}, {"page": True}, {"page_size": 100}):
+        response = browser.post(PREFIX + "/evidence", headers=auth, json=bad)
+        assert response.status_code == 422
+        assert SECRET not in response.text and "SELECT private" not in response.text
+    assert browser.post(PREFIX + "/evidence", json={}).status_code == 403
+    assert browser.post(
+        PREFIX + "/evidence?actor=foreign", headers=auth, json={}
+    ).status_code == 422
+    for invalid, status in ((headers(workspace), 403),
+                            (headers("foreign", directory=False, version=2), 403),
+                            (headers(workspace, directory=False, version=1), 409)):
+        assert browser.post(PREFIX + "/evidence", headers=invalid, json={}).status_code == status
+    directory = browser.post(
+        PREFIX + "/references", headers=auth, json={"kind": "store", "channel_id": "pdd"}
+    )
+    assert directory.status_code == 200, directory.text
+    assert {row["key"] for row in directory.json()["data"]["rows"]} == {"001", "002"}
+    assert directory.json()["data"]["version"] == 2
+    for bad in ({"sql": "SELECT private"}, {"actor_id": "foreign"}, {"kind": []},
+                {"kind": "order"}, {"page": True}, {"page_size": 100}, {"sort": []}):
+        rejected = browser.post(PREFIX + "/references", headers=auth, json=bad)
+        assert rejected.status_code == 422
+        assert SECRET not in rejected.text and "SELECT private" not in rejected.text
+    assert browser.post(PREFIX + "/references", json={}).status_code == 403
+    assert browser.post(
+        PREFIX + "/references?actor=foreign", headers=auth, json={}
+    ).status_code == 422
+    assert browser.post(
+        PREFIX + "/references", headers=headers(workspace), json={}
+    ).status_code == 403  # Dataset-directory token is a different purpose.
+    assert browser.post(
+        PREFIX + "/references", headers=headers(workspace, directory=False, version=1), json={}
+    ).status_code == 409
+    assert browser.post(
+        PREFIX + "/references", headers=headers("foreign", directory=False, version=2), json={}
+    ).status_code == 403
+
+
+def test_selected_dataset_metadata_cannot_be_forged_or_read_across_workspaces(client):
+    browser, workspace, _, _ = client
+    auth = headers(workspace)
+    assert browser.post(PREFIX + "/datasets", headers=auth, json=plan()).status_code == 200
+    selected = browser.get(PREFIX + "/datasets/official", headers=auth)
+    assert selected.status_code == 200
+    assert selected.json()["data"]["workspace_id"] == workspace
+    assert selected.json()["data"]["version"] == 1
+    assert browser.get(PREFIX + "/datasets/official", headers=headers("foreign")).status_code == 403
+    assert (
+        browser.get(
+            PREFIX + "/datasets/official", headers=headers(workspace, directory=False)
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.get(PREFIX + "/datasets/official?actor_id=admin", headers=auth).status_code == 422
+    )
+
+
+def test_signed_full_batch_history_and_private_errors_for_direct_imports(client):
+    browser, workspace, settings, _ = client
+    assert (
+        browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan()).status_code
+        == 200
+    )
+    scope = LedgerScope(
+        workspace, "official", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
+    with settings.connection() as connection:
+        preview = preview_import(
+            connection,
+            scope,
+            [
+                # Missing required product name: invalid input stays private to its submitter.
+                CsvFile(
+                    "products",
+                    "private-file.csv",
+                    b"template_version,product_id,name,category,series\n1,001,,test,\n",
+                )
+            ],
+        )
+    auth = headers(workspace, directory=False)
+    listed = browser.get(PREFIX + "/batches", headers=auth)
+    assert listed.status_code == 200 and listed.json()["data"]["total"] == 1
+    batch_id = preview["batch_id"]
+    detail = browser.get(PREFIX + f"/batches/{batch_id}", headers=auth)
+    assert detail.status_code == 200 and detail.json()["data"]["batch"]["state"] == "rejected"
+    assert detail.json()["data"]["batch"]["errors"]
+    assert "actor_id" not in detail.json()["data"]["batch"]
+    other = browser.get(
+        PREFIX + f"/batches/{batch_id}",
+        headers=headers(workspace, directory=False, actor_id="other"),
+    )
+    assert other.status_code == 200 and "private-file" not in other.text
+    download = browser.get(PREFIX + f"/batches/{batch_id}/errors", headers=auth)
+    assert download.status_code == 200 and download.headers["content-type"].startswith("text/csv")
+    assert (
+        browser.get(
+            PREFIX + f"/batches/{batch_id}/errors",
+            headers=headers(workspace, directory=False, actor_id="other"),
+        ).status_code
+        == 403
+    )
+    assert browser.get(PREFIX + "/batches", headers=headers(workspace)).status_code == 403
+    assert (
+        browser.get(PREFIX + "/batches", headers=headers("foreign", directory=False)).status_code
+        == 403
+    )
+    for suffix in ("?page=0", "?page=1&page=2", "?actor_id=forged"):
+        assert browser.get(PREFIX + "/batches" + suffix, headers=auth).status_code == 422
+    assert browser.get(PREFIX + f"/batches/{batch_id}?page=1", headers=auth).status_code == 422
+    assert "no-store" in detail.headers["cache-control"]
+
+
+@pytest.mark.parametrize("kind", ["missing", "forged", "expired", "purpose", "self_identity"])
+def test_directory_rejects_unsigned_expired_wrong_purpose_and_self_reported_identity(client, kind):
+    browser, workspace, _, _ = client
+    options = {
+        "missing": {},
+        "forged": {"authorization": "Bearer forged.signature"},
+        "expired": headers(workspace, exp=int(time.time()) - 1),
+        "purpose": headers(workspace, directory=False),
+        "self_identity": {"x-workspace-id": workspace, "x-actor-id": "http-user"},
+    }
+    response = browser.get(PREFIX + "/datasets", headers=options[kind])
+    assert response.status_code == 403 and response.json()["error"] == "BI_SCOPE_DENIED"
+
+
+def test_read_permission_and_explicit_confirmation_required_before_creation(client):
+    browser, workspace, _, _ = client
+    assert (
+        browser.post(
+            PREFIX + "/datasets", headers=headers(workspace, manage=False), json=plan()
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.post(
+            PREFIX + "/datasets", headers=headers(workspace), json=plan(confirmed_by_user=False)
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.get(PREFIX + "/datasets", headers=headers(workspace)).json()["data"]["total"] == 0
+    )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"confirmed_by_user": "yes"},
+        {"actor_id": "other"},
+        {"workspace_id": "other"},
+        {"demo_allowed": True},
+        {"name": {"private": "secret-cell"}},
+        {"source_kind": "unknown"},
+        {"dataset_id": "../foreign"},
+        {"idempotency_key": []},
+    ],
+)
+def test_creation_strict_input_rejects_extra_identity_mode_and_echoes_no_cells(client, change):
+    browser, workspace, _, _ = client
+    response = browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan(**change))
+    assert response.status_code == 422
+    assert "secret-cell" not in response.text and "input" not in response.json()
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "page=0",
+        "page_size=101",
+        "page=1&page=2",
+        "actor_id=other",
+        "source_kind=unknown",
+        "page=１",
+    ],
+)
+def test_directory_query_parameters_are_bounded_and_unambiguous(client, query):
+    browser, workspace, _, _ = client
+    assert browser.get(PREFIX + "/datasets?" + query, headers=headers(workspace)).status_code == 422
+
+
+def test_all_twelve_csv_templates_and_catalog_are_authenticated_and_exact(client):
+    browser, workspace, _, _ = client
+    catalog = browser.get(PREFIX + "/catalog", headers=headers(workspace, manage=False))
+    assert catalog.status_code == 200 and len(catalog.json()["data"]["templates"]) == 12
+    assert catalog.json()["data"]["metrics"][0]["name"] == "付款成交金额"
+    for resource in SPECS:
+        response = browser.get(PREFIX + f"/templates/{resource}", headers=headers(workspace))
+        assert response.content == standard_csv(resource, [])
+        assert response.headers["content-disposition"].endswith(f'{resource}-v1.csv"')
+        assert browser.get(PREFIX + f"/templates/{resource}").status_code == 403
+    assert browser.get(PREFIX + "/templates/secret", headers=headers(workspace)).status_code == 422
+    assert (
+        browser.get(PREFIX + "/catalog?sql=select", headers=headers(workspace)).status_code == 422
+    )
+
+
+def test_signed_query_matches_same_version_core_exact_decimals_and_immutable_sources(client):
+    browser, workspace, config, _ = client
+    assert (
+        browser.post(
+            PREFIX + "/datasets",
+            headers=headers(workspace),
+            json=plan(dataset_id="demo", source_kind="demo"),
+        ).status_code
+        == 200
+    )
+    scope = LedgerScope(
+        workspace, "demo", "http-user", 1, frozenset({"ledger.read", "ledger.manage"})
+    )
+    source = generate_demo(DemoPlan("2026-01-01", days=7, sku_count=10, order_count=30))
+    with config.connection() as connection:
+        preview = preview_import(connection, scope, demo_files(source))
+        assert preview["state"] == "preview", preview["errors"]
+        result = confirm_import(
+            connection, scope, preview["preview_id"], "import-demo", confirmed_by_user=True
+        )
+        assert result["version"] == 2
+    auth = headers(workspace, directory=False, dataset_id="demo", version=2)
+    # Day one deliberately lacks foreign FX; use the remaining known-revenue days
+    # while preserving missing mapping/cost as unknown, rather than inventing inputs.
+    query = {"dimension": "store", "start": "2026-01-02", "end": "2026-01-07"}
+    response = browser.post(PREFIX + "/query", headers=auth, json=query)
+    assert response.status_code == 200
+    with config.connection() as connection:
+        expected = query_ledger(
+            connection,
+            LedgerScope(workspace, "demo", "http-user", 2, scope.capabilities),
+            Query(**query),
+        )
+    assert response.json()["data"] == expected
+    metrics = expected["summary"]["metrics"]
+    assert isinstance(metrics["sales_amount"], str) and "." in metrics["sales_amount"]
+    # Deliberate missing cost remains unknown, not zero; no model needed for exact calculation.
+    assert expected["summary"]["quality"]["unknown_cost_lines"] > 0
+    assert metrics["contribution_profit"] is None
+    stale = browser.post(
+        PREFIX + "/query",
+        headers=headers(workspace, directory=False, dataset_id="demo", version=1),
+        json=query,
+    )
+    assert stale.status_code == 409
+    assert (
+        browser.post(PREFIX + "/query", headers=headers(workspace), json=query).status_code == 403
+    )
+    assert (
+        browser.post(
+            PREFIX + "/query",
+            headers=headers("other", directory=False, dataset_id="demo", version=2),
+            json=query,
+        ).status_code
+        == 403
+    )
+    assert (
+        browser.get(PREFIX + "/datasets", headers=headers(workspace)).json()["data"]["rows"][0][
+            "version"
+        ]
+        == 2
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"sql": "SELECT secret FROM private"},
+        {"dimension": []},
+        {"metrics": [{}]},
+        {"metrics": ["fake"]},
+        {"page": True},
+        {"page_size": 101},
+        {"page": 1000001},
+        {"channel_ids": ["../foreign"]},
+        {"start": "2026-02-30"},
+        {"sort": {}},
+    ],
+)
+def test_query_is_whitelisted_and_never_accepts_arbitrary_sql(client, body):
+    browser, workspace, _, _ = client
+    response = browser.post(
+        PREFIX + "/query", headers=headers(workspace, directory=False), json=body
+    )
+    assert response.status_code == 422 and "SELECT" not in response.text
+
+
+def test_request_media_duplicate_fields_declared_and_streamed_limits(client):
+    browser, workspace, _, _ = client
+    auth = headers(workspace)
+    assert (
+        browser.post(PREFIX + "/datasets", headers=auth, content="private-raw").status_code == 415
+    )
+    typed = {**auth, "content-type": "application/json"}
+    assert (
+        browser.post(
+            PREFIX + "/datasets", headers=typed, content='{"name":"a","name":"secret-cell"}'
+        ).status_code
+        == 422
+    )
+    assert (
+        browser.post(
+            PREFIX + "/datasets", headers={**typed, "content-encoding": "gzip"}, content="{}"
+        ).status_code
+        == 415
+    )
+    declared = browser.post(
+        PREFIX + "/datasets",
+        headers={**typed, "content-length": str(MAX_JSON_BYTES + 1)},
+        content="{}",
+    )
+    assert declared.status_code == 413
+    streamed = browser.post(
+        PREFIX + "/datasets",
+        headers={**typed, "content-length": "2"},
+        content=b" " * (MAX_JSON_BYTES + 1),
+    )
+    assert streamed.status_code == 413 and "private-raw" not in streamed.text
+
+
+def test_no_fallback_no_runtime_admin_no_startup_ddl_and_demo_server_switch(client, monkeypatch):
+    _, workspace, config, admin = client
+    monkeypatch.setenv("DATABASE_URL", admin)
+    monkeypatch.delenv("SHOPGATE_BI_DATABASE_URL", raising=False)
+    monkeypatch.setenv("SHOPGATE_BI_SERVICE_SECRET", SECRET)
+    # Constructing/startup app is never a database migration or source generation.
+    with TestClient(create_app()) as browser:
+        response = browser.get(PREFIX + "/datasets", headers=headers(workspace))
+        assert response.status_code == 503 and admin not in response.text
+    with TestClient(create_app(bi_settings=BiSettings(admin, SECRET))) as browser:
+        assert browser.get(PREFIX + "/datasets", headers=headers(workspace)).status_code == 503
+    with TestClient(
+        create_app(bi_settings=BiSettings(config.database_url, SECRET, False))
+    ) as browser:
+        assert (
+            browser.post(
+                PREFIX + "/datasets", headers=headers(workspace), json=plan(source_kind="demo")
+            ).status_code
+            == 403
+        )
+        assert (
+            browser.post(PREFIX + "/datasets", headers=headers(workspace), json=plan()).status_code
+            == 200
+        )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("private SQL password=secret-cell"),
+        psycopg.OperationalError("private DSN secret-cell"),
+    ],
+)
+def test_unexpected_and_database_errors_are_redacted_from_response_and_log(
+    client, monkeypatch, caplog, error
+):
+    browser, workspace, _, _ = client
+
+    def broken(_):
+        raise error
+
+    monkeypatch.setattr(BiSettings, "connection", broken)
+    response = browser.get(PREFIX + "/datasets", headers=headers(workspace))
+    assert response.status_code in {500, 503}
+    assert "secret-cell" not in response.text + caplog.text
+    assert "password" not in response.text + caplog.text
+    assert "authorization" not in response.json()

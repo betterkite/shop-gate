@@ -11,6 +11,7 @@ import { authErrorResponse } from '@/lib/auth/http';
 import { projectRouteAction } from '@/lib/auth/project-route-action';
 import {
   getMessagesByProjectId,
+  getArchiveMessagePage,
   getMessagesByProjectIdAfter,
   createMessage,
   deleteMessagesByProjectId,
@@ -47,6 +48,14 @@ export async function GET(
       projectId: project_id,
     });
     const { searchParams } = new URL(request.url);
+    const archivePage = searchParams.get('archive_page');
+    if (archivePage !== null) {
+      if (!/^(?:[1-9]\d{0,5}|1000000)$/.test(archivePage)) {
+        return NextResponse.json({ error: '历史页码无效。' }, { status: 400 });
+      }
+      const data = await getArchiveMessagePage(project_id, Number(archivePage));
+      return NextResponse.json({ success: true, data }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     const rawLimit = Number.parseInt(searchParams.get('limit') || '50', 10);
     const rawOffset = Number.parseInt(searchParams.get('offset') || '0', 10);
     const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 50, 1), 500);

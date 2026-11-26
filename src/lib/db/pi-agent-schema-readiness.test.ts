@@ -41,10 +41,11 @@ function readyCatalog(): PiAgentSchemaCatalog {
     PI_AGENT_SCHEMA_EXPECTATIONS.checkConstraints.map((constraint) => ({
       tableName: constraint.tableName,
       constraintName: constraint.constraintName,
-      definition: `CHECK ((workspace_key ~ '${constraint.definitionIncludes[1]}'::text))`,
+      definition: `CHECK (${constraint.definitionIncludes.join(' AND ')})`,
       validated: true,
     }));
-  return { columns, indexes, foreignKeys, checkConstraints };
+  const triggers = PI_AGENT_SCHEMA_EXPECTATIONS.triggers.map((trigger) => ({ ...trigger, enabled: true }));
+  return { columns, indexes, foreignKeys, checkConstraints, triggers };
 }
 
 describe('PI Agent schema readiness', () => {
@@ -55,7 +56,7 @@ describe('PI Agent schema readiness', () => {
       issues: [],
     });
     expect(PI_AGENT_SCHEMA_CONTRACT_VERSION).toBe(
-      '20260723000400_worker_registry_and_observability'
+      '20261120000100_bi_agent_selection'
     );
   });
 
@@ -112,6 +113,10 @@ describe('PI Agent schema readiness', () => {
   });
 
   it.each([
+    'agent_execution_scopes',
+    'bi_agent_conversations',
+    'bi_agent_requests',
+    'bi_agent_metric_sources',
     'agent_generation_leases',
     'agent_generation_jobs',
     'agent_worker_slots',
@@ -244,6 +249,7 @@ describe('PI Agent schema readiness', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     const client = { $queryRawUnsafe: query } as unknown as PiAgentSchemaQueryClient;
 
@@ -252,7 +258,7 @@ describe('PI Agent schema readiness', () => {
       code: 'PI_AGENT_SCHEMA_NOT_READY',
       contractVersion: PI_AGENT_SCHEMA_CONTRACT_VERSION,
     });
-    expect(query).toHaveBeenCalledTimes(4);
+    expect(query).toHaveBeenCalledTimes(5);
     for (const [sql] of query.mock.calls.slice(0, 3)) {
       expect(sql).toMatch(/^\s*SELECT/);
       expect(sql).not.toMatch(/\b(?:ALTER|CREATE|DELETE|DROP|INSERT|TRUNCATE|UPDATE)\b/i);

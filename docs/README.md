@@ -11,6 +11,7 @@
 | 不知道从哪篇开始 | 本页下方“按角色阅读”与“知识地图” |
 | 想理解 `.env`、选择模型或关闭 Memory | [配置、模型接入与可选组件指南](configuration.md) |
 | 想看后续持续完善路线 | [持续完善路线图](ROADMAP.md) |
+| 想跟进完整电商 BI 与嵌入式 Agent 重构 | [v0.1 功能基线与验收](review/v01/README.md)（待实现，不是现有功能声明） |
 | 想建立全局认识 | [架构总览](architecture.md) |
 | 想快速跑起来 | [基础设施配置](infrastructure.md) |
 | 想配置登录、用户权限或用量配额 | [用户、权限与会话管理](authentication.md) |

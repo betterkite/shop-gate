@@ -447,9 +447,9 @@ async function main() {
       cwd: path.join(ROOT, 'services', 'commerce-data'),
       successSummary: 'ruff 通过。',
     });
-    checkCommand('后端 Pytest', 'uv', ['run', 'pytest'], {
-      cwd: path.join(ROOT, 'services', 'commerce-data'),
-      successSummary: 'pytest 通过。',
+    checkCommand('后端数据库与助手测试', 'npm', ['run', 'test:backend'], {
+      cwd: ROOT,
+      successSummary: '独立数据库上的后端与助手测试通过。',
     });
   } else {
     addCheck('Full checks', 'warn', '已跳过 lint/type-check/后端测试。', ['使用 npm run doctor:full 运行完整诊断。']);

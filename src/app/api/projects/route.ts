@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { getAllProjects, createProject } from '@/lib/services/project';
+import { getAllProjects, getArchiveProjectPage, createProject } from '@/lib/services/project';
 import type { CreateProjectInput } from '@/types/backend';
 import { serializeProjects, serializeProject } from '@/lib/serializers/project';
 import { normalizePiAgentModelId } from '@/lib/constants/models';
@@ -80,10 +80,13 @@ export async function GET(request: NextRequest) {
       ? await requireAuthSession(request.headers)
       : null;
     await requireProjectListPermission(session);
-    const projects = await getAllProjects(session ? {
-      userId: session.user.id,
-      isAdmin: isPlatformAdmin(session.user),
-    } : undefined);
+    const access = session ? { userId: session.user.id, isAdmin: isPlatformAdmin(session.user) } : undefined;
+    const archivePage = new URL(request.url).searchParams.get('archive_page');
+    if (archivePage !== null) {
+      if (!/^(?:[1-9]\d{0,5}|1000000)$/.test(archivePage)) return createErrorResponse('INVALID_PAGE', '历史页码无效。', 400);
+      return createSuccessResponse(await getArchiveProjectPage(access, Number(archivePage)));
+    }
+    const projects = await getAllProjects(access);
     return createSuccessResponse(serializeProjects(projects));
   } catch (error) {
     if (error instanceof AuthorizationError) return authErrorResponse(error);

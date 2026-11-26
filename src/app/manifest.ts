@@ -4,11 +4,11 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Shop Gate · 零售经营分析工作台',
     short_name: 'Shop Gate',
-    description: '从真实经营行为数据与证据出发，生成、评测和治理可验证的零售经营看板。',
+    description: '从订单、退款、成本和费用核对经营表现，向经营助手提问并查看账本依据。',
     start_url: '/',
     display: 'standalone',
     background_color: '#f8fafc',
-    theme_color: '#de5d48',
+    theme_color: '#0e879c',
     icons: [
       {
         src: '/icons/shopgate-192.png',

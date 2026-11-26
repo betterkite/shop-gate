@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -71,6 +72,7 @@ function DataTable({ children }: { children: ReactNode }) {
 }
 
 export default async function CommercePlatformPage({ searchParams }: Props) {
+  if (!Object.keys(await searchParams ?? {}).length) redirect('/bi/products');
   const params = await searchParams;
   const data = await getCommercePlatformData({
     view: params?.view,
@@ -104,6 +106,10 @@ export default async function CommercePlatformPage({ searchParams }: Props) {
       badge={<SyntheticBadge />}
       tabs={tabs}
     >
+      <p className="mb-5 rounded-xl border border-primary/25 bg-primary/5 p-4 text-sm">
+        此页展示旧版行为数据与当时的统计口径。按订单账本核对经营金额，请前往
+        <Link className="ml-1 font-semibold text-primary underline" href="/bi/products">商品分析</Link>。
+      </p>
       <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-6">
         <Metric label="成交总额（GMV）" value={displayMoney(totals?.gmv)} hint="按购买次数 × 商品价格估算" />
         <Metric label="页面浏览量（PV）" value={displayNumber(totals?.pv, 0)} hint="打开商品页面的次数" />

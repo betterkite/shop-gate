@@ -74,6 +74,22 @@ describe('PI Agent global Worker capacity', () => {
       });
   });
 
+  it('binds BI capacity to its run and rejects ambiguous identities before acquiring capacity', async () => {
+    const input = { ...claimInput(), activeJobId: undefined, activeRunId: 'bi-run-1' };
+    mocks.transactionClient.$queryRaw
+      .mockResolvedValueOnce([{ databaseNow: now }])
+      .mockResolvedValueOnce([{ slotNumber: 1, fencingToken: 3 }]);
+    const claim = await claimPiAgentWorkerSlot(input);
+    expect(claim).toMatchObject({ activeRunId: 'bi-run-1', fencingToken: 4 });
+    expect(mocks.transactionClient.agentWorkerSlot.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ activeJobId: null, activeRunId: 'bi-run-1' }),
+    }));
+    await expect(claimPiAgentWorkerSlot({ ...input, activeJobId: claimInput().activeJobId }))
+      .rejects.toMatchObject({ code: 'WORKER_POOL_INVALID' });
+    await expect(claimPiAgentWorkerSlot({ ...input, activeRunId: undefined }))
+      .rejects.toMatchObject({ code: 'WORKER_POOL_INVALID' });
+  });
+
   it('returns null when the shared pool has no free slot', async () => {
     mocks.transactionClient.$queryRaw
       .mockResolvedValueOnce([{ databaseNow: now }])

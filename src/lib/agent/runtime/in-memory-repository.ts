@@ -177,6 +177,11 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
 
   async createRun(input: CreateAgentRunInput): Promise<AgentRunRecord> {
     assertBoundedIdentifier(input.id, 'run.id');
+    // This test double has no authenticated conversation store. BI ownership
+    // must be exercised against the actual PostgreSQL repository and constraints.
+    if (typeof input.projectId !== 'string' || input.biRequestId !== undefined) {
+      throw new AgentRuntimeRepositoryError('INVALID_STATE', 'BI requests require durable storage.');
+    }
     assertBoundedIdentifier(input.projectId, 'run.projectId');
     assertHash(input.workspaceKey, 'run.workspaceKey');
     if (input.requestId !== undefined) {
@@ -232,6 +237,8 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
       id: input.id,
       runInstanceId,
       projectId: input.projectId,
+      executionScopeId: input.projectId,
+      biRequestId: null,
       requestId: input.requestId ?? null,
       workspaceKey: input.workspaceKey,
       status: input.status ?? (hasLeaseOwner ? 'running' : 'pending'),
@@ -286,6 +293,10 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
     return lease ? cloneWorkspaceLease(lease) : null;
   }
 
+  async getExecutionScopeLease(executionScopeId: string): Promise<AgentWorkspaceLeaseRecord | null> {
+    return this.getWorkspaceLease(executionScopeId);
+  }
+
   async assertWorkspaceLease(input: AgentWriteFence): Promise<void> {
     this.assertFence(input, input.now ?? this.clock());
   }
@@ -314,7 +325,7 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
     }
 
     const workspaceLease = this.acquireWorkspaceLease({
-      projectId: run.projectId,
+      projectId: run.executionScopeId,
       workspaceKey: run.workspaceKey,
       runId: run.id,
       leaseOwner: input.leaseOwner,
@@ -343,7 +354,7 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
     const now = input.now ?? this.clock();
     assertFutureDate(input.leaseExpiresAt, now, 'leaseExpiresAt');
     const run = this.assertFence(input, now);
-    const workspaceLease = this.requireWorkspaceLease(run.projectId);
+    const workspaceLease = this.requireWorkspaceLease(run.executionScopeId);
     run.leaseExpiresAt = new Date(input.leaseExpiresAt);
     run.lastHeartbeatAt = new Date(now);
     workspaceLease.leaseExpiresAt = new Date(input.leaseExpiresAt);
@@ -696,17 +707,17 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
         'Workspace mutation is not backed by a prepared operation ledger entry.'
       );
     }
-    if (this.workspaceCommitLocks.has(run.projectId)) {
+    if (this.workspaceCommitLocks.has(run.executionScopeId)) {
       throw new AgentRuntimeRepositoryError('WORKSPACE_BUSY', 'Workspace commit is already locked.');
     }
-    this.workspaceCommitLocks.add(run.projectId);
+    this.workspaceCommitLocks.add(run.executionScopeId);
     try {
       this.assertFence(input, input.now ?? this.clock());
       execution.status = 'commit_authorized';
       execution.updatedAt = new Date(input.now ?? this.clock());
       return await commit();
     } finally {
-      this.workspaceCommitLocks.delete(run.projectId);
+      this.workspaceCommitLocks.delete(run.executionScopeId);
     }
   }
 
@@ -739,7 +750,7 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
     run.finishedAt = new Date(finishedAt);
     run.leaseOwner = null;
     run.leaseExpiresAt = null;
-    const workspaceLease = this.requireWorkspaceLease(run.projectId);
+    const workspaceLease = this.requireWorkspaceLease(run.executionScopeId);
     workspaceLease.status = 'free';
     workspaceLease.activeRunId = null;
     workspaceLease.leaseOwner = null;
@@ -761,6 +772,7 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
     return [...this.runs.values()]
       .filter((run) => {
         if (query.projectId && run.projectId !== query.projectId) return false;
+        if (query.executionScopeId && run.executionScopeId !== query.executionScopeId) return false;
         const expiredActive =
           ACTIVE_STATUSES.has(run.status) &&
           (!run.leaseExpiresAt || run.leaseExpiresAt <= now);
@@ -865,7 +877,7 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
     input: AgentWriteFence,
     now: Date
   ): void {
-    const lease = this.requireWorkspaceLease(run.projectId);
+    const lease = this.requireWorkspaceLease(run.executionScopeId);
     if (
       lease.status !== 'held' ||
       lease.activeRunId !== run.id ||
@@ -947,6 +959,7 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
 
     const lease: AgentWorkspaceLeaseRecord = existing ?? {
       projectId: input.projectId,
+      executionScopeId: input.projectId,
       workspaceKey: input.workspaceKey,
       status: 'free',
       activeRunId: null,

@@ -42,6 +42,16 @@ describe('governed knowledge integration config', () => {
     expect(config.projectSpaceBaseUrl).toBe('https://knowledge.example/spaces/projects');
   });
 
+  it('allows production to run with the external knowledge service disabled', () => {
+    const config = getKnowledgeIntegrationConfig({
+      NODE_ENV: 'production',
+      SHOPGATE_KNOWLEDGE_ENABLED: '0',
+    });
+
+    expect(config.enabled).toBe(false);
+    expect(config.oauth).toBeNull();
+  });
+
   it('requires OAuth and HTTPS in production', () => {
     expect(() => getKnowledgeIntegrationConfig({
       NODE_ENV: 'production',

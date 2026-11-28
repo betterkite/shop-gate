@@ -189,6 +189,7 @@ describe('PI Agent terminal ownership', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.stubEnv('PI_AGENT_MAX_TURNS', undefined);
     workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'pi-agent-terminal-'));
     process.env.DEEPSEEK_API_KEY = 'test-key';
     mocks.getProjectById.mockResolvedValue({ id: 'project-test', repoPath: workspace });
@@ -263,6 +264,7 @@ describe('PI Agent terminal ownership', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await fs.rm(workspace, { recursive: true, force: true });
   });
 
@@ -711,7 +713,12 @@ describe('PI Agent terminal ownership', () => {
     expect(mocks.compileSkills.mock.calls[0]?.[0]).not.toHaveProperty('additionalSkillIds');
   });
 
-  it('uses the compact targeted profile when platform artifacts are already prepared', async () => {
+  it.each([
+    { scenario: 'phase default', configured: undefined, expectedTurns: 8 },
+    { scenario: 'lower release limit', configured: '3', expectedTurns: 3 },
+    { scenario: 'limit above the phase budget', configured: '12', expectedTurns: 8 },
+  ])('uses the compact targeted profile for prepared artifacts with $scenario', async ({ configured, expectedTurns }) => {
+    vi.stubEnv('PI_AGENT_MAX_TURNS', configured);
     mocks.run.mockResolvedValue(result('completed'));
     mocks.assessPreparedArtifacts.mockResolvedValue({
       ready: true,
@@ -757,7 +764,7 @@ describe('PI Agent terminal ownership', () => {
     }));
     expect(mocks.createInspector).toHaveBeenCalledTimes(1);
     expect(mocks.engineOptions).toHaveBeenCalledWith(expect.objectContaining({
-      maxTurns: 8,
+      maxTurns: expectedTurns,
       maxTotalToolCalls: 12,
       maxRunInputTokens: 160_000,
       maxRunCacheMissInputTokens: 24_000,

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PI_AGENT_BUILD_REVISION, PI_AGENT_FRAMEWORK_VERSION } from '@/lib/agent/framework-identity';
 import type { ProjectLlmConfig } from '@/lib/config/llm';
 import { hashPiAgentProvenance } from '@/lib/services/pi-agent-provenance';
+import { operatingMethod, operatingMethodPrompt } from './operating-methods';
 import { BI_AGENT_TOOL_DEFINITIONS } from './tool-manifest';
 import type { BiAgentPageScope } from './contracts';
 
@@ -33,9 +34,9 @@ export function biAgentProvenance(config: ProjectLlmConfig, instruction: string,
   return {
     frameworkVersion: PI_AGENT_FRAMEWORK_VERSION, buildRevision: PI_AGENT_BUILD_REVISION,
     profileHash: digest({ profileId: config.profileId, model: config.model, provider: config.provider }),
-    promptHash: digest({ system: BI_AGENT_SYSTEM_PROMPT, instruction, pageScope, ...(selection ? { selection } : {}) }),
+    promptHash: digest({ system: BI_AGENT_SYSTEM_PROMPT, method: operatingMethodPrompt(pageScope.module), instruction, pageScope, ...(selection ? { selection } : {}) }),
     toolHash: digest(BI_AGENT_TOOL_DEFINITIONS.map(({ name, description, schema }) => ({ name, description,
       inputSchema: z.toJSONSchema(schema, { io: 'input' }), effect: 'read', idempotency: 'intrinsic', terminal: name === 'submit_answer' }))),
-    skillHash: digest([]), workspaceHash: digest({ workspaceId, datasetId, version, pageScope }),
+    skillHash: digest(operatingMethod(pageScope.module)), workspaceHash: digest({ workspaceId, datasetId, version, pageScope }),
   };
 }

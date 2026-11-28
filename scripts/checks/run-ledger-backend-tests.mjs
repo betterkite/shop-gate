@@ -81,7 +81,10 @@ try {
     const agentEnvironment = Object.fromEntries(['PATH', 'HOME', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'TMPDIR']
       .filter((key) => environment[key] !== undefined).map((key) => [key, environment[key]]));
     agentEnvironment.NODE_ENV = 'test';
-    agentEnvironment.PI_AGENT_TEST_DATABASE_URL = `postgresql://ledger_test_admin@127.0.0.1:${port}/pi_agent_acceptance`;
+    // Exercise raw SQL and ORM comparisons with a non-UTC connection even on UTC CI hosts.
+    const agentDatabase = new URL(`postgresql://ledger_test_admin@127.0.0.1:${port}/pi_agent_acceptance`);
+    agentDatabase.searchParams.set('options', '-c timezone=Asia/Shanghai');
+    agentEnvironment.PI_AGENT_TEST_DATABASE_URL = agentDatabase.href;
     console.log('[agent] Running durable runtime and approval checks on the owned PostgreSQL 18 cluster.');
     exitCode = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, ['scripts/checks/run-pi-agent-postgres-integration.js'], {

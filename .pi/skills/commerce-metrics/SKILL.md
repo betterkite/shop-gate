@@ -1,11 +1,11 @@
 ---
 name: commerce-metrics
-description: Compute deterministic retail operating metrics such as funnel conversion, GMV, sell-through, stock-to-sales, lifecycle, and daily trends.
+description: Use for paid-order amounts, refunds, costs or event conversion. Select the accounting guide for the current BI module.
 ---
 
 # Shop Gate 经营指标
 
-把已校验的零售事件、商品和日指标转换为用户能理解的经营结果，并同时给出公式、窗口、样本量和缺口。
+查询经营账本时，从[八个模块的口径说明](assets/ledger-methods.json)选当前模块。问定义时查指标目录；问实际金额或排名时读取当前授权范围和数据版本的账本依据。行为数据可回答浏览、加购和购买事件问题。
 
 ## 确定性脚本
 
@@ -18,7 +18,7 @@ python3 scripts/retail_trend.py data_file/final/daily-metrics.json
 ## 口径
 
 - 转化率=购买量÷浏览量；加购到购买=购买量÷加购量，分母为 0 时返回空值。
-- GMV=购买量×数据中的实际成交价格；价格缺失时不反推，也不擅自使用“合成价格”。
+- 成交总额（GMV）来自已付款订单明细实收金额。仅有行为数据时，说明缺少订单金额。
 - 库销比=库存÷窗口购买量；无购买时标记“无销量”，不能写成 0。
 - 动销率、商品阶段、类目集中度和日环比都必须绑定同一窗口与同一数据集。
 - PV、UV、收藏、加购、购买是不同概念；图表使用哪个指标就写清中文名和英文缩写。

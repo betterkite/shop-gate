@@ -13,6 +13,7 @@ import { executeBiAgentRun, failPendingBiAgentRun } from './execution';
 import { publishBiAgentAnswer } from './completion';
 import { recoverBiAgentExecutions } from './recovery';
 import { readBiAgentAnswer, readBiAgentResultPage, readBiAgentChart } from './results';
+import { operatingMethodPrompt } from './operating-methods';
 import { createBiAgentTools } from './tools';
 import type { BiAgentAuthority } from './authorization';
 
@@ -87,8 +88,17 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
   beforeAll(async () => {
     vi.stubEnv('SHOPGATE_AUTH_MODE', 'local'); vi.stubEnv('SHOPGATE_AUTH_SECRET', 'owned-execution-auth-secret');
     vi.stubEnv('DEEPSEEK_API_KEY', 'unused-scripted-execution-credential'); vi.stubEnv('SHOPGATE_LLM_AGENT_ENABLED', '1');
-    a = new PrismaClient({ datasourceUrl: databaseUrl! }); b = new PrismaClient({ datasourceUrl: databaseUrl! });
+    function connectInZone(zone: string) {
+      const url = new URL(databaseUrl!);
+      url.searchParams.set('options', [url.searchParams.get('options'), '-c timezone=' + zone].filter(Boolean).join(' '));
+      return new PrismaClient({ datasourceUrl: url.href });
+    }
+    // A writes UTC timestamps from an eastern zone; B reads and recovers from a western zone.
+    a = connectInZone('Asia/Shanghai');
+    b = connectInZone('America/New_York');
     await Promise.all([a.$connect(), b.$connect()]);
+    expect(await a.$queryRaw`SELECT current_setting('TimeZone') AS zone`).toEqual([{ zone: 'Asia/Shanghai' }]);
+    expect(await b.$queryRaw`SELECT current_setting('TimeZone') AS zone`).toEqual([{ zone: 'America/New_York' }]);
   });
   afterAll(async () => {
     try {
@@ -130,6 +140,7 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
     const fixture = await pending(), model = providerFor(fixture.id);
     expect(await execute(fixture.id, model.provider)).toMatchObject({ status: 'completed' });
     expect(model.requests).toHaveLength(2);
+    expect(model.requests[0].messages).toContainEqual({ role: 'system', content: expect.stringContaining(operatingMethodPrompt(scope.module)) });
     expect(JSON.stringify(model.requests[0].messages)).toContain('previous_equal_length_period');
     expect(JSON.stringify(model.requests[0].messages)).toContain('2026-08-02');
     expect(JSON.stringify(model.requests[1].messages)).toContain('display_preview');
@@ -297,8 +308,9 @@ describe.skipIf(!databaseUrl)('BI engine and worker execution (real PostgreSQL; 
     const untouched = await pending(fixture.actor);
     await createQuotaService(a).reserve({ actorUserId: fixture.actor.actorId, metric: 'llm.total_tokens.monthly', quantity: 10,
       idempotencyKey: biAgentTokenReservationKey(run.id), reservationTtlSeconds: 120 });
-    await a.agentRun.update({ where: { id: run.id }, data: { leaseExpiresAt: new Date(0) } });
-    await a.agentWorkspaceLease.update({ where: { executionScopeId: run.executionScopeId }, data: { leaseExpiresAt: new Date(0) } });
+    const justExpired = new Date(Date.now() - 60_000);
+    await a.agentRun.update({ where: { id: run.id }, data: { leaseExpiresAt: justExpired } });
+    await a.agentWorkspaceLease.update({ where: { executionScopeId: run.executionScopeId }, data: { leaseExpiresAt: justExpired } });
     await recoverOwned(fixture.id, b);
     expect((await a.agentRun.findUniqueOrThrow({ where: { id: run.id } })).status).toBe('interrupted');
     expect((await a.agentRun.findUniqueOrThrow({ where: { id: untouched.id } })).status).toBe('pending');

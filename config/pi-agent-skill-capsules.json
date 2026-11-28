@@ -134,7 +134,7 @@
       "priority": 90,
       "phases": ["data-preparation"],
       "requiresTools": ["commerce_api_get"],
-      "objective": "生成与任务窗口一致的漏斗、转化、GMV、动销、库销比和日趋势指标。",
+      "objective": "按现有数据来源解释转化、动销、库销比及日趋势。成交总额（GMV）须有已付款订单行实收依据。",
       "invariants": [
         "所有指标说明样本长度、窗口和公式。",
         "分母为零时返回空值或无销量，不把缺失数据写成 0。"

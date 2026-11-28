@@ -1,3 +1,4 @@
+import { utcTimestamp } from '@/lib/db/utc-clock';
 import { randomUUID } from 'node:crypto';
 
 import { Prisma } from '@prisma/client';
@@ -114,20 +115,20 @@ export async function claimPiAgentWorkerSlot(input: {
             "status" = 'free'
             OR (
               "status" = 'held'
-              AND "lease_expires_at" <= ${now}
+              AND "lease_expires_at" <= ${utcTimestamp(now)}
               AND NOT EXISTS (
                 SELECT 1
                 FROM "agent_generation_jobs" AS "job"
                 WHERE "job"."id" = "agent_worker_slots"."active_job_id"
                   AND "job"."status" = 'running'
-                  AND "job"."lease_expires_at" > ${now}
+                  AND "job"."lease_expires_at" > ${utcTimestamp(now)}
               )
               AND NOT EXISTS (
                 SELECT 1 FROM "agent_runs" AS "run"
                 WHERE "run"."id" = "agent_worker_slots"."active_run_id"
                   AND "run"."bi_request_id" IS NOT NULL
                   AND "run"."status" IN ('running', 'waiting', 'reconciling')
-                  AND "run"."lease_expires_at" > ${now}
+                  AND "run"."lease_expires_at" > ${utcTimestamp(now)}
               )
             )
           )

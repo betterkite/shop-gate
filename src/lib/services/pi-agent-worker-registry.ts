@@ -1,3 +1,4 @@
+import { utcDatabaseClock } from '@/lib/db/utc-clock';
 import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 
@@ -368,7 +369,7 @@ export async function hasLivePiAgentWorker(kind: PiAgentWorkerKind, poolKey = 'g
   const rows = await prisma.$queryRaw<Array<{ online: boolean }>>(Prisma.sql`
     SELECT EXISTS (SELECT 1 FROM "agent_worker_instances"
       WHERE "pool_key" = ${poolKey} AND "worker_kind" = ${kind}
-        AND "status" = 'running' AND "lease_expires_at" > clock_timestamp()) AS online
+        AND "status" = 'running' AND "lease_expires_at" > ${utcDatabaseClock}) AS online
   `);
   return rows[0]?.online === true;
 }

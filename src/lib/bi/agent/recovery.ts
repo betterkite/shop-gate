@@ -1,3 +1,4 @@
+import { utcDatabaseClock } from '@/lib/db/utc-clock';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { PrismaAgentRuntimeRepository } from '@/lib/agent/runtime/prisma-repository';
@@ -16,7 +17,7 @@ export async function recoverBiAgentExecutions(client: PrismaClient = prisma, ex
   const scopes = await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT DISTINCT execution_scope_id AS id FROM agent_runs r
     WHERE bi_request_id IS NOT NULL AND status IN ('running', 'waiting', 'reconciling')
-      AND (lease_expires_at IS NULL OR lease_expires_at <= clock_timestamp())
+      AND (lease_expires_at IS NULL OR lease_expires_at <= ${utcDatabaseClock})
     ${scopeFilter}
     ORDER BY execution_scope_id LIMIT 100`);
   const repository = new PrismaAgentRuntimeRepository(client);

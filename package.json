@@ -75,6 +75,7 @@
     "check:retail-e2e": "node scripts/checks/check-retail-e2e-benchmark.js",
     "check:skills:metadata": "node scripts/checks/check-skills-registry.js",
     "check:skills:scripts": "node scripts/checks/check-skill-scripts.js",
+    "mcp:methods": "node --import tsx scripts/mcp/operating-methods.ts",
     "package:skills": "node scripts/skills/package-skills.js",
     "check:validation-repair": "node scripts/checks/check-validation-repair.js",
     "check:validation-stale": "node scripts/checks/check-validation-stale-report.js",
@@ -147,6 +148,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.19.19",
     "@types/react": "^19.3.0",

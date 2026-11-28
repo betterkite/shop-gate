@@ -1,3 +1,4 @@
+import { utcTransactionClock } from '@/lib/db/utc-clock';
 import { createHash } from 'node:crypto';
 
 import type { Prisma } from '@prisma/client';
@@ -165,15 +166,15 @@ async function expireApproval(approvalId: string): Promise<void> {
     UPDATE "agent_tool_approvals" AS "approval"
     SET
       "status" = 'expired',
-      "resolved_at" = CURRENT_TIMESTAMP,
-      "updated_at" = CURRENT_TIMESTAMP
+      "resolved_at" = ${utcTransactionClock},
+      "updated_at" = ${utcTransactionClock}
     FROM "agent_runs" AS "run"
     WHERE
       "approval"."id" = ${approvalId}
       AND "approval"."run_id" = "run"."id"
       AND "approval"."status" = 'pending'
       AND (
-        "approval"."expires_at" <= CURRENT_TIMESTAMP
+        "approval"."expires_at" <= ${utcTransactionClock}
         OR "run"."status" <> 'waiting'
       )
   `;
@@ -391,15 +392,15 @@ export async function listPiAgentToolApprovals(input: {
     UPDATE "agent_tool_approvals" AS "approval"
     SET
       "status" = 'expired',
-      "resolved_at" = CURRENT_TIMESTAMP,
-      "updated_at" = CURRENT_TIMESTAMP
+      "resolved_at" = ${utcTransactionClock},
+      "updated_at" = ${utcTransactionClock}
     FROM "agent_runs" AS "run"
     WHERE
       "approval"."run_id" = "run"."id"
       AND "run"."project_id" = ${input.projectId}
       AND "approval"."status" = 'pending'
       AND (
-        "approval"."expires_at" <= CURRENT_TIMESTAMP
+        "approval"."expires_at" <= ${utcTransactionClock}
         OR "run"."status" <> 'waiting'
       )
   `;
@@ -480,8 +481,8 @@ export async function readPiAgentRunTimeline(input: {
     UPDATE "agent_tool_approvals" AS "approval"
     SET
       "status" = 'expired',
-      "resolved_at" = CURRENT_TIMESTAMP,
-      "updated_at" = CURRENT_TIMESTAMP
+      "resolved_at" = ${utcTransactionClock},
+      "updated_at" = ${utcTransactionClock}
     FROM "agent_runs" AS "run"
     WHERE
       "approval"."run_id" = "run"."id"
@@ -489,7 +490,7 @@ export async function readPiAgentRunTimeline(input: {
       AND "run"."id" = ${input.runId}
       AND "approval"."status" = 'pending'
       AND (
-        "approval"."expires_at" <= CURRENT_TIMESTAMP
+        "approval"."expires_at" <= ${utcTransactionClock}
         OR "run"."status" <> 'waiting'
       )
   `;

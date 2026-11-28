@@ -1,3 +1,4 @@
+import { utcDatabaseClock } from '@/lib/db/utc-clock';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { recheckBiAgentSession } from './authorization';
@@ -20,10 +21,10 @@ export async function writeFenced<T>(fence: BiAgentResultFence, client: PrismaCl
     await tx.$queryRaw(Prisma.sql`SELECT id FROM agent_runs WHERE id=${fence.runId} FOR UPDATE`);
     const valid = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
       SELECT (r.status='running' AND r.lease_owner=${fence.leaseOwner} AND r.fencing_token=${fence.fencingToken}
-        AND r.workspace_fencing_token=${fence.workspaceFencingToken} AND r.lease_expires_at>clock_timestamp()
+        AND r.workspace_fencing_token=${fence.workspaceFencingToken} AND r.lease_expires_at>${utcDatabaseClock}
         AND r.cancel_requested_at IS NULL AND l.status='held' AND l.active_run_id=r.id
         AND l.lease_owner=${fence.leaseOwner} AND l.fencing_token=${fence.workspaceFencingToken}
-        AND l.lease_expires_at>clock_timestamp()) AS valid
+        AND l.lease_expires_at>${utcDatabaseClock}) AS valid
       FROM agent_runs r JOIN agent_workspace_leases l ON l.execution_scope_id=r.execution_scope_id
       WHERE r.id=${fence.runId}`);
     if (!valid[0]?.valid) throw problem();

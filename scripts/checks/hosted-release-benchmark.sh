@@ -19,6 +19,7 @@ export SHOPGATE_MEMORY_ENABLED=0
 export SHOPGATE_KNOWLEDGE_ENABLED=0
 export SHOPGATE_GENERATED_SANDBOX=1
 mkdir -p tmp
+env -u DEEPSEEK_API_KEY uv run --locked --project services/commerce-data python -m shopgate_commerce_data.release_fixture
 env -u DEEPSEEK_API_KEY npm run auth:bootstrap
 node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000 >tmp/release-web.log 2>&1 &
 web_pid=$!

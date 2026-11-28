@@ -42,6 +42,7 @@ import type {
   CapabilityCenterDataProvider,
   CapabilityCenterItem,
 } from "@/lib/commerce/retail-capability-center";
+import { operatingMethods, searchOperatingMethods } from "@/lib/bi/agent/operating-methods";
 import { cn } from "@/lib/utils";
 
 type Props = { initialData: CapabilityCenterData };
@@ -414,8 +415,22 @@ function CapabilitiesView({ data, groupNameById, keyword, groupFilter, statusFil
 }
 
 function KnowledgeView({ data, groupNameById, onOpen }: { data: CapabilityCenterData; groupNameById: Map<string, string>; onOpen: (capability: CapabilityCenterItem) => void }) {
+  const [query, setQuery] = useState("");
+  const methods = query.trim() ? searchOperatingMethods(query) : operatingMethods;
   return (
     <div className="space-y-5">
+      <section aria-labelledby="operating-methods-title" className="space-y-3 rounded-xl border border-border/60 bg-card p-5">
+        <h2 id="operating-methods-title" className="text-lg font-semibold">经营指标怎么计算</h2>
+        <Input aria-label="查找经营口径" placeholder="输入问题，例如“仅退款如何处理成本”" value={query} onChange={event => setQuery(event.target.value)} />
+        {methods.map(method => (
+          <details key={method.uri} className="border-t border-border/60 pt-3">
+            <summary className="cursor-pointer font-medium">{method.title}</summary>
+            <p className="mt-2 text-sm leading-6">{method.guidance}</p>
+            <p className="mt-1 text-xs text-muted-foreground">来源：经营指标技能 · {method.version}</p>
+          </details>
+        ))}
+        {!methods.length && <p role="status" className="text-sm text-muted-foreground">没有找到对应口径。可尝试“成交额”“退款”或“成本”。</p>}
+      </section>
       <SectionHeader eyebrow="BUSINESS PLAYBOOKS" title="业务知识与交付规范" description="每项能力都是一份可执行的业务 Playbook：从典型问题、分析重点到质量门槛。" />
       <div className="grid gap-4 xl:grid-cols-2">
         {data.capabilities.map((capability) => {

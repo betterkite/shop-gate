@@ -1,3 +1,4 @@
+import { utcDatabaseClock } from '@/lib/db/utc-clock';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { PiAgentRunEngine } from '@/lib/agent/pi/run-engine';
@@ -13,6 +14,7 @@ import { biAgentTokenReservationKey, settleAgentRunUsage } from '@/lib/services/
 import { authorizeBiAgentRun } from './requests';
 import { createBiAgentTools, type BiAgentToolDependencies } from './tools';
 import { assertBiAgentResultFence } from './results';
+import { operatingMethodPrompt } from './operating-methods';
 import { BI_AGENT_SYSTEM_PROMPT, biAgentProvenance } from './provenance';
 import { publishBiAgentAnswer } from './completion';
 import { previousBiPeriod } from './period';
@@ -30,6 +32,7 @@ async function messagesFor(authorized: Awaited<ReturnType<typeof authorizeBiAgen
   select: { instruction: true, pageScope: true, datasetVersion: true,
     runs: { where: { status: 'completed' }, select: { id: true }, take: 1 } } });
   const messages: PiAgentMessage[] = [{ role: 'system', content: BI_AGENT_SYSTEM_PROMPT },
+    { role: 'system', content: operatingMethodPrompt(authorized.pageScope.module) },
     { role: 'system', content: `可信当前页面范围：${JSON.stringify({ dataset_id: authorized.datasetId,
       version: request.datasetVersion, ...authorized.pageScope, previous_equal_length_period: previousBiPeriod(authorized.pageScope) })}\n最多带入最近8轮历史；${prior.length > 8 ? '更早的对话未带入，不要假定其细节。' : '以下是已有对话。'}` }];
   for (const previous of prior.slice(0, 8).reverse()) {
@@ -143,8 +146,8 @@ export async function executeBiAgentRun(input: { runId: string; expectedVersion:
 /** Reject an unstarted incompatible request without inventing model usage. */
 export async function failPendingBiAgentRun(runId: string, expectedVersion: number, code: string, client: PrismaClient = prisma) {
   if (!/^BI_AGENT_[A-Z_]{1,64}$/.test(code)) throw new Error('Invalid analysis failure code.');
-  await client.$executeRaw(Prisma.sql`UPDATE agent_runs SET status='failed', finished_at=clock_timestamp(),
+  await client.$executeRaw(Prisma.sql`UPDATE agent_runs SET status='failed', finished_at=${utcDatabaseClock},
     error_code=${code}, error_message='分析尚未启动，请检查登录、模型配置和数据后重试。', version=version+1,
-    updated_at=clock_timestamp() WHERE id=${runId} AND bi_request_id IS NOT NULL AND status='pending'
+    updated_at=${utcDatabaseClock} WHERE id=${runId} AND bi_request_id IS NOT NULL AND status='pending'
     AND version=${expectedVersion} AND fencing_token=0 AND started_at IS NULL`);
 }

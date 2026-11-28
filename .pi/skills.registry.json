@@ -260,10 +260,10 @@
     {
       "id": "commerce-metrics",
       "name": "经营指标",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "status": "stable",
       "scope": "commerce",
-      "boundary": "确定性计算漏斗转化、GMV、动销率、库销比、商品阶段和日趋势。",
+      "boundary": "按经营账本解释成交、退款与成本；按行为数据解释浏览到购买、动销与库存。",
       "inputs": [
         "behavior_events",
         "products",
@@ -292,7 +292,7 @@
       "references": [
         "references/retail-metrics-methodology.md"
       ],
-      "description": "计算转化/客单价/库销比/环比/动销等经营指标。"
+      "description": "核对订单实收、退款、成本和行为转化的来源与适用范围。"
     },
     {
       "id": "commerce-rule-review",

@@ -66,11 +66,11 @@
       "fileCount": 4
     },
     "commerce-metrics": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "packagePath": ".pi/skill-packages/commerce-metrics.tgz",
-      "sourceSha256": "f16b25cca4672b892c3f900f7db7c8e0b5572fb1868c8c4f3cd7a295c29b6494",
-      "packageSha256": "15c9bbe3b603cdf061cd68a011f2ea60cc72573a04f1283074746eef17c7027a",
-      "fileCount": 6
+      "sourceSha256": "f75c796478f355104592fedddcb14153120b37722a6af7fbabfca2d926a5a0f3",
+      "packageSha256": "9188c8343fcc39cc4be9f59d1ed89c14695d80581cac8753ce7e2e7ed1956158",
+      "fileCount": 7
     },
     "commerce-data-registry": {
       "version": "1.1.1",

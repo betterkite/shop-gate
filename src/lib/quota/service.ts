@@ -1,3 +1,4 @@
+import { utcTimestamp } from '@/lib/db/utc-clock';
 import {
   Prisma,
   type PrismaClient,
@@ -379,11 +380,11 @@ async function reclaimExpiredReservations(
       UPDATE "quota_reservations"
       SET
         "status" = 'expired',
-        "released_at" = ${now},
-        "updated_at" = ${now}
+        "released_at" = ${utcTimestamp(now)},
+        "updated_at" = ${utcTimestamp(now)}
       WHERE "bucket_id" = ${bucketId}
         AND "status" = 'active'
-        AND "expires_at" <= ${now}
+        AND "expires_at" <= ${utcTimestamp(now)}
       RETURNING "reserved_quantity"
     ), released AS (
       SELECT COALESCE(SUM("reserved_quantity"), 0)::bigint AS "quantity"
@@ -393,7 +394,7 @@ async function reclaimExpiredReservations(
     SET
       "reserved" = GREATEST(0::bigint, "reserved" - released."quantity"),
       "version" = "version" + 1,
-      "updated_at" = ${now}
+      "updated_at" = ${utcTimestamp(now)}
     FROM released
     WHERE "usage_buckets"."id" = ${bucketId}
       AND released."quantity" > 0
@@ -584,7 +585,7 @@ async function tryReserveWithClient(
         SET
           "reserved" = "reserved" + ${quantity},
           "version" = "version" + 1,
-          "updated_at" = ${now}
+          "updated_at" = ${utcTimestamp(now)}
         WHERE "id" = ${bucket.id}
           AND "used" + "reserved" + ${quantity} <= ${policy.limit}
         RETURNING "used", "reserved"
@@ -614,7 +615,7 @@ async function tryReserveWithClient(
         SET
           "reserved" = "reserved" + ${quantity},
           "version" = "version" + 1,
-          "updated_at" = ${now}
+          "updated_at" = ${utcTimestamp(now)}
         WHERE "id" = ${bucket.id}
         RETURNING "used", "reserved"
       `;
@@ -887,7 +888,7 @@ async function releaseWithClient(
         SET
           "reserved" = GREATEST(0::bigint, "reserved" - ${reservation.reservedQuantity}),
           "version" = "version" + 1,
-          "updated_at" = ${now}
+          "updated_at" = ${utcTimestamp(now)}
         WHERE "id" = ${reservation.bucketId}
       `;
       row = await tx.quotaReservation.update({
@@ -1163,7 +1164,7 @@ export async function cleanupExpiredQuotaReservations(
         SET
           "reserved" = GREATEST(0::bigint, "reserved" - ${reservation.reservedQuantity}),
           "version" = "version" + 1,
-          "updated_at" = ${now}
+          "updated_at" = ${utcTimestamp(now)}
         WHERE "id" = ${reservation.bucketId}
       `;
       const changed = await tx.quotaReservation.updateMany({

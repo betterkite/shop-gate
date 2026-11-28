@@ -1,3 +1,4 @@
+import { utcDatabaseClock } from '@/lib/db/utc-clock';
 import { createHash, randomUUID } from "node:crypto";
 import {
   Prisma,
@@ -821,11 +822,11 @@ export async function reconcileExpiredPiAgentGenerationJobs(
       request_id AS "requestId"
     FROM agent_generation_jobs
     WHERE (
-      (status = 'running' AND lease_expires_at <= clock_timestamp())
+      (status = 'running' AND lease_expires_at <= ${utcDatabaseClock})
       OR
       (
         status IN ('pending', 'retry_wait')
-        AND available_at <= clock_timestamp() - (${pendingOrphanGraceMs} * INTERVAL '1 millisecond')
+        AND available_at <= ${utcDatabaseClock} - (${pendingOrphanGraceMs} * INTERVAL '1 millisecond')
       )
     )
     ${projectFilter}
@@ -1079,7 +1080,7 @@ export async function listClaimablePiAgentGenerationJobs(
         ON "request"."id" = "job"."request_id"
        AND "request"."project_id" = "job"."project_id"
       WHERE "job"."status" IN ('pending', 'retry_wait')
-        AND "job"."available_at" <= clock_timestamp()
+        AND "job"."available_at" <= ${utcDatabaseClock}
     )
     SELECT "id"
     FROM ranked

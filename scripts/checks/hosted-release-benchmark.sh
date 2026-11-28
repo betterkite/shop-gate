@@ -14,6 +14,9 @@ BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
 export SHOPGATE_AUTH_ADMIN_PASSWORD BETTER_AUTH_SECRET
 export SHOPGATE_AUTH_MODE=local
 export PI_AGENT_DISPATCH_MODE=worker
+# This isolated job provisions the commerce API, database and cache only.
+export SHOPGATE_MEMORY_ENABLED=0
+export SHOPGATE_KNOWLEDGE_ENABLED=0
 export SHOPGATE_GENERATED_SANDBOX=1
 mkdir -p tmp
 env -u DEEPSEEK_API_KEY npm run auth:bootstrap

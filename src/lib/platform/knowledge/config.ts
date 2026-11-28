@@ -151,7 +151,7 @@ export function getKnowledgeIntegrationConfig(
     environment.SHOPGATE_KNOWLEDGE_API_URL?.trim() || 'http://localhost:33005',
     'SHOPGATE_KNOWLEDGE_API_URL',
   );
-  if (environment.NODE_ENV === 'production' && !apiUrl.startsWith('https://')) {
+  if (enabled && environment.NODE_ENV === 'production' && !apiUrl.startsWith('https://')) {
     throw new Error('Production governed knowledge endpoint must use HTTPS.');
   }
   const bearerToken = environment.SHOPGATE_KNOWLEDGE_BEARER_TOKEN?.trim() || null;
